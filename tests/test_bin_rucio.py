@@ -16,2418 +16,1228 @@ import os
 import random
 import re
 import tempfile
-from datetime import datetime, timedelta
-from os import environ, listdir, path, remove, rmdir, stat, unlink
+from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import and_, delete
 
-from rucio.client.accountlimitclient import AccountLimitClient
-from rucio.client.configclient import ConfigClient
-from rucio.client.didclient import DIDClient
-from rucio.client.lifetimeclient import LifetimeClient
-from rucio.client.replicaclient import ReplicaClient
-from rucio.client.rseclient import RSEClient
-from rucio.client.ruleclient import RuleClient
 from rucio.common.checksum import md5
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.types import InternalAccount, InternalScope
-from rucio.common.utils import generate_uuid, get_tmp_dir, render_json
+from rucio.common.utils import generate_uuid, render_json
 from rucio.rse import rsemanager as rsemgr
-from rucio.tests.common import account_name_generator, execute, file_generator, get_long_vo, rse_name_generator, scope_name_generator
+from rucio.tests.common import account_name_generator, execute, rse_name_generator, scope_name_generator
 
 
-class TestBinRucio:
+def test_rucio_version():
+    """CLIENT(USER): Rucio version"""
+    cmd = 'bin/rucio --version'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert 'rucio' in out or 'rucio' in err
 
-    def conf_vo(self):
-        self.vo = {}
-        if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
-            if 'SUITE' not in environ or environ['SUITE'] != 'client':
-                # Server test, we can use short VO via DB for internal tests
-                from rucio.tests.common_server import get_vo
-                self.vo = {'vo': get_vo()}
-            else:
-                # Client-only test, only use config with no DB config
-                self.vo = {'vo': get_long_vo()}
-            try:
-                remove(get_tmp_dir() + '/.rucio_root@%s/auth_token_for_account_root' % self.vo['vo'])
-            except OSError as error:
-                if error.args[0] != 2:
-                    raise error
 
-    @pytest.fixture(autouse=True)
-    def setup_obj(self, vo, function_scope_prefix):
-        self.conf_vo()
-        try:
-            remove(get_tmp_dir() + '/.rucio_root/auth_token_for_account_root')
-        except OSError as e:
-            if e.args[0] != 2:
-                raise e
-        self.marker = '$> '
-        self.host = config_get('client', 'rucio_host')
-        self.auth_host = config_get('client', 'auth_host')
-        self.user = 'data13_hip'
-        self.rse_client = RSEClient()
-        self.did_client = DIDClient()
-        self.replica_client = ReplicaClient()
-        self.rule_client = RuleClient()
-        self.config_client = ConfigClient()
-        self.lifetime_client = LifetimeClient()
-        self.account_client = AccountLimitClient()
-        rse_factory = None
-        if environ.get('SUITE', 'remote_dbs') != 'client':
-            from .temp_factories import TemporaryRSEFactory
+def test_rucio_ping(rucio_client):
+    """CLIENT(USER): Rucio ping"""
+    cmd = f'rucio --host {rucio_client.host} ping'
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert 'ERROR' not in err
 
-            rse_factory = TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix)
-            self.def_rse, self.def_rse_id = rse_factory.make_posix_rse()
-        else:
-            self.def_rse = 'MOCK4'
-            self.def_rse_id = self.rse_client.get_rse(rse=self.def_rse)['id']
-        self.account_client.set_local_account_limit('root', self.def_rse, -1)
 
-        self.rse_client.add_rse_attribute(self.def_rse, 'istape', 'False')
+def test_rucio_config_arg():
+    """CLIENT(USER): Rucio config argument"""
+    cmd = 'rucio --config errconfig ping'
+    exitcode, _, err = execute(cmd)
+    assert 'Could not load Rucio configuration file' in err and re.match('.*errconfig.*$', err, re.DOTALL)
+    assert exitcode == 1
 
-        self.upload_success_str = 'Successfully uploaded file %s'
 
-        yield
+@pytest.mark.dirty(reason="Creates a new account on vo=def")
+def test_add_account():
+    """CLIENT(ADMIN): Add account"""
+    tmp_val = account_name_generator()
+    cmd = f'rucio-admin account add {tmp_val}'
+    exitcode, out, _ = execute(cmd)
+    assert f'Added new account: {tmp_val}\n' in out
+    assert exitcode == 0
 
-        if rse_factory:
-            rse_factory.cleanup()
 
-    def test_rucio_version(self):
-        """CLIENT(USER): Rucio version"""
-        cmd = 'bin/rucio --version'
+def test_list_account(random_account_factory):
+    """CLIENT(ADMIN): List accounts"""
+    n_accounts = 5
+    tmp_accounts = [random_account_factory().external for _ in range(n_accounts)]
+    for account in tmp_accounts:
+        execute(f'rucio-admin account add-attribute {account} --key test_list_account --value true')
+
+    cmd = 'rucio-admin account list'
+    _, out, _ = execute(cmd)
+    assert tmp_accounts[0] in out
+    assert tmp_accounts[-1] in out  # Test by induction
+
+    cmd = "rucio-admin account list --filter test_list_account=true"
+    _, out, _ = execute(cmd)
+    assert set([o for o in out.split("\n") if o != '']) == set(tmp_accounts)  # There's a little '' printed after
+
+    cmd = "rucio-admin account list --filter test_list_account=true --csv"
+    _, out, _ = execute(cmd)
+    assert set(o.rstrip('\n') for o in out.split(',')) == set(tmp_accounts)  # Last obj in list has a `\n` included
+
+
+def test_whoami():
+    """CLIENT(USER): Rucio whoami"""
+    cmd = 'rucio whoami'
+    _, out, err = execute(cmd)
+    assert 'account' in out
+    assert "ERROR" not in err
+
+
+def test_identity(random_account):
+    """CLIENT(ADMIN): Add/list/delete identity"""
+
+    cmd = f'rucio-admin identity add --account {random_account} --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH'
+    exitcode, out, _ = execute(cmd)
+    assert f'Added new identity to account: jdoe@CERN.CH-{random_account}\n' in out
+
+    cmd = f'rucio-admin account list-identities {random_account}'
+    exitcode, out, e_rr = execute(cmd)
+    assert exitcode == 0
+    assert 'jdoe@CERN.CH' in out
+
+    cmd = f'rucio-admin identity delete --account {random_account} --type GSS --id jdoe@CERN.CH'
+    exitcode, out, _ = execute(cmd)
+    assert 'Deleted identity: jdoe@CERN.CH\n' in out
+
+    cmd = f'rucio-admin account list-identities {random_account}'
+    exitcode, out, _ = execute(cmd)
+    assert 'jdoe@CERN.CH' not in out
+
+
+def test_attributes(random_account):
+    """CLIENT(ADMIN): Add/List/Delete attributes"""
+
+    cmd = f'rucio-admin account add-attribute {random_account} --key test_attribute_key --value true'
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    # list attributes
+    cmd = f'rucio-admin account list-attributes {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert 'test_attribute_key' in out
+
+    # delete attribute to the account
+    cmd = f'rucio-admin account delete-attribute {random_account} --key test_attribute_key'
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+
+@pytest.mark.dirty(reason="Creates a new scope on vo=def")
+def test_scope(random_account):
+    """CLIENT(ADMIN): Add/list/delete/list scope"""
+    tmp_scp = scope_name_generator().replace("mock", "test")
+    cmd = f'rucio-admin scope add --account {random_account} --scope {tmp_scp}'
+    exitcode, out, _ = execute(cmd)
+    assert exitcode == 0
+    assert f'Added new scope to {random_account}: {tmp_scp}' in out
+
+    cmd = 'rucio list-scopes'
+    exitcode, out, _ = execute(cmd)
+    assert exitcode == 0
+    assert tmp_scp in out
+
+    cmd = f'rucio-admin scope list --account {random_account}'
+    exitcode, out, _ = execute(cmd)
+    assert exitcode == 0
+    assert tmp_scp in out
+
+
+@pytest.mark.dirty(reason="RSEs are not deleted after the test")
+def test_add_rse(rucio_client):
+    """CLIENT(ADMIN): Add RSE"""
+    tmp_val = rse_name_generator()
+    cmd = f'rucio-admin rse add {tmp_val}'
+    _, out, _ = execute(cmd)
+    assert f'Added new deterministic RSE: {tmp_val}\n' in out
+
+    rses = [rse for rse in rucio_client.list_rses()]
+    assert tmp_val in [rse['rse'] for rse in rses]
+    assert [rse for rse in rses if rse['rse'] == tmp_val][0]['deterministic'] is True
+
+
+@pytest.mark.dirty(reason="RSEs are not deleted after the test")
+def test_add_rse_nondet(rucio_client):
+    """CLIENT(ADMIN): Add non-deterministic RSE"""
+    tmp_val = rse_name_generator()
+    cmd = f'rucio-admin rse add --non-deterministic {tmp_val}'
+    _, out, _ = execute(cmd)
+    assert f'Added new non-deterministic RSE: {tmp_val}\n' in out
+
+    rses = [rse for rse in rucio_client.list_rses()]
+    assert tmp_val in [rse['rse'] for rse in rses]
+    assert [rse for rse in rses if rse['rse'] == tmp_val][0]['deterministic'] is False
+
+
+def test_list_rses(rse_factory):
+    """CLIENT(USER/ADMIN): List RSEs"""
+    # TODO Test filter
+    rse, _ = rse_factory.make_posix_rse()
+    cmd = 'rucio-admin rse list'
+    exitcode, out, err = execute(cmd)
+    assert rse in out
+
+    # Expected output is a new RSE on each line
+    cmd = 'rucio-admin rse list --csv'
+    _, out, _ = execute(cmd)
+    assert rse in out.split('\n')
+
+    cmd = 'rucio list-rses'
+    _, out, _ = execute(cmd)
+    assert rse in out
+
+    cmd = 'rucio list-rses --csv'
+    _, out, _ = execute(cmd)
+    assert rse in out.split('\n')
+
+
+def test_rse_add_distance(rse_factory):
+    """CLIENT (ADMIN): Add distance to RSE"""
+    # add RSEs
+    rse_name_1, _ = rse_factory.make_posix_rse()
+    rse_name_2, _ = rse_factory.make_posix_rse()
+
+    # add distance between the RSEs
+    cmd = f'rucio-admin rse add-distance --distance 1 --ranking 1 {rse_name_1} {rse_name_2}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    cmd = f'rucio-admin rse add-distance --distance 1 --ranking 1 {rse_name_2} {rse_name_1}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+
+    # add duplicate distance
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert f'Distance from {rse_name_2} to {rse_name_1} already exists!' in err
+
+
+def test_rse_delete_distance(rse_factory, rucio_client):
+    """CLIENT (ADMIN): Delete distance to RSE"""
+    # add RSEs
+    rse_name_1, _ = rse_factory.make_posix_rse()
+    rse_name_2, _ = rse_factory.make_posix_rse()
+
+    # add distance between the RSEs
+    rucio_client.add_distance(rse_name_1, rse_name_2, parameters={'distance': 1, 'ranking': 1})
+
+    # delete distance OK
+    cmd = f'rucio-admin rse delete-distance {rse_name_1} {rse_name_2}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Deleted distance information from {rse_name_1} to {rse_name_2}" in out
+
+    # delete distance RSE not found
+    cmd = f'rucio-admin rse delete-distance {rse_name_1} {generate_uuid()}'
+    exitcode, out, err = execute(cmd)
+    assert 'RSE does not exist.' in err
+
+
+def test_create_dataset(rucio_client, mock_scope):
+    """CLIENT(USER): Rucio add dataset"""
+    scope = mock_scope.external
+    tmp_name = f"{scope}:DSet_{generate_uuid()}"
+    cmd = f'rucio add-dataset {tmp_name}'
+    exitcode, out, err = execute(cmd)
+    print(err, out)
+    assert exitcode == 0
+    assert re.search('Added ' + tmp_name, out) is not None
+    assert tmp_name in [f"{scope}:{did}" for did in rucio_client.list_dids(scope=scope, did_type="dataset", filters={})]
+
+
+def test_add_files_to_dataset(rucio_client, rse_factory, mock_scope, did_factory):
+    """CLIENT(USER): Rucio add files to dataset"""
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    temp_dataset = did_factory.make_dataset(scope=scope)
+    temp_dataset_name = f"{scope}:{temp_dataset['name']}"
+    # Files need to be registered on an RSE to be attached to a DID
+    temp_file1 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+    temp_file2 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+
+    # add files to dataset
+    cmd = f'rucio attach {temp_dataset_name} {scope}:{temp_file1} {scope}:{temp_file2}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+
+    names = [d['name'] for d in rucio_client.list_content(scope, temp_dataset['name'])]
+    # find the added files
+    assert temp_file1 in names
+    assert temp_file2 in names
+
+
+def test_detach_files_dataset(rucio_client, rse_factory, did_factory):
+    """CLIENT(USER): Rucio detach files to dataset"""
+    rse, _ = rse_factory.make_posix_rse()
+    temp_dataset = did_factory.upload_test_dataset(rse, nb_files=3)
+    scope = temp_dataset[0]['dataset_scope']
+    temp_dataset_name = f"{scope}:{temp_dataset[0]['dataset_name']}"
+    temp_file1 = temp_dataset[0]['did_name']
+    temp_file2 = temp_dataset[1]['did_name']
+    temp_file3 = temp_dataset[2]['did_name']
+
+    cmd = f'rucio detach {temp_dataset_name} {scope}:{temp_file2} {scope}:{temp_file3}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+
+    # searching for the file in the new dataset
+    names = [d['name'] for d in rucio_client.list_content(scope, temp_dataset[0]['dataset_name'])]
+    # find the added files
+    assert temp_file1 in names  # First file in the dataset
+    # The second two are not
+    assert temp_file2 not in names
+    assert temp_file3 not in names
+
+
+def test_attach_file_twice(rse_factory, did_factory, mock_scope):
+    """CLIENT(USER): Rucio attach a file twice"""
+    # Attach files to a dataset using the attach method
+    rse, _ = rse_factory.make_posix_rse()
+    temp_dataset = did_factory.upload_test_dataset(rse_name=rse, size=1, nb_files=1)
+    scope = temp_dataset[0]['dataset_scope']
+    temp_dataset_name = f"{scope}:{temp_dataset[0]['dataset_name']}"
+    temp_file1 = temp_dataset[0]['did_name']
+
+    # attach the files to the dataset
+    cmd = f'rucio attach {temp_dataset_name} {scope}:{temp_file1}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert re.search("The file already exists", err) is not None
+
+
+def test_attach_dataset_twice(did_factory, mock_scope, rucio_client):
+    """ CLIENT(USER): Rucio attach a dataset twice """
+    scope = mock_scope.external
+    container = did_factory.make_container(scope=mock_scope)['name']
+    dataset = did_factory.make_dataset(scope=mock_scope)['name']
+
+    # Attach dataset to container
+    cmd = f'rucio attach {scope}:{container} {scope}:{dataset}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+
+    # Attach again
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert re.search("Data identifier already added to the destination content", err) is not None
+
+    # This restraint does not apply to batched mode
+    n_dids = 1400
+    dids = [{'name': f'dsn_{generate_uuid()}', 'scope': mock_scope, 'type': 'DATASET'} for _ in range(0, n_dids)]
+    rucio_client.add_dids(dids)
+
+    cmd = f'rucio attach {scope}:{container}'
+    for did in dids:
+        cmd += f' {mock_scope}:{did["name"]}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    names = [d['name'] for d in rucio_client.list_content(mock_scope.external, container)]
+    assert all([did['name'] in names for did in dids])
+
+    # Second attach should not fail
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    names = [d['name'] for d in rucio_client.list_content(mock_scope.external, container)]
+    assert all([did['name'] in names for did in dids])
+
+    # Adding a new one will not fail either
+    new_did = {'name': f'dsn_{generate_uuid()}', 'scope': mock_scope, 'type': 'DATASET'}
+    rucio_client.add_dids([new_did])
+    dids.append(new_did)
+    cmd = f'rucio attach {scope}:{container}'
+    for did in dids:
+        cmd += f' {mock_scope}:{did["name"]}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    names = [d['name'] for d in rucio_client.list_content(mock_scope.external, container)]
+    assert new_did['name'] in names
+
+
+def test_detach_non_existing_file(did_factory):
+    """CLIENT(USER): Rucio detach a non existing file"""
+    dataset = did_factory.make_dataset()
+    scope = dataset['scope']
+    name = dataset['name']
+    cmd = f'rucio detach {scope}:{name} {scope}:file_ghost'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert re.search("Data identifier not found.", err) is not None
+
+
+def test_list_blocklisted_replicas(rucio_client, rse_factory, did_factory):
+    """CLIENT(USER): Rucio list replicas"""
+    # add rse
+    rse, _ = rse_factory.make_posix_rse()
+    rucio_client.add_protocol(
+        rse,
+        params={
+            "scheme": "file",
+            "prefix": "/rucio",
+            "port": 0,
+            "impl": "rucio.rse.protocols.posix.Default",
+            "domain_json": '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}'
+        })
+
+    # Add a dataset with a file to the rse
+    temp_dataset = did_factory.upload_test_dataset(rse, nb_files=1)
+    temp_dataset_name = f"{temp_dataset[0]['dataset_scope']}:{temp_dataset[0]['dataset_name']}"
+
+    # Listing the replica should work before blocklisting the RSE
+    cmd = f'rucio list-file-replicas {temp_dataset_name}'
+    exitcode, out, err = execute(cmd)
+    assert rse in out
+
+    # Blocklist the rse
+    rucio_client.update_rse(rse, {"availability_read": False})
+
+    # list-file-replicas should, by default, list replicas from blocklisted rses
+    cmd = f'rucio list-file-replicas {temp_dataset_name}'
+    exitcode, out, err = execute(cmd)
+    assert rse in out
+
+
+def test_create_rule(did_factory, rse_factory, rucio_client):
+    """CLIENT(USER): Rucio add rule"""
+    base_rse, _ = rse_factory.make_posix_rse()
+
+    # add files
+    temp_file1 = did_factory.upload_test_file(rse_name=base_rse)
+    temp_file_name = temp_file1['name']
+    temp_scope = temp_file1['scope']
+    account = rucio_client.whoami()['account']
+    n_replicas = 3
+    # Three copies of the file required, we need to make 3 temp rses
+    # remove limit and set attributes
+    for _ in range(n_replicas):
+        temp_rse, _ = rse_factory.make_posix_rse()
+        rucio_client.set_local_account_limit(account, temp_rse, -1)
+        rucio_client.add_rse_attribute(temp_rse, 'spacetoken', 'ATLASSCRATCHDISK')
+
+    # add rules
+    cmd = f"rucio add-rule {temp_scope}:{temp_file_name} {n_replicas} 'spacetoken=ATLASSCRATCHDISK'"
+    exitcode, out, err = execute(cmd)
+    print(out, err)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    rule = out.split('\n')[-2]
+    assert re.match(r'^\w+$', rule)
+
+    # check if rule exist for the file
+    cmd = f"rucio list-rules {temp_scope}:{temp_file_name}"
+    exitcode, out, err = execute(cmd)
+    assert re.search(rule, out) is not None
+
+
+def test_create_rule_delayed(rucio_client, rse_factory, did_factory):
+    """CLIENT(USER): Rucio add rule delayed"""
+    base_rse, _ = rse_factory.make_posix_rse()
+    # add files
+    temp_file1 = did_factory.upload_test_file(rse_name=base_rse)
+    temp_file_name = temp_file1['name']
+    temp_scope = temp_file1['scope']
+    # remove limit and set attributes
+    account = rucio_client.whoami()['account']
+    temp_rse, _ = rse_factory.make_posix_rse()
+    rucio_client.set_local_account_limit(account, temp_rse, -1)
+    rucio_client.add_rse_attribute(temp_rse, 'spacetoken', 'ATLASRULEDELAYED')
+
+    # try adding rule with an incorrect delay-injection. Must fail
+    cmd = f"rucio add-rule --delay-injection asdsaf {temp_scope}:{temp_file_name} 1 'spacetoken=ATLASRULEDELAYED'"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 2  # Fails due to invalid value in argparse
+
+    # Add a correct rule
+    cmd = f"rucio add-rule --delay-injection 3600 {temp_scope}:{temp_file_name} 1 'spacetoken=ATLASRULEDELAYED'"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    rule = out.split('\n')[-2]
+
+    # TODO Bespoke test for rule show
+    rule_info = rucio_client.get_replication_rule(rule)
+
+    # Check for ok/replicating/stuck
+    assert rule_info['locks_ok_cnt'] == 0
+    assert rule_info['locks_replicating_cnt'] == 0
+    assert rule_info['locks_stuck_cnt'] == 0
+
+    # Check for INJECT state
+    assert rule_info['state'] == 'INJECT'
+
+    # Created at should be about 3600 seconds in the future
+    created_at = rule_info['created_at'].replace(tzinfo=timezone.utc)
+    now = datetime.now(tz=timezone.utc)
+    assert now + timedelta(seconds=3550) < created_at < now + timedelta(seconds=3650)
+
+
+def test_delete_rule(did_factory, rse_factory, rucio_client):
+    """CLIENT(USER): rule deletion - delete 2 rules and verify it stays on the original RSE"""
+    base_rse, _ = rse_factory.make_posix_rse()
+
+    temp_file1 = did_factory.upload_test_file(rse_name=base_rse)
+    temp_file1['scope'] = temp_file1['scope'].external
+    temp_file_name = temp_file1['name']
+
+    # remove limit and set attributes
+    account = rucio_client.whoami()['account']
+    temp_rse, _ = rse_factory.make_posix_rse()
+    rucio_client.set_local_account_limit(account, temp_rse, -1)
+    rucio_client.add_rse_attribute(temp_rse, 'spacetoken', 'ATLASDELETERULE')
+
+    # Add the rule
+    rucio_client.add_replication_rule(
+        dids=[temp_file1],
+        copies=1,
+        rse_expression='spacetoken=ATLASDELETERULE',
+    )
+
+    # TODO Bespoke test for rule list
+    rules = rucio_client.list_replication_rules(filters={'scope': temp_file1['scope'], 'name': temp_file_name})
+    for rule in rules:
+        cmd = f"rucio delete-rule {rule['id']}"
         exitcode, out, err = execute(cmd)
-        assert 'rucio' in out or 'rucio' in err
+        assert exitcode == 0, f"Failed deleting rule with ID {rule['id']}"
 
-    def test_rucio_ping(self):
-        """CLIENT(USER): Rucio ping"""
-        cmd = 'rucio --host %s ping' % self.host
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
+    # Check if the file is still on the original RSE
+    replicas = rucio_client.list_replicas(dids=[temp_file1])
+    rses = [rse for r in replicas for rse in r['rses'].keys()]
+    assert base_rse in rses
+    # Did not make it to the new RSE
+    assert temp_rse not in rses
 
-    def test_rucio_config_arg(self):
-        """CLIENT(USER): Rucio config argument"""
-        cmd = 'rucio --config errconfig ping'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'Could not load Rucio configuration file' in err and re.match('.*errconfig.*$', err, re.DOTALL)
 
-    def test_add_account(self):
-        """CLIENT(ADMIN): Add account"""
-        tmp_val = account_name_generator()
-        cmd = 'rucio-admin account add %s' % tmp_val
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert 'Added new account: %s\n' % tmp_val in out
+@pytest.mark.dirty(reason="Cleanup can fail to complete because of child rules in client tests")
+def test_move_rule(did_factory, rse_factory, rucio_client):
+    """CLIENT(USER): Rucio move rule"""
+    base_rse, _ = rse_factory.make_posix_rse()
 
-    @pytest.mark.dirty
-    def test_list_account(self):
-        """CLIENT(ADMIN): List accounts"""
-        n_accounts = 5
-        tmp_accounts = [account_name_generator() for _ in range(n_accounts)]
-        for account in tmp_accounts:
-            execute(f'rucio-admin account add {account}')
-            execute(f'rucio-admin account add-attribute {account} --key test_list_account --value true')
+    temp_file1 = did_factory.upload_test_file(rse_name=base_rse)
+    temp_file1['scope'] = temp_file1['scope'].external
+    temp_file_name = temp_file1['name']
 
-        cmd = 'rucio-admin account list'
-        exitcode, out, err = execute(cmd)
-        assert tmp_accounts[0] in out
-        assert tmp_accounts[-1] in out  # Test by induction
+    # remove limit and set attributes
+    account = rucio_client.whoami()['account']
+    # Add 3 new rses with the same attributes
+    for _ in range(3):
+        temp_rse, _ = rse_factory.make_posix_rse()
+        rucio_client.set_local_account_limit(account, temp_rse, -1)
+        rucio_client.add_rse_attribute(temp_rse, 'spacetoken', 'ATLASMOVERULE')
 
-        cmd = "rucio-admin account list --filter test_list_account=true"
-        exitcode, out, err = execute(cmd)
-        assert set([o for o in out.split("\n") if o != '']) == set(tmp_accounts)  # There's a little '' printed after
+    # Add the rule
+    [rule_id] = rucio_client.add_replication_rule(
+        copies=3,
+        rse_expression='spacetoken=ATLASMOVERULE',
+        dids=[temp_file1]
+    )
 
-        cmd = "rucio-admin account list --filter test_list_account=true --csv"
-        exitcode, out, err = execute(cmd)
-        assert set(o.rstrip('\n') for o in out.split(',')) == set(tmp_accounts)  # Last obj in list has a `\n` included
+    # move rule
+    new_rule_expr = "'spacetoken=ATLASMOVERULE|spacetoken=ATLASSD'"  # Expression includes the 3 existing RSEs
+    cmd = f"rucio move-rule {rule_id} {new_rule_expr}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    new_rule = out.split('\n')[-2]  # trimming new line character
 
-    def test_whoami(self):
-        """CLIENT(USER): Rucio whoami"""
-        cmd = 'rucio whoami'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert 'account' in out
+    # Check for new rule
+    rules = rucio_client.list_replication_rules(filters={'scope': temp_file1['scope'], 'name': temp_file_name})
+    rule_ids = [rule['id'] for rule in rules]
 
-    def test_add_identity(self):
-        """CLIENT(ADMIN): Add identity"""
-        tmp_val = account_name_generator()
-        cmd = 'rucio-admin account add %s' % tmp_val
-        exitcode, out, err = execute(cmd)
-        assert 'Added new account: %s\n' % tmp_val in out
-        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_val
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert 'Added new identity to account: jdoe@CERN.CH-%s\n' % tmp_val in out
+    assert new_rule in rule_ids
+    assert rule_id in rule_ids  # Does not delete the old rule when moved
 
-    def test_del_identity(self):
-        """CLIENT(ADMIN): Test del identity"""
-        tmp_acc = account_name_generator()
 
-        # create account
-        cmd = 'rucio-admin account add %s' % tmp_acc
-        exitcode, out, err = execute(cmd)
-        # add identity to account
-        cmd = 'rucio-admin identity add --account %s --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH' % tmp_acc
-        exitcode, out, err = execute(cmd)
-        # delete identity from account
-        cmd = 'rucio-admin identity delete --account %s --type GSS --id jdoe@CERN.CH' % tmp_acc
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'Deleted identity: jdoe@CERN.CH\n' in out
-        # list identities for account
-        cmd = 'rucio-admin account list-identities %s' % (tmp_acc)
-        print(self.marker + cmd)
-        print(cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'jdoe@CERN.CH' not in out
+def test_move_rule_with_arguments(rse_factory, did_factory, rucio_client):
+    """CLIENT(USER): Rucio move rule with a new activity"""
+    base_rse, _ = rse_factory.make_posix_rse()
 
-    def test_attributes(self):
-        """CLIENT(ADMIN): Add/List/Delete attributes"""
-        tmp_acc = account_name_generator()
+    temp_file1 = did_factory.upload_test_file(rse_name=base_rse)
+    temp_file1['scope'] = temp_file1['scope'].external
+    temp_file_name = temp_file1['name']
 
-        # create account
-        cmd = 'rucio-admin account add %s' % tmp_acc
+    # remove limit and set attributes
+    account = rucio_client.whoami()['account']
+    # Add 3 new rses with the same attributes
+    for _ in range(3):
+        temp_rse, _ = rse_factory.make_posix_rse()
+        rucio_client.set_local_account_limit(account, temp_rse, -1)
+        rucio_client.add_rse_attribute(temp_rse, 'spacetoken', 'ATLASARGSMOVERULE')
+
+    # Add the rule
+    [rule_id] = rucio_client.add_replication_rule(
+        copies=3,
+        rse_expression='spacetoken=ATLASARGSMOVERULE',
+        dids=[temp_file1]
+    )
+
+    # move rule
+    new_rule_expr = "spacetoken=ATLASARGSMOVERULE|spacetoken=ATLASSD"
+    new_rule_activity = "No User Subscription"
+    new_rule_source_replica_expression = "spacetoken=ATLASARGSMOVERULE|spacetoken=ATLASSD"
+    cmd = f"rucio move-rule --activity '{new_rule_activity}' --source-replica-expression '{new_rule_source_replica_expression}' {rule_id} '{new_rule_expr}'"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    new_rule_id = out.split('\n')[-2]  # trimming new line character
+
+    # Verify rule was made
+    rules = rucio_client.list_replication_rules(filters={'scope': temp_file1['scope'], 'name': temp_file_name})
+    assert new_rule_id in [rule['id'] for rule in rules]
+
+    # Verify new details are changed
+    rule_info = rucio_client.get_replication_rule(new_rule_id)
+    assert new_rule_activity == rule_info["activity"]
+    assert new_rule_source_replica_expression == rule_info["source_replica_expression"]
+
+
+def test_list_did_recursive(did_factory, mock_scope, rucio_client):
+    """ CLIENT(USER): List did recursive """
+    scope = mock_scope.external
+    # Setup nested collections
+    tmp_container_1 = did_factory.make_container(scope=scope)
+    tmp_container_2 = did_factory.make_container(scope=scope)
+    tmp_container_2['scope'] = scope
+    tmp_container_3 = did_factory.make_container(scope=scope)
+    tmp_container_3['scope'] = scope
+
+    # Container 3 inside container 2, container 2 inside container 1
+    rucio_client.attach_dids(scope, tmp_container_1['name'], [tmp_container_2])
+    rucio_client.attach_dids(scope, tmp_container_2['name'], [tmp_container_3])
+
+    # All attached DIDs are expected
+    cmd = f'rucio list-dids {scope}:{tmp_container_1["name"]} --recursive'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert tmp_container_1['name'] in out
+    assert tmp_container_2['name'] in out
+    assert tmp_container_3['name'] in out
+
+    # Wildcards are not allowed to use with --recursive
+    cmd = f'rucio list-dids {scope}:* --recursive'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert re.search("Option recursive cannot be used with wildcards", err) is not None
+
+
+def test_attach_many_dids(mock_scope, did_factory, rucio_client):
+    """ CLIENT(USER): Rucio attach many (>1000) DIDs to ensure batching is done correctly, checks the `--from-file` option """
+    n_dids = 1400
+
+    # Setup making the dids
+    temp_dataset = did_factory.make_container(scope=mock_scope)
+    temp_dataset_name = f"{mock_scope}:{temp_dataset['name']}"
+
+    # Note: upload_test_dataset takes FAR too long (10+ minutes) to run for this number of dids - just add rucio_client attaching to the mock container
+    dids = [{'name': f'dsn_{generate_uuid()}', 'scope': mock_scope, 'type': 'DATASET'} for _ in range(0, n_dids)]
+    rucio_client.add_dids(dids)
+
+    # Attaching over 1000 DIDs with CLI
+    cmd = f'rucio attach {temp_dataset_name}'
+    for did in dids:
+        cmd += f' {mock_scope}:{did["name"]}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+
+    # Checking if the execution was successful and if the DIDs belong together
+    assert 'DIDs successfully attached' in out
+    assert "You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands." in err
+
+    names = [d['name'] for d in rucio_client.list_content(mock_scope.external, temp_dataset['name'])]
+    assert len(names) == n_dids
+    assert all([did['name'] in names for did in dids])
+
+    # make a similarly large dataset, and then use the --from-file option
+    dids = [{'name': f'dsn_{generate_uuid()}', 'scope': mock_scope, 'type': 'DATASET'} for _ in range(0, n_dids)]
+    rucio_client.add_dids(dids)
+
+    with tempfile.NamedTemporaryFile(delete=False) as did_file:
+        with open(did_file.name, 'w') as f:
+            for file in dids:
+                f.write(f"{mock_scope}:{file['name']}\n")
+
+        cmd = f'rucio attach {temp_dataset_name} --from-file {did_file.name}'
         exitcode, out, err = execute(cmd)
-        # add attribute to the account
-        cmd = 'rucio-admin account add-attribute {0} --key test_attribute_key --value true'.format(tmp_acc)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
         assert exitcode == 0
-        # list attributes
-        cmd = 'rucio-admin account list-attributes {0}'.format(tmp_acc)
+
+        names = [d['name'] for d in rucio_client.list_content(mock_scope.external, temp_dataset['name'])]
+        assert all([did['name'] in names for did in dids])
+
+
+def test_attach_dids_from_file(rse_factory, mock_scope, did_factory, rucio_client):
+    """ CLIENT(USER): Rucio attach from a file """
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    temp_dataset = did_factory.make_dataset(scope=scope)
+    temp_dataset_name = f"{scope}:{temp_dataset['name']}"
+    temp_file1 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+    temp_file2 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+    temp_file3 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+
+    # Setup data with file
+    with tempfile.NamedTemporaryFile() as did_file:
+
+        with open(did_file.name, 'w') as f:
+            f.write(f"{scope}:{temp_file1}\n")
+            f.write(f"{scope}:{temp_file2}\n")
+            f.write(f"{scope}:{temp_file3}\n")
+            f.close()
+
+        # Attaching over 1000 files per file
+        cmd = f'rucio attach {temp_dataset_name} -f {did_file.name}'
         exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
+
+    assert exitcode == 0
+    assert 'DIDs successfully attached' in out
+
+    names = [d['name'] for d in rucio_client.list_content(scope, temp_dataset['name'])]
+    assert len(names) == 3
+    assert (temp_file1 in names) and (temp_file2 in names) and (temp_file3 in names)
+
+
+def test_import_data(rse_factory, rucio_client):
+    """ CLIENT(ADMIN): Import data into rucio"""
+
+    n_rses = 5
+    rses = []
+    for _ in range(n_rses):
+        temp_rse, _ = rse_factory.make_posix_rse()
+        rses.append(temp_rse)
+
+    data = {"rses": {rse: {'country_name': "ATLASIMPORTDATA"} for rse in rses}}
+
+    with tempfile.NamedTemporaryFile(suffix=".json") as tmp_file:
+        with open(tmp_file.name, 'w') as f:
+            f.write(render_json(**data))
+            f.close()
+
+        cmd = f'rucio-admin data import {tmp_file.name}'
+        exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert re.search('Data successfully imported', out) is not None
+
+    updated_rses = [rse['rse'] for rse in rucio_client.list_rses("country_name=ATLASIMPORTDATA")]
+    assert all([rse in updated_rses for rse in rses])
+
+
+@pytest.mark.noparallel(reason='fails when run in parallel')
+def test_export_data():
+    """ CLIENT(ADMIN): Export data from rucio"""
+    with tempfile.NamedTemporaryFile(suffix=".json") as tmp_file:
+
+        cmd = f'rucio-admin data export {tmp_file.name}'
+        exitcode, out, err = execute(cmd)
+
         assert exitcode == 0
-        # delete attribute to the account
-        cmd = 'rucio-admin account delete-attribute {0} --key test_attribute_key'.format(tmp_acc)
+        assert 'Data successfully exported' in out
+        assert os.path.exists(tmp_file.name)
+
+        with open(tmp_file.name, 'r') as f:
+            assert f.read() != ''
+
+
+@pytest.mark.noparallel(reason='Replica locked when run in parallel')
+@pytest.mark.dirty(reason='Leaves replicas')
+def test_set_tombstone(rse_factory, mock_scope, rucio_client):
+    """ CLIENT(ADMIN): set a tombstone on a replica. """
+    scope = mock_scope.external
+    rse, _ = rse_factory.make_posix_rse()
+    name = generate_uuid()
+    rucio_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
+    cmd = f'rucio-admin replicas set-tombstone {scope}:{name} --rse {rse}'
+    exitcode, out, err = execute(cmd)
+    print(out, err)
+    assert exitcode == 0
+    assert 'Set tombstone successfully' in err
+
+    # Set tombstone on locked replica
+    rse, _ = rse_factory.make_posix_rse()
+    rucio_client.add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
+    cmd = f'rucio-admin replicas set-tombstone {scope}:{name} --rse {rse}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert re.search('Replica is locked', err) is not None
+
+    # Set tombstone on not found replica
+    name = generate_uuid()
+    cmd = f'rucio-admin replicas set-tombstone {scope}:{name} --rse {rse}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert re.search('Replica not found', err) is not None
+
+
+def test_list_account_limits(rse_factory, rucio_client, random_account):
+    """ CLIENT (USER): list account limits. """
+    random_account = random_account.external
+    rse, _ = rse_factory.make_posix_rse()
+    rse_exp = f'MOCK3|{rse}'
+
+    local_limit = 10
+    global_limit = 20
+    rucio_client.set_local_account_limit(random_account, rse, local_limit)
+    rucio_client.set_global_account_limit(random_account, rse_exp, global_limit)
+
+    cmd = f'rucio list-account-limits {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert re.search(f'.*{rse}.*{local_limit}.*', out) is not None
+    assert re.search(f'.*{rse_exp}.*{global_limit}.*', out) is not None
+
+    cmd = f'rucio list-account-limits --rse {rse} {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert re.search(f'.*{rse}.*{local_limit}.*', out) is not None
+    assert re.search(f'.*{rse_exp}.*{global_limit}.*', out) is not None
+
+
+@pytest.mark.noparallel(reason='modifies account limit on pre-defined RSE')
+@pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason='uses abacus daemon and core functions')
+def test_list_account_usage(rse_factory, rucio_client, random_account):
+    """ CLIENT (USER): list account usage. """
+    from rucio.core.account_counter import increase
+    from rucio.daemons.abacus import account as abacus_account
+
+    rse, rse_id = rse_factory.make_posix_rse()
+    rse_expression = f'MOCK|{rse}'
+
+    usage = 4
+    local_limit = 10
+    local_left = local_limit - usage
+    global_limit = 20
+    global_left = global_limit - usage
+
+    rucio_client.set_local_account_limit(random_account.external, rse, local_limit)
+    rucio_client.set_global_account_limit(random_account.external, rse_expression, global_limit)
+    increase(rse_id, random_account, 1, usage)
+    abacus_account.run(once=True)
+    cmd = f'rucio list-account-usage {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert re.search(f'.*{rse}.*{usage}.*{local_limit}.*{local_left}', out) is not None
+    assert re.search(f'.*MOCK|{rse}.*{usage}.*{global_limit}.*{global_left}', out) is not None
+
+    cmd = f'rucio list-account-usage --rse {rse} {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert re.search(f'.*{rse}.*{usage}.*{local_limit}.*{local_left}', out) is not None
+    assert re.search(f'.*MOCK|{rse}.*{usage}.*{global_limit}.*{global_left}', out) is not None
+
+
+def test_get_set_delete_limits_rse(rse_factory, rucio_client):
+    """CLIENT(ADMIN): Get, set and delete RSE limits"""
+    rse, _ = rse_factory.make_posix_rse()
+
+    name = generate_uuid()
+    value = random.randint(0, 100000)
+    name2 = generate_uuid()
+    value2 = random.randint(0, 100000)
+    name3 = generate_uuid()
+
+    cmd = f'rucio-admin rse set-limit {rse} {name} {value}'
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+
+    cmd = f'rucio-admin rse set-limit {rse} {name2} {value2}'
+    exitcode, _, _ = execute(cmd)
+    assert exitcode == 0
+
+    limit = rucio_client.get_rse_limits(rse)
+    assert limit[name] == value
+    assert limit[name2] == value2
+
+    new_value = random.randint(100001, 999999999)
+    cmd = f'rucio-admin rse set-limit {rse} {name} {new_value}'
+    execute(cmd)
+    limit = rucio_client.get_rse_limits(rse)
+    assert limit[name] == new_value
+
+    cmd = f'rucio-admin rse delete-limit {rse} {name}'
+    exitcode, _, _ = execute(cmd)
+    assert exitcode == 0
+    limit = rucio_client.get_rse_limits(rse)
+    assert name not in limit
+    assert name2 in limit
+
+    cmd = f'rucio-admin rse delete-limit {rse} {name}'
+    exitcode, out, err = execute(cmd)
+    assert f'Limit {name} not defined in RSE {rse}' in err
+
+    non_integer = "NotAnInteger"
+    cmd = f'rucio-admin rse set-limit {rse} {name} {non_integer}'
+    exitcode, out, err = execute(cmd)
+    assert 'The RSE limit value must be an integer' in err
+    limits = rucio_client.get_rse_limits(rse)
+    assert name3 not in limits
+
+
+# Upload Tests
+def test_upload(rse_factory, mock_scope, file_factory, rucio_client):
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+
+    """CLIENT(USER): Upload file"""
+    # Verify argument logic
+    cmd = f'rucio upload --rse {rse} --scope {scope}'
+    exitcode, out, err = execute(cmd)
+    assert "No files could be extracted from the given arguments" in err
+    # TODO Should fail with exitcode != 0
+
+    # Upload with scope
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file)
+
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
+    files = [f for f in rucio_client.list_files(scope, name, long=True)]
+    assert len(files) == 1
+    assert files[0]['name'] == name
+
+
+def test_upload_create_dataset(rse_factory, mock_scope, file_factory, rucio_client):
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+
+    dataset = f"{scope}:Dset{generate_uuid()}"
+    # Upload with dataset
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file)
+    cmd = f'rucio upload --rse {rse} --scope {scope} {tmp_file} {dataset}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
+    files = [f for f in rucio_client.list_files(scope, dataset.split(':')[1])]
+    assert len(files) == 1
+    assert files[0]['name'] == name.split('/')[-1]
+
+
+def test_upload_with_lifetime(rse_factory, mock_scope, file_factory, rucio_client):
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+
+    # Verify expiration date logic
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file)
+
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} '\
+        '--expiration-date 2021-10-10-20:00:00 ' \
+        f'--lifetime 20000  {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert "--lifetime and --expiration-date cannot be specified at the same time." in err
+
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} '\
+        f'--expiration-date 2021----10-10-20:00:00 {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert "does not match format '%Y-%m-%d-%H:%M:%S'" in err
+
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} '\
+        f'--expiration-date 2021-10-10-20:00:00  {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert "The specified expiration date should be in the future!" in err
+
+    name = tmp_file.name.split('/')[-1]
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} '\
+        f'--expiration-date 2100-10-10-20:00:00 {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
+    files = [f for f in rucio_client.list_files(scope, name, long=True)]
+    assert len(files) == 1
+    assert files[0]['name'] == name
+
+
+def test_upload_with_guid(rse_factory, mock_scope):
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+
+    # Upload with GUID
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        cmd = 'rucio upload '\
+            f'--rse {rse} --scope {scope} '\
+            f'--guid {generate_uuid()} {tmp_file.name}'
+
         exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
         assert exitcode == 0
+        assert f"Successfully uploaded file {tmp_file.name.split('/')[-1]}" in err
 
-    def test_add_scope(self):
-        """CLIENT(ADMIN): Add scope"""
-        tmp_scp = scope_name_generator()
-        tmp_acc = account_name_generator()
-        cmd = 'rucio-admin account add %s' % tmp_acc
+
+def test_upload_with_pfn(rse_factory, mock_scope, file_factory,  vo):
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    # Upload with PFN
+
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file.name)
+
+    file_md5 = md5(tmp_file)
+    filesize = os.stat(tmp_file).st_size
+    lfn = {'name': name, 'scope': scope, 'bytes': filesize, 'md5': file_md5}
+    # user uploads file
+    rse_settings = rsemgr.get_rse_info(rse=rse, vo=vo)
+    protocol = rsemgr.create_protocol(rse_settings, 'write')
+    protocol.connect()
+    pfn = list(protocol.lfns2pfns(lfn).values())[0]
+
+    # Fails automatically - cannot use --recursive with PFN
+    cmd = 'rucio upload --recursive '\
+        f'--rse {rse} --scope {scope} '\
+        f'--pfn {pfn} {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert "If PFN is specified, you cannot use --recursive" in err
+
+    # Correctly upload with PFN
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} '\
+        f'--pfn {pfn} {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
+
+
+def test_upload_with_impl(rse_factory, mock_scope, file_factory, rucio_client):
+    ""
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    impl = 'posix'
+
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file.name)
+    pfn = generate_uuid()
+    cmd = f'rucio upload --legacy --rse {rse} --scope {scope} --impl {impl} {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
+
+    # Fails to upload bc the PFN does is not a posix pfn
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file.name)
+    pfn = generate_uuid()
+    cmd = f'rucio upload --legacy --rse {rse} --scope {scope} --pfn {pfn} --impl {impl} {tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert "Ignoring --impl option because --pfn option given" in err
+    assert "RSE does not support requested protocol" in err
+
+    # Do not get the error with just a impl
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file.name)
+    cmd = f'rucio upload --legacy --rse {rse} --scope {scope} --impl {impl} {tmp_file}'
+    # TODO: get list of all impls - fail in new CLI because posix is not a given choice
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
+    assert "WARNING: Ignoring --impl option because --pfn option given" not in err
+    files = [f for f in rucio_client.list_files(scope, name, long=True)]
+    assert len(files) == 1
+    assert files[0]['name'] == name
+
+
+# Download Tests
+def test_download(did_factory, rse_factory, mock_scope):
+    """CLIENT(USER): Rucio download"""
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+
+    tmp_file1 = did_factory.upload_test_file(rse_name=rse, scope=scope)
+    tmp_file2 = did_factory.upload_test_file(rse_name=rse, scope=scope)
+    tmp_file1 = tmp_file1['name']
+    tmp_file2 = tmp_file2['name']
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # download files
+        cmd = f'rucio download --legacy --dir {tmp_dir} {scope}:{tmp_file1}'
         exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin scope add --account %s --scope %s' % (tmp_acc, tmp_scp)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert f'Added new scope to {tmp_acc}: {tmp_scp}' in out
-
-    def test_add_rse(self):
-        """CLIENT(ADMIN): Add RSE"""
-        tmp_val = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % tmp_val
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert 'Added new deterministic RSE: %s\n' % tmp_val in out
-
-    def test_add_rse_nondet(self):
-        """CLIENT(ADMIN): Add non-deterministic RSE"""
-        tmp_val = rse_name_generator()
-        cmd = 'rucio-admin rse add --non-deterministic %s' % tmp_val
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert 'Added new non-deterministic RSE: %s\n' % tmp_val in out
-
-    def test_list_rses(self):
-        """CLIENT(USER/ADMIN): List RSEs"""
-        # TODO Test filter
-        tmp_val = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % tmp_val
-        exitcode, out, err = execute(cmd)
-        cmd = 'rucio-admin rse list'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert tmp_val in out
-
-        # Expected output is a new RSE on each line
-        cmd = 'rucio-admin rse list --csv'
-        _, out, _ = execute(cmd)
-        assert tmp_val in out.split('\n')
-
-        cmd = 'rucio list-rses'
-        _, out, _ = execute(cmd)
-        assert tmp_val in out
-
-        cmd = 'rucio list-rses --csv'
-        _, out, _ = execute(cmd)
-        assert tmp_val in out.split('\n')
-
-    def test_rse_add_distance(self):
-        """CLIENT (ADMIN): Add distance to RSE"""
-        # add RSEs
-        temprse1 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse1
-        exitcode, out, err = execute(cmd)
-        print(out, err)
         assert exitcode == 0
-        temprse2 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse2
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
+        assert tmp_file1 in os.listdir(f"{tmp_dir}/{scope}")
 
-        # add distance between the RSEs
-        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
-        print(self.marker + cmd)
+        # Use wildcard to download file
+        cmd = f'rucio download --legacy --dir {tmp_dir} {scope}:{tmp_file2[:-3]}*'
         exitcode, out, err = execute(cmd)
-        print(out, err)
         assert exitcode == 0
-        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse2, temprse1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
+        assert tmp_file2 in os.listdir(f"{tmp_dir}/{scope}")
 
-        # add duplicate distance
-        print(self.marker + cmd)
+
+def test_download_with_filter(did_factory, rse_factory, mock_scope, rucio_client):
+    rse, _ = rse_factory.make_posix_rse()
+
+    tmp_file1 = did_factory.upload_test_file(rse_name=rse, scope=mock_scope)
+    tmp_file2 = did_factory.upload_test_file(rse_name=rse, scope=mock_scope)
+    scope = mock_scope.external
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        wrong_guid = generate_uuid()
+        cmd = f'rucio download --legacy --dir {tmp_dir} --filter guid={wrong_guid} {scope}:*'
         exitcode, out, err = execute(cmd)
-        print(out, err, exitcode)
         assert exitcode != 0
-        assert 'Distance from %s to %s already exists!' % (temprse2, temprse1) in err
+        assert not os.path.exists(f"{tmp_dir}/{scope}/{tmp_file1['name']}")
 
-    def test_rse_delete_distance(self):
-        """CLIENT (ADMIN): Delete distance to RSE"""
-        # add RSEs
-        temprse1 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse1
+        uuid = rucio_client.get_metadata(scope=scope, name=tmp_file1['name'])['guid']
+        cmd = f"rucio download --legacy --dir {tmp_dir} --filter guid={uuid} {scope}:*"
         exitcode, out, err = execute(cmd)
-        print(out, err)
         assert exitcode == 0
-        temprse2 = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % temprse2
+        assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file1['name']}")
+
+        # Only use filter option to download file
+        wrong_guid = generate_uuid()
+        cmd = f'rucio download --legacy --dir {tmp_dir} --scope {scope} --filter guid={wrong_guid}'
         exitcode, out, err = execute(cmd)
-        print(out, err)
+        assert exitcode != 0
+        assert not os.path.exists(f"{tmp_dir}/{scope}/{tmp_file2['name']}")
+
+        uuid = rucio_client.get_metadata(scope=scope, name=tmp_file2['name'])['guid']
+        cmd = f"rucio download --legacy --dir {tmp_dir} --scope {scope} --filter guid={uuid}"
+        exitcode, out, err = execute(cmd)
         assert exitcode == 0
+        assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file2['name']}")
 
-        # add distance between the RSEs
-        cmd = 'rucio-admin rse add-distance --distance 1 --ranking 1 %s %s' % (temprse1, temprse2)
-        print(self.marker + cmd)
+
+def test_download_timeout_options_accepted(rse_factory, mock_scope, did_factory):
+    """CLIENT(USER): Rucio download timeout options """
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    tmp_file = did_factory.upload_test_file(rse_name=rse, scope=mock_scope)['name']
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        cmd = f'rucio download --legacy --dir {tmp_dir} --transfer-timeout 3 --transfer-speed-timeout 1000 {scope}:{tmp_file}'
         exitcode, out, err = execute(cmd)
-        print(out, err)
         assert exitcode == 0
+        assert 'successfully downloaded' in err
+        assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file}")
 
-        # delete distance OK
-        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, temprse2)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-        assert "Deleted distance information from %s to %s." % (temprse1, temprse2) in out
+    # Check that PFN the transfer-speed-timeout option is not accepted for --pfn
+    cmd = f'rucio download --legacy --rse {rse} --transfer-speed-timeout 1 --pfn http://a.b.c/ {scope}:{tmp_file}'
+    exitcode, out, err = execute(cmd)
+    assert "Download with --pfn doesn't support --transfer-speed-timeout" in err
+    assert exitcode != 0
 
-        # delete distance RSE not found
-        cmd = 'rucio-admin rse delete-distance %s %s' % (temprse1, generate_uuid())
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'RSE does not exist.' in err
 
-    def test_upload(self):
-        """CLIENT(USER): Upload"""
-        tmp_val = rse_name_generator()
-        cmd = 'rucio-admin rse add %s' % tmp_val
-        exitcode, out, err = execute(cmd)
-        cmd = 'rucio upload'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
+def test_download_metalink(rse_factory, mock_scope, did_factory, rucio_client):
+    """CLIENT(USER): Rucio download with metalink file"""
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
 
-    def test_download(self):
-        """CLIENT(USER): Download"""
-        cmd = 'rucio download'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
+    tmp_file = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
 
-    def test_upload_file(self):
-        """CLIENT(USER): Rucio upload files"""
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
-        upload_string_2 = (self.upload_success_str % path.basename(tmp_file2))
-        upload_string_3 = (self.upload_success_str % path.basename(tmp_file3))
-        assert upload_string_1 in out or upload_string_1 in err
-        assert upload_string_2 in out or upload_string_2 in err
-        assert upload_string_3 in out or upload_string_3 in err
+    # Use filter and metalink option
+    cmd = 'rucio download --legacy --scope mock --filter size=1 --metalink=test'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert 'Arguments filter and metalink cannot be used together' in err
 
-    def test_upload_file_register_after_upload(self):
-        """CLIENT(USER): Rucio upload files with registration after upload"""
-        # normal upload
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_file1_name = path.basename(tmp_file1)
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4} --register-after-upload'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
-        upload_string_2 = (self.upload_success_str % path.basename(tmp_file2))
-        upload_string_3 = (self.upload_success_str % path.basename(tmp_file3))
-        assert upload_string_1 in out or upload_string_1 in err
-        assert upload_string_2 in out or upload_string_2 in err
-        assert upload_string_3 in out or upload_string_3 in err
+    # Use did and metalink option
+    cmd = 'rucio download --legacy --metalink=test mock:test'
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert 'Arguments dids and metalink cannot be used together' in err
 
-        # removing replica -> file on RSE should be overwritten
-        # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
-        if 'SUITE' not in environ or environ['SUITE'] != 'client':
-            from rucio.db.sqla import models, session
-            db_session = session.get_session()
-            internal_scope = InternalScope(self.user, **self.vo)
-            for model in [models.RSEFileAssociation, models.ReplicaLock, models.ReplicationRule, models.DidMeta, models.DataIdentifier]:
-                stmt = delete(
-                    model
-                ).where(
-                    and_(model.name == tmp_file1_name,
-                         model.scope == internal_scope)
-                )
-                db_session.execute(stmt)
-            db_session.commit()
-            tmp_file4 = file_generator()
-            checksum_tmp_file4 = md5(tmp_file4)
-            cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --name {2} {3} --register-after-upload'.format(self.def_rse, self.user, tmp_file1_name, tmp_file4)
-            print(self.marker + cmd)
+    # Download only with metalink file
+    rse, _ = rse_factory.make_posix_rse()
+    tmp_file = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+    replica_file = rucio_client.list_replicas([{'scope': scope, 'name': tmp_file}], metalink=True)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        with tempfile.NamedTemporaryFile("w+", delete=False) as metalink_file:
+
+            metalink_file.write(replica_file)
+            metalink_file.close()
+
+            cmd = f'rucio download --legacy --dir {tmp_dir} --metalink {metalink_file.name}'
             exitcode, out, err = execute(cmd)
-            print(out)
-            print(err)
-            assert (self.upload_success_str % path.basename(tmp_file4)) in out or (self.upload_success_str % path.basename(tmp_file4)) in err
-            assert checksum_tmp_file4 == [replica for replica in self.replica_client.list_replicas(dids=[{'name': tmp_file1_name, 'scope': self.user}])][0]['md5']
 
-            # try to upload file that already exists on RSE and is already registered -> no overwrite
-            cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --name {2} {3} --register-after-upload'.format(self.def_rse, self.user, tmp_file1_name, tmp_file4)
-            print(self.marker + cmd)
-            exitcode, out, err = execute(cmd)
-            print(out)
-            print(err)
-            remove(tmp_file4)
-            assert 'File already registered' in out or 'File already registered' in err
-
-    def test_upload_file_guid(self):
-        """CLIENT(USER): Rucio upload file with guid"""
-        tmp_file1 = file_generator()
-        tmp_guid = generate_uuid()
-        cmd = 'rucio -v upload --legacy --rse {0} --guid {1} --scope {2} {3}'.format(self.def_rse, tmp_guid, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
-        assert upload_string_1 in out or upload_string_1 in err
-
-    def test_upload_file_with_impl(self):
-        """CLIENT(USER): Rucio upload file with impl parameter assigned 'posix' value"""
-        tmp_file1 = file_generator()
-        impl = 'posix'
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        upload_string_1 = (self.upload_success_str % path.basename(tmp_file1))
-        assert re.search(upload_string_1, err) is not None
-
-    def test_upload_repeated_file(self):
-        """CLIENT(USER): Rucio upload repeated files"""
-        # One of the files to upload is already catalogued but was removed
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_file1_name = path.basename(tmp_file1)
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # get the rule for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        rule = out
-        # delete the file from the catalog
-        cmd = "rucio delete-rule {0}".format(rule)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # delete the physical file
-        cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        upload_string_1 = (self.upload_success_str % tmp_file1_name)
-        assert upload_string_1 in out or upload_string_1 in err
-
-    def test_upload_repeated_file_dataset(self):
-        """CLIENT(USER): Rucio upload repeated files to dataset"""
-        # One of the files to upload is already in the dataset
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_file1_name = path.basename(tmp_file1)
-        tmp_file3_name = path.basename(tmp_file3)
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # upload the files to the dataset
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        # searching for the file in the new dataset
-        cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # tmp_file1 must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, tmp_file1_name), out) is not None
-        # tmp_file3 must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, tmp_file3_name), out) is not None
-
-    def test_upload_file_dataset(self):
-        """CLIENT(USER): Rucio upload files to dataset"""
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_file1_name = path.basename(tmp_file1)
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        # searching for the file in the new dataset
-        cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert re.search("{0}:{1}".format(self.user, tmp_file1_name), out) is not None
-
-    def test_upload_file_dataset_register_after_upload(self):
-        """CLIENT(USER): Rucio upload files to dataset with file registration after upload"""
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_file1_name = path.basename(tmp_file1)
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio -v upload --legacy --register-after-upload --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        # searching for the file in the new dataset
-        cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert re.search("{0}:{1}".format(self.user, tmp_file1_name), out) is not None
-
-    def test_upload_adds_md5digest(self):
-        """CLIENT(USER): Upload Checksums"""
-        # user has a file to upload
-        filename = file_generator()
-        tmp_file1_name = path.basename(filename)
-        file_md5 = md5(filename)
-        # user uploads file
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, filename)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # When inspecting the metadata of the new file the user finds the md5 checksum
-        meta = self.did_client.get_metadata(scope=self.user, name=tmp_file1_name)
-        assert 'md5' in meta
-        assert meta['md5'] == file_md5
-        remove(filename)
-
-    def test_upload_expiration_date(self):
-        """CLIENT(USER): Rucio upload files"""
-        tmp_file = file_generator()
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 --lifetime 20000  {2}'.format(self.def_rse, self.user, tmp_file)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert exitcode != 0
-        assert "--lifetime and --expiration-date cannot be specified at the same time." in err
-
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2021----10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert exitcode != 0
-        assert "does not match format '%Y-%m-%d-%H:%M:%S'" in err
-
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2021-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert exitcode != 0
-        assert "The specified expiration date should be in the future!" in err
-
-        cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --expiration-date 2030-10-10-20:00:00 {2}'.format(self.def_rse, self.user, tmp_file)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert exitcode == 0
-        remove(tmp_file)
-        upload_string = (self.upload_success_str % path.basename(tmp_file))
-        assert upload_string in out or upload_string in err
-
-    def test_create_dataset(self):
-        """CLIENT(USER): Rucio add dataset"""
-        tmp_name = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        cmd = 'rucio add-dataset ' + tmp_name
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search('Added ' + tmp_name, out) is not None
-
-    def test_add_files_to_dataset(self):
-        """CLIENT(USER): Rucio add files to dataset"""
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_file2)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # create dataset
-        cmd = 'rucio add-dataset ' + tmp_dataset
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add files to dataset
-        cmd = 'rucio attach {0} {3}:{1} {3}:{2}'.format(tmp_dataset, tmp_file1[5:], tmp_file2[5:], self.user)  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # find the added files
-        cmd = 'rucio list-files ' + tmp_dataset
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
-
-    def test_download_file(self):
-        """CLIENT(USER): Rucio download files"""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # download files
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # search for the files with ls
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
-
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # download files
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:-2] + '*')  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # search for the files with ls
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
-
-        try:
-            for i in listdir('data13_hip'):
-                unlink('data13_hip/%s' % i)
-            rmdir('data13_hip')
-        except Exception:
-            pass
-
-    def test_download_pfn(self):
-        """CLIENT(USER): Rucio download files"""
-        tmp_file1 = file_generator()
-        name = os.path.basename(tmp_file1)
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-
-        # download files
-        download_dir = "/temp"
-        replica_pfn = list(self.replica_client.list_replicas([{'scope': self.user, 'name': name}]))[0]['rses'][self.def_rse][0]
-        cmd = f'rucio -v download --legacy --dir {download_dir} --rse {self.def_rse} --pfn {replica_pfn} {self.user}:{name}'
-        exitcode, out, err = execute(cmd)
-        if "Access to local destination denied." in err:  # Known issue - see #6506
-            assert False, f"test `test_download_pfn` unable to access file {self.user}/{name} in {download_dir}"
-        else:
+            print(out, err)
+            assert exitcode == 0
+            assert f'{tmp_file} successfully downloaded' in err
             assert re.search('Total files.*1', out) is not None
+            assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file}")
+
+
+def test_download_with_impl(rse_factory, mock_scope, did_factory):
+    """CLIENT(USER): Rucio download files with impl parameter assigned 'posix' value"""
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    tmp_file1 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+    tmp_file3 = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+
+    impl = 'posix'
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        # download files
+        cmd = f'rucio download --legacy --dir {tmp_dir} {scope}:{tmp_file1} --impl {impl}'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file1}")
+
+        # Use wildcard
+        cmd = f'rucio download --legacy --dir {tmp_dir} --impl {impl} {scope}:{tmp_file3[:-5]}*'
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file3}")
+
+
+def test_download_pfns(rse_factory, mock_scope, did_factory, rucio_client):
+    """CLIENT(USER): Rucio download files"""
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
+    name = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
+
+    replica_pfn = list(rucio_client.list_replicas([{'scope': scope, 'name': name}]))[0]['rses'][rse][0]
+
+    # download files
+    with tempfile.TemporaryDirectory() as download_dir:
+        cmd = f'rucio download --legacy --dir {download_dir} --rse {rse} --pfn {replica_pfn} {scope}:{name}'
+        exitcode, out, err = execute(cmd)
+        assert re.search('Total files.*1', out) is not None
+        assert exitcode == 0
+        assert os.path.exists(f"{download_dir}/{scope}/{name}")
 
         # Try to use the --pfn without rse
-        cmd = f"rucio -v download --legacy --dir {download_dir.rstrip('/')}/duplicate --pfn {replica_pfn} {self.user}:{name}"
+        cmd = f"rucio -v download --legacy --dir {download_dir.rstrip('/')}/duplicate --pfn {replica_pfn} {scope}:{name}"
         exitcode, out, err = execute(cmd)
-
         assert "No RSE was given, selecting one." in err
         assert exitcode == 0
         assert re.search('Total files.*1', out) is not None
+        assert os.path.exists(f"{download_dir.rstrip('/')}/duplicate/{scope}/{name}")
 
         # Download the pfn without an rse, except there is no RSE with that RSE
         non_existent_pfn = "http://fake.pfn.marker/"
-        cmd = f"rucio -v download --legacy --dir {download_dir.rstrip('/')}/duplicate --pfn {non_existent_pfn} {self.user}:{name}"
+        cmd = f"rucio -v download --legacy --dir {download_dir.rstrip('/')}/duplicate2 --pfn {non_existent_pfn} {scope}:{name}"
         exitcode, out, err = execute(cmd)
-
         assert "No RSE was given, selecting one." in err
         assert f"Could not find RSE for pfn {non_existent_pfn}" in err
         assert exitcode != 0
+        assert not os.path.exists(f"{download_dir.rstrip('/')}/duplicate2/{scope}/{name}")
 
-        try:
-            for i in listdir('data13_hip'):
-                unlink('data13_hip/%s' % i)
-            rmdir('data13_hip')
-        except Exception:
-            pass
 
-    def test_download_file_with_impl(self):
-        """CLIENT(USER): Rucio download files with impl parameter assigned 'posix' value"""
-        tmp_file1 = file_generator()
-        impl = 'posix'
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # download files
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:], impl)  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # search for the files with ls
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
+def test_download_file_check_by_size(rse_factory, mock_scope, did_factory):
+    """CLIENT(USER): Rucio download files"""
 
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(self.def_rse, self.user, impl, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # download files
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --impl {2}'.format(self.user, tmp_file1[5:-2] + '*', impl)  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # search for the files with ls
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
+    rse, _ = rse_factory.make_posix_rse()
+    scope = mock_scope.external
 
-        try:
-            for i in listdir('data13_hip'):
-                unlink('data13_hip/%s' % i)
-            rmdir('data13_hip')
-        except Exception:
-            pass
+    tmp_file1 = did_factory.upload_test_file(rse_name=rse, scope=scope)
 
-    @pytest.mark.noparallel(reason='fails when run in parallel')
-    def test_download_no_subdir(self):
-        """CLIENT(USER): Rucio download files with --no-subdir and check that files already found locally are not replaced"""
-        tmp_file = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-        # download files with --no-subdir
-        cmd = 'rucio -v download --legacy --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-        # search for the files with ls
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert tmp_file[5:] in out
-        # download again with --no-subdir
-        cmd = 'rucio -v download --legacy --no-subdir --dir /tmp {0}:{1}'.format(self.user, tmp_file[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-        assert re.search(r'Downloaded files:\s+0', out) is not None
-        assert re.search(r'Files already found locally:\s+1', out) is not None
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        write_out = f"{tmp_dir}/{scope}"
+        os.makedirs(write_out, exist_ok=True)
+        with open(f"{write_out}/{tmp_file1['name']}", "w+") as f:
+            f.write("dummy")
 
-        try:
-            for i in listdir('data13_hip'):
-                unlink('data13_hip/%s' % i)
-            rmdir('data13_hip')
-        except Exception:
-            pass
-
-    def test_download_filter(self):
-        """CLIENT(USER): Rucio download with filter options"""
-        # Use filter option to download file with wildcarded name
-        tmp_file1 = file_generator()
-        uuid = generate_uuid()
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} --guid {2} {3}'.format(self.def_rse, self.user, uuid, tmp_file1)
+        # Download file
+        cmd = f'rucio download --legacy --check-local-with-filesize-only --dir {tmp_dir} {scope}:{tmp_file1["name"]}'
         exitcode, out, err = execute(cmd)
-        print(out, err)
-        remove(tmp_file1)
-        wrong_guid = generate_uuid()
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --filter guid={2}'.format(self.user, '*', wrong_guid)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(self.user)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is None
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --filter guid={2}'.format(self.user, '*', uuid)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(self.user)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
-
-        # Only use filter option to download file
-        tmp_file1 = file_generator()
-        uuid = generate_uuid()
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} --guid {2} {3}'.format(self.def_rse, self.user, uuid, tmp_file1)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        remove(tmp_file1)
-        wrong_guid = generate_uuid()
-        cmd = 'rucio -v download --legacy --dir /tmp --scope {0} --filter guid={1}'.format(self.user, wrong_guid)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(self.user)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is None
-        cmd = 'rucio -v download --legacy --dir /tmp --scope {0} --filter guid={1}'.format(self.user, uuid)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(self.user)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
-
-        # Only use filter option to download dataset
-        tmp_file1 = file_generator()
-        dataset_name = 'dataset_%s' % generate_uuid()
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {1}:{3}'.format(self.def_rse, self.user, tmp_file1, dataset_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        remove(tmp_file1)
-        cmd = 'rucio download --legacy --dir /tmp --scope {0} --filter created_before=1900-01-01T00:00:00.000Z'.format(self.user)
-        exitcode, out, err = execute(cmd)
-        cmd = 'ls /tmp/{0}'.format(dataset_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is None
-        cmd = 'rucio download --legacy --dir /tmp --scope {0} --filter created_after=1900-01-01T00:00:00.000Z'.format(self.user)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(dataset_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # TODO: https://github.com/rucio/rucio/issues/2926 !
-        # assert re.search(tmp_file1[5:], out) is not None
-
-        # Use filter option to download dataset with wildcarded name
-        tmp_file1 = file_generator()
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {1}:{3}'.format(self.def_rse, self.user, tmp_file1, dataset_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        remove(tmp_file1)
-        cmd = 'rucio download --legacy --dir /tmp {0}:{1} --filter created_before=1900-01-01T00:00:00.000Z'.format(self.user, dataset_name[0:-1] + '*')
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(dataset_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is None
-        cmd = 'rucio download --legacy --dir /tmp {0}:{1} --filter created_after=1900-01-01T00:00:00.000Z'.format(self.user, dataset_name[0:-1] + '*')
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'ls /tmp/{0}'.format(dataset_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file1[5:], out) is not None
-
-    def test_download_timeout_options_accepted(self):
-        """CLIENT(USER): Rucio download timeout options """
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # download files
-        cmd = 'rucio download --legacy --dir /tmp --transfer-timeout 3 --transfer-speed-timeout 1000 {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'successfully downloaded' in err
-        # search for the files with ls
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        # Check that PFN the transfer-speed-timeout option is not accepted for --pfn
-        cmd = 'rucio -v download --legacy --rse {0} --transfer-speed-timeout 1 --pfn http://a.b.c/ {1}:{2}'.format(self.def_rse, self.user, tmp_file1)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert "Download with --pfn doesn't support --transfer-speed-timeout" in err
-
-    def test_download_metalink_file(self):
-        """CLIENT(USER): Rucio download with metalink file"""
-        metalink_file_path = generate_uuid()
-        scope = self.user
-
-        # Use filter and metalink option
-        cmd = 'rucio download --legacy --scope mock --filter size=1 --metalink=test'
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'Arguments filter and metalink cannot be used together' in err
-
-        # Use DID and metalink option
-        cmd = 'rucio download --legacy --metalink=test mock:test'
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'Arguments dids and metalink cannot be used together' in err
-
-        # Download only with metalink file
-        tmp_file = file_generator()
-        tmp_file_name = tmp_file[5:]
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, scope, tmp_file)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        replica_file = ReplicaClient().list_replicas([{'scope': scope, 'name': tmp_file_name}], metalink=True)
-        with open(metalink_file_path, 'w+') as metalink_file:
-            metalink_file.write(replica_file)
-        cmd = 'rucio download --legacy --dir /tmp --metalink {0}'.format(metalink_file_path)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert '{} successfully downloaded'.format(tmp_file_name) in err
-        assert re.search('Total files.*1', out) is not None
-        remove(metalink_file_path)
-        cmd = 'ls /tmp/{0}'.format(scope)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(tmp_file_name, out) is not None
-
-    def test_download_succeeds_md5only(self):
-        """CLIENT(USER): Rucio download succeeds MD5 only"""
-        # user has a file to upload
-        filename = file_generator()
-        file_md5 = md5(filename)
-        filesize = stat(filename).st_size
-        lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': file_md5}
-        # user uploads file
-        self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(rse=self.def_rse, **self.vo)
-        protocol = rsemgr.create_protocol(rse_settings, 'write')
-        protocol.connect()
-        pfn = list(protocol.lfns2pfns(lfn).values())[0]
-        protocol.put(filename[5:], pfn, filename[:5])
-        protocol.close()
-        remove(filename)
-        # download files
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1}'.format(self.user, filename[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # search for the files with ls
-        cmd = 'ls /tmp/{0}'.format(self.user)    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(filename[5:], out) is not None
-        try:
-            for i in listdir('data13_hip'):
-                unlink('data13_hip/%s' % i)
-            rmdir('data13_hip')
-        except Exception:
-            pass
-
-    def test_download_fails_badmd5(self):
-        """CLIENT(USER): Rucio download fails on MD5 mismatch"""
-        # user has a file to upload
-        filename = file_generator()
-        file_md5 = md5(filename)
-        filesize = stat(filename).st_size
-        lfn = {'name': filename[5:], 'scope': self.user, 'bytes': filesize, 'md5': '0123456789abcdef0123456789abcdef'}
-        # user uploads file
-        self.replica_client.add_replicas(files=[lfn], rse=self.def_rse)
-        rse_settings = rsemgr.get_rse_info(rse=self.def_rse, **self.vo)
-        protocol = rsemgr.create_protocol(rse_settings, 'write')
-        protocol.connect()
-        pfn = list(protocol.lfns2pfns(lfn).values())[0]
-        protocol.put(filename[5:], pfn, filename[:5])
-        protocol.close()
-        remove(filename)
-
-        # download file
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1}'.format(self.user, filename[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        report = r'Local\ checksum\:\ {0},\ Rucio\ checksum\:\ 0123456789abcdef0123456789abcdef'.format(file_md5)
-        print('searching', report, 'in', err)
-        assert re.search(report, err) is not None
-
-        # The file should not exist
-        cmd = 'ls /tmp/'    # search in /tmp/
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(filename[5:], out) is None
-
-        try:
-            for i in listdir('data13_hip'):
-                unlink('data13_hip/%s' % i)
-            rmdir('data13_hip')
-        except Exception:
-            pass
-
-    def test_download_dataset(self):
-        """CLIENT(USER): Rucio download dataset"""
-        tmp_file1 = file_generator()
-        tmp_dataset = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # create dataset
-        cmd = 'rucio add-dataset ' + tmp_dataset
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add files to dataset
-        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        os.remove(tmp_file1)
-
-        # download dataset
-        cmd = 'rucio -v download --legacy --dir /tmp {0}'.format(tmp_dataset)  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        search = '{0} successfully downloaded'.format(tmp_file1[5:])  # trimming '/tmp/' from filename
-        assert re.search(search, err) is not None
-
-    def test_download_file_check_by_size(self):
-        """CLIENT(USER): Rucio download files"""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # download files
-        cmd = 'rucio -v download --legacy --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # Alter downloaded file
-        cmd = 'echo "dummy" >> /tmp/{}/{}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-        # Download file again and check for mismatch
-        cmd = 'rucio -v download --legacy --check-local-with-filesize-only --dir /tmp {0}:{1}'.format(self.user, tmp_file1[5:])  # trimming '/tmp/' from filename
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
         assert exitcode == 0
         assert "File with same name exists locally, but filesize mismatches" in err
-
-    def test_list_blocklisted_replicas(self):
-        """CLIENT(USER): Rucio list replicas"""
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = 'rucio-admin rse add-protocol --hostname blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default ' \
-              '--domain-json \'{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}}\' %s' % tmp_rse
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        # add files
-        tmp_file1 = file_generator()
-        file_name = tmp_file1[5:]  # trimming '/tmp/' from filename
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(tmp_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        # create dataset
-        tmp_dataset = self.user + ':DSet' + rse_name_generator()
-        cmd = 'rucio add-dataset ' + tmp_dataset
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add files to dataset
-        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dataset, self.user, file_name)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        # Listing the replica should work before blocklisting the RSE
-        cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert tmp_rse in out
-
-        # Blocklist the rse
-        cmd = 'rucio-admin rse update --rse {} --setting availability_read --value False'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert "ERROR" not in err
-
-        # list-file-replicas should, by default, list replicas from blocklisted rses
-        cmd = 'rucio list-file-replicas {}'.format(tmp_dataset)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert tmp_rse in out
-
-    def test_create_rule(self):
-        """CLIENT(USER): Rucio add rule"""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rules
-        cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        assert "ERROR" not in err
-        rule = out.split('\n')[-2]
-        assert re.match(r'^\w+$', rule)
-        # check if rule exist for the file
-        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(rule, out) is not None
-
-    def test_create_rule_delayed(self):
-        """CLIENT(USER): Rucio add rule delayed"""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASRULEDELAYED'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # try adding rule with an incorrect delay-injection. Must fail
-        cmd = "rucio add-rule --delay-injection asdsaf {0}:{1} 1 'spacetoken=ATLASRULEDELAYED'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        assert err
-        # Add a correct rule
-        cmd = "rucio add-rule --delay-injection 3600 {0}:{1} 1 'spacetoken=ATLASRULEDELAYED'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert "ERROR" not in err
-        rule = out.split('\n')[-2]
-        cmd = "rucio rule-info {0}".format(rule)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        out_lines = out.splitlines()
-        assert any(re.match(r'State:.* INJECT', line) for line in out_lines)
-        assert any(re.match(r'Locks OK/REPLICATING/STUCK:.* 0/0/0', line) for line in out_lines)
-        # Check that "Created at" is approximately 3600 seconds in the future
-        [created_at_line] = filter(lambda x: "Created at" in x, out_lines)
-        created_at = re.search(r'Created at:\s+(\d.*\d)$', created_at_line).group(1)
-        created_at = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
-        assert datetime.utcnow() + timedelta(seconds=3550) < created_at < datetime.utcnow() + timedelta(seconds=3650)
-
-    def test_delete_rule(self):
-        """CLIENT(USER): rule deletion"""
-        self.account_client.set_local_account_limit('root', self.def_rse, -1)
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rules
-        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASDELETERULE'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(err)
-        print(out)
-        # get the rules for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        (rule1, rule2) = out.split()
-        # delete the rules for the file
-        cmd = "rucio delete-rule {0}".format(rule1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        cmd = "rucio delete-rule {0}".format(rule2)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # search for the file
-        cmd = "rucio list-dids --filter type==all {0}:{1}".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert f"{self.user}:{tmp_file1[5:]}" in out
-
-    def test_move_rule(self):
-        """CLIENT(USER): Rucio move rule"""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rules
-        cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        assert "ERROR" not in err
-        rule = out.split('\n')[-2]
-        assert re.match(r'^\w+$', rule)
-
-        # move rule
-        new_rule_expr = "'spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD'"
-        cmd = "rucio move-rule {} {}".format(rule, new_rule_expr)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        assert "ERROR" not in err
-        new_rule = out.split('\n')[-2]  # trimming new line character
-
-        # check if rule exist for the file
-        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(new_rule, out) is not None
-
-    def test_move_rule_with_arguments(self):
-        """CLIENT(USER): Rucio move rule"""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add quota
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASSCRATCHDISK'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rules
-        cmd = "rucio add-rule {0}:{1} 3 'spacetoken=ATLASSCRATCHDISK'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        assert "ERROR" not in err
-        rule = out.split('\n')[-2]
-        assert re.match(r'^\w+$', rule)
-        # move rule
-        new_rule_expr = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
-        new_rule_activity = "No User Subscription"
-        new_rule_source_replica_expression = "spacetoken=ATLASSCRATCHDISK|spacetoken=ATLASSD"
-        cmd = "rucio move-rule --activity '{}' --source-replica-expression '{}' {} '{}'".format(new_rule_activity, new_rule_source_replica_expression, rule, new_rule_expr)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert "ERROR" not in err
-        new_rule_id = out.split('\n')[-2]  # trimming new line character
-
-        # check if rule exist for the file
-        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search(new_rule_id, out) is not None
-        # check updated rule information
-        cmd = "rucio rule-info {0}".format(new_rule_id)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert new_rule_activity in out
-        assert new_rule_source_replica_expression in out
-
-    def test_add_file_twice(self):
-        """CLIENT(USER): Add file twice"""
-        tmp_file1 = file_generator()
-        # add file twice
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        assert re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out) is None
-
-    def test_add_delete_add_file(self):
-        """CLIENT(USER): Add/Delete/Add"""
-        tmp_file1 = file_generator()
-        # add file
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # get the rule for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        rule = out
-        # delete the file from the catalog
-        cmd = "rucio delete-rule {0}".format(rule)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # delete the physical file
-        cmd = "find /tmp/rucio_rse/ -name {0} |xargs rm".format(tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # modify the file to avoid same checksum
-        cmd = "echo 'delta' >> {0}".format(tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add the same file
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search("File {0}:{1} successfully uploaded on the storage".format(self.user, tmp_file1[5:]), out) is None
-
-    def test_attach_files_dataset(self):
-        """CLIENT(USER): Rucio attach files to dataset"""
-        # Attach files to a dataset using the attach method
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # upload the files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file2, tmp_file3)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        # attach the files to the dataset
-        cmd = 'rucio attach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # trimming '/tmp/' from filenames
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # searching for the file in the new dataset
-        cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # tmp_file2 must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, tmp_file2[5:]), out) is not None
-        # tmp_file3 must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, tmp_file3[5:]), out) is not None
-
-    def test_detach_files_dataset(self):
-        """CLIENT(USER): Rucio detach files to dataset"""
-        # Attach files to a dataset using the attach method
-        tmp_file1 = file_generator()
-        tmp_file2 = file_generator()
-        tmp_file3 = file_generator()
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {3} {4} {5}'.format(self.def_rse, self.user, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        remove(tmp_file2)
-        remove(tmp_file3)
-        # detach the files to the dataset
-        cmd = 'rucio detach {0} {1}:{2} {1}:{3}'.format(tmp_dsn, self.user, tmp_file2[5:], tmp_file3[5:])  # trimming '/tmp/' from filenames
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # searching for the file in the new dataset
-        cmd = 'rucio list-files {0}'.format(tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        # tmp_file1 must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, tmp_file1[5:]), out) is not None
-        # tmp_file3 must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, tmp_file3[5:]), out) is None
-
-    def test_attach_file_twice(self):
-        """CLIENT(USER): Rucio attach a file twice"""
-        # Attach files to a dataset using the attach method
-        tmp_file1 = file_generator()
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        # attach the files to the dataset
-        cmd = 'rucio attach {0} {1}:{2}'.format(tmp_dsn, self.user, tmp_file1[5:])  # trimming '/tmp/' from filenames
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert re.search("The file already exists", err) is not None
-
-    def test_attach_dataset_twice(self):
-        """ CLIENT(USER): Rucio attach a dataset twice """
-        container = 'container_%s' % generate_uuid()
-        dataset = 'dataset_%s' % generate_uuid()
-        self.did_client.add_container(scope=self.user, name=container)
-        self.did_client.add_dataset(scope=self.user, name=dataset)
-
-        # Attach dataset to container
-        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(self.user, container, dataset)
-        exitcode, out, err = execute(cmd)
-
-        # Attach again
-        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(self.user, container, dataset)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert re.search("Data identifier already added to the destination content", err) is not None
-
-    def test_detach_non_existing_file(self):
-        """CLIENT(USER): Rucio detach a non existing file"""
-        tmp_file1 = file_generator()
-        tmp_dsn = self.user + ':DSet' + rse_name_generator()  # something like mock:DSetMOCK_S0M37HING
-        # Adding files to a new dataset
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2} {3}'.format(self.def_rse, self.user, tmp_file1, tmp_dsn)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(tmp_file1)
-        # attach the files to the dataset
-        cmd = 'rucio detach {0} {1}:{2}'.format(tmp_dsn, self.user, 'file_ghost')  # trimming '/tmp/' from filenames
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert re.search("Data identifier not found.", err) is not None
-
-    @pytest.mark.dirty
-    def test_list_did_recursive(self):
-        """ CLIENT(USER): List DID recursive """
-        # Setup nested collections
-        tmp_scope = 'mock'
-        tmp_container_1 = 'container_%s' % generate_uuid()
-        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_1)
-        exitcode, out, err = execute(cmd)
-        tmp_container_2 = 'container_%s' % generate_uuid()
-        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_2)
-        exitcode, out, err = execute(cmd)
-        tmp_container_3 = 'container_%s' % generate_uuid()
-        cmd = 'rucio add-container {0}:{1}'.format(tmp_scope, tmp_container_3)
-        exitcode, out, err = execute(cmd)
-        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(tmp_scope, tmp_container_1, tmp_container_2)
-        exitcode, out, err = execute(cmd)
-        cmd = 'rucio attach {0}:{1} {0}:{2}'.format(tmp_scope, tmp_container_2, tmp_container_3)
-        exitcode, out, err = execute(cmd)
-
-        # All attached DIDs are expected
-        cmd = 'rucio list-dids {0}:{1} --recursive'.format(tmp_scope, tmp_container_1)
-        exitcode, out, err = execute(cmd)
-        assert re.search(tmp_container_1, out) is not None
-        assert re.search(tmp_container_2, out) is not None
-        assert re.search(tmp_container_3, out) is not None
-
-        # Wildcards are not allowed to use with --recursive
-        cmd = 'rucio list-dids {0}:* --recursive'.format(tmp_scope)
-        exitcode, out, err = execute(cmd)
-        assert re.search("Option recursive cannot be used with wildcards", err) is not None
-
-    @pytest.mark.dirty
-    def test_attach_many_dids(self):
-        """ CLIENT(USER): Rucio attach many (>1000) DIDs """
-        # Setup data for CLI check
-        tmp_dsn_name = 'Container' + rse_name_generator()
-        tmp_dsn_did = self.user + ':' + tmp_dsn_name
-        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, did_type='CONTAINER')
-
-        files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
-        self.did_client.add_dids(files[:1000])
-        self.did_client.add_dids(files[1000:])
-
-        # Attaching over 1000 DIDs with CLI
-        cmd = 'rucio attach {0}'.format(tmp_dsn_did)
-        for tmp_file in files:
-            cmd += ' {0}:{1}'.format(tmp_file['scope'], tmp_file['name'])
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-
-        # Checking if the execution was successful and if the DIDs belong together
-        assert re.search('DIDs successfully attached', out) is not None
-        cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        # first dataset must be in the container
-        assert re.search("{0}:{1}".format(self.user, files[0]['name']), out) is not None
-        # last dataset must be in the container
-        assert re.search("{0}:{1}".format(self.user, files[-1]['name']), out) is not None
-
-        # Setup data with file
-        did_file_path = 'list_dids.txt'
-        files = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
-        self.did_client.add_dids(files[:1000])
-        self.did_client.add_dids(files[1000:])
-
-        with open(did_file_path, 'w') as did_file:
-            for file in files:
-                did_file.write(file['scope'] + ':' + file['name'] + '\n')
-            did_file.close()
-
-        # Attaching over 1000 files per file
-        cmd = 'rucio attach {0} -f {1}'.format(tmp_dsn_did, did_file_path)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        remove(did_file_path)
-
-        # Checking if the execution was successful and if the DIDs belong together
-        assert re.search('DIDs successfully attached', out) is not None
-        cmd = 'rucio list-content {0}'.format(tmp_dsn_did)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        # first file must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, files[0]['name']), out) is not None
-        # last file must be in the dataset
-        assert re.search("{0}:{1}".format(self.user, files[-1]['name']), out) is not None
-
-    @pytest.mark.dirty
-    def test_attach_many_dids_twice(self):
-        """ CLIENT(USER): Attach many (>1000) DIDs twice """
-        # Setup data for CLI check
-        container_name = 'container' + generate_uuid()
-        container = self.user + ':' + container_name
-        self.did_client.add_did(scope=self.user, name=container_name, did_type='CONTAINER')
-
-        datasets = [{'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'} for i in range(0, 1500)]
-        self.did_client.add_dids(datasets[:1000])
-        self.did_client.add_dids(datasets[1000:])
-
-        # Attaching over 1000 DIDs with CLI
-        cmd = 'rucio attach {0}'.format(container)
-        for dataset in datasets:
-            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
-        exitcode, out, err = execute(cmd)
-
-        # Attaching twice
-        cmd = 'rucio attach {0}'.format(container)
-        for dataset in datasets:
-            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
-        exitcode, out, err = execute(cmd)
-        assert re.search("DIDs successfully attached", out) is not None
-
-        # Attaching twice plus one DID that is not already attached
-        new_dataset = {'name': 'dsn_%s' % generate_uuid(), 'scope': self.user, 'type': 'DATASET'}
-        datasets.append(new_dataset)
-        self.did_client.add_did(scope=self.user, name=new_dataset['name'], did_type='DATASET')
-        cmd = 'rucio attach {0}'.format(container)
-        for dataset in datasets:
-            cmd += ' {0}:{1}'.format(dataset['scope'], dataset['name'])
-        exitcode, out, err = execute(cmd)
-        assert re.search("DIDs successfully attached", out) is not None
-        cmd = 'rucio list-content {0}'.format(container)
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, new_dataset['name']), out) is not None
-
-    @pytest.mark.noparallel(reason='might override global RSE settings')
-    def test_import_data(self):
-        """ CLIENT(ADMIN): Import data into rucio"""
-        file_path = 'data_import.json'
-        rses = {rse['rse']: rse for rse in self.rse_client.list_rses()}
-        rses[rse_name_generator()] = {'country_name': 'test'}
-        data = {'rses': rses}
-        with open(file_path, 'w+') as file:
-            file.write(render_json(**data))
-        cmd = 'rucio-admin data import {0}'.format(file_path)
-        exitcode, out, err = execute(cmd)
-        assert re.search('Data successfully imported', out) is not None
-        remove(file_path)
-
-    @pytest.mark.noparallel(reason='fails when run in parallel')
-    def test_export_data(self):
-        """ CLIENT(ADMIN): Export data from rucio"""
-        file_path = 'data_export.json'
-        cmd = 'rucio-admin data export {0}'.format(file_path)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert re.search('Data successfully exported', out) is not None
-        remove(file_path)
-
-    @pytest.mark.dirty
-    @pytest.mark.noparallel(reason='fails when run in parallel')
-    def test_set_tombstone(self):
-        """ CLIENT(ADMIN): set a tombstone on a replica. """
-        # Set tombstone on one replica
-        rse = self.def_rse
-        scope = 'mock'
-        name = generate_uuid()
-        self.replica_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
-        cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
-        exitcode, out, err = execute(cmd)
-        assert re.search('Set tombstone successfully', err) is not None
-
-        # Set tombstone on locked replica
-        name = generate_uuid()
-        self.replica_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
-        self.rule_client.add_replication_rule([{'name': name, 'scope': scope}], 1, rse, locked=True)
-        cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
-        exitcode, out, err = execute(cmd)
-        assert re.search('Replica is locked', err) is not None
-
-        # Set tombstone on not found replica
-        name = generate_uuid()
-        cmd = 'rucio-admin replicas set-tombstone {0}:{1} --rse {2}'.format(scope, name, rse)
-        exitcode, out, err = execute(cmd)
-        assert re.search('Replica not found', err) is not None
-
-    @pytest.mark.noparallel(reason='modifies account limit on pre-defined RSE')
-    def test_list_account_limits(self):
-        """ CLIENT (USER): list account limits. """
-        rse = self.def_rse
-        rse_exp = f'MOCK3|{rse}'
-        account = 'root'
-        local_limit = 10
-        global_limit = 20
-        self.account_client.set_local_account_limit(account, rse, local_limit)
-        self.account_client.set_global_account_limit(account, rse_exp, global_limit)
-        cmd = 'rucio list-account-limits {0}'.format(account)
-        exitcode, out, err = execute(cmd)
-        assert re.search('.*{0}.*{1}.*'.format(rse, local_limit), out) is not None
-        assert re.search('.*{0}.*{1}.*'.format(rse_exp, global_limit), out) is not None
-        cmd = 'rucio list-account-limits --rse {0} {1}'.format(rse, account)
-        exitcode, out, err = execute(cmd)
-        assert re.search('.*{0}.*{1}.*'.format(rse, local_limit), out) is not None
-        assert re.search('.*{0}.*{1}.*'.format(rse_exp, global_limit), out) is not None
-        self.account_client.set_local_account_limit(account, rse, -1)
-        self.account_client.set_global_account_limit(account, rse_exp, -1)
-
-    @pytest.mark.noparallel(reason='modifies account limit on pre-defined RSE')
-    @pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason='uses abacus daemon and core functions')
-    def test_list_account_usage(self):
-        """ CLIENT (USER): list account usage. """
-        from rucio.core.account_counter import increase
-        from rucio.daemons.abacus import account as abacus_account
-        from rucio.db.sqla import models, session
-
-        db_session = session.get_session()
-        for model in [models.AccountUsage, models.AccountLimit, models.AccountGlobalLimit, models.UpdatedAccountCounter]:
-            stmt = delete(model)
-            db_session.execute(stmt)
-        db_session.commit()
-        rse = self.def_rse
-        rse_id = self.def_rse_id
-        rse_exp = f'MOCK|{rse}'
-        account = 'root'
-        usage = 4
-        local_limit = 10
-        local_left = local_limit - usage
-        global_limit = 20
-        global_left = global_limit - usage
-        self.account_client.set_local_account_limit(account, rse, local_limit)
-        self.account_client.set_global_account_limit(account, rse_exp, global_limit)
-        increase(rse_id, InternalAccount(account, **self.vo), 1, usage)
-        abacus_account.run(once=True)
-        cmd = 'rucio list-account-usage {0}'.format(account)
-        exitcode, out, err = execute(cmd)
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(f'MOCK|{rse}', usage, global_limit, global_left), out) is not None
-
-        cmd = 'rucio list-account-usage --rse {0} {1}'.format(rse, account)
-        exitcode, out, err = execute(cmd)
-        assert exitcode == 0
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(rse, usage, local_limit, local_left), out) is not None
-        assert re.search('.*{0}.*{1}.*{2}.*{3}'.format(f'MOCK|{rse}', usage, global_limit, global_left), out) is not None
-        self.account_client.set_local_account_limit(account, rse, -1)
-        self.account_client.set_global_account_limit(account, rse_exp, -1)
-
-    def test_get_set_delete_limits_rse(self):
-        """CLIENT(ADMIN): Get, set and delete RSE limits"""
-        name = generate_uuid()
-        value = random.randint(0, 100000)
-        name2 = generate_uuid()
-        value2 = random.randint(0, 100000)
-        name3 = generate_uuid()
-        value3 = account_name_generator()
-        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name, value)
-        execute(cmd)
-        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name2, value2)
-        execute(cmd)
-        cmd = 'rucio-admin rse info %s' % self.def_rse
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}: {1}".format(name, value), out) is not None
-        assert re.search("{0}: {1}".format(name2, value2), out) is not None
-        new_value = random.randint(100001, 999999999)
-        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name, new_value)
-        execute(cmd)
-        cmd = 'rucio-admin rse info %s' % self.def_rse
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}: {1}".format(name, new_value), out) is not None
-        assert re.search("{0}: {1}".format(name, value), out) is None
-        assert re.search("{0}: {1}".format(name2, value2), out) is not None
-        cmd = 'rucio-admin rse delete-limit %s %s' % (self.def_rse, name)
-        execute(cmd)
-        cmd = 'rucio-admin rse info %s' % self.def_rse
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}: {1}".format(name, new_value), out) is None
-        assert re.search("{0}: {1}".format(name2, value2), out) is not None
-        cmd = 'rucio-admin rse delete-limit %s %s' % (self.def_rse, name)
-        exitcode, out, err = execute(cmd)
-        assert re.search('Limit {0} not defined in RSE {1}'.format(name, self.def_rse), err) is not None
-        cmd = 'rucio-admin rse set-limit %s %s %s' % (self.def_rse, name3, value3)
-        exitcode, out, err = execute(cmd)
-        assert re.search('The RSE limit value must be an integer', err) is not None
-        cmd = 'rucio-admin rse info %s' % self.def_rse
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}: {1}".format(name3, value3), out) is None
-        assert re.search("{0}: {1}".format(name2, value2), out) is not None
-
-    def test_upload_recursive_ok(self):
-        """CLIENT(USER): Upload and preserve folder structure"""
-        folder = 'folder_' + generate_uuid()
-        folder1 = '%s/folder_%s' % (folder, generate_uuid())
-        folder2 = '%s/folder_%s' % (folder, generate_uuid())
-        folder3 = '%s/folder_%s' % (folder, generate_uuid())
-        folder11 = '%s/folder_%s' % (folder1, generate_uuid())
-        folder12 = '%s/folder_%s' % (folder1, generate_uuid())
-        folder13 = '%s/folder_%s' % (folder1, generate_uuid())
-        file1 = 'file_%s' % generate_uuid()
-        file2 = 'file_%s' % generate_uuid()
-        cmd = 'mkdir %s' % folder
-        execute(cmd)
-        cmd = 'mkdir %s && mkdir %s && mkdir %s' % (folder1, folder2, folder3)
-        execute(cmd)
-        cmd = 'mkdir %s && mkdir %s && mkdir %s' % (folder11, folder12, folder13)
-        execute(cmd)
-        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder11, file1)
-        execute(cmd)
-        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder2, file2)
-        execute(cmd)
-        cmd = 'rucio upload --legacy --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder)
-        execute(cmd)
-        cmd = 'rucio list-content %s:%s' % (self.user, folder)
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, folder1.split('/')[-1]), out) is not None
-        assert re.search("{0}:{1}".format(self.user, folder2.split('/')[-1]), out) is not None
-        assert re.search("{0}:{1}".format(self.user, folder3.split('/')[-1]), out) is None
-        cmd = 'rucio list-content %s:%s' % (self.user, folder1.split('/')[-1])
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, folder11.split('/')[-1]), out) is not None
-        assert re.search("{0}:{1}".format(self.user, folder12.split('/')[-1]), out) is None
-        assert re.search("{0}:{1}".format(self.user, folder13.split('/')[-1]), out) is None
-        cmd = 'rucio list-content %s:%s' % (self.user, folder11.split('/')[-1])
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
-        cmd = 'rucio list-content %s:%s' % (self.user, folder2.split('/')[-1])
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, file2), out) is not None
-        cmd = 'rm -rf %s' % folder
-        execute(cmd)
-
-    def test_upload_recursive_subfolder(self):
-        """CLIENT(USER): Upload and preserve folder structure in a subfolder"""
-        folder = 'folder_' + generate_uuid()
-        folder1 = '%s/folder_%s' % (folder, generate_uuid())
-        folder11 = '%s/folder_%s' % (folder1, generate_uuid())
-        file1 = 'file_%s' % generate_uuid()
-        cmd = 'mkdir %s' % (folder)
-        execute(cmd)
-        cmd = 'mkdir %s' % (folder1)
-        execute(cmd)
-        cmd = 'mkdir %s' % (folder11)
-        execute(cmd)
-        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder11, file1)
-        execute(cmd)
-        cmd = 'rucio upload --legacy --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder1)
-        execute(cmd)
-        cmd = 'rucio list-content %s:%s' % (self.user, folder)
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, folder1.split('/')[-1]), out) is None
-        cmd = 'rucio list-content %s:%s' % (self.user, folder1.split('/')[-1])
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, folder11.split('/')[-1]), out) is not None
-        cmd = 'rucio list-content %s:%s' % (self.user, folder11.split('/')[-1])
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
-        cmd = 'rm -rf %s' % folder
-        execute(cmd)
-
-    def test_recursive_empty(self):
-        """CLIENT(USER): Upload and preserve folder structure with an empty folder"""
-        folder = 'folder_' + generate_uuid()
-        folder1 = '%s/folder_%s' % (folder, generate_uuid())
-        cmd = 'mkdir %s' % (folder)
-        execute(cmd)
-        cmd = 'mkdir %s' % (folder1)
-        execute(cmd)
-        cmd = 'rucio upload --legacy --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder)
-        execute(cmd)
-        cmd = 'rucio list-content %s:%s' % (self.user, folder)
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, folder1.split('/')[-1]), out) is None
-        cmd = 'rm -rf %s' % folder
-        execute(cmd)
-
-    def test_upload_recursive_only_files(self):
-        """CLIENT(USER): Upload and preserve folder structure only with files"""
-        folder = 'folder_' + generate_uuid()
-        file1 = 'file_%s' % generate_uuid()
-        file2 = 'file_%s' % generate_uuid()
-        file3 = 'file_%s' % generate_uuid()
-        cmd = 'mkdir %s' % folder
-        execute(cmd)
-        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder, file1)
-        execute(cmd)
-        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder, file2)
-        execute(cmd)
-        cmd = 'echo "%s" > %s/%s.txt' % (generate_uuid(), folder, file3)
-        execute(cmd)
-        cmd = 'rucio upload --legacy --scope %s --rse %s --recursive %s/' % (self.user, self.def_rse, folder)
-        execute(cmd)
-        cmd = 'rucio list-content %s:%s' % (self.user, folder)
-        exitcode, out, err = execute(cmd)
-        assert re.search("{0}:{1}".format(self.user, file1), out) is not None
-        assert re.search("{0}:{1}".format(self.user, file2), out) is not None
-        assert re.search("{0}:{1}".format(self.user, file3), out) is not None
-        cmd = 'rucio ls %s:%s' % (self.user, folder)
-        exitcode, out, err = execute(cmd)
-        assert re.search("DATASET", out) is not None
-        cmd = 'rm -rf %s' % folder
-        execute(cmd)
-
-    def test_deprecated_command_line_args(self):
-        """CLIENT(USER): Warn about deprecated command line args"""
-        cmd = 'rucio get --trace_appid 0'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        assert 'Warning: The commandline argument --trace_appid is deprecated! Please use --trace-appid in the future.' in out
-
-    def test_rucio_admin_expiration_date_is_deprecated(self):
-        """CLIENT(USER): Warn about deprecated command line args"""
-        cmd = 'rucio-admin replicas declare-temporary-unavailable srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --expiration-date 168 --reason \'test only\''
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'Warning: The commandline argument --expiration-date is deprecated! Please use --duration in the future.' in out
-
-    def test_rucio_admin_expiration_date_not_defined(self):
-        """CLIENT(USER): Warn about deprecated command line arg"""
-        cmd = 'rucio-admin replicas declare-temporary-unavailable srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --reason \'test only\''
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert err != 0
-        assert 'the following arguments are required' in err
-
-    def test_rucio_admin_duration_out_of_bounds(self):
-        """CLIENT(USER): Warn about deprecated command line arg"""
-        cmd = 'rucio-admin replicas declare-temporary-unavailable srm://se.bfg.uni-freiburg.de/pnfs/bfg.uni-freiburg.de/data/atlasdatadisk/rucio/user/jdoe/e2/a7/jdoe.TXT.txt --duration 622080000 --reason \'test only\''
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert err != 0
-        assert re.search(r'The given duration of 7199 days exceeds the maximum duration of 30 days.', err)
-
-    def test_update_rule_cancel_requests_args(self):
-        """CLIENT(USER): update rule cancel requests must have a state defined"""
-        cmd = 'rucio update-rule --cancel-requests RULE'
-        exitcode, out, err = execute(cmd)
-        assert '--stuck or --suspend must be specified when running --cancel-requests' in err
-        assert exitcode != 0
-
-    def test_update_rule_unset_child_rule(self):
-        """CLIENT(USER): update rule unsets a child rule property"""
-
-        # PREPARING FILE AND RSE
-        # add files
-        tmp_file = file_generator()
-        tmp_fname = tmp_file[5:]
-        cmd = f'rucio upload --legacy --rse {self.def_rse} --scope {self.user} {tmp_file}'
-        exitcode, out, err = execute(cmd)
-        assert 'ERROR' not in err
-
-        for i in range(2):
-            tmp_rse = rse_name_generator()
-            cmd = f'rucio-admin rse add {tmp_rse}'
-            exitcode, out, err = execute(cmd)
-            assert "ERROR" not in err
-
-            self.account_client.set_local_account_limit('root', tmp_rse, -1)
-
-            cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
-                   f' --key spacetoken --value RULELOC{i}')
-            exitcode, out, err = execute(cmd)
-            assert "ERROR" not in err
-
-        # PREPARING THE RULES
-        # add rule
-        rule_expr = "spacetoken=RULELOC0"
-        cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
-        exitcode, out, err = execute(cmd)
-        assert "ERROR" not in err
-        # get the rules for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
-            format(self.user, tmp_file[5:])
-        exitcode, out, err = execute(cmd)
-        parentrule_id, _ = out.split()
-
-        # LINKING THE RULES (PARENT/CHILD)
-        # move rule
-        new_rule_expr = rule_expr + "|spacetoken=RULELOC1"
-        cmd = f"rucio move-rule {parentrule_id} '{new_rule_expr}'"
-        exitcode, out, err = execute(cmd)
-        childrule_id = out.split('\n')[-2]
-        assert "ERROR" not in err
-
-        # check if new rule exists for the file
-        cmd = "rucio list-rules {0}:{1}".format(self.user, tmp_fname)
-        exitcode, out, err = execute(cmd)
-        assert re.search(childrule_id, out) is not None
-
-        # DETACHING THE RULES
-        # child-rule-id None means to unset the variable on the parent rule
-        cmd = f"rucio update-rule --child-rule-id None {parentrule_id}"
-        exitcode, out, err = execute(cmd)
-        assert 'ERROR' not in err
-        assert re.search('Updated Rule', out) is not None
-
-        cmd = f"rucio update-rule --child-rule-id None {parentrule_id}"
-        exitcode, out, err = execute(cmd)
-        assert 'ERROR' in err
-        assert re.search('Cannot detach child when no such relationship exists', err) is not None
-
-    def test_update_rule_no_child_selfassign(self):
-        """CLIENT(USER): do not permit to assign self as own child"""
-        tmp_file = file_generator()
-        tmp_fname = tmp_file[5:]
-        cmd = f'rucio upload --legacy --rse {self.def_rse} --scope {self.user} {tmp_file}'
-        exitcode, out, err = execute(cmd)
-        assert 'ERROR' not in err
-
-        tmp_rse = rse_name_generator()
-        cmd = f'rucio-admin rse add {tmp_rse}'
-        exitcode, out, err = execute(cmd)
-        assert "ERROR" not in err
-
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-
-        cmd = (f'rucio-admin rse set-attribute --rse {tmp_rse}'
-               f' --key spacetoken --value RULELOC')
-        exitcode, out, err = execute(cmd)
-        assert "ERROR" not in err
-
-        # PREPARING THE RULES
-        # add rule
-        rule_expr = "spacetoken=RULELOC"
-        cmd = f"rucio add-rule {self.user}:{tmp_fname} 1 '{rule_expr}'"
-        exitcode, out, err = execute(cmd)
-        assert "ERROR" not in err
-
-        # get the rules for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".\
-            format(self.user, tmp_file[5:])
-        exitcode, out, err = execute(cmd)
-        parentrule_id = out.split('\n')[-2]
-
-        # now for the test
-        # TODO: merge this with the other update_rule test from issue #5930
-        cmd = f"rucio update-rule --child-rule-id {parentrule_id} {parentrule_id}"
-        exitcode, out, err = execute(cmd)
-        # TODO: add a more specific assertion here.
-        assert err
-
-    def test_update_rule_boost_rule_arg(self):
-        """CLIENT(USER): update a rule with the `--boost_rule` option """
-        self.account_client.set_local_account_limit('root', self.def_rse, -1)
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value ATLASDELETERULE'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rules
-        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=ATLASDELETERULE'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(err)
-        print(out)
-        # get the rules for the file
-        cmd = r"rucio list-rules {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        (rule1, rule2) = out.split()
-
-        # update the rules
-        cmd = "rucio update-rule --boost-rule {0}".format(rule1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        assert exitcode == 0
-        print(out, err)
-        cmd = "rucio update-rule --boost-rule {0}".format(rule2)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-
-    def test_rucio_list_file_replicas(self):
-        """CLIENT(USER): List missing file replicas """
-        self.account_client.set_local_account_limit('root', self.def_rse, -1)
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rse
-        tmp_rse = rse_name_generator()
-        cmd = 'rucio-admin rse add {0}'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out)
-        self.account_client.set_local_account_limit('root', tmp_rse, -1)
-
-        # add rse attributes
-        cmd = 'rucio-admin rse set-attribute --rse {0} --key spacetoken --value MARIOSPACEODYSSEY'.format(tmp_rse)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        # add rules
-        cmd = "rucio add-rule {0}:{1} 1 'spacetoken=MARIOSPACEODYSSEY'".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(err)
-        print(out)
-
-        cmd = 'rucio list-file-replicas {0}:{1} --rses "spacetoken=MARIOSPACEODYSSEY" --missing'.format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
-        assert tmp_file1[5:] in out
-
-    def test_rucio_create_rule_with_0_copies(self):
-        """CLIENT(USER): The creation of a rule with 0 copies shouldn't be possible."""
-        tmp_file1 = file_generator()
-        # add files
-        cmd = 'rucio upload --legacy --rse {0} --scope {1} {2}'.format(self.def_rse, self.user, tmp_file1)
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-
-        # Try to add a rules with 0 copies, this shouldn't be possible
-        cmd = "rucio add-rule {0}:{1} 0 MOCK".format(self.user, tmp_file1[5:])
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(err)
-        print(out)
-        assert exitcode != 0
-        assert "The number of copies for a replication rule should be greater than 0." in err
-
-    def test_add_lifetime_exception(self):
-        """ CLIENT(USER): Rucio submission of lifetime exception """
-        container = 'container_%s' % generate_uuid()
-        dataset = 'dataset_%s' % generate_uuid()
-        self.did_client.add_container(scope=self.user, name=container)
-        self.did_client.add_dataset(scope=self.user, name=dataset)
-        filename = get_tmp_dir() + 'lifetime_exception.txt'
-        with open(filename, 'w') as file_:
-            file_.write('%s:%s\n' % (self.user, dataset))
-
-        # Try adding an exception
-        cmd = 'rucio add-lifetime-exception --inputfile %s --reason "%s" --expiration %s' % (filename, 'Needed for analysis', '2015-10-30')
-        print(cmd)
-        exitcode, out, err = execute(cmd)
-        print(exitcode, out, err)
-        assert exitcode == 0
-        assert "Nothing to submit" in err
-
-        with open(filename, 'w') as file_:
-            file_.write('%s:%s\n' % (self.user, dataset))
-            file_.write('%s:%s' % (self.user, container))
-
-        # Try adding an exception
-        cmd = 'rucio add-lifetime-exception --inputfile %s --reason "%s" --expiration %s' % (filename, 'Needed for analysis', '2015-10-30')
-        print(cmd)
-        exitcode, out, err = execute(cmd)
-        print(exitcode, out, err)
-        assert exitcode == 0
-        assert "One or more DIDs are containers. They will be resolved into a list of datasets" in err
-
-        try:
-            remove(filename)
-        except OSError as err:
-            if err.args[0] != 2:
-                raise err
-
-    def test_add_lifetime_exception_large_dids_number(self):
-        """ CLIENT(USER): Check that exceptions with more than 1k DIDs are supported """
-        filename = get_tmp_dir() + 'lifetime_exception_many_dids.txt'
-        with open(filename, 'w') as file_:
-            for _ in range(2000):
-                file_.write('%s:%s\n' % (self.user, generate_uuid()))
-
-        # Try adding an exception
-        cmd = 'rucio add-lifetime-exception --inputfile %s --reason "%s" --expiration %s' % (filename, 'Needed for analysis', '2015-10-30')
-        print(cmd)
-        exitcode, out, err = execute(cmd)
-        print(exitcode, out, err)
-        assert exitcode == 0
-        assert "Nothing to submit" in err
-
-        try:
-            remove(filename)
-        except OSError as err:
-            if err.args[0] != 2:
-                raise err
-
-    def test_admin_rse_update_unsupported_option(self):
-        """ ADMIN CLIENT: Rse update should throw an unsupported option exception on an unsupported exception."""
-        exitcode, out, err = execute("rucio-admin rse update --setting test_with_non_existing_option --value 3 --rse {}".format(self.def_rse))
-        print(out, err)
-        assert exitcode != 0
-        assert "Details: The key 'test_with_non_existing_option' does not exist for RSE properties." in err
-
-        exitcode, out, err = execute("rucio-admin rse update --setting country_name --value France --rse {}".format(self.def_rse))
-        print(out, err)
-        assert exitcode == 0
-        assert "ERROR" not in err
-
-    @pytest.mark.noparallel(reason='Modify config')
-    def test_lifetime_cli(self):
-        """ CLIENT(USER): Check CLI to declare lifetime exceptions """
-        # Setup data for CLI check
-        tmp_dsn_name = 'container' + rse_name_generator()
-        tmp_dsn_did = self.user + ':' + tmp_dsn_name
-        self.did_client.add_did(scope=self.user, name=tmp_dsn_name, did_type='DATASET')
-        self.did_client.set_metadata(scope=self.user, name=tmp_dsn_name, key='eol_at', value=(datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d'))
-        self.config_client.set_config_option(section='lifetime_model', option='cutoff_date', value=(datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d'))
-        with tempfile.NamedTemporaryFile(mode="w+") as fp:
-            fp.write(f'{tmp_dsn_did}\n' * 2)
-            fp.seek(0)
-            exitcode, out, err = execute("rucio add-lifetime-exception --inputfile %s --reason 'For testing purpose; please ignore.' --expiration 2124-01-01" % fp.name)
-            assert 'does not exist' not in err
-
-    def test_lifetime_container_resolution(self):
-        """ CLIENT(USER): Check that the CLI to declare lifetime exceptions resolve contaiers"""
-        # Setup data for CLI check
-        tmp_dsn_name1 = 'dataset' + rse_name_generator()
-        tmp_dsn_name2 = 'dataset' + rse_name_generator()
-        tmp_cnt_name = 'container' + rse_name_generator()
-        tmp_cnt_did = self.user + ':' + tmp_cnt_name
-        # Create 2 datasets and 1 container and attach dataset to container
-        self.did_client.add_did(scope=self.user, name=tmp_dsn_name1, did_type='DATASET')
-        self.did_client.add_did(scope=self.user, name=tmp_dsn_name2, did_type='DATASET')
-        self.did_client.add_did(scope=self.user, name=tmp_cnt_name, did_type='CONTAINER')
-        self.did_client.attach_dids(scope=self.user, name=tmp_cnt_name, dids=[{'scope': self.user, 'name': tmp_dsn_name1}, {'scope': self.user, 'name': tmp_dsn_name2}])
-        # Set eol_at for the first dataset but not to the second one
-        self.did_client.set_metadata(scope=self.user, name=tmp_dsn_name1, key='eol_at', value=(datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d'))
-        self.config_client.set_config_option(section='lifetime_model', option='cutoff_date', value=(datetime.utcnow() + timedelta(days=1)).strftime('%Y-%m-%d'))
-        with tempfile.NamedTemporaryFile(mode="w+") as fp:
-            fp.write(f'{tmp_cnt_did}')
-            fp.seek(0)
-            exitcode, out, err = execute("rucio add-lifetime-exception --inputfile %s --reason 'For testing purpose; please ignore.' --expiration 2124-01-01" % fp.name)
-            print(exitcode, out, err)
-            assert '%s:%s is not affected by the lifetime model' % (self.user, tmp_dsn_name2)
-            assert '%s:%s will be declared' % (self.user, tmp_dsn_name1)
-        list_exceptions = [(excep['scope'], excep['name']) for excep in self.lifetime_client.list_exceptions()]
-        assert (self.user, tmp_dsn_name1) in list_exceptions
-        assert (self.user, tmp_dsn_name2) not in list_exceptions
