@@ -125,6 +125,7 @@ def get_opendata_did(
         scope: "InternalScope",
         name: str,
         state: Optional[OpenDataDIDState] = None,
+        files: bool = True,
         session: "Session"
 ) -> Optional[dict[str, Any]]:
     print(f"Called CORE get_opendata_did with scope={scope}, name={name}, state={state}")
@@ -156,7 +157,32 @@ def get_opendata_did(
 
     doi = get_opendata_doi(scope=scope, name=name, session=session)
 
-    return dict(result) | {"doi": doi} if doi else dict(result, doi=None)
+    result = dict(result)
+    result["doi"] = doi
+
+    if files:
+        opendata_files = get_opendata_did_files(scope=scope, name=name, session=session)
+        result["files"] = opendata_files
+
+        bytes_sum = sum(file["bytes"] for file in opendata_files)
+        extensions = set()
+        replicas_missing = 0
+        for file in opendata_files:
+            if "replicas" not in file or not file["replicas"]:
+                replicas_missing += 1
+            for replica in file.get("replicas", []):
+                filename = replica.split("/")[-1]
+                if "." in filename:
+                    extensions.add(filename.split(".")[-1])
+
+        result["files_summary"] = {
+            "count": len(opendata_files),
+            "bytes": bytes_sum,
+            "extensions": list(extensions),
+            "replicas_missing": replicas_missing,
+        }
+
+    return result
 
 
 @transactional_session
@@ -469,7 +495,7 @@ def get_opendata_did_files(
             "name": file["name"],
             "bytes": file["bytes"],
             "adler32": file["adler32"],
-            "uri": "TODO",
+            "replicas:": [],
         }
         for file in files
     ]
