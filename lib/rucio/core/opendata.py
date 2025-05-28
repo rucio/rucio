@@ -97,6 +97,29 @@ def list_opendata_dids(
 
 
 @read_session
+def get_opendata_doi(
+        *,
+        scope: "InternalScope",
+        name: str,
+        session: "Session"
+) -> Optional[dict[str, Any]]:
+    query = select(
+        models.OpenDataDOI.doi,
+    ).where(
+        and_(
+            models.OpenDataDOI.name == name,
+            models.OpenDataDOI.scope == scope,
+        )
+    )
+
+    result = session.execute(query).mappings().fetchone()
+    if not result:
+        return None
+    else:
+        return result["doi"]
+
+
+@read_session
 def get_opendata_did(
         *,
         scope: "InternalScope",
@@ -131,7 +154,9 @@ def get_opendata_did(
 
     print(f"Query result: {result}")
 
-    return dict(result)
+    doi = get_opendata_doi(scope=scope, name=name, session=session)
+
+    return dict(result) | {"doi": doi} if doi else dict(result, doi=None)
 
 
 @transactional_session

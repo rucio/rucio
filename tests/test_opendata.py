@@ -178,6 +178,18 @@ class TestOpenDataCore:
         opendata_json = opendata.get_opendata_did(scope=mock_scope, name=name)["opendata_json"]
         assert opendata_json == opendata_json_new, "opendata_json should be updated"
 
+    def test_opendata_doi_update(self, mock_scope, root_account):
+        name = did_name_generator(did_type="dataset")
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
+        opendata.add_opendata_did(scope=mock_scope, name=name)
+
+        doi = "10.1234/test.doi"
+        # generic update method
+        opendata.update_opendata_did(scope=mock_scope, name=name, doi=doi)
+        # also via dedicated method
+        opendata.update_opendata_doi(scope=mock_scope, name=name, doi=doi)
+
+
     def test_opendata_dids_list(self, mock_scope, root_account):
         dids = [
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)

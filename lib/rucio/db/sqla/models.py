@@ -491,7 +491,12 @@ class OpenDataDid(BASE, ModelBase):
 
     __table_args__ = (
         PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
-        ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK'),
+        ForeignKeyConstraint(
+            ['scope', 'name'],
+            ['dids.scope', 'dids.name'],
+            name='OPENDATA_DID_FK',
+            ondelete='CASCADE',
+        ),
         Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
         Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
         Index('OPENDATA_DID_STATE_IDX', 'state'),
@@ -505,7 +510,7 @@ class OpenDataDOI(BASE, ModelBase):
 
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
-    doi: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    doi: Mapped[str] = mapped_column(String(255), unique=True)
 
     __table_args__ = (
         PrimaryKeyConstraint('scope', 'name', 'doi', name='OPENDATA_DOI_PK'),
