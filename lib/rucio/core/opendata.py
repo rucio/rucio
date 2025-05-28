@@ -24,6 +24,7 @@ from rucio.common import exception
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
+from rucio.core.replica import list_replicas
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -168,9 +169,10 @@ def get_opendata_did(
         extensions = set()
         replicas_missing = 0
         for file in opendata_files:
-            if "replicas" not in file or not file["replicas"]:
+            if "uris" not in file or not file["uris"]:
                 replicas_missing += 1
-            for replica in file.get("replicas", []):
+                continue
+            for replica in file["uris"]:
                 filename = replica.split("/")[-1]
                 if "." in filename:
                     extensions.add(filename.split(".")[-1])
@@ -495,9 +497,20 @@ def get_opendata_did_files(
             "name": file["name"],
             "bytes": file["bytes"],
             "adler32": file["adler32"],
-            "replicas:": [],
         }
         for file in files
     ]
+
+    for i, file in enumerate(result):
+        replicas = list_replicas(dids=[{"scope": file["scope"], "name": file["name"]}], session=session)
+        uris = []
+        for replica in replicas:
+            pfns = replica["pfns"]
+            for uri, data in pfns.items():
+                if data["type"] != "DISK":
+                    continue
+                uris.append(uri)
+
+        result[i]["uris"] = uris
 
     return result
