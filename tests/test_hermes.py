@@ -19,6 +19,7 @@ Hermes Test
 import time
 from datetime import datetime
 from json import loads
+from unittest.mock import MagicMock
 
 import pytest
 import requests
@@ -76,6 +77,8 @@ class MyListener:
                 ("messaging-hermes", "password", "supersecret"),
                 ("messaging-hermes", "nonssl_port", 61613),
                 ("messaging-hermes", "send_email", False),
+                ("messaging-hermes", "smtp-host", "testing.host"),
+                ("messaging-hermes", "smtp-port", 1234),
             ]
         }
     ],
@@ -92,7 +95,7 @@ class MyListener:
     ],
     indirect=True,
 )
-def test_hermes(core_config_mock, caches_mock):
+def test_hermes(core_config_mock, caches_mock, monkeypatch):
     """HERMES (DAEMON): Test the messaging daemon."""
     truncate_messages()
     mock_rse = rse_name_generator()
@@ -171,7 +174,11 @@ def test_hermes(core_config_mock, caches_mock):
     # The messages of event-type blahblah should be removed from the list for service influx since this event-type is not supported by influx
     # The messages of event-type blahblah should be submitted to elastic
     # The messages of event-type blahblah should be submitted to ActiveMQ
-    hermes.hermes(once=True)
+    with monkeypatch.context() as m:
+        smtp_mock = MagicMock()
+        m.setattr(hermes.smtplib, "SMTP", smtp_mock)
+        hermes.hermes(once=True)
+        smtp_mock.assert_called_with(host="testing.host", port=1234)
     service_dict = {"influx": 0, "elastic": 0, "email": 0, "activemq": 0}
     messages = retrieve_messages(50, old_mode=False)
     for message in messages:
