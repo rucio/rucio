@@ -189,7 +189,7 @@ class SignURL(ErrorHandlingMethodView):
         if operation not in RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty (which defaults to "read"), "read", "write", or "delete".', headers=headers)
 
-        operation = cast("RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL", service)
+        operation = cast("RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL", operation)
 
         result = get_signed_url(account, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
