@@ -23,6 +23,7 @@ from sqlalchemy import and_, delete, or_
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
+from rucio.common.exception import UnsupportedOperation
 from rucio.common.schema import get_schema_value
 from rucio.common.types import DIDDict, FileToUploadDict, InternalAccount, InternalScope, PathTypeAlias
 from rucio.common.utils import execute, generate_uuid
@@ -66,6 +67,11 @@ class TemporaryRSEFactory:
         self.created_rses = set()
         self.db_session = db_session
 
+        self.client_mode = False
+        if os.environ.get("SUITE") == 'client':
+            self.client_mode = True
+            self.client = Client(vo=self.vo)
+
     def __enter__(self) -> "TemporaryRSEFactory":
         return self
 
@@ -76,7 +82,14 @@ class TemporaryRSEFactory:
         if not self.created_rses:
             return
 
-        self._cleanup_db_deps(session=session or self.db_session)
+        if not self.client_mode:
+            self._cleanup_db_deps(session=session or self.db_session)
+        else:
+            self._clean_client()
+
+    def _clean_client(self) -> None:
+        for rse in self.created_rses:
+            self.client.delete_rse(rse)
 
     @transactional_session
     def _cleanup_db_deps(
@@ -96,6 +109,57 @@ class TemporaryRSEFactory:
             # So running test in parallel results in some tests failing on foreign key errors.
             rse_core.del_rse(rse_id)
 
+    def _make_rse_client(
+            self,
+            rse_name: str,
+            scheme: Optional[str],
+            protocol_impl: Optional[str],
+            parameters: Optional[dict[str, Any]] = None,
+            add_rse_kwargs: Optional[dict[str, Any]] = None,
+    ) -> str:
+
+        # Uses the RSE Client instead of RSE Core - only to be used on client only test suite
+        self.client.add_rse(
+            rse=rse_name,
+            **(add_rse_kwargs or {})
+        )
+        rse_id = self.client.get_rse(rse=rse_name)['id']
+
+        if scheme and protocol_impl:
+            prefix = '/test_%s/' % rse_id
+            if protocol_impl == 'rucio.rse.protocols.posix.Default':
+                prefix = '/tmp/rucio_rse/test_%s/' % rse_id
+            protocol_parameters = {
+                'scheme': scheme,
+                'hostname': '%s.cern.ch' % rse_id,
+                'port': 0,
+                'prefix': prefix,
+                'impl': protocol_impl,
+                'domains': {
+                    'wan': {
+                        'read': 1,
+                        'write': 1,
+                        'delete': 1,
+                        'third_party_copy_read': 1,
+                        'third_party_copy_write': 1,
+                    },
+                    'lan': {
+                        'read': 1,
+                        'write': 1,
+                        'delete': 1,
+                    }
+                }
+            }
+            if scheme == 'srm':
+                protocol_parameters["extended_attributes"] = {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"}
+            protocol_parameters.update(parameters or {})
+
+            self.client.add_protocol(
+                rse_name,
+                params=protocol_parameters
+            )
+        return rse_id
+
     def _make_rse(
             self,
             scheme: Optional[str],
@@ -106,6 +170,10 @@ class TemporaryRSEFactory:
     ) -> tuple[str, str]:
         session = session or self.db_session
         rse_name = self.name_prefix + ''.join(choice(ascii_uppercase) for _ in range(6))
+
+        if self.client_mode:
+            return rse_name, self._make_rse_client(rse_name, scheme, protocol_impl, parameters, add_rse_kwargs)
+
         if add_rse_kwargs and 'vo' in add_rse_kwargs:
             rse_id = rse_core.add_rse(rse_name, session=session, **add_rse_kwargs)
         else:
@@ -208,6 +276,9 @@ class TemporaryDidFactory:
         self._upload_client = None
 
         self.created_dids = set()
+        self.client_mode = False
+        if os.environ.get("SUITE") == 'client':
+            self.client_mode = True
 
     def __enter__(self) -> "TemporaryDidFactory":
         return self
@@ -222,6 +293,12 @@ class TemporaryDidFactory:
             self._upload_client = UploadClient(client)
         return self._upload_client
 
+    @property
+    def client(self) -> Client:
+        if not self._client:
+            self._client = Client(vo=self.vo)
+        return self._client
+
     def cleanup(
             self,
             session: Optional["Session"] = None
@@ -229,7 +306,25 @@ class TemporaryDidFactory:
         if not self.created_dids:
             return
 
-        self._cleanup_db_deps(session=session or self.db_session)
+        if not self.client_mode:
+            self._cleanup_db_deps(session=session or self.db_session)
+        else:
+            self._cleanup_client()
+
+    def _cleanup_client(self) -> None:
+        for scope, name in self.created_dids:
+            if isinstance(scope, InternalScope):
+                scope = scope.external
+            # Remove rules associated with the dids
+            for rule in self.client.list_associated_rules_for_file(scope=scope, name=name):
+                try:
+                    self.client.delete_replication_rule(rule_id=rule['id'], purge_replicas=True)
+                except UnsupportedOperation:
+                    # The rule has a child rule so we cannot delete it
+                    pass
+
+        # Then run the undertaker
+        execute('rucio-undertaker --run-once')
 
     @transactional_session
     def _cleanup_db_deps(
@@ -392,6 +487,17 @@ class TemporaryDidFactory:
     ) -> DIDDict:
         ...
 
+    def _add_did(self, did: dict[str, Union[str, InternalScope]], did_type: DIDType, account: Optional[InternalAccount] = None, session: Optional["Session"] = None) -> None:
+        if not self.client_mode:
+            did_core.add_did(**did, did_type=did_type, account=account, session=session)
+
+        else:
+            scope = did['scope']
+            if isinstance(scope, InternalScope):
+                scope = scope.external
+            name = did['name']
+            self.client.add_did(scope, name, did_type=did_type,  lifetime=-1)  # Lifetime set to -1 so undertaker can delete it
+
     def make_dataset(
             self,
             scope: Optional[Union[str, InternalScope]] = None,
@@ -403,7 +509,7 @@ class TemporaryDidFactory:
         account = account or self.default_account
         session = session or self.db_session
         did = self.random_dataset_did(scope=scope)
-        did_core.add_did(**did, did_type=DIDType.DATASET, account=account, session=session)
+        self._add_did(did, did_type=DIDType.DATASET, account=account, session=session)
         return _to_external(did) if external else did
 
     @overload
@@ -439,7 +545,7 @@ class TemporaryDidFactory:
         account = account or self.default_account
         session = session or self.db_session
         did = self.random_container_did(scope=scope)
-        did_core.add_did(**did, did_type=DIDType.CONTAINER, account=account, session=session)
+        self._add_did(did, did_type=DIDType.CONTAINER, account=account, session=session)
         return _to_external(did) if external else did
 
     @overload
