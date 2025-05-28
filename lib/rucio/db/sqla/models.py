@@ -522,7 +522,6 @@ class OpenDataDOI(BASE, ModelBase):
         ),
         # Not working on all DB, we add the constraint on insert
         # CheckConstraint("doi ~* '^10\\.[0-9]{4,9}/[-._;()/:A-Z0-9]+$'", name='OPENDATA_DOI_FORMAT_CHK'),
-        Index('OPENDATA_DOI_IDX', 'doi'),
         Index('OPENDATA_DOI_UPDATED_AT_IDX', 'updated_at'),
         Index('OPENDATA_DOI_CREATED_AT_IDX', 'created_at'),
     )
