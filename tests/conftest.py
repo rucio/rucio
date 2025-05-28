@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import os
 import re
 import traceback
 from os import environ
@@ -288,17 +289,61 @@ def random_account(vo: str) -> "Iterator[InternalAccount]":
     import random
     import string
 
+    from rucio.client import Client
     from rucio.common.types import InternalAccount
     from rucio.core.account import add_account, del_account
     from rucio.db.sqla import models
     from rucio.db.sqla.constants import AccountType
     from rucio.tests.common_server import cleanup_db_deps
 
-    account = InternalAccount(''.join(random.choice(string.ascii_uppercase) for _ in range(10)), vo=vo)
-    add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
-    yield account
-    cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
-    del_account(account)
+    account = InternalAccount(''.join(random.choice(string.ascii_lowercase) for _ in range(10)), vo=vo)
+
+    if os.environ.get('SUITE') == 'client':
+        c = Client(vo=vo)
+        c.add_account(account=account.external, type_="user", email=f'{account.external}@email.com')
+        yield account
+        c.delete_account(account=account.external)
+
+    else:
+        add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
+        yield account
+        cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
+        del_account(account)
+
+
+@pytest.fixture
+def random_account_factory(vo: str):
+    import random
+    import string
+
+    from rucio.client import Client
+    from rucio.common.types import InternalAccount
+    from rucio.core.account import add_account, del_account
+    from rucio.db.sqla import models
+    from rucio.db.sqla.constants import AccountType
+    from rucio.tests.common_server import cleanup_db_deps
+
+    made_accounts = []
+
+    def make_account():
+        account = InternalAccount(''.join(random.choice(string.ascii_lowercase) for _ in range(10)), vo=vo)
+        made_accounts.append(account)
+        if os.environ.get('SUITE') == 'client':
+            c = Client(vo=vo)
+            c.add_account(account=account.external, type_="user", email=f'{account.external}@email.com')
+        else:
+            add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
+        return account
+
+    yield make_account
+
+    for account in made_accounts:
+        if os.environ.get('SUITE') == 'client':
+            c = Client(vo=vo)
+            c.delete_account(account=account.external)
+        else:
+            cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
+            del_account(account)
 
 
 @pytest.fixture(scope="module")
