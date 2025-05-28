@@ -108,16 +108,16 @@ class OpenDataClient(BaseClient):
             name: str,
             opendata_json: Optional[dict] = None,
             state: Optional[str] = None,
+            doi: Optional[str] = None,
     ) -> bool:
         path = '/'.join([self.opendata_private_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
+        if opendata_json is None and state is None and doi is None:
+            raise ValueError('Either opendata_json, state, or doi must be provided.')
+
         if state is not None:
             state = state.upper().strip()
-        if opendata_json is None and state is None:
-            raise ValueError('Either opendata_json or state must be provided to update the OpenData DID.')
-        if opendata_json is not None and state is not None:
-            raise ValueError('Both opendata_json and state cannot be provided at the same time.')
 
         data: dict[str, Any] = {}
 
@@ -126,6 +126,9 @@ class OpenDataClient(BaseClient):
 
         if state:
             data['state'] = state
+
+        if doi:
+            data['doi'] = doi
 
         r = self._send_request(url, type_='PUT', data=render_json(**data))
 

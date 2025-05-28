@@ -77,8 +77,14 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             parameters = json_parameters()
             state = param_get(parameters, 'state', default=None)
             opendata_json = param_get(parameters, 'opendata_json', default=None)
-            opendata.update_opendata_did(scope=scope, name=name, state=state, opendata_json=opendata_json,
-                                         vo=request.environ.get("vo"))
+            doi = param_get(parameters, 'doi', default=None)
+            opendata.update_opendata_did(scope=scope,
+                                         name=name,
+                                         state=state,
+                                         opendata_json=opendata_json,
+                                         doi=doi,
+                                         vo=request.environ.get("vo"),
+                                         )
         except ValueError as error:
             return generate_http_error_flask(400, error)
 
@@ -93,6 +99,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
         # Handle open data exception
         return Response(status=204, mimetype='application/json')
+
 
 class OpenDataPrivateDIDFilesView(ErrorHandlingMethodView):
 
@@ -109,6 +116,7 @@ class OpenDataPrivateDIDFilesView(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
         except OpenDataDataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+
 
 def blueprint() -> "Blueprint":
     bp = AuthenticatedBlueprint("opendata_private", __name__, url_prefix="/opendata-private")
