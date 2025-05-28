@@ -475,20 +475,46 @@ class OpenDataDid(BASE, ModelBase):
 
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
     name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
-
-    _table_args = (PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
-                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK'),
-                   Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
-                   Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
-                   Index('OPENDATA_DID_STATE_IDX', 'state'),
-                   Index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'state', 'updated_at'),
-                   )
-
     state: Mapped[Optional[OpenDataDIDState]] = mapped_column(Enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK',
                                                                    create_constraint=True,
                                                                    values_callable=lambda obj: [e.value for e in obj]),
                                                               default=OpenDataDIDState.DRAFT)
     opendata_json = mapped_column(JSON(), default=lambda: {}, nullable=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
+        ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='OPENDATA_DID_FK'),
+        Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
+        Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
+        Index('OPENDATA_DID_STATE_IDX', 'state'),
+        Index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'state', 'updated_at'),
+    )
+
+
+class OpenDataDOI(BASE, ModelBase):
+    """Mapping between OpenData DIDs and DOIs"""
+    __tablename__ = 'dids_opendata_doi'
+
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    doi: Mapped[Optional[str]] = mapped_column(String, unique=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('scope', 'name', 'doi', name='OPENDATA_DOI_PK'),
+        ForeignKeyConstraint(
+            ['scope', 'name'],
+            ['dids_opendata.scope', 'dids_opendata.name'],
+            name='OPENDATA_DOI_FK',
+            ondelete='CASCADE',
+        ),
+        CheckConstraint(
+            "doi ~* '^10\\.[0-9]{4,9}/[-._;()/:A-Z0-9]+$'",
+            name='OPENDATA_DOI_FORMAT_CHK'
+        ),
+        Index('OPENDATA_DOI_IDX', 'doi'),
+        Index('OPENDATA_DOI_UPDATED_AT_IDX', 'updated_at'),
+        Index('OPENDATA_DOI_CREATED_AT_IDX', 'created_at'),
+    )
 
 
 class VirtualPlacements(BASE, ModelBase):
