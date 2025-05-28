@@ -416,6 +416,7 @@ def update_opendata_doi(
             models.OpenDataDOI.name == name
         )
     )).scalar()
+    print(f"Current DOI for {scope}:{name} is {doi_before}")
     if doi_before is None:
         update_query = insert(models.OpenDataDOI).values(scope=scope, name=name, doi=doi)
     else:
@@ -428,6 +429,7 @@ def update_opendata_doi(
         ).values(doi=doi)
 
     try:
+        print(f"Executing update query: {update_query}")
         result = session.execute(update_query)
 
         if result.rowcount == 0:
