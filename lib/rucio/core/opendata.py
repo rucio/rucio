@@ -401,7 +401,7 @@ def update_opendata_doi(
         doi: str,
         session: "Session",
 ) -> None:
-    if not _check_opendata_did_exists(scope=scope, name=name, doi=doi):
+    if not _check_opendata_did_exists(scope=scope, name=name, session=session):
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
     if not isinstance(doi, str):
