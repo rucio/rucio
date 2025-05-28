@@ -85,7 +85,7 @@ class OpenDataPrivateDIDsView(ErrorHandlingMethodView):
                                          doi=doi,
                                          vo=request.environ.get("vo"),
                                          )
-        except ValueError as error:
+        except Exception as error:
             return generate_http_error_flask(400, error)
 
         return Response(status=200, mimetype='application/json')

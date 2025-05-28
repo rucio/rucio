@@ -186,9 +186,17 @@ class TestOpenDataCore:
         doi = "10.1234/test.doi"
         # generic update method
         opendata.update_opendata_did(scope=mock_scope, name=name, doi=doi)
-        # also via dedicated method
-        opendata.update_opendata_doi(scope=mock_scope, name=name, doi=doi)
+        doi_after = opendata.get_opendata_did(scope=mock_scope, name=name)["doi"]
+        assert doi_after == doi, "DOI should be updated"
 
+        # also via dedicated method
+        doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
+        assert doi_after == doi, "DOI should be updated"
+
+        doi = "10.1234/test.doi.v2"
+        opendata.update_opendata_doi(scope=mock_scope, name=name, doi=doi)
+        doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
+        assert doi_after == doi, "DOI should be updated"
 
     def test_opendata_dids_list(self, mock_scope, root_account):
         dids = [
