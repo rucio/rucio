@@ -220,6 +220,23 @@ def delete_opendata_did(
         raise ValueError(f"Error deleting OpenData entry '{scope}:{name}'.")
 
 
+@read_session
+def _check_opendata_did_exists(
+        *,
+        scope: "InternalScope",
+        name: str,
+        session: "Session",
+) -> bool:
+    query = select(models.OpenDataDid).where(
+        and_(
+            models.OpenDataDid.scope == scope,
+            models.OpenDataDid.name == name
+        )
+    )
+    result = session.execute(query).scalar()
+    return result is not None
+
+
 @transactional_session
 def update_opendata_did(
         *,
@@ -227,84 +244,169 @@ def update_opendata_did(
         name: str,
         state: Optional[OpenDataDIDState] = None,
         opendata_json: Optional[Union[dict, str]] = None,
+        doi: Optional[str] = None,
         session: "Session",
 ) -> None:
-    if state is None and opendata_json is None:
-        raise exception.InputValidationError("Either 'state' or 'opendata_json' must be provided.")
+    if state is None and opendata_json is None and doi is None:
+        raise exception.InputValidationError(
+            "Either 'state', 'opendata_json', or 'doi' must be provided to update the OpenData DID.")
+    if not _check_opendata_did_exists(scope=scope, name=name, session=session):
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
+
+    if state is not None:
+        update_opendata_state(scope=scope, name=name, state=state, session=session)
 
     if opendata_json is not None:
-        if isinstance(opendata_json, str):
-            try:
-                opendata_json = json.loads(opendata_json)
-            except ValueError as error:
-                raise exception.InputValidationError(f"Invalid JSON data: {error}")
+        update_opendata_json(scope=scope, name=name, opendata_json=opendata_json, session=session)
 
-        if not isinstance(opendata_json, dict):
-            raise exception.InputValidationError("opendata_json must be a dictionary.")
+    if doi is not None:
+        update_opendata_doi(scope=scope, name=name, doi=doi, session=session)
 
-    exists_query = select(models.OpenDataDid.state).where(
-        and_(
-            models.OpenDataDid.scope == scope,
-            models.OpenDataDid.name == name
-        )
-    )
 
-    state_before = session.execute(exists_query).scalar()
-    if state_before is None:
-        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
+@transactional_session
+def update_opendata_json(
+        *,
+        scope: "InternalScope",
+        name: str,
+        opendata_json: Union[dict, str],
+        session: "Session",
+) -> None:
+    if isinstance(opendata_json, str):
+        try:
+            opendata_json = json.loads(opendata_json)
+        except ValueError as error:
+            raise exception.InputValidationError(f"Invalid JSON data: {error}")
+
+    if not isinstance(opendata_json, dict):
+        raise exception.InputValidationError("opendata_json must be a dictionary.")
 
     update_query = update(models.OpenDataDid).where(
         and_(
             models.OpenDataDid.scope == scope,
             models.OpenDataDid.name == name
         )
-    )
-    if state is not None:
-        update_query = update_query.values({"state": state})
-
-        if state == OpenDataDIDState.DRAFT:
-            if state_before != OpenDataDIDState.DRAFT:
-                raise OpenDataInvalidStateUpdate(
-                    "Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
-        elif state == OpenDataDIDState.PUBLIC:
-            # All states can be set to PUBLIC
-            # DID needs to be closed before going public
-
-            did_is_file = session.execute(
-                select(models.DataIdentifier.did_type).where(
-                    and_(
-                        models.DataIdentifier.scope == scope,
-                        models.DataIdentifier.name == name
-                    )
-                )
-            ).scalar() == DIDType.FILE
-
-            if not did_is_file:
-                did_is_open = session.execute(
-                    select(models.DataIdentifier.is_open).where(
-                        and_(
-                            models.DataIdentifier.scope == scope,
-                            models.DataIdentifier.name == name
-                        )
-                    )
-                ).scalar()
-
-                if did_is_open:
-                    raise OpenDataInvalidStateUpdate(
-                        "Cannot set state to PUBLIC. The DID must be closed first.")
-
-        elif state == OpenDataDIDState.SUSPENDED:
-            if state_before == OpenDataDIDState.DRAFT:
-                raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
-
-    if opendata_json is not None:
-        update_query = update_query.values({"opendata_json": opendata_json})
+    ).values({"opendata_json": opendata_json})
 
     try:
         result = session.execute(update_query)
 
         if result.rowcount == 0:
-            raise ValueError(f"Error updating OpenData entry '{scope}:{name}'.")
+            raise ValueError(f"Error updating OpenData json for DID '{scope}:{name}'.")
+
+    except DataError as error:
+        raise exception.InputValidationError(f"Invalid data: {error}")
+
+
+@transactional_session
+def update_opendata_state(
+        *,
+        scope: "InternalScope",
+        name: str,
+        state: OpenDataDIDState,
+        session: "Session",
+) -> None:
+    check_valid_opendata_did_state(state.name)
+
+    state_before = session.execute(
+        select(models.OpenDataDid.state).where(
+            and_(
+                models.OpenDataDid.scope == scope,
+                models.OpenDataDid.name == name
+            )
+        )
+    ).scalar()
+
+    update_query = update(models.OpenDataDid).where(
+        and_(
+            models.OpenDataDid.scope == scope,
+            models.OpenDataDid.name == name
+        )
+    ).values({"state": state})
+
+    if state == OpenDataDIDState.DRAFT:
+        if state_before != OpenDataDIDState.DRAFT:
+            raise OpenDataInvalidStateUpdate(
+                "Cannot set state to DRAFT. Once a DID is made public, it cannot be reverted to DRAFT.")
+    elif state == OpenDataDIDState.PUBLIC:
+        # All states can be set to PUBLIC
+        # DID needs to be closed before going public
+
+        did_is_file = session.execute(
+            select(models.DataIdentifier.did_type).where(
+                and_(
+                    models.DataIdentifier.scope == scope,
+                    models.DataIdentifier.name == name
+                )
+            )
+        ).scalar() == DIDType.FILE
+
+        if not did_is_file:
+            did_is_open = session.execute(
+                select(models.DataIdentifier.is_open).where(
+                    and_(
+                        models.DataIdentifier.scope == scope,
+                        models.DataIdentifier.name == name
+                    )
+                )
+            ).scalar()
+
+            if did_is_open:
+                raise OpenDataInvalidStateUpdate(
+                    "Cannot set state to PUBLIC. The DID must be closed first.")
+
+    elif state == OpenDataDIDState.SUSPENDED:
+        if state_before == OpenDataDIDState.DRAFT:
+            raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
+
+    try:
+        result = session.execute(update_query)
+
+        if result.rowcount == 0:
+            raise ValueError(f"Error updating OpenData state for DID '{scope}:{name}'.")
+
+    except DataError as error:
+        raise exception.InputValidationError(f"Invalid data: {error}")
+
+
+@transactional_session
+def update_opendata_doi(
+        *,
+        scope: "InternalScope",
+        name: str,
+        doi: str,
+        session: "Session",
+) -> None:
+    if not _check_opendata_did_exists(scope=scope, name=name, doi=doi):
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
+
+    if not isinstance(doi, str):
+        raise exception.InputValidationError("DOI must be a string.")
+    if not match(r'^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$', doi):
+        raise exception.InputValidationError("Invalid DOI format.")
+
+    # insert on the DOI table if it does not exist, otherwise update it
+    doi_before = session.execute(select(models.OpenDataDOI.doi).where(
+        and_(
+            models.OpenDataDOI.scope == scope,
+            models.OpenDataDOI.name == name
+        )
+    )).scalar()
+    if doi_before is None:
+        update_query = insert(models.OpenDataDOI).values(scope=scope, name=name, doi=doi)
+    else:
+        # TODO: do not freely prevent DOI updates? To be discussed
+        update_query = update(models.OpenDataDOI).where(
+            and_(
+                models.OpenDataDOI.scope == scope,
+                models.OpenDataDOI.name == name
+            )
+        ).values(doi=doi)
+
+    try:
+        result = session.execute(update_query)
+
+        if result.rowcount == 0:
+            raise ValueError(f"Error updating OpenData DOI for DID '{scope}:{name}'.")
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")

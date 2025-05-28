@@ -95,8 +95,9 @@ def update_opendata_did(
         *,
         scope: str,
         name: str,
-        state: Optional[str] = None,  # TODO: type only valid states
+        state: Optional[str] = None,
         opendata_json: Optional[dict] = None,
+        doi: Optional[str] = None,
         vo: str = "def",
         session: "Session"
 ) -> None:
@@ -114,7 +115,11 @@ def update_opendata_did(
     if opendata_json:
         print("GATEWAY update_opendata_did opendata_json type: ", type(opendata_json))
 
-    return opendata.update_opendata_did(scope=internal_scope, name=name, state=state_enum, opendata_json=opendata_json,
+    return opendata.update_opendata_did(scope=internal_scope,
+                                        name=name,
+                                        state=state_enum,
+                                        opendata_json=opendata_json,
+                                        doi=doi,
                                         session=session)
 @read_session
 def get_opendata_did_files(
