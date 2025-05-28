@@ -109,11 +109,12 @@ def get_opendata_did(ctx: "Context", did: str, json_flag: bool, public: bool) ->
 @click.option("--json", "opendata_json", required=False, help="OpenData JSON")
 # TODO: once the list of states is defined, restrict choices to those states
 @click.option("--state", required=False, help="State")
+@click.option("--doi", required=False, help="DOI")
 @click.pass_context
-def update_opendata_did(ctx: "Context", did: str, opendata_json: str, state: str) -> None:
+def update_opendata_did(ctx: "Context", did: str, opendata_json: str, state: str, doi: str) -> None:
     client = ctx.obj.client
-    if not opendata_json and not state:
-        raise ValueError("At least one of --json or --state must be provided.")
+    if not opendata_json and not state and not doi:
+        raise ValueError("At least one of --json, --state, or --doi must be provided.")
 
     scope, name = extract_scope_name(did)
 
@@ -123,4 +124,4 @@ def update_opendata_did(ctx: "Context", did: str, opendata_json: str, state: str
 
         opendata_json = json.loads(opendata_json)
 
-    client.update_opendata_did(scope=scope, name=name, opendata_json=opendata_json, state=state)
+    client.update_opendata_did(scope=scope, name=name, opendata_json=opendata_json, state=state, doi=doi)
