@@ -55,11 +55,10 @@ def list_(ctx, rses, csv):
 
 @rse.command("show")
 @click.argument("rse-name")
-@click.option("--csv", is_flag=True, default=False, help="Output list of RSE property key and values as a csv")
 @click.pass_context
-def show(ctx, rse_name, csv):
+def show(ctx, rse_name):
     """Usage, protocols, settings, and attributes for a given RSE"""
-    info_rse(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    info_rse(Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @rse.command("add")
