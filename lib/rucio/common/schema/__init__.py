@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from jsonschema import ValidationError, validate
 
 from rucio.common import config, exception
-from rucio.common.plugins import check_policy_package_version
+from rucio.common.plugins import check_policy_module_version
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -64,9 +64,10 @@ if not _is_multivo():
                 policy = environ['RUCIO_POLICY_PACKAGE']
             else:
                 policy = config.config_get('policy', 'package', check_config_table=False)
-            check_policy_package_version(policy)
+            package_module = importlib.import_module(policy)
+            check_policy_module_version(package_module)
             policy = policy + ".schema"
-        except (NoOptionError, NoSectionError):
+        except (NoOptionError, NoSectionError, ModuleNotFoundError):
             # fall back to old system for now
             try:
                 policy = config.config_get('policy', 'schema', check_config_table=False)
@@ -107,9 +108,10 @@ def load_schema_for_vo(vo: str) -> None:
                 policy = environ[env_name]
             else:
                 policy = config.config_get('policy', 'package-' + vo, check_config_table=False)
-            check_policy_package_version(policy)
+            package_module = importlib.import_module(policy)
+            check_policy_module_version(package_module)
             policy = policy + ".schema"
-        except (NoOptionError, NoSectionError):
+        except (NoOptionError, NoSectionError, ModuleNotFoundError):
             # fall back to old system for now
             try:
                 policy = config.config_get('policy', 'schema', check_config_table=False)
