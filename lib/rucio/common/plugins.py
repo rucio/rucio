@@ -27,41 +27,34 @@ from rucio.version import current_version
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import ModuleType
 
     from rucio.common.types import LoggerFunction
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
 
-def check_policy_package_version(package: str, logger: 'LoggerFunction' = logging.log) -> None:
+def check_policy_module_version(module: 'ModuleType', logger: 'LoggerFunction' = logging.log) -> None:
 
     '''
-    Checks that the Rucio version supported by the policy package is compatible
+    Checks that the Rucio version supported by the policy module is compatible
     with this version. Raises an exception if not.
-    :param package: the fully qualified name of the policy package
+    :param module: the top level module of the policy package
     '''
     try:
-        supported_versionset = _get_supported_versions_from_policy_package(package)
-    except ImportError:
-        logger(logging.DEBUG, 'Policy package %s not found' % package)
-        return
+        supported_versionset = _get_supported_versions_from_policy_package(module)
     except PolicyPackageIsNotVersioned:
-        logger(logging.DEBUG, 'Policy package %s does not include information about which Rucio versions it supports' % package)
+        logger(logging.DEBUG, 'Policy package %s does not include information about which Rucio versions it supports' % module.__name__)
         return
 
     rucio_version = current_version()
     if rucio_version not in supported_versionset:
-        raise PolicyPackageVersionError(rucio_version=rucio_version, supported_versionset=str(supported_versionset), package=package)
+        raise PolicyPackageVersionError(rucio_version=rucio_version, supported_versionset=str(supported_versionset), package=module.__name__)
 
 
-def _get_supported_versions_from_policy_package(package: str) -> SpecifierSet:
-    try:
-        module = importlib.import_module(package)
-    except ImportError as e:
-        raise e
-
+def _get_supported_versions_from_policy_package(module: 'ModuleType') -> SpecifierSet:
     if not hasattr(module, 'SUPPORTED_VERSION'):
-        raise PolicyPackageIsNotVersioned(package)
+        raise PolicyPackageIsNotVersioned(module.__name__)
 
     supported_versionset = module.SUPPORTED_VERSION
 
@@ -160,8 +153,8 @@ class PolicyPackageAlgorithms:
             if not package:
                 package = str(config.config_get('policy', 'package' + ('' if not vo else '-' + vo)))
 
-            check_policy_package_version(package)
             module = importlib.import_module(package)
+            check_policy_module_version(module)
 
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()

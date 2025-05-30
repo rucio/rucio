@@ -17,24 +17,18 @@ import pytest
 from packaging.specifiers import SpecifierSet
 
 from rucio.common.exception import PolicyPackageIsNotVersioned, PolicyPackageVersionError
-from rucio.common.plugins import _get_supported_versions_from_policy_package, check_policy_package_version
+from rucio.common.plugins import _get_supported_versions_from_policy_package, check_policy_module_version
 
 
 class TestPolicyPackageVersion:
-    def test_get_supported_versions_from_policy_package_importerror(self):
-        package = 'bad_package'
-        with patch('importlib.import_module', side_effect=ImportError):
-            with pytest.raises(ImportError):
-                _get_supported_versions_from_policy_package(package)
-
     def test_get_supported_versions_from_policy_package_not_versioned(self):
         package = 'unversioned_package'
         module = Mock()
+        module.__name__ = package
         delattr(module, 'SUPPORTED_VERSION')
         assert not hasattr(module, 'SUPPORTED_VERSION')
-        with patch('importlib.import_module', return_value=module):
-            with pytest.raises(PolicyPackageIsNotVersioned) as e:
-                _get_supported_versions_from_policy_package(package)
+        with pytest.raises(PolicyPackageIsNotVersioned) as e:
+            _get_supported_versions_from_policy_package(module)
         assert e.value.package == package
 
     @pytest.mark.parametrize(
@@ -46,35 +40,28 @@ class TestPolicyPackageVersion:
         ids=['version_as_str', 'version_as_list']
     )
     def test_get_supported_versions_from_policy_package(self, module_version, expected_version):
-        package = 'versioned_package'
         module = MagicMock()
         module.SUPPORTED_VERSION = module_version
-        with patch('importlib.import_module', return_value=module):
-            assert _get_supported_versions_from_policy_package(package) == expected_version
+        assert _get_supported_versions_from_policy_package(module) == expected_version
 
-    @pytest.mark.parametrize('raised_exception', [
-        ImportError,
-        PolicyPackageIsNotVersioned('bad_package')
-    ])
-    def test_check_policy_package_version_exceptions(self, raised_exception):
-        package = 'bad_package'
-        with patch('rucio.common.plugins._get_supported_versions_from_policy_package', side_effect=raised_exception):
-            assert check_policy_package_version(package) is None
-
-    def test_check_policy_package_version_supported(self):
+    def test_check_policy_module_version_supported(self):
         package = 'supported_package'
+        module = Mock()
+        module.__name__ = package
         with patch('rucio.common.plugins._get_supported_versions_from_policy_package', return_value=SpecifierSet('>=1.0,!=2.0')):
             with patch('rucio.common.plugins.current_version', return_value='1.7'):
-                assert check_policy_package_version(package) is None
+                assert check_policy_module_version(module) is None
 
-    def test_check_policy_package_version_unsupported(self):
+    def test_check_policy_module_version_unsupported(self):
         package = 'unsupported_package'
+        supported_versions = '>=1.0,!=3.0'
         rucio_version = '3.0'
-        supported_versions = SpecifierSet('>=1.0,!=3.0')
-        with patch('rucio.common.plugins._get_supported_versions_from_policy_package', return_value=supported_versions):
-            with patch('rucio.common.plugins.current_version', return_value=rucio_version):
-                with pytest.raises(PolicyPackageVersionError) as e:
-                    check_policy_package_version(package)
-                assert e.value.package == package
-                assert e.value.rucio_version == rucio_version
-                assert e.value.supported_versionset == supported_versions
+        module = Mock()
+        module.__name__ = package
+        module.SUPPORTED_VERSION = supported_versions
+        with patch('rucio.common.plugins.current_version', return_value=rucio_version):
+            with pytest.raises(PolicyPackageVersionError) as e:
+                check_policy_module_version(module)
+            assert e.value.package == package
+            assert e.value.rucio_version == rucio_version
+            assert e.value.supported_versionset == SpecifierSet(supported_versions)
