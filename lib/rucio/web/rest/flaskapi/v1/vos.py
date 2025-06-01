@@ -33,7 +33,7 @@ class VOs(ErrorHandlingMethodView):
           - VO
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
@@ -42,29 +42,29 @@ class VOs(ErrorHandlingMethodView):
                     type: object
                     properties:
                       vo:
-                        description: The vo.
+                        description: "The vo."
                         type: string
                       description:
-                        description: The description of the vo.
+                        description: "The description of the vo."
                         type: string
                       email:
-                        description: The email for the vo.
+                        description: "The email for the vo."
                         type: string
                       created_at:
-                        description: The date the vo was created.
+                        description: "The date the vo was created."
                         type: string
                         format: date-time
                       updated_at:
-                        description: The date the vo was updated.
+                        description: "The date the vo was updated."
                         type: string
                         format: date-time
 
           406:
-            description: Not Acceptable
+            description: "Not Acceptable"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           409:
-            description: Unsupported operation.
+            description: "Unsupported operation."
         """
         try:
             def generate(issuer, vo):
@@ -90,7 +90,7 @@ class VO(ErrorHandlingMethodView):
         parameters:
         - name: vo
           in: path
-          description: The vo to add.
+          description: "The vo to add."
           schema:
             type: string
           style: simple
@@ -101,18 +101,18 @@ class VO(ErrorHandlingMethodView):
                 type: object
                 properties:
                   description:
-                    description: The description of the VO.
+                    description: "The description of the VO."
                     type: string
                   email:
-                    description: The admin email associated with the VO.
+                    description: "The admin email associated with the VO."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           409:
-            description: Unsupported operation.
+            description: "Unsupported operation."
         """
         parameters = json_parameters(optional=True)
         kwargs = {'description': None, 'email': None}
@@ -137,7 +137,7 @@ class VO(ErrorHandlingMethodView):
         parameters:
         - name: vo
           in: path
-          description: The vo to add.
+          description: "The vo to add."
           schema:
             type: string
           style: simple
@@ -148,20 +148,20 @@ class VO(ErrorHandlingMethodView):
                 type: object
                 properties:
                   description:
-                    description: The description of the VO.
+                    description: "The description of the VO."
                     type: string
                   email:
-                    description: The admin email associated with the VO.
+                    description: "The admin email associated with the VO."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: VO not found.
+            description: "VO not found."
           409:
-            description: Unsupported operation.
+            description: "Unsupported operation."
         """
         parameters = json_parameters()
         try:
@@ -188,7 +188,7 @@ class RecoverVO(ErrorHandlingMethodView):
         parameters:
         - name: vo
           in: path
-          description: The vo to add.
+          description: "The vo to add."
           schema:
             type: string
           style: simple
@@ -203,29 +203,29 @@ class RecoverVO(ErrorHandlingMethodView):
                 - email
                 properties:
                   identity:
-                    description: Identity key to use.
+                    description: "Identity key to use."
                     type: string
                   authtype:
-                    description: The authtype of the account.
+                    description: "The authtype of the account."
                     type: string
                   email:
-                    description: The admin email for the vo.
+                    description: "The admin email for the vo."
                     type: string
                   password:
-                    description: Password for identity.
+                    description: "Password for identity."
                     type: string
                   default:
-                    description: Whether to use identity as account default.
+                    description: "Whether to use identity as account default."
                     type: boolean
         responses:
           201:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found.
+            description: "Account not found."
           409:
-            description: Unsupported operation.
+            description: "Unsupported operation."
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')

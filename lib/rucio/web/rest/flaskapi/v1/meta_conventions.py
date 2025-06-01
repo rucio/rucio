@@ -32,19 +32,19 @@ class MetaConventions(ErrorHandlingMethodView):
             - Meta
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
-                  description: List of all DID keys.
+                  description: "List of all DID keys."
                   items:
                     type: string
-                    description: Data Itentifier key
+                    description: "Data Itentifier key"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         return jsonify(list_keys())
 
@@ -52,13 +52,13 @@ class MetaConventions(ErrorHandlingMethodView):
         """
         ---
         summary: Create key
-        description: Creates a new allowed key (value is NULL).
+        description: "Creates a new allowed key (value is NULL)."
         tags:
             - Meta
         parameters:
         - name: key
           in: path
-          description: The name of the key.
+          description: "The name of the key."
           schema:
             type: string
           style: simple
@@ -69,28 +69,28 @@ class MetaConventions(ErrorHandlingMethodView):
                 type: object
                 properties:
                   key_type:
-                    description: The key type.
+                    description: "The key type."
                     type: string
                   value_type:
-                    description: The value type.
+                    description: "The value type."
                     type: string
                   value_regexp:
-                    description: The value regexpression.
+                    description: "The value regexpression."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           400:
-            description: Cannot decode json parameter list / Unsupported value type.
+            description: "Cannot decode json parameter list / Unsupported value type."
           401:
-            description: Invalid Auth Token.
+            description: "Invalid Auth Token."
           409:
-            description: Key already exists.
+            description: "Key already exists."
         """
         parameters = json_parameters()
 
@@ -119,31 +119,31 @@ class Values(ErrorHandlingMethodView):
         """
         ---
         summary: Get value for key
-        description: List all values for a key.
+        description: "List all values for a key."
         tags:
             - Meta
         parameters:
         - name: key
           in: path
-          description: The reference key.
+          description: "The reference key."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: List of all key values.
+                  description: "List of all key values."
                   type: array
                   items:
                     type: string
-                    description: A value associated with a key.
+                    description: "A value associated with a key."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         return jsonify(list_values(key=key))
 
@@ -151,13 +151,13 @@ class Values(ErrorHandlingMethodView):
         """
         ---
         summary: Create value for key
-        description: Creates a new value for a key.
+        description: "Creates a new value for a key."
         tags:
             - Meta
         parameters:
         - name: key
           in: path
-          description: The reference key.
+          description: "The reference key."
           schema:
             type: string
           style: simple
@@ -170,24 +170,24 @@ class Values(ErrorHandlingMethodView):
                 - value
                 properties:
                   value:
-                    description: The new value associated with a key.
+                    description: "The new value associated with a key."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           400:
-            description: Cannot decode json parameter list / Invalid value for key.
+            description: "Cannot decode json parameter list / Invalid value for key."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Key not found
+            description: "Key not found"
           409:
-            description: Value already exists.
+            description: "Value already exists."
         """
         parameters = json_parameters()
         value = param_get(parameters, 'value')

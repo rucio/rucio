@@ -49,31 +49,31 @@ class AddFiles(ErrorHandlingMethodView):
                     items:
                       type: object
                   ignore_availability:
-                    description: If the availability should be ignored.
+                    description: "If the availability should be ignored."
                     type: boolean
                   parents_metadata:
                     description: "Metadata for selected hierarchy DIDs."
                     type: object
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: DID not found
+            description: "DID not found"
           405:
-            description: Unsupported Operation
+            description: "Unsupported Operation"
           409:
-            description: Duplicate
+            description: "Duplicate"
           503:
-            description: Temporary error.
+            description: "Temporary error."
         """
         parameters = json_parameters(parse_response)
         lfns = param_get(parameters, 'lfns')

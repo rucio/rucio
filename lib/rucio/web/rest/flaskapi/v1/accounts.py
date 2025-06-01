@@ -41,39 +41,39 @@ class Attributes(ErrorHandlingMethodView):
         """
         ---
         summary: List attributes
-        description: List all attributes for an account.
+        description: "List all attributes for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: object
-                    description: An account attribute.
+                    description: "An account attribute."
                     properties:
                       key:
-                        description: The key of the account attribute.
+                        description: "The key of the account attribute."
                         type: string
                       value:
-                        description: The value of the account attribute.
+                        description: "The value of the account attribute."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account found for the given id.
+            description: "No account found for the given id."
           406:
-            description: Not acceptable.
+            description: "Not acceptable."
         """
         try:
             attribs = list_account_attributes(account, vo=request.environ.get('vo'))
@@ -86,19 +86,19 @@ class Attributes(ErrorHandlingMethodView):
         """
         ---
         summary: Create attribute
-        description: Create an attribute to an account.
+        description: "Create an attribute to an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: key
           in: path
-          description: The key of the account attribute.
+          description: "The key of the account attribute."
           schema:
             type: string
           style: simple
@@ -111,25 +111,25 @@ class Attributes(ErrorHandlingMethodView):
                 - value
                 properties:
                   key:
-                    description: The key of the attribute. This would override the key defined in path.
+                    description: "The key of the attribute. This would override the key defined in path."
                     type: string
                   value:
-                    description: The value of the attribute.
+                    description: "The value of the attribute."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account found for the given id.
+            description: "No account found for the given id."
           409:
-            description: Attribute already exists
+            description: "Attribute already exists"
         """
         parameters = json_parameters()
         value = param_get(parameters, 'value')
@@ -148,29 +148,29 @@ class Attributes(ErrorHandlingMethodView):
         """
         ---
         summary: Delete attribute
-        description: Delete an attribute of an account.
+        description: "Delete an attribute of an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: key
           in: path
-          description: The key of the account attribute to remove.
+          description: "The key of the account attribute to remove."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account found for the given id.
+            description: "No account found for the given id."
         """
         try:
             del_account_attribute(account=account, key=key, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -188,33 +188,33 @@ class Scopes(ErrorHandlingMethodView):
         """
         ---
         summary: List scopes
-        description: List all scopse for an account.
+        description: "List all scopse for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: All scopes for the account.
+                  description: "All scopes for the account."
                   type: array
                   items:
-                    description: A scope
+                    description: "A scope"
                     type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account or scope found for the given id.
+            description: "No account or scope found for the given id."
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scopes = get_scopes(account, vo=request.environ['vo'])
@@ -230,38 +230,38 @@ class Scopes(ErrorHandlingMethodView):
         """
         ---
         summary: Create scope
-        description: Creates a scopse with the given name for an account.
+        description: "Creates a scopse with the given name for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: scope
           in: path
-          description: The scope name.
+          description: "The scope name."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Not acceptable
+            description: "Not acceptable"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account found.
+            description: "No account found."
           409:
-            description: Scope already exists.
+            description: "Scope already exists."
         """
         try:
             add_scope(scope, account, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -285,48 +285,48 @@ class AccountParameter(ErrorHandlingMethodView):
         """
         ---
         summary: List account parameters
-        description: Lists all parameters for an account.
+        description: "Lists all parameters for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: object
                   properties:
                     account:
-                      description: The account identifier.
+                      description: "The account identifier."
                       type: string
                     account_type:
-                      description: The account type.
+                      description: "The account type."
                       type: string
                     status:
-                      description: The account status.
+                      description: "The account status."
                       type: string
                     email:
-                      description: The email for the account.
+                      description: "The email for the account."
                       type: string
                     suspended_at:
-                      description: Datetime if the account was suspended.
+                      description: "Datetime if the account was suspended."
                       type: string
                     deleted_at:
-                      description: Datetime if the account was deleted.
+                      description: "Datetime if the account was deleted."
                       type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account found.
+            description: "No account found."
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         if account == 'whoami':
             # Redirect to the account uri
@@ -354,13 +354,13 @@ class AccountParameter(ErrorHandlingMethodView):
         """
         ---
         summary: Update
-        description: Update a parameter for an account.
+        description: "Update a parameter for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
@@ -368,17 +368,17 @@ class AccountParameter(ErrorHandlingMethodView):
           content:
             'application/json':
               schema:
-                description: Json object with key-value pairs corresponding to the new values of the parameters.
+                description: "Json object with key-value pairs corresponding to the new values of the parameters."
                 type: object
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No account found.
+            description: "No account found."
           400:
-            description: Unknown status
+            description: "Unknown status"
         """
         parameters = json_parameters()
         for key, value in parameters.items():
@@ -397,13 +397,13 @@ class AccountParameter(ErrorHandlingMethodView):
         """
         ---
         summary: Create
-        description: Create an account.
+        description: "Create an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
@@ -417,26 +417,26 @@ class AccountParameter(ErrorHandlingMethodView):
                   - email
                 properties:
                   type:
-                    description: The account type.
+                    description: "The account type."
                     type: string
                     enum: ["USER", "GROUP", "SERVICE"]
                   email:
-                    description: The email for the account.
+                    description: "The email for the account."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           409:
-            description: Account already exists
+            description: "Account already exists"
           400:
-            description: Unknown status
+            description: "Unknown status"
         """
         parameters = json_parameters()
         type_param = param_get(parameters, 'type')
@@ -456,23 +456,23 @@ class AccountParameter(ErrorHandlingMethodView):
         """
         ---
         summary: Delete
-        description: Delete an account.
+        description: "Delete an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found
+            description: "Account not found"
         """
         try:
             del_account(account, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -490,12 +490,12 @@ class Account(ErrorHandlingMethodView):
         """
         ---
         summary: List
-        description: List all accounts.
+        description: "List all accounts."
         tags:
           - Account
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -504,16 +504,16 @@ class Account(ErrorHandlingMethodView):
                     type: object
                     properties:
                       account:
-                        description: The account identifier.
+                        description: "The account identifier."
                         type: string
                       type:
-                        description: The type.
+                        description: "The type."
                         type: string
                       email:
-                        description: The email.
+                        description: "The email."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
 
         def generate(_filter: dict[str, Any], vo: str) -> "Iterator[str]":
@@ -529,36 +529,36 @@ class LocalAccountLimits(ErrorHandlingMethodView):
         """
         ---
         summary: Get local limit
-        description: Get the current local limits for an account on a specific RSE.
+        description: "Get the current local limits for an account on a specific RSE."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: The rse identifier.
+          description: "The rse identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: Json object with rse identifiers as keys and account limits in bytes as values.
+                  description: "Json object with rse identifiers as keys and account limits in bytes as values."
                   type: object
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
           406:
-            description: Not Acceptable
+            description: "Not Acceptable"
         """
         try:
             limits = get_local_account_limit(account=account, rse=rse, vo=request.environ.get('vo'))
@@ -574,36 +574,36 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
         """
         ---
         summary: Get global limit
-        description: Get the current global limits for an account on a specific RSE expression.
+        description: "Get the current global limits for an account on a specific RSE expression."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: rse_expression
           in: path
-          description: The rse identifier.
+          description: "The rse identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: Json object with rse expression as keys and limits in bytes as values.
+                  description: "Json object with rse expression as keys and limits in bytes as values."
                   type: object
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
           406:
-            description: Not Acceptable
+            description: "Not Acceptable"
         """
         try:
             limits = get_global_account_limit(account=account, rse_expression=rse_expression, vo=request.environ.get('vo'))
@@ -618,13 +618,13 @@ class Identities(ErrorHandlingMethodView):
         """
         ---
         summary: Create identity
-        description: Grant an account identity access to an account.
+        description: "Grant an account identity access to an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
@@ -639,38 +639,38 @@ class Identities(ErrorHandlingMethodView):
                   - email
                 properties:
                   identity:
-                    description: The identity.
+                    description: "The identity."
                     type: string
                   authtype:
-                    description: The authtype.
+                    description: "The authtype."
                     type: string
                   email:
-                    description: The email.
+                    description: "The email."
                     type: string
                   password:
-                    description: The password.
+                    description: "The password."
                     type: string
                     default: none
                   default:
-                    description: Should this be the default account?
+                    description: "Should this be the default account?"
                     type: string
                     default: false
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found
+            description: "Account not found"
           409:
-            description: Already exists
+            description: "Already exists"
           400:
-            description: Parameter missing
+            description: "Parameter missing"
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
@@ -710,19 +710,19 @@ class Identities(ErrorHandlingMethodView):
         """
         ---
         summary: List identities
-        description: Lists all identities for an account.
+        description: "Lists all identities for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -734,11 +734,11 @@ class Identities(ErrorHandlingMethodView):
                     items:
                       type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found
+            description: "Account not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo: str) -> "Iterator[str]":
@@ -753,13 +753,13 @@ class Identities(ErrorHandlingMethodView):
         """
         ---
         summary: Delete identity
-        description: Delete an account identity.
+        description: "Delete an account identity."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
@@ -773,18 +773,18 @@ class Identities(ErrorHandlingMethodView):
                   - authtype
                 properties:
                   identity:
-                    description: The identity.
+                    description: "The identity."
                     type: string
                   authtype:
-                    description: The authtype.
+                    description: "The authtype."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account or identity not found
+            description: "Account or identity not found"
         """
         parameters = json_parameters()
         identity = param_get(parameters, 'identity')
@@ -813,19 +813,19 @@ class Rules(ErrorHandlingMethodView):
         """
         ---
         summary: List rules
-        description: Lists all rules for an account.
+        description: "Lists all rules for an account."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -833,11 +833,11 @@ class Rules(ErrorHandlingMethodView):
                   items:
                     type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account or rule not found
+            description: "Account or rule not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         filters = {'account': account}
         filters.update(request.args)
@@ -858,25 +858,25 @@ class UsageHistory(ErrorHandlingMethodView):
         """
         ---
         summary: Get account usage history
-        description: Returns the account usage history.
+        description: "Returns the account usage history."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: The rse identifier.
+          description: "The rse identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
@@ -885,20 +885,20 @@ class UsageHistory(ErrorHandlingMethodView):
                     type: object
                     properties:
                       bytes:
-                        description: The number of bytes used.
+                        description: "The number of bytes used."
                         type: integer
                       files:
-                        description: The files.
+                        description: "The files."
                         type: string
                       updated_at:
-                        description: When the data was provided.
+                        description: "When the data was provided."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found
+            description: "Account not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             usage = get_usage_history(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -922,25 +922,25 @@ class LocalUsage(ErrorHandlingMethodView):
         """
         ---
         summary: Get local account usage
-        description: Returns the local account usage.
+        description: "Returns the local account usage."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: The rse identifier.
+          description: "The rse identifier."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -949,23 +949,23 @@ class LocalUsage(ErrorHandlingMethodView):
                     type: object
                     properties:
                       rse_id:
-                        description: The rse id.
+                        description: "The rse id."
                         type: string
                       bytes:
-                        description: The number of bytes used.
+                        description: "The number of bytes used."
                         type: integer
                       bytes_limit:
-                        description: The maximum number of bytes.
+                        description: "The maximum number of bytes."
                         type: integer
                       bytes_remaining:
-                        description: The remaining number of bytes.
+                        description: "The remaining number of bytes."
                         type: integer
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account or rse not found
+            description: "Account or rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(issuer: str, vo: str) -> "Iterator[str]":
@@ -986,25 +986,25 @@ class GlobalUsage(ErrorHandlingMethodView):
         """
         ---
         summary: Get local account usage
-        description: Returns the local account usage.
+        description: "Returns the local account usage."
         tags:
           - Account
         parameters:
         - name: account
           in: path
-          description: The account identifier.
+          description: "The account identifier."
           schema:
             type: string
           style: simple
         - name: rse_expression
           in: path
-          description: The rse expression.
+          description: "The rse expression."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -1013,23 +1013,23 @@ class GlobalUsage(ErrorHandlingMethodView):
                     type: object
                     properties:
                       rse_expression:
-                        description: The rse expression.
+                        description: "The rse expression."
                         type: string
                       bytes:
-                        description: The number of bytes used.
+                        description: "The number of bytes used."
                         type: integer
                       bytes_limit:
-                        description: The maximum number of bytes.
+                        description: "The maximum number of bytes."
                         type: integer
                       bytes_remaining:
-                        description: The remaining number of bytes.
+                        description: "The remaining number of bytes."
                         type: integer
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account or rse not found
+            description: "Account or rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo: str, issuer: str) -> "Iterator[str]":

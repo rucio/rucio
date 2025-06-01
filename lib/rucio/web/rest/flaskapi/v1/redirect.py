@@ -45,19 +45,19 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
         """
         ---
         summary: Metalink redirect
-        description: Get Metalink redirect.
+        description: "Get Metalink redirect."
         tags:
           - Redirect
         parameters:
         - name: scope_name
           in: path
-          description: The data identifier (scope)/(name).
+          description: "The data identifier (scope)/(name)."
           schema:
             type: string
           style: simple
         - name: ip
           in: query
-          description: The client ip.
+          description: "The client ip."
           schema:
             type: string
           style: simple
@@ -94,18 +94,18 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
           required: false
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/metalink4+xml:
                 schema:
-                  description: The metalink file.
+                  description: "The metalink file."
                   type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse or did not found
+            description: "Rse or did not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         headers = self.get_headers()
 
@@ -197,19 +197,19 @@ class HeaderRedirector(ErrorHandlingMethodView):
         """
         ---
         summary: Header redirect
-        description: Get the header redirect.
+        description: "Get the header redirect."
         tags:
           - Redirect
         parameters:
         - name: scope_name
           in: path
-          description: The data identifier (scope)/(name).
+          description: "The data identifier (scope)/(name)."
           schema:
             type: string
           style: simple
         - name: ip
           in: query
-          description: The client ip.
+          description: "The client ip."
           schema:
             type: string
           style: simple
@@ -252,18 +252,18 @@ class HeaderRedirector(ErrorHandlingMethodView):
           required: false
         responses:
           200:
-            description: OK
+            description: "OK"
           303:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The redirect url.
+                  description: "The redirect url."
                   type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse or did not found
+            description: "Rse or did not found"
         """
         headers = self.get_headers()
 

@@ -192,14 +192,15 @@ class RequestClient(BaseClient):
         :param strategy: defines how to handle datasets: `fifo` (each file released separately) or `grouped_fifo` (wait for the entire dataset to fit)
         :param transfers: Current number of active transfers
         :param waitings: Current number of waiting transfers
-        
+
         :returns: True if the transfer limit was deleted
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
-        data = dumps({'rse_expression': rse_expression, 'activity': activity, 'direction': direction.value,
-                'max_transfers': max_transfers, 'volume': volume, 'deadline': deadline, 'strategy': strategy,
-                'transfers': transfers, 'waitings': waitings})
+        data = dumps({'rse_expression': rse_expression, 'activity': activity,
+                      'direction': direction.value, 'max_transfers': max_transfers,
+                      'volume': volume, 'deadline': deadline, 'strategy': strategy,
+                      'transfers': transfers, 'waitings': waitings})
         r = self._send_request(url, type_='PUT', data=data)
 
         if r.status_code == codes.created:
