@@ -31,59 +31,59 @@ class LifetimeException(ErrorHandlingMethodView):
         """
         ---
         summary: List Exceptions
-        description: Retrieves all exceptions.
+        description: "Retrieves all exceptions."
         tags:
             - Lifetime Exceptions
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: One exception per line.
+                  description: "One exception per line."
                   type: array
                   items:
-                    description: A lifetime exception
+                    description: "A lifetime exception"
                     type: object
                     properties:
                       id:
-                        description: The id of the lifetime exception.
+                        description: "The id of the lifetime exception."
                         type: string
                       scope:
-                        description: The scope associated with the lifetime exception.
+                        description: "The scope associated with the lifetime exception."
                         type: string
                       name:
-                        description: The name of the lifetime exception.
+                        description: "The name of the lifetime exception."
                         type: string
                       did_type:
-                        description: The type of the did.
+                        description: "The type of the did."
                         type: string
                         enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
                       account:
-                        description: The account associated with the lifetime exception.
+                        description: "The account associated with the lifetime exception."
                         type: string
                       pattern:
-                        description: The pattern of the lifetime exception.
+                        description: "The pattern of the lifetime exception."
                         type: string
                       comments:
-                        description: The comments of the lifetime exception.
+                        description: "The comments of the lifetime exception."
                         type: string
                       state:
-                        description: The state of the lifetime exception.
+                        description: "The state of the lifetime exception."
                         type: string
                         enum: ['A', 'R', 'W']
                       created_at:
-                        description: The datetime the lifetime exception was created.
+                        description: "The datetime the lifetime exception was created."
                         type: string
                       expires_at:
-                        description: The datetime the lifetime exception expires.
+                        description: "The datetime the lifetime exception expires."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Lifetime exception not found
+            description: "Lifetime exception not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo):
@@ -98,7 +98,7 @@ class LifetimeException(ErrorHandlingMethodView):
         """
         ---
         summary: Create Exception
-        description: Creates a Lifetime Exception.
+        description: "Creates a Lifetime Exception."
         tags:
             - Lifetime Exceptions
         requestBody:
@@ -108,38 +108,38 @@ class LifetimeException(ErrorHandlingMethodView):
                 type: object
                 properties:
                   dids:
-                    description: List of dids associated with the lifetime exception.
+                    description: "List of dids associated with the lifetime exception."
                     type: array
                     items:
-                      description: A did
+                      description: "A did"
                       type: object
                       properties:
                         name:
-                          description: The name of the did.
+                          description: "The name of the did."
                           type: string
                   pattern:
-                    description: The pattern of the lifetime exception.
+                    description: "The pattern of the lifetime exception."
                     type: string
                   comments:
-                    description: The comment for the lifetime exception.
+                    description: "The comment for the lifetime exception."
                     type: string
                   expires_at:
-                    description: The expiration date for the lifetime exception.
+                    description: "The expiration date for the lifetime exception."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The exception id.
+                  description: "The exception id."
                   type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           409:
-            description: Lifetime exception already exists.
+            description: "Lifetime exception already exists."
         """
         parameters = json_parameters()
         try:
@@ -169,66 +169,66 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
         """
         ---
         summary: Get Exception
-        description: Get a single Lifetime Exception.
+        description: "Get a single Lifetime Exception."
         tags:
             - Lifetime Exceptions
         parameters:
         - name: exception_id
           in: path
-          description: The id of the lifetime exception.
+          description: "The id of the lifetime exception."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: List of lifetime exceptions associated with the id.
+                  description: "List of lifetime exceptions associated with the id."
                   type: array
                   items:
-                    description: A lifetime exception
+                    description: "A lifetime exception"
                     type: object
                     properties:
                       id:
-                        description: The id of the lifetime exception.
+                        description: "The id of the lifetime exception."
                         type: string
                       scope:
-                        description: The scope associated with the lifetime exception.
+                        description: "The scope associated with the lifetime exception."
                         type: string
                       name:
-                        description: The name of the lifetime exception.
+                        description: "The name of the lifetime exception."
                         type: string
                       did_type:
-                        description: The type of the did.
+                        description: "The type of the did."
                         type: string
                         enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
                       account:
-                        description: The account associated with the lifetime exception.
+                        description: "The account associated with the lifetime exception."
                         type: string
                       pattern:
-                        description: The pattern of the lifetime exception.
+                        description: "The pattern of the lifetime exception."
                         type: string
                       comments:
-                        description: The comments of the lifetime exception.
+                        description: "The comments of the lifetime exception."
                         type: string
                       state:
-                        description: The state of the lifetime exception.
+                        description: "The state of the lifetime exception."
                         type: string
                         enum: ['A', 'R', 'W']
                       created_at:
-                        description: The datetime the lifetime exception was created.
+                        description: "The datetime the lifetime exception was created."
                         type: string
                       expires_at:
-                        description: The datetime the lifetime exception expires.
+                        description: "The datetime the lifetime exception expires."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Lifetime exception not found
+            description: "Lifetime exception not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo):
@@ -243,13 +243,13 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
         """
         ---
         summary: Approve/Reject exception
-        description: Approve/Reject a Lifetime Exception.
+        description: "Approve/Reject a Lifetime Exception."
         tags:
             - Lifetime Exceptions
         parameters:
         - name: exception_id
           in: path
-          description: The id of the Lifetime Exception.
+          description: "The id of the Lifetime Exception."
           schema:
             type: string
           style: simple
@@ -260,23 +260,23 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
                 type: object
                 properties:
                   state:
-                    description: The new state for the Lifetime Exception.
+                    description: "The new state for the Lifetime Exception."
                     type: string
                     enum: ['A', 'R']
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Lifetime Exception not found
+            description: "Lifetime Exception not found"
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
         """
         parameters = json_parameters()
         state = param_get(parameters, 'state', default=None)

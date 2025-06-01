@@ -79,96 +79,96 @@ class RSEs(ErrorHandlingMethodView):
         """
         ---
         summary: List RSEs
-        description: Lists all RSEs.
+        description: "Lists all RSEs."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: expression
           in: query
-          description: RSE expression to select RSEs.
+          description: "RSE expression to select RSEs."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: A list with the corresponding rses.
+                  description: "A list with the corresponding rses."
                   type: array
                   items:
                     type: object
                     properties:
                       id:
-                        description: The rse id.
+                        description: "The rse id."
                         type: string
                       rse:
-                        description: The name of the rse.
+                        description: "The name of the rse."
                         type: string
                       rse_type:
-                        description: The type of the rse.
+                        description: "The type of the rse."
                         type: string
                       deterministic:
-                        description: If the rse is deterministic.
+                        description: "If the rse is deterministic."
                         type: boolean
                       volatile:
-                        description: If the rse is volatile.
+                        description: "If the rse is volatile."
                         type: boolean
                       staging_area:
-                        description: Is this rse a staging area?
+                        description: "Is this rse a staging area?"
                         type: boolean
                       city:
-                        description: The city of the rse.
+                        description: "The city of the rse."
                         type: string
                       region_code:
-                        description: The region_code of the rse.
+                        description: "The region_code of the rse."
                         type: string
                       country_name:
-                        description: The country name of the rse.
+                        description: "The country name of the rse."
                         type: string
                       continent:
-                        description: The continent of the rse.
+                        description: "The continent of the rse."
                         type: string
                       time_zone:
-                        description: The time zone of the rse.
+                        description: "The time zone of the rse."
                         type: string
                       ISP:
-                        description: The isp of the rse.
+                        description: "The isp of the rse."
                         type: string
                       ASN:
-                        description: The asn of the rse.
+                        description: "The asn of the rse."
                         type: string
                       longitude:
-                        description: The longitude of the rse.
+                        description: "The longitude of the rse."
                         type: number
                       latitude:
-                        description: The latitude of the rse.
+                        description: "The latitude of the rse."
                         type: number
                       availability:
-                        description: The availability of the rse.
+                        description: "The availability of the rse."
                         type: integer
                         deprecated: true
                       availability_read:
-                        description: If the RSE is readable.
+                        description: "If the RSE is readable."
                         type: integer
                       availability_write:
-                        description: If the RSE is writable.
+                        description: "If the RSE is writable."
                         type: integer
                       availability_delete:
-                        description: If the RSE is deletable.
+                        description: "If the RSE is deletable."
                         type: integer
                       usage:
-                        description: The usage of the rse.
+                        description: "The usage of the rse."
                         type: integer
                       qos_class:
-                        description: The quality of service class.
+                        description: "The quality of service class."
                         type: string
           400:
-            description: Invalid RSE expression
+            description: "Invalid RSE expression"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         expression = request.args.get('expression', default=None)
 
@@ -197,13 +197,13 @@ class RSE(ErrorHandlingMethodView):
         """
         ---
         summary: Create RSE
-        description: Creates a RSE with all the metadata.
+        description: "Creates a RSE with all the metadata."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
@@ -214,74 +214,74 @@ class RSE(ErrorHandlingMethodView):
                 type: object
                 properties:
                   deterministic:
-                    description: If the pfn is generated deterministicly.
+                    description: "If the pfn is generated deterministically."
                     type: boolean
                   volatile:
-                    description: RSE cache.
+                    description: "RSE cache."
                     type: boolean
                   city:
-                    description: The city of the RSE.
+                    description: "The city of the RSE."
                     type: string
                   staging_area:
-                    description: Staging area.
+                    description: "Staging area."
                     type: string
                   region_code:
-                    description: The region code of the RSE.
+                    description: "The region code of the RSE."
                     type: string
                   country_name:
-                    description: The country name of the RSE.
+                    description: "The country name of the RSE."
                     type: string
                   continent:
-                    description: The continent of the RSE.
+                    description: "The continent of the RSE."
                     type: string
                   time_zone:
-                    description: The time zone of the RSE.
+                    description: "The time zone of the RSE."
                     type: string
                   ISP:
-                    description: The internet service provider of the RSE.
+                    description: "The internet service provider of the RSE."
                     type: string
                   rse_type:
-                    description: The rse type.
+                    description: "The rse type."
                     type: string
                     enum: ["DISK", "TAPE"]
                   latitude:
-                    description: The latitude of the RSE.
+                    description: "The latitude of the RSE."
                     type: number
                   longitude:
-                    description: The longitude of the RSE.
+                    description: "The longitude of the RSE."
                     type: number
                   ASN:
-                    description: The access service network of the RSE.
+                    description: "The access service network of the RSE."
                     type: string
                   availability:
-                    description: The availability of the RSE.
+                    description: "The availability of the RSE."
                     type: integer
                     deprecated: true
                   availability_read:
-                    description: If the RSE is readable.
+                    description: "If the RSE is readable."
                     type: boolean
                   availability_write:
-                    description: If the RSE is writable.
+                    description: "If the RSE is writable."
                     type: boolean
                   availability_delete:
-                    description: If the RSE is deletable.
+                    description: "If the RSE is deletable."
                     type: boolean
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json parameter dictionary
+            description: "Cannot decode json parameter dictionary"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
           409:
-            description: RSE already exists.
+            description: "RSE already exists."
         """
         kwargs = {
             'deterministic': True,
@@ -335,13 +335,13 @@ class RSE(ErrorHandlingMethodView):
         """
         ---
         summary: Update RSE
-        description: Update RSE properties.
+        description: "Update RSE properties."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
@@ -352,59 +352,59 @@ class RSE(ErrorHandlingMethodView):
                 type: object
                 properties:
                   availability_read:
-                    description: The vailability of the RSE.
+                    description: "The availability of the RSE."
                     type: boolean
                   availability_write:
-                    description: The vailability of the RSE.
+                    description: "The availability of the RSE."
                     type: boolean
                   availability_delete:
-                    description: The vailability of the RSE.
+                    description: "The availability of the RSE."
                     type: boolean
                   deterministic:
-                    description: If the pfn is generated deterministicly.
+                    description: "If the pfn is generated deterministically."
                     type: boolean
                   volatile:
-                    description: RSE cache.
+                    description: "RSE cache."
                     type: boolean
                   city:
-                    description: The city of the RSE.
+                    description: "The city of the RSE."
                     type: string
                   staging_area:
-                    description: Staging area.
+                    description: "Staging area."
                     type: string
                   region_code:
-                    description: The region code of the RSE.
+                    description: "The region code of the RSE."
                     type: string
                   country_name:
-                    description: The country name of the RSE.
+                    description: "The country name of the RSE."
                     type: string
                   time_zone:
-                    description: The time zone of the RSE.
+                    description: "The time zone of the RSE."
                     type: string
                   rse_type:
-                    description: The rse type.
+                    description: "The rse type."
                     type: string
                     enum: ["DISK", "TAPE"]
                   latitude:
-                    description: The latitude of the RSE.
+                    description: "The latitude of the RSE."
                     type: number
                   longitude:
-                    description: The longitude of the RSE.
+                    description: "The longitude of the RSE."
                     type: number
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json parameter dictionary or invalid option provided
+            description: "Cannot decode json parameter dictionary or invalid option provided"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
         """
         kwargs = {
             'parameters': json_parameters(optional=True),
@@ -429,83 +429,83 @@ class RSE(ErrorHandlingMethodView):
         """
         ---
         summary: Get RSE
-        description: Get details about a specific RSE.
+        description: "Get details about a specific RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The RSE properties.
+                  description: "The RSE properties."
                   type: object
                   properties:
                     deterministic:
-                      description: If the pfn is generated deterministicly.
+                      description: "If the pfn is generated deterministically."
                       type: boolean
                     volatile:
-                      description: RSE cache.
+                      description: "RSE cache."
                       type: boolean
                     city:
-                      description: The city of the RSE.
+                      description: "The city of the RSE."
                       type: string
                     staging_area:
-                      description: Staging area.
+                      description: "Staging area."
                       type: string
                     region_code:
-                      description: The region code of the RSE.
+                      description: "The region code of the RSE."
                       type: string
                     country_name:
-                      description: The country name of the RSE.
+                      description: "The country name of the RSE."
                       type: string
                     continent:
-                      description: The continent of the RSE.
+                      description: "The continent of the RSE."
                       type: string
                     time_zone:
-                      description: The time zone of the RSE.
+                      description: "The time zone of the RSE."
                       type: string
                     ISP:
-                      description: The internet service provider of the RSE.
+                      description: "The internet service provider of the RSE."
                       type: string
                     rse_type:
-                      description: The rse type.
+                      description: "The rse type."
                       type: string
                       enum: ["DISK", "TAPE"]
                     latitude:
-                      description: The latitude of the RSE.
+                      description: "The latitude of the RSE."
                       type: number
                     longitude:
-                      description: The longitude of the RSE.
+                      description: "The longitude of the RSE."
                       type: number
                     ASN:
-                      description: The access service network of the RSE.
+                      description: "The access service network of the RSE."
                       type: string
                     availability:
-                      description: The availability of the RSE.
+                      description: "The availability of the RSE."
                       type: integer
                       deprecated: true
                     availability_read:
-                      description: If the RSE is readable.
+                      description: "If the RSE is readable."
                       type: integer
                     availability_write:
-                      description: If the RSE is writable.
+                      description: "If the RSE is writable."
                       type: integer
                     availability_delete:
-                      description: If the RSE is deletable.
+                      description: "If the RSE is deletable."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             rse = get_rse(rse=rse, vo=request.environ['vo'])
@@ -518,23 +518,23 @@ class RSE(ErrorHandlingMethodView):
         """
         ---
         summary: Disable RSE
-        description: Disable a specific RSE.
+        description: "Disable a specific RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
         """
         try:
             del_rse(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -553,19 +553,19 @@ class Attributes(ErrorHandlingMethodView):
         """
         ---
         summary: Create RSE Attribute
-        description: Create a RSE attribute with given RSE name.
+        description: "Create a RSE attribute with given RSE name."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: key
           in: path
-          description: The name of the attribute of the RSE.
+          description: "The name of the attribute of the RSE."
           schema:
             type: string
           style: simple
@@ -578,24 +578,24 @@ class Attributes(ErrorHandlingMethodView):
                 - value
                 properties:
                   value:
-                    description: The value of the RSE attribute.
+                    description: "The value of the RSE attribute."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json parameter dictionary
+            description: "Cannot decode json parameter dictionary"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
           409:
-            description: Attribute already exists
+            description: "Attribute already exists"
         """
         parameters = json_parameters()
         value = param_get(parameters, 'value')
@@ -615,32 +615,32 @@ class Attributes(ErrorHandlingMethodView):
         """
         ---
         summary: Get RSE Attributes
-        description: Lists all RSE attributes for a RSE.
+        description: "Lists all RSE attributes for a RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The RSE attribute list. Returns a dictionary with the attribute names as keys and the values as values.
+                  description: "The RSE attribute list. Returns a dictionary with the attribute names as keys and the values as values."
                   type: object
                   additionalProperties:
                     type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found
+            description: "RSE not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             rse_attr = list_rse_attributes(rse, vo=request.environ['vo'])
@@ -655,29 +655,29 @@ class Attributes(ErrorHandlingMethodView):
         """
         ---
         summary: Delete RSE Attribute
-        description: Delete an RSE attribute for given RSE name.
+        description: "Delete an RSE attribute for given RSE name."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: key
           in: path
-          description: The name of the attribute of the RSE.
+          description: "The name of the attribute of the RSE."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE or RSE attribute not found
+            description: "RSE or RSE attribute not found"
         """
         try:
             del_rse_attribute(rse=rse, key=key, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -697,138 +697,138 @@ class ProtocolList(ErrorHandlingMethodView):
         """
         ---
         summary: List RSE Protocols
-        description: List all supported protocols of the given RSE.
+        description: "List all supported protocols of the given RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: Supported RSE Protocols and other information.
+                  description: "Supported RSE Protocols and other information."
                   type: object
                   properties:
                     deterministic:
-                      description: If the pfn is generated deterministicly.
+                      description: "If the pfn is generated deterministically."
                       type: boolean
                     volatile:
-                      description: RSE cache.
+                      description: "RSE cache."
                       type: boolean
                     staging_area:
-                      description: Staging area.
+                      description: "Staging area."
                       type: string
                     rse_type:
-                      description: The rse type.
+                      description: "The rse type."
                       type: string
                       enum: ["DISK", "TAPE"]
                     availability_read:
-                      description: The read availability of the RSE.
+                      description: "The read availability of the RSE."
                       type: boolean
                     availability_write:
-                      description: The write availability of the RSE.
+                      description: "The write availability of the RSE."
                       type: boolean
                     availability_delete:
-                      description: The delete availability of the RSE.
+                      description: "The delete availability of the RSE."
                       type: boolean
                     credentials:
-                      description: The credentials, currently None.
+                      description: "The credentials, currently None."
                       type: string
                     domain:
-                      description: The domains of the RSE protocols.
+                      description: "The domains of the RSE protocols."
                       type: array
                     id:
-                      description: The RSE id.
+                      description: "The RSE id."
                       type: string
                     lfn2pfn_algorithm:
-                      description: The algorithm used to translate the logical file names to the physical ones.
+                      description: "The algorithm used to translate the logical file names to the physical ones."
                       type: string
                     qos_class:
-                      description: The qos class of the RSE.
+                      description: "The qos class of the RSE."
                       type: string
                     rse:
-                      description: The name of the RSE.
+                      description: "The name of the RSE."
                       type: string
                     sign_url:
-                      description: The sign url of the RSE.
+                      description: "The sign url of the RSE."
                       type: string
                     verify_checksum:
-                      description: If the checksum of the files should be verified.
+                      description: "If the checksum of the files should be verified."
                       type: boolean
                     protocols:
-                      description: All supported protocols of the RSE.
+                      description: "All supported protocols of the RSE."
                       type: array
                       items:
                         type: object
-                        description: A supported RSE protocol.
+                        description: "A supported RSE protocol."
                         properties:
                           hostname:
-                            description: The hostname of the protocol.
+                            description: "The hostname of the protocol."
                             type: string
                           scheme:
-                            description: The scheme of the protocol.
+                            description: "The scheme of the protocol."
                             type: string
                           port:
-                            description: The port of the protocol.
+                            description: "The port of the protocol."
                             type: integer
                           prefix:
-                            description: The prefix of the protocol.
+                            description: "The prefix of the protocol."
                             type: string
                           impl:
-                            description: The implementation of the protocol.
+                            description: "The implementation of the protocol."
                             type: string
                           domains:
-                            description: The domains of the protocol.
+                            description: "The domains of the protocol."
                             type: object
                             properties:
                               lan:
-                                description: The lan domain
+                                description: "The lan domain"
                                 type: object
                                 properties:
                                   read:
-                                    description: The read value of the lan protocol.
+                                    description: "The read value of the lan protocol."
                                     type: integer
                                   write:
-                                    description: The write value of the lan protocol.
+                                    description: "The write value of the lan protocol."
                                     type: integer
                                   delete:
-                                    description: The delete value of the lan protocol.
+                                    description: "The delete value of the lan protocol."
                                     type: integer
                               wan:
-                                description: The wan domain
+                                description: "The wan domain"
                                 type: object
                                 properties:
                                   read:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   write:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   delete:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   third_party_copy_read:
-                                    description: The third party copy read value of the wan protocol.
+                                    description: "The third party copy read value of the wan protocol."
                                     type: integer
                                   third_party_copy_write:
-                                    description: The third party copy write value of the wan protocol.
+                                    description: "The third party copy write value of the wan protocol."
                                     type: integer
                           extended_attributes:
-                            description: The extended attributes of the protocol.
+                            description: "The extended attributes of the protocol."
                             type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found or RSE Operation, RSE Protocol Domain, RSE Protocol not supported
+            description: "RSE not found or RSE Operation, RSE Protocol Domain, RSE Protocol not supported"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -849,54 +849,54 @@ class LFNS2PFNS(ErrorHandlingMethodView):
         """
         ---
         summary: Translate LFNs to PFNs
-        description: Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the value is the corresponding PFN.
+        description: "Return PFNs for a set of LFNs.  Formatted as a JSON object where the key is a LFN and the value is the corresponding PFN."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: lfn
           in: query
-          description: The lfns of the request.
+          description: "The lfns of the request."
           schema:
             type: string
           required: True
         - name: scheme
           in: query
-          description: Optional argument to help with the protocol selection (e.g., http / gsiftp / srm)
+          description: "Optional argument to help with the protocol selection (e.g., http / gsiftp / srm)"
           schema:
             type: string
         - name: domain
           in: query
-          description: Optional argument used to select the protocol for wan or lan use cases.
+          description: "Optional argument used to select the protocol for wan or lan use cases."
           schema:
             type: string
         - name: operation
           in: query
-          description: Optional query argument to select the protocol for read-vs-writes.
+          description: "Optional query argument to select the protocol for read-vs-writes."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The PFNs to the LFNs. Dictionary with lfns as keys and pfns as values.
+                  description: "The PFNs to the LFNs. Dictionary with lfns as keys and pfns as values."
                   type: object
                   additionalProperties:
                     type:
                       string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found or RSE Protocol or RSE Protocol Domain not supported
+            description: "RSE not found or RSE Protocol or RSE Protocol Domain not supported"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         lfns = request.args.getlist('lfn')
         lfns = list(map(lambda lfn: lfn.split(":", 1), lfns))
@@ -927,19 +927,19 @@ class Protocol(ErrorHandlingMethodView):
         """
         ---
         summary: Create RSE Protocol
-        description: Create a protocol for a given RSE.
+        description: "Create a protocol for a given RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: scheme
           in: path
-          description: The protocol identifier.
+          description: "The protocol identifier."
           schema:
             type: string
           style: simple
@@ -951,57 +951,57 @@ class Protocol(ErrorHandlingMethodView):
                 type: object
                 properties:
                   domains:
-                    description: The domains for the protocol.
+                    description: "The domains for the protocol."
                     type: array
                   port:
-                    description: The port the protocol uses.
+                    description: "The port the protocol uses."
                     type: integer
                   hostname:
-                    description: The hostname of the protocol.
+                    description: "The hostname of the protocol."
                     type: string
                   extended_attributes:
-                    description: Extended attributes for the protocol.
+                    description: "Extended attributes for the protocol."
                     type: string
                   prefix:
-                    description: The prefix of the Protocol.
+                    description: "The prefix of the Protocol."
                     type: string
                   impl:
-                    description: The impl used by the Protocol.
+                    description: "The impl used by the Protocol."
                     type: string
                   read_lan:
-                    description: If the protocol is readable via lan.
+                    description: "If the protocol is readable via lan."
                     type: integer
                   write_lan:
-                    description: If the protocol is writable via lan.
+                    description: "If the protocol is writable via lan."
                     type: integer
                   delete_lan:
-                    description: If the protocol is deletable via lan.
+                    description: "If the protocol is deletable via lan."
                     type: integer
                   read_wan:
-                    description: If the protocol is readable via wan.
+                    description: "If the protocol is readable via wan."
                     type: integer
                   write_wan:
-                    description: If the protocol is writable via wan.
+                    description: "If the protocol is writable via wan."
                     type: integer
                   delete_wan:
-                    description: If the protocol is deletable via wan.
+                    description: "If the protocol is deletable via wan."
                     type: integer
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json parameter dictionary
+            description: "Cannot decode json parameter dictionary"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found or RSE Protocol Domain not supported
+            description: "RSE not found or RSE Protocol Domain not supported"
           409:
-            description: RSE protocol priority error
+            description: "RSE protocol priority error"
         """
         parameters = json_parameters()
 
@@ -1026,145 +1026,145 @@ class Protocol(ErrorHandlingMethodView):
         """
         ---
         summary: Get Protocols
-        description: List all references of the provided RSE for the given protocol.
+        description: "List all references of the provided RSE for the given protocol."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: scheme
           in: path
-          description: The protocol identifier.
+          description: "The protocol identifier."
           schema:
             type: string
           style: simple
           required: False
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: A dict with RSE information and supported protocols.
+                  description: "A dict with RSE information and supported protocols."
                   type: object
                   properties:
                     deterministic:
-                      description: If the pfn is generated deterministicly.
+                      description: "If the pfn is generated deterministically."
                       type: boolean
                     volatile:
-                      description: RSE cache.
+                      description: "RSE cache."
                       type: boolean
                     staging_area:
-                      description: Staging area.
+                      description: "Staging area."
                       type: string
                     rse_type:
-                      description: The rse type.
+                      description: "The rse type."
                       type: string
                       enum: ["DISK", "TAPE"]
                     availability_read:
-                      description: The read availability of the RSE.
+                      description: "The read availability of the RSE."
                       type: boolean
                     availability_write:
-                      description: The write availability of the RSE.
+                      description: "The write availability of the RSE."
                       type: boolean
                     availability_delete:
-                      description: The delete availability of the RSE.
+                      description: "The delete availability of the RSE."
                       type: boolean
                     credentials:
-                      description: The credentials, currently None.
+                      description: "The credentials, currently None."
                       type: string
                     domain:
-                      description: The domains of the RSE protocols.
+                      description: "The domains of the RSE protocols."
                       type: array
                     id:
-                      description: The RSE id.
+                      description: "The RSE id."
                       type: string
                     lfn2pfn_algorithm:
-                      description: The algorithm used to translate the logical file names to the physical ones.
+                      description: "The algorithm used to translate the logical file names to the physical ones."
                       type: string
                     qos_class:
-                      description: The qos class of the RSE.
+                      description: "The qos class of the RSE."
                       type: string
                     rse:
-                      description: The name of the RSE.
+                      description: "The name of the RSE."
                       type: string
                     sign_url:
-                      description: The sign url of the RSE.
+                      description: "The sign url of the RSE."
                       type: string
                     verify_checksum:
-                      description: If the checksum of the files should be verified.
+                      description: "If the checksum of the files should be verified."
                       type: boolean
                     protocols:
-                      description: All supported protocols of the RSE.
+                      description: "All supported protocols of the RSE."
                       type: array
                       items:
                         type: object
-                        description: A supported RSE protocol.
+                        description: "A supported RSE protocol."
                         properties:
                           hostname:
-                            description: The hostname of the protocol.
+                            description: "The hostname of the protocol."
                             type: string
                           scheme:
-                            description: The scheme of the protocol.
+                            description: "The scheme of the protocol."
                             type: string
                           port:
-                            description: The port of the protocol.
+                            description: "The port of the protocol."
                             type: integer
                           prefix:
-                            description: The prefix of the protocol.
+                            description: "The prefix of the protocol."
                             type: string
                           impl:
-                            description: The implementation of the protocol.
+                            description: "The implementation of the protocol."
                             type: string
                           domains:
-                            description: The domains of the protocol.
+                            description: "The domains of the protocol."
                             type: object
                             properties:
                               lan:
-                                description: The lan domain
+                                description: "The lan domain"
                                 type: object
                                 properties:
                                   read:
-                                    description: The read value of the lan protocol.
+                                    description: "The read value of the lan protocol."
                                     type: integer
                                   write:
-                                    description: The write value of the lan protocol.
+                                    description: "The write value of the lan protocol."
                                     type: integer
                                   delete:
-                                    description: The delete value of the lan protocol.
+                                    description: "The delete value of the lan protocol."
                                     type: integer
                               wan:
-                                description: The wan domain
+                                description: "The wan domain"
                                 type: object
                                 properties:
                                   read:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   write:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   delete:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   third_party_copy_read:
-                                    description: The third party copy read value of the wan protocol.
+                                    description: "The third party copy read value of the wan protocol."
                                     type: integer
                                   third_party_copy_write:
-                                    description: The third party copy write value of the wan protocol.
+                                    description: "The third party copy write value of the wan protocol."
                                     type: integer
                           extended_attributes:
-                            description: The extended attributes of the protocol.
+                            description: "The extended attributes of the protocol."
                             type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found or Protocol or Protocol domain not Supported.
+            description: "RSE not found or Protocol or Protocol domain not Supported."
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             p_list = get_rse_protocols(rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -1177,158 +1177,158 @@ class Protocol(ErrorHandlingMethodView):
         """
         ---
         summary: Update Protocol Attributes
-        description: Updates attributes of an existing protocol entry. Because protocol identifier, hostname, and port are used as unique identifier they are immutable.
+        description: "Updates attributes of an existing protocol entry. Because protocol identifier, hostname, and port are used as unique identifiers, they are immutable."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: scheme
           in: path
-          description: The protocol identifier.
+          description: "The protocol identifier."
           schema:
             type: string
           style: simple
         - name: hostname
           in: path
-          description: The hostname of the protocol.
+          description: "The hostname of the protocol."
           schema:
             type: string
           style: simple
           required: False
         - name: port
           in: path
-          description: The port of the protocol.
+          description: "The port of the protocol."
           schema:
             type: integer
           style: simple
           required: False
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: A dict with RSE information and supported protocols.
+                  description: "A dict with RSE information and supported protocols."
                   type: object
                   properties:
                     deterministic:
-                      description: If the pfn is generated deterministicly.
+                      description: "If the pfn is generated deterministically."
                       type: boolean
                     volatile:
-                      description: RSE cache.
+                      description: "RSE cache."
                       type: boolean
                     staging_area:
-                      description: Staging area.
+                      description: "Staging area."
                       type: string
                     rse_type:
-                      description: The rse type.
+                      description: "The rse type."
                       type: string
                       enum: ["DISK", "TAPE"]
                     availability_read:
-                      description: The read availability of the RSE.
+                      description: "The read availability of the RSE."
                       type: boolean
                     availability_write:
-                      description: The write availability of the RSE.
+                      description: "The write availability of the RSE."
                       type: boolean
                     availability_delete:
-                      description: The delete availability of the RSE.
+                      description: "The delete availability of the RSE."
                       type: boolean
                     credentials:
-                      description: The credentials, currently None.
+                      description: "The credentials, currently None."
                       type: string
                     domain:
-                      description: The domains of the RSE protocols.
+                      description: "The domains of the RSE protocols."
                       type: array
                     id:
-                      description: The RSE id.
+                      description: "The RSE id."
                       type: string
                     lfn2pfn_algorithm:
-                      description: The algorithm used to translate the logical file names to the physical ones.
+                      description: "The algorithm used to translate the logical file names to the physical ones."
                       type: string
                     qos_class:
-                      description: The qos class of the RSE.
+                      description: "The qos class of the RSE."
                       type: string
                     rse:
-                      description: The name of the RSE.
+                      description: "The name of the RSE."
                       type: string
                     sign_url:
-                      description: The sign url of the RSE.
+                      description: "The sign url of the RSE."
                       type: string
                     verify_checksum:
-                      description: If the checksum of the files should be verified.
+                      description: "If the checksum of the files should be verified."
                       type: boolean
                     protocols:
-                      description: All supported protocols of the RSE.
+                      description: "All supported protocols of the RSE."
                       type: array
                       items:
                         type: object
-                        description: A supported RSE protocol.
+                        description: "A supported RSE protocol."
                         properties:
                           hostname:
-                            description: The hostname of the protocol.
+                            description: "The hostname of the protocol."
                             type: string
                           scheme:
-                            description: The scheme of the protocol.
+                            description: "The scheme of the protocol."
                             type: string
                           port:
-                            description: The port of the protocol.
+                            description: "The port of the protocol."
                             type: integer
                           prefix:
-                            description: The prefix of the protocol.
+                            description: "The prefix of the protocol."
                             type: string
                           impl:
-                            description: The implementation of the protocol.
+                            description: "The implementation of the protocol."
                             type: string
                           domains:
-                            description: The domains of the protocol.
+                            description: "The domains of the protocol."
                             type: object
                             properties:
                               lan:
-                                description: The lan domain
+                                description: "The lan domain"
                                 type: object
                                 properties:
                                   read:
-                                    description: The read value of the lan protocol.
+                                    description: "The read value of the lan protocol."
                                     type: integer
                                   write:
-                                    description: The write value of the lan protocol.
+                                    description: "The write value of the lan protocol."
                                     type: integer
                                   delete:
-                                    description: The delete value of the lan protocol.
+                                    description: "The delete value of the lan protocol."
                                     type: integer
                               wan:
-                                description: The wan domain
+                                description: "The wan domain"
                                 type: object
                                 properties:
                                   read:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   write:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   delete:
-                                    description: The read value of the wan protocol.
+                                    description: "The read value of the wan protocol."
                                     type: integer
                                   third_party_copy_read:
-                                    description: The third party copy read value of the wan protocol.
+                                    description: "The third party copy read value of the wan protocol."
                                     type: integer
                                   third_party_copy_write:
-                                    description: The third party copy write value of the wan protocol.
+                                    description: "The third party copy write value of the wan protocol."
                                     type: integer
                           extended_attributes:
-                            description: The extended attributes of the protocol.
+                            description: "The extended attributes of the protocol."
                             type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: RSE not found or Protocol or Protocol domain not Supported.
+            description: "RSE not found or Protocol or Protocol domain not Supported."
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         try:
@@ -1354,43 +1354,43 @@ class Protocol(ErrorHandlingMethodView):
         """
         ---
         summary: Delete Protocol Attributes
-        description: Delete all protocol attributes.
+        description: "Delete all protocol attributes."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: scheme
           in: path
-          description: The protocol identifier.
+          description: "The protocol identifier."
           schema:
             type: string
           style: simple
         - name: hostname
           in: path
-          description: The hostname of the protocol.
+          description: "The hostname of the protocol."
           schema:
             type: string
           style: simple
           required: False
         - name: port
           in: path
-          description: The port of the protocol.
+          description: "The port of the protocol."
           schema:
             type: integer
           style: simple
           required: False
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found or protocol not supported
+            description: "Rse not found or protocol not supported"
         """
         try:
             del_protocols(
@@ -1415,67 +1415,67 @@ class Usage(ErrorHandlingMethodView):
         """
         ---
         summary: Get Rse Usage Information
-        description: Get rse usage information.
+        description: "Get rse usage information."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: per_account
           in: query
-          description: Boolean whether the usage should be also calculated per account or not.
+          description: "Boolean whether the usage should be also calculated per account or not."
           schema:
             type: boolean
         - name: source
           in: query
-          description: The information source, e.g., srm.
+          description: "The information source, e.g., srm."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list with the rse usage.
+                  description: "A list with the rse usage."
                   type: array
                   items:
                     type: object
                     properties:
                       rse_id:
-                        description: The id of the rse.
+                        description: "The id of the rse."
                         type: string
                       rse:
-                        description: The name of the rse.
+                        description: "The name of the rse."
                         type: string
                       source:
-                        description: The source of the rse.
+                        description: "The source of the rse."
                         type: string
                       used:
-                        description: The number of used bytes.
+                        description: "The number of used bytes."
                         type: integer
                       free:
-                        description: The number of free bytes.
+                        description: "The number of free bytes."
                         type: integer
                       total:
-                        description: The number of total bytes.
+                        description: "The number of total bytes."
                         type: integer
                       files:
-                        description: The number of files.
+                        description: "The number of files."
                         type: integer
                       updated_at:
-                        description: The last time it got updated.
+                        description: "The last time it got updated."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         per_account = request.args.get('per_account') == 'True'
         try:
@@ -1498,13 +1498,13 @@ class Usage(ErrorHandlingMethodView):
         """
         ---
         summary: Update Rse Usage
-        description: Update the RSE Update information.
+        description: "Update the RSE Update information."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
@@ -1515,28 +1515,28 @@ class Usage(ErrorHandlingMethodView):
                 type: object
                 properties:
                   source:
-                    description: The information source, e.g. srm.
+                    description: "The information source, e.g. srm."
                     type: string
                   used:
-                    description: The number of used bytes.
+                    description: "The number of used bytes."
                     type: integer
                   free:
-                    description: The number of free bytes.
+                    description: "The number of free bytes."
                     type: integer
                   files:
-                    description: The number of files.
+                    description: "The number of files."
                     type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
           400:
-            description: Can not decode json parameter list.
+            description: "Can not decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         kwargs = {'source': None, 'used': None, 'free': None, 'files': None}
@@ -1561,54 +1561,54 @@ class UsageHistory(ErrorHandlingMethodView):
         """
         ---
         summary: Get Rse Usage History
-        description: Get the rse usage history
+        description: "Get the rse usage history"
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list with the rse usage history items.
+                  description: "A list with the rse usage history items."
                   type: array
                   items:
                     type: object
                     properties:
                       rse_id:
-                        description: The id of the rse.
+                        description: "The id of the rse."
                         type: string
                       rse:
-                        description: The name of the rse.
+                        description: "The name of the rse."
                         type: string
                       source:
-                        description: The source of the rse.
+                        description: "The source of the rse."
                         type: string
                       used:
-                        description: The number of used bytes.
+                        description: "The number of used bytes."
                         type: integer
                       free:
-                        description: The number of free bytes.
+                        description: "The number of free bytes."
                         type: integer
                       total:
-                        description: The number of total bytes.
+                        description: "The number of total bytes."
                         type: integer
                       updated_at:
-                        description: The last time it got updated.
+                        description: "The last time it got updated."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(issuer, source, vo):
@@ -1628,34 +1628,34 @@ class Limits(ErrorHandlingMethodView):
         """
         ---
         summary: Get Rse Limits
-        description: Get the rse limits.
+        description: "Get the rse limits."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The limits.
+                  description: "The limits."
                   type: object
                   additionalProperties:
                     x-additionalPropertiesName: limit name
-                    description: An item with the name as key and the value as value.
+                    description: "An item with the name as key and the value as value."
                     type: integer
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             limits = get_rse_limits(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -1667,13 +1667,13 @@ class Limits(ErrorHandlingMethodView):
         """
         ---
         summary: Update Rse Limit
-        description: Update an rse limit.
+        description: "Update an rse limit."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
@@ -1684,20 +1684,20 @@ class Limits(ErrorHandlingMethodView):
                 type: object
                 properties:
                   name:
-                    description: The name of the limit.
+                    description: "The name of the limit."
                     type: string
                   value:
-                    description: The value of the limit.
+                    description: "The value of the limit."
                     type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         kwargs = {'name': None, 'value': None}
@@ -1717,13 +1717,13 @@ class Limits(ErrorHandlingMethodView):
         """
         ---
         summary: Delete Rse Limit
-        description: Delete an rse limit
+        description: "Delete an rse limit"
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
@@ -1736,17 +1736,17 @@ class Limits(ErrorHandlingMethodView):
                 - name
                 properties:
                   name:
-                    description: The name of the limit.
+                    description: "The name of the limit."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         name = param_get(parameters, 'name')
@@ -1769,51 +1769,51 @@ class RSEAccountUsageLimit(ErrorHandlingMethodView):
         """
         ---
         summary: Get Rse Account Usage and Limit
-        description: Returns the usage and limit of an account for a rse.
+        description: "Returns the usage and limit of an account for a rse."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: A list with the rse account limits and usages.
+                  description: "A list with the rse account limits and usages."
                   type: array
                   items:
                     type: object
                     properties:
                       rse_id:
-                        description: The id of the rse.
+                        description: "The id of the rse."
                         type: string
                       rse:
-                        description: The name of the rse.
+                        description: "The name of the rse."
                         type: string
                       account:
-                        description: The account.
+                        description: "The account."
                         type: string
                       used_files:
-                        description: The number of used files.
+                        description: "The number of used files."
                         type: integer
                       used_bytes:
-                        description: The number of used bytes.
+                        description: "The number of used bytes."
                         type: integer
                       quota_bytes:
-                        description: The number of quota bytes.
+                        description: "The number of quota bytes."
                         type: integer
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo):
@@ -1833,53 +1833,53 @@ class Distance(ErrorHandlingMethodView):
         """
         ---
         summary: Get Rse Distances
-        description: Returns the distances between a source and destination rse.
+        description: "Returns the distances between a source and destination rse."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: source
           in: path
-          description: The name of the source Rucio Storage Element.
+          description: "The name of the source Rucio Storage Element."
           schema:
             type: string
           style: simple
         - name: destination
           in: path
-          description: The name of the destination Rucio Storage Element.
+          description: "The name of the destination Rucio Storage Element."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The distances between the Rses.
+                  description: "The distances between the Rses."
                   type: array
                   items:
                     type: object
-                    description: One distance between source and destination.
+                    description: "One distance between source and destination."
                     properties:
                       src_rse_id:
-                        description: The source rse id.
+                        description: "The source rse id."
                         type: string
                       dest_rse_id:
-                        description: The destination rse id.
+                        description: "The destination rse id."
                         type: string
                       distance:
-                        description: The distance between RSEs.
+                        description: "The distance between RSEs."
                         type: integer
                       ranking:
                         deprecated: true
-                        description: Same as distance.
+                        description: "Same as distance."
                         type: integer
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             distance = get_distance(source=source, destination=destination, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -1891,19 +1891,19 @@ class Distance(ErrorHandlingMethodView):
         """
         ---
         summary: Create Rse Distance
-        description: Post a rse distance.
+        description: "Post a rse distance."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: source
           in: path
-          description: The name of the source Rucio Storage Element.
+          description: "The name of the source Rucio Storage Element."
           schema:
             type: string
           style: simple
         - name: destination
           in: path
-          description: The name of the destination Rucio Storage Element.
+          description: "The name of the destination Rucio Storage Element."
           schema:
             type: string
           style: simple
@@ -1914,26 +1914,26 @@ class Distance(ErrorHandlingMethodView):
                 type: object
                 properties:
                   distance:
-                    description: The distance between RSEs.
+                    description: "The distance between RSEs."
                     type: integer
                   ranking:
                     deprecated: true
-                    description: Same as distance.
+                    description: "Same as distance."
                     type: integer
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
 
@@ -1962,19 +1962,19 @@ class Distance(ErrorHandlingMethodView):
         """
         ---
         summary: Update Rse Distance
-        description: Update rse distance information.
+        description: "Update rse distance information."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: source
           in: path
-          description: The name of the source Rucio Storage Element.
+          description: "The name of the source Rucio Storage Element."
           schema:
             type: string
           style: simple
         - name: destination
           in: path
-          description: The name of the destination Rucio Storage Element.
+          description: "The name of the destination Rucio Storage Element."
           schema:
             type: string
           style: simple
@@ -1985,26 +1985,26 @@ class Distance(ErrorHandlingMethodView):
                 type: object
                 properties:
                   distance:
-                    description: The distance between the RSEs.
+                    description: "The distance between the RSEs."
                     type: integer
                   ranking:
                     deprecated: true
-                    description: Same as distance.
+                    description: "Same as distance."
                     type: integer
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
 
@@ -2031,36 +2031,36 @@ class Distance(ErrorHandlingMethodView):
         """
         ---
         summary: Delete Rse Distance
-        description: Delete distance information between source RSE and destination RSE.
+        description: "Delete distance information between source RSE and destination RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: source
           in: path
-          description: The name of the source Rucio Storage Element.
+          description: "The name of the source Rucio Storage Element."
           schema:
             type: string
           style: simple
         - name: destination
           in: path
-          description: The name of the destination Rucio Storage Element.
+          description: "The name of the destination Rucio Storage Element."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Deleted"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             delete_distance(
@@ -2085,36 +2085,36 @@ class QoSPolicy(ErrorHandlingMethodView):
         """
         ---
         summary: Add QoS policy
-        description: Add a QoS Policy to a RSE.
+        description: "Add a QoS Policy to a RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: policy
           in: path
-          description: The QoS policy to add to and rse.
+          description: "The QoS policy to add to and rse."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -2128,31 +2128,31 @@ class QoSPolicy(ErrorHandlingMethodView):
         """
         ---
         summary: Delete QoS Policy
-        description: Delete QoS policy from RSE.
+        description: "Delete QoS policy from RSE."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         - name: policy
           in: path
-          description: The QoS policy to add to and rse.
+          description: "The QoS policy to add to and rse."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -2166,39 +2166,39 @@ class QoSPolicy(ErrorHandlingMethodView):
         """
         ---
         summary: Gett QoS Policies
-        description: List all QoS policies for an Rse.
+        description: "List all QoS policies for an Rse."
         tags:
           - Rucio Storage Elements
         parameters:
         - name: rse
           in: path
-          description: The name of the Rucio Storage Element name.
+          description: "The name of the Rucio Storage Element name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: A list with all the QoS policies for an Rse.
+                  description: "A list with all the QoS policies for an Rse."
                   type: array
                   items:
                     type: object
                     properties:
                       rse_id:
-                        description: The rse id.
+                        description: "The rse id."
                         type: string
                       qos_policy:
-                        description: The qos policy.
+                        description: "The qos policy."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse not found
+            description: "Rse not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             qos_policies = list_qos_policies(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])

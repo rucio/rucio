@@ -47,38 +47,38 @@ class SignURL(ErrorHandlingMethodView):
         """
         ---
         summary: Cross-Site Scripting
-        description: Allow cross-site scripting. Explicit for Authentication.
+        description: "Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Credentials
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
                   type: string
-                description: The http origin.
+                description: "The http origin."
               Access-Control-Allow-Headers:
                 schema:
                   type: string
-                description: The http access control request headers.
+                description: "The http access control request headers."
               Access-Control-Allow-Methods:
                 schema:
                   type: string
                   enum: ['*']
-                description: The allowed methods.
+                description: "The allowed methods."
               Access-Control-Allow-Credentials:
                 schema:
                   type: string
                   enum: ['true']
-                description: If credentials are allowed.
+                description: "If credentials are allowed."
               Access-Control-Expose-Headers:
                 schema:
                   type: string
                   enum: ['X-Rucio-Auth-Token']
-                description: The exposed access control header.
+                description: "The exposed access control header."
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -87,37 +87,37 @@ class SignURL(ErrorHandlingMethodView):
         """
         ---
         summary: Sign URL
-        description: Sign a url for a limited lifetime for a particular srevice.
+        description: "Sign a url for a limited lifetime for a particular srevice."
         tags:
           - Credentials
         parameters:
         - name: rse
           in: query
-          description: The RSE to authenticate against.
+          description: "The RSE to authenticate against."
           schema:
             type: string
           required: true
         - name: lifetime
           in: query
-          description: The lifetime, default 600s.
+          description: "The lifetime, default 600s."
           schema:
             type: string
           required: false
         - name: svc
           in: query
-          description: The service, default gcs.
+          description: "The service, default gcs."
           schema:
             type: string
           required: false
         - name: op
           in: query
-          description: The operation.
+          description: "The operation."
           schema:
             type: string
           required: false
         - name: url
           in: query
-          description: The Url of the authentication.
+          description: "The Url of the authentication."
           schema:
             type: string
           required: true
@@ -128,37 +128,37 @@ class SignURL(ErrorHandlingMethodView):
                 type: object
                 properties:
                   X-Rucio-Account:
-                    description: Account identifier.
+                    description: "Account identifier."
                     type: string
                   X-Rucio-VO:
-                    description: VO name (Multi-VO only).
+                    description: "VO name (Multi-VO only)."
                     type: string
                   X-Rucio-AppID:
-                    description: Application identifier.
+                    description: "Application identifier."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: object
-                    description: An account attribute.
+                    description: "An account attribute."
                     properties:
                       key:
-                        description: The key of the account attribute.
+                        description: "The key of the account attribute."
                         type: string
                       value:
-                        description: The value of the account attribute.
+                        description: "The value of the account attribute."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           400:
-            description: bad request, no rse or url found.
+            description: "Bad request, no rse or url found."
           406:
-            description: Not acceptable.
+            description: "Not acceptable."
         """
         headers = self.get_headers()
         vo = extract_vo(request.headers)

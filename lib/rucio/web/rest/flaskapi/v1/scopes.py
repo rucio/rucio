@@ -27,24 +27,24 @@ class Scope(ErrorHandlingMethodView):
         """
         ---
         summary: List Scopes
-        description: List all scopes
+        description: "List all scopes"
         tags:
           - Scopes
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: All scopes.
+                  description: "All scopes."
                   type: array
                   items:
-                    description: A scope.
+                    description: "A scope."
                     type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         return jsonify(list_scopes(vo=request.environ['vo']))
 
@@ -52,36 +52,36 @@ class Scope(ErrorHandlingMethodView):
         """
         ---
         summary: Add Scope
-        description: Adds a new scope.
+        description: "Adds a new scope."
         tags:
           - Scopes
         parameters:
         - name: account
           in: path
-          description: The account associated with the scope.
+          description: "The account associated with the scope."
           schema:
             type: string
           style: simple
         - name: scope
           in: path
-          description: The name of the scope.
+          description: "The name of the scope."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found
+            description: "Account not found"
           409:
-            description: Scope already exists
+            description: "Scope already exists"
         """
         try:
             add_scope(scope, account, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -100,33 +100,33 @@ class AccountScopeList(ErrorHandlingMethodView):
         """
         ---
         summary: List Account Scopes
-        description: List all scopes for an account.
+        description: "List all scopes for an account."
         tags:
           - Scopes
         parameters:
         - name: account
           in: path
-          description: The account associated with the scope.
+          description: "The account associated with the scope."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: All scopes for the account.
+                  description: "All scopes for the account."
                   type: array
                   items:
-                    description: A scope for the account.
+                    description: "A scope for the account."
                     type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Account not found or no scopes
+            description: "Account not found or no scopes"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scopes = get_scopes(account, vo=request.environ['vo'])

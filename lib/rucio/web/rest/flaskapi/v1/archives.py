@@ -33,19 +33,19 @@ class Archive(ErrorHandlingMethodView):
         """
         ---
         summary: List
-        description: List archive contents.
+        description: "List archive contents."
         tags:
           - Archive
         parameters:
         - name: scope_name
           in: path
-          description: The data identifier of the scope.
+          description: "The data identifier of the scope."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -54,24 +54,24 @@ class Archive(ErrorHandlingMethodView):
                     type: object
                     properties:
                       scope:
-                        description: The scope of the did.
+                        description: "The scope of the did."
                         type: string
                       name:
-                        description: The name of the did.
+                        description: "The name of the did."
                         type: string
                       bytes:
-                        description: The number of bytes.
+                        description: "The number of bytes."
                         type: integer
                       adler32:
-                        description: The adler32 checksum.
+                        description: "The adler32 checksum."
                         type: string
                       md5:
-                        description: The md5 checksum.
+                        description: "The md5 checksum."
                         type: string
           400:
-            description: Invalid value
+            description: "Invalid value"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ.get('vo'))

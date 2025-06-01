@@ -26,49 +26,49 @@ class UserPass(ErrorHandlingMethodView):
         """
         ---
         summary: Create UserPass identity
-        description: Creates a new UserPass identity and maps it to an account.
+        description: "Creates a new UserPass identity and maps it to an account."
         tags:
           - Identity
         parameters:
         - name: account
           in: path
-          description: The account for the identity.
+          description: "The account for the identity."
           schema:
             type: string
           style: simple
         - name: X-Rucio-Username
           in: query
-          description: Username for the identity.
+          description: "Username for the identity."
           schema:
             type: string
           style: simple
           required: true
         - name: X-Rucio-Password
           in: query
-          description: The password for the identity.
+          description: "The password for the identity."
           schema:
             type: string
           style: simple
           required: true
         - name: X-Rucio-Email
           in: query
-          description: The email for the identity.
+          description: "The email for the identity."
           schema:
             type: string
           style: simple
           required: false
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           400:
-            description: Missing username or password.
+            description: "Missing username or password."
         """
         username = request.headers.get('X-Rucio-Username', default=None)
         password = request.headers.get('X-Rucio-Password', default=None)
@@ -105,33 +105,33 @@ class X509(ErrorHandlingMethodView):
         """
         ---
         summary: Create X509 identity
-        description: Creates a new X509 identity and maps it to an account.
+        description: "Creates a new X509 identity and maps it to an account."
         tags:
           - Identity
         parameters:
         - name: account
           in: path
-          description: The account for the identity.
+          description: "The account for the identity."
           schema:
             type: string
           style: simple
         - name: X-Rucio-Email
           in: query
-          description: The email for the identity.
+          description: "The email for the identity."
           schema:
             type: string
           style: simple
           required: false
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         dn = request.environ.get('SSL_CLIENT_S_DN')
         email = request.headers.get('X-Rucio-Email', default=None)
@@ -165,33 +165,33 @@ class GSS(ErrorHandlingMethodView):
         """
         ---
         summary: Create GSS identity
-        description: Creates a new GSS identity and maps it to an account.
+        description: "Creates a new GSS identity and maps it to an account."
         tags:
           - Identity
         parameters:
         - name: account
           in: path
-          description: The account for the identity.
+          description: "The account for the identity."
           schema:
             type: string
           style: simple
         - name: X-Rucio-Email
           in: query
-          description: The email for the identity.
+          description: "The email for the identity."
           schema:
             type: string
           style: simple
           required: false
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         gsscred = request.environ.get('REMOTE_USER')
         email = request.headers.get('X-Rucio-Email', default=None)
@@ -226,37 +226,37 @@ class Accounts(ErrorHandlingMethodView):
         """
         ---
         summary: List
-        description: List all identities mapped to an account.
+        description: "List all identities mapped to an account."
         tags:
           - Identity
         parameters:
         - name: identity_key
           in: path
-          description: Identity string.
+          description: "Identity string."
           schema:
             type: string
           style: simple
         - name: type
           in: path
-          description: Identity type.
+          description: "Identity type."
           schema:
             type: string
           style: simple
           required: false
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: object
-                    description: Account for the identity.
+                    description: "Account for the identity."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           401:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         accounts = list_accounts_for_identity(identity_key, type_)
         return jsonify(accounts)

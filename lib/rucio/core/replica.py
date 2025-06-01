@@ -402,7 +402,7 @@ def __declare_bad_file_replicas(
                     if f"{pfn} Unknown replica" not in unknown_replicas:
                         unknown_replicas.append('%s %s' % (pfn, 'Unknown replica'))
             elif scope or name:
-                unknown_replicas.append(f"{(scope,name)} Unknown replica")
+                unknown_replicas.append(f"{(scope, name)} Unknown replica")
 
     if status == BadFilesStatus.BAD:
         # For BAD file, we modify the replica state, not for suspicious

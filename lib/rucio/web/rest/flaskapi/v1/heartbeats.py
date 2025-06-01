@@ -31,23 +31,23 @@ class Heartbeat(ErrorHandlingMethodView):
         """
         ---
         summary: List
-        description: List all heartbeats.
+        description: "List all heartbeats."
         tags:
           - Heartbeat
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: object
-                    description: List of tuples [('Executable', 'Hostname', ...), ...]
+                    description: "List of tuples [('Executable', 'Hostname', ...), ...]"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         return Response(json.dumps(list_heartbeats(issuer=request.environ['issuer'], vo=request.environ['vo']), cls=APIEncoder), content_type='application/json')
 
@@ -66,29 +66,29 @@ class Heartbeat(ErrorHandlingMethodView):
                 - bytes
                 properties:
                   executable:
-                    description: Name of the executable.
+                    description: "Name of the executable."
                     type: string
                   hostname:
-                    description: Name of the host.
+                    description: "Name of the host."
                     type: string
                   pid:
-                    description: UNIX Process ID as a number, e.g., 1234.
+                    description: "UNIX Process ID as a number, e.g., 1234."
                     type: integer
                   older_than:
-                    description: Ignore specified heartbeats older than specified nr of seconds.
+                    description: "Ignore specified heartbeats older than specified nr of seconds."
                     type: integer
                   payload:
-                    description: Payload identifier which can be further used to identify the work a certain thread is executing.
+                    description: "Payload identifier which can be further used to identify the work a certain thread is executing."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Key not found.
+            description: "Key not found."
         """
         parameters = json_parameters()
         try:

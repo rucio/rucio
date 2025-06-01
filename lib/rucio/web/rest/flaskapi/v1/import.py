@@ -27,7 +27,7 @@ class Import(ErrorHandlingMethodView):
         """
         ---
         summary: Import data
-        description: Import data into rucio
+        description: "Import data into rucio"
         tags:
             - Import
         requestBody:
@@ -37,75 +37,75 @@ class Import(ErrorHandlingMethodView):
                 type: object
                 properties:
                   rses:
-                    description: Rse data with rse name as key.
+                    description: "Rse data with rse name as key."
                     type: object
                     additionalProperties:
                       x-additionalPropertiesName: rse name
                       type: object
                       properties:
                         rse_type:
-                          description: The type of an rse.
+                          description: "The type of an rse."
                           type: string
                           enum: ['DISK', 'TAPE']
                   distances:
-                    description: Distances data with src rse name as key.
+                    description: "Distances data with src rse name as key."
                     type: object
                     additionalProperties:
                       x-additionalPropertiesName: src rse
-                      description: Distances with dest rse as key.
+                      description: "Distances with dest rse as key."
                       type: object
                       additionalProperties:
                         x-additionalPropertiesName: dest rse
-                        description: Distance for two rses.
+                        description: "Distance for two rses."
                         type: object
                         properties:
                           distance:
-                            description: The distance between the rses.
+                            description: "The distance between the rses."
                             type: integer
                           ranking:
                             deprecated: true
-                            description: Same as distance
+                            description: "Same as distance"
                             type: integer
                   accounts:
-                    description: Account data.
+                    description: "Account data."
                     type: array
                     items:
-                      description: An account.
+                      description: "An account."
                       type: object
                       properties:
                         account:
-                          description: The account identifier.
+                          description: "The account identifier."
                           type: string
                         email:
-                          description: The email of an account.
+                          description: "The email of an account."
                           type: string
                         identities:
-                          description: The identities associated with an account. Deletes old identities and adds the newly defined ones.
+                          description: "The identities associated with an account. Deletes old identities and adds the newly defined ones."
                           type: array
                           items:
-                            description: One identity associated with an account.
+                            description: "One identity associated with an account."
                             type: object
                             properties:
                               type:
-                                description: The type of the identity.
+                                description: "The type of the identity."
                                 type: string
                                 enum: ['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC']
                               identity:
-                                description: Identifier of the identity.
+                                description: "Identifier of the identity."
                                 type: string
                               password:
-                                description: The password if the type is USERPASS.
+                                description: "The password if the type is USERPASS."
                                 type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         data = json_parameters(parse_response)
         import_data(data=data, issuer=request.environ['issuer'], vo=request.environ['vo'])

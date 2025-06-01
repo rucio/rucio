@@ -32,80 +32,80 @@ class Subscription(ErrorHandlingMethodView):
         """
         ---
         summary: Get Subscription
-        description: Retrieve a subscription.
+        description: "Retrieve a subscription."
         tags:
           - Replicas
         parameters:
         - name: account
           in: path
-          description: The account name.
+          description: "The account name."
           schema:
             type: string
           style: simple
         - name: name
           in: path
-          description: The subscription name.
+          description: "The subscription name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of subscriptions.
+                  description: "A list of subscriptions."
                   type: array
                   items:
-                    description: A subscription.
+                    description: "A subscription."
                     type: object
                     properties:
                       id:
-                        description: The id of the subscription.
+                        description: "The id of the subscription."
                         type: string
                       name:
-                        description: The name of the subscription.
+                        description: "The name of the subscription."
                         type: string
                       filter:
-                        description: The filter for the subscription.
+                        description: "The filter for the subscription."
                         type: string
                       replication_rules:
-                        description: The replication rules for the subscription.
+                        description: "The replication rules for the subscription."
                         type: string
                       policyid:
-                        description: The policyid for the subscription.
+                        description: "The policyid for the subscription."
                         type: integer
                       state:
-                        description: The state of the subscription.
+                        description: "The state of the subscription."
                         type: string
                         enum: ["A", "I", "N", "U", "B"]
                       last_processed:
-                        description: The time the subscription was processed last.
+                        description: "The time the subscription was processed last."
                         type: string
                         format: date-time
                       account:
-                        description: The account for the subscription.
+                        description: "The account for the subscription."
                         type: string
                       lifetime:
-                        description: The lifetime for the subscription.
+                        description: "The lifetime for the subscription."
                         type: string
                         format: date-time
                       comments:
-                        description: The comments for the subscription.
+                        description: "The comments for the subscription."
                         type: string
                       retroactive:
-                        description: If the subscription is retroactive.
+                        description: "If the subscription is retroactive."
                         type: boolean
                       expired_at:
-                        description: The date-time of the expiration for the subscription.
+                        description: "The date-time of the expiration for the subscription."
                         type: string
                         format: date-time
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Subscription Not found
+            description: "Subscription Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo):
@@ -120,20 +120,20 @@ class Subscription(ErrorHandlingMethodView):
         """
         ---
         summary: Update subscription
-        description: Update an existing subscription.
+        description: "Update an existing subscription."
         tags:
           - Replicas
         parameters:
         - name: account
           in: path
-          description: The account name.
+          description: "The account name."
           schema:
             type: string
           style: simple
           required: true
         - name: name
           in: path
-          description: The subscription name.
+          description: "The subscription name."
           schema:
             type: string
           style: simple
@@ -147,37 +147,37 @@ class Subscription(ErrorHandlingMethodView):
                   - options
                 properties:
                   options:
-                    description: The values for the new subscription.
+                    description: "The values for the new subscription."
                     type: object
                     properties:
                       filter:
-                        description: The filter for the subscription.
+                        description: "The filter for the subscription."
                         type: string
                       replication_rules:
-                        description: The replication rules for the subscription.
+                        description: "The replication rules for the subscription."
                         type: string
                       comments:
-                        description: The comments for the subscription.
+                        description: "The comments for the subscription."
                         type: string
                       lifetime:
-                        description: The lifetime for the subscription.
+                        description: "The lifetime for the subscription."
                         type: string
                         format: date-time
                       retroactive:
-                        description: If the retroactive is activated for a subscription.
+                        description: "If the retroactive is activated for a subscription."
                         type: boolean
                       priority:
-                        description: The priority/policyid for the subscription. Stored as policyid.
+                        description: "The priority/policyid for the subscription. Stored as policyid."
                         type: integer
         responses:
           201:
-            description: OK
+            description: "OK"
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
         """
         parameters = json_parameters()
         options = param_get(parameters, 'options')
@@ -207,20 +207,20 @@ class Subscription(ErrorHandlingMethodView):
         """
         ---
         summary: Create subscription
-        description: Create a new subscription
+        description: "Create a new subscription"
         tags:
           - Replicas
         parameters:
         - name: account
           in: path
-          description: The account name.
+          description: "The account name."
           schema:
             type: string
           style: simple
           required: true
         - name: name
           in: path
-          description: The subscription name.
+          description: "The subscription name."
           schema:
             type: string
           style: simple
@@ -234,7 +234,7 @@ class Subscription(ErrorHandlingMethodView):
                   - options
                 properties:
                   options:
-                    description: The values for the new subscription.
+                    description: "The values for the new subscription."
                     type: object
                     required:
                       - filter
@@ -244,44 +244,44 @@ class Subscription(ErrorHandlingMethodView):
                       - retroactive
                     properties:
                       filter:
-                        description: The filter for the subscription.
+                        description: "The filter for the subscription."
                         type: string
                       replication_rules:
-                        description: The replication rules for the subscription.
+                        description: "The replication rules for the subscription."
                         type: string
                       comments:
-                        description: The comments for the subscription.
+                        description: "The comments for the subscription."
                         type: string
                       lifetime:
-                        description: The lifetime for the subscription.
+                        description: "The lifetime for the subscription."
                         type: string
                         format: date-time
                       retroactive:
-                        description: If the retroactive is activated for a subscription.
+                        description: "If the retroactive is activated for a subscription."
                         type: boolean
                       priority:
-                        description: The priority/policyid for the subscription. Stored as policyid.
+                        description: "The priority/policyid for the subscription. Stored as policyid."
                         type: integer
                       dry_run:
-                        description: The priority/policyid for the subscription. Stored as policyid.
+                        description: "The priority/policyid for the subscription. Stored as policyid."
                         type: boolean
                         default: false
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The subscription Id for the new subscription.
+                  description: "The subscription Id for the new subscription."
                   type: string
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         options = param_get(parameters, 'options')
@@ -326,74 +326,74 @@ class SubscriptionName(ErrorHandlingMethodView):
         """
         ---
         summary: Get Subscription by Name
-        description: Retrieve a subscription by name.
+        description: "Retrieve a subscription by name."
         tags:
           - Replicas
         parameters:
         - name: name
           in: path
-          description: The subscription name.
+          description: "The subscription name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of subscriptions.
+                  description: "A list of subscriptions."
                   type: array
                   items:
-                    description: A subscription.
+                    description: "A subscription."
                     type: object
                     properties:
                       id:
-                        description: The id of the subscription.
+                        description: "The id of the subscription."
                         type: string
                       name:
-                        description: The name of the subscription.
+                        description: "The name of the subscription."
                         type: string
                       filter:
-                        description: The filter for the subscription.
+                        description: "The filter for the subscription."
                         type: string
                       replication_rules:
-                        description: The replication rules for the subscription.
+                        description: "The replication rules for the subscription."
                         type: string
                       policyid:
-                        description: The policyid for the subscription.
+                        description: "The policyid for the subscription."
                         type: integer
                       state:
-                        description: The state of the subscription.
+                        description: "The state of the subscription."
                         type: string
                         enum: ["A", "I", "N", "U", "B"]
                       last_processed:
-                        description: The time the subscription was processed last.
+                        description: "The time the subscription was processed last."
                         type: string
                         format: date-time
                       account:
-                        description: The account for the subscription.
+                        description: "The account for the subscription."
                         type: string
                       lifetime:
-                        description: The lifetime for the subscription.
+                        description: "The lifetime for the subscription."
                         type: string
                         format: date-time
                       comments:
-                        description: The comments for the subscription.
+                        description: "The comments for the subscription."
                         type: string
                       retroactive:
-                        description: If the subscription is retroactive.
+                        description: "If the subscription is retroactive."
                         type: boolean
                       expired_at:
-                        description: The date-time of the expiration for the subscription.
+                        description: "The date-time of the expiration for the subscription."
                         type: string
                         format: date-time
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             def generate(vo):
@@ -412,45 +412,45 @@ class Rules(ErrorHandlingMethodView):
         """
         ---
         summary: Get Replication Rules
-        description: Return all rules of a given subscription id.
+        description: "Return all rules of a given subscription id."
         tags:
           - Replicas
         parameters:
         - name: account
           in: path
-          description: The account name.
+          description: "The account name."
           schema:
             type: string
           style: simple
           required: true
         - name: name
           in: path
-          description: The subscription name.
+          description: "The subscription name."
           schema:
             type: string
           style: simple
           required: true
         - name: state
           in: query
-          description: The subscription state to filter for.
+          description: "The subscription state to filter for."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list with the associated replication rules.
+                  description: "A list with the associated replication rules."
                   type: array
                   items:
-                    description: A subscription rule.
+                    description: "A subscription rule."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rule or Subscription not found
+            description: "Rule or Subscription not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         state = request.args.get('state', default=None)
         try:
@@ -477,53 +477,53 @@ class States(ErrorHandlingMethodView):
         """
         ---
         summary: Get states
-        description: Return a summary of the states of all rules of a given subscription id.
+        description: "Return a summary of the states of all rules of a given subscription id."
         tags:
           - Replicas
         parameters:
         - name: account
           in: path
-          description: The account name.
+          description: "The account name."
           schema:
             type: string
           style: simple
           required: true
         - name: name
           in: path
-          description: The subscription name.
+          description: "The subscription name."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of rule states with counts for each subscription.
+                  description: "A list of rule states with counts for each subscription."
                   type: array
                   items:
                     type: object
                     properties:
                       account:
-                        description: The account for the subscription.
+                        description: "The account for the subscription."
                         type: string
                       name:
-                        description: The name of the subscription.
+                        description: "The name of the subscription."
                         type: string
                       state:
-                        description: The state of the rules.
+                        description: "The state of the rules."
                         type: string
                         enum: ["R", "O", "S", "U", "W", "I"]
                       count:
-                        description: The number of rules with that state.
+                        description: "The number of rules with that state."
                         type: integer
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         def generate(vo):
             for row in list_subscription_rule_states(name=name, account=account, vo=vo):
@@ -539,72 +539,72 @@ class SubscriptionId(ErrorHandlingMethodView):
         """
         ---
         summary: Get Subscription from ID
-        description: Retrieve a subscription matching the given subscription id.
+        description: "Retrieve a subscription matching the given subscription id."
         tags:
           - Replicas
         parameters:
         - name: subscription_id
           in: path
-          description: The subscription id.
+          description: "The subscription id."
           schema:
             type: string
           style: simple
           required: true
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The subscription.
+                  description: "The subscription."
                   type: object
                   properties:
                     id:
-                      description: The id of the subscription.
+                      description: "The id of the subscription."
                       type: string
                     name:
-                      description: The name of the subscription.
+                      description: "The name of the subscription."
                       type: string
                     filter:
-                      description: The filter for the subscription.
+                      description: "The filter for the subscription."
                       type: string
                     replication_rules:
-                      description: The replication rules for the subscription.
+                      description: "The replication rules for the subscription."
                       type: string
                     policyid:
-                      description: The policyid for the subscription.
+                      description: "The policyid for the subscription."
                       type: integer
                     state:
-                      description: The state of the subscription.
+                      description: "The state of the subscription."
                       type: string
                       enum: ["A", "I", "N", "U", "B"]
                     last_processed:
-                      description: The time the subscription was processed last.
+                      description: "The time the subscription was processed last."
                       type: string
                       format: date-time
                     account:
-                      description: The account for the subscription.
+                      description: "The account for the subscription."
                       type: string
                     lifetime:
-                      description: The lifetime for the subscription.
+                      description: "The lifetime for the subscription."
                       type: string
                       format: date-time
                     comments:
-                      description: The comments for the subscription.
+                      description: "The comments for the subscription."
                       type: string
                     retroactive:
-                      description: If the subscription is retroactive.
+                      description: "If the subscription is retroactive."
                       type: boolean
                     expired_at:
-                      description: The date-time of the expiration for the subscription.
+                      description: "The date-time of the expiration for the subscription."
                       type: string
                       format: date-time
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Subscription not found
+            description: "Subscription not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             subscription = get_subscription_by_id(subscription_id, vo=request.environ['vo'])

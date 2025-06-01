@@ -29,13 +29,13 @@ class LockByRSE(ErrorHandlingMethodView):
         """
         ---
         summary: Get locks by rse
-        description: Get all dataset locks for an associated rse.
+        description: "Get all dataset locks for an associated rse."
         tags:
           - Lock
         parameters:
         - name: rse
           in: path
-          description: The rse name.
+          description: "The rse name."
           schema:
             type: string
           style: simple
@@ -46,63 +46,63 @@ class LockByRSE(ErrorHandlingMethodView):
                 type: object
                 properties:
                   did_type:
-                    description: The did type to filter for.
+                    description: "The did type to filter for."
                     type: string
                     enum: ['dataset']
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: Locks associated with the rse.
+                  description: "Locks associated with the rse."
                   type: array
                   items:
-                    description: A lock
+                    description: "A lock"
                     type: object
                     properties:
                       rse_id:
-                        description: The id of the associated rse.
+                        description: "The id of the associated rse."
                         type: string
                       rse:
-                        description: The name of the associated rse.
+                        description: "The name of the associated rse."
                         type: string
                       scope:
-                        description: The scope of the associated rse.
+                        description: "The scope of the associated rse."
                         type: string
                       name:
-                        description: The name of the rule.
+                        description: "The name of the rule."
                         type: string
                       rule_id:
-                        description: The id of the rule.
+                        description: "The id of the rule."
                         type: string
                       account:
-                        description: The associated account.
+                        description: "The associated account."
                         type: string
                       state:
-                        description: The state of the rule.
+                        description: "The state of the rule."
                         type: string
                         enum: ['R', 'O', 'S']
                       length:
-                        description: The length of the rule.
+                        description: "The length of the rule."
                         type: integer
                       bytes:
-                        description: The bytes limit for the lock.
+                        description: "The bytes limit for the lock."
                         type: integer
                       accessed_at:
-                        description: The last time is was accessed.
+                        description: "The last time is was accessed."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           500:
-            description: Wrong did type
+            description: "Wrong did type"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['wrong did_type specified']
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         did_type = request.args.get('did_type', default=None)
         if did_type != 'dataset':
@@ -126,13 +126,13 @@ class LocksByScopeName(ErrorHandlingMethodView):
         """
         ---
         summary: Get locks by scope
-        description: Get all dataset locks for an associated rse.
+        description: "Get all dataset locks for an associated rse."
         tags:
           - Lock
         parameters:
         - name: scope_name
           in: path
-          description: The scope name.
+          description: "The scope name."
           schema:
             type: string
           style: simple
@@ -143,63 +143,63 @@ class LocksByScopeName(ErrorHandlingMethodView):
                 type: object
                 properties:
                   did_type:
-                    description: The did type to filter for.
+                    description: "The did type to filter for."
                     type: string
                     enum: ['dataset']
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: Locks associated with the rse.
+                  description: "Locks associated with the rse."
                   type: array
                   items:
-                    description: A lock
+                    description: "A lock"
                     type: object
                     properties:
                       rse_id:
-                        description: The id of the associated rse.
+                        description: "The id of the associated rse."
                         type: string
                       rse:
-                        description: The name of the associated rse.
+                        description: "The name of the associated rse."
                         type: string
                       scope:
-                        description: The scope of the associated rse.
+                        description: "The scope of the associated rse."
                         type: string
                       name:
-                        description: The name of the rule.
+                        description: "The name of the rule."
                         type: string
                       rule_id:
-                        description: The id of the rule.
+                        description: "The id of the rule."
                         type: string
                       account:
-                        description: The associated account.
+                        description: "The associated account."
                         type: string
                       state:
-                        description: The state of the rule.
+                        description: "The state of the rule."
                         type: string
                         enum: ['R', 'O', 'S']
                       length:
-                        description: The length of the rule.
+                        description: "The length of the rule."
                         type: integer
                       bytes:
-                        description: The bytes limit for the lock.
+                        description: "The bytes limit for the lock."
                         type: integer
                       accessed_at:
-                        description: The last time is was accessed.
+                        description: "The last time is was accessed."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           500:
-            description: Wrong did type
+            description: "Wrong did type"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['wrong did_type specified']
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         did_type = request.args.get('did_type', default=None)
         if did_type != 'dataset':
@@ -230,7 +230,7 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
         :returns: Line separated list of dictionary with lock information.
         ---
         summary: Get locks by dids
-        description: Get all dataset locks for the associated dids.
+        description: "Get all dataset locks for the associated dids."
         tags:
           - Lock
         requestBody:
@@ -240,79 +240,79 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
                 type: object
                 properties:
                   dids:
-                    description: The dids associated with the locks.
+                    description: "The dids associated with the locks."
                     type: array
                     items:
                       type: object
-                      description: A did
+                      description: "A did"
                       required:
                         - scope
                         - name
                       properties:
                         scope:
-                          description: The scope of the did.
+                          description: "The scope of the did."
                           type: string
                         name:
-                          description: The name of the did.
+                          description: "The name of the did."
                           type: string
                         type:
-                          description: The type of the did.
+                          description: "The type of the did."
                           type: string
                           enum: ['dataset', 'container']
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: Locks associated with the rse.
+                  description: "Locks associated with the rse."
                   type: array
                   items:
-                    description: A lock
+                    description: "A lock"
                     type: object
                     properties:
                       rse_id:
-                        description: The id of the associated rse.
+                        description: "The id of the associated rse."
                         type: string
                       rse:
-                        description: The name of the associated rse.
+                        description: "The name of the associated rse."
                         type: string
                       scope:
-                        description: The scope of the associated rse.
+                        description: "The scope of the associated rse."
                         type: string
                       name:
-                        description: The name of the rule.
+                        description: "The name of the rule."
                         type: string
                       rule_id:
-                        description: The id of the rule.
+                        description: "The id of the rule."
                         type: string
                       account:
-                        description: The associated account.
+                        description: "The associated account."
                         type: string
                       state:
-                        description: The state of the rule.
+                        description: "The state of the rule."
                         type: string
                         enum: ['R', 'O', 'S']
                       length:
-                        description: The length of the rule.
+                        description: "The length of the rule."
                         type: integer
                       bytes:
-                        description: The bytes limit for the lock.
+                        description: "The bytes limit for the lock."
                         type: integer
                       accessed_at:
-                        description: The last time is was accessed.
+                        description: "The last time is was accessed."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           400:
-            description: Wrong did type
+            description: "Wrong did type"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Can not find the list of DIDs in the data. Use "dids" keyword.']
           406:
-            description: Not acceptable
+            description: "Not acceptable"
 
         """
 
