@@ -71,12 +71,12 @@ class UserPass(ErrorHandlingMethodView):
         """
         ---
         summary: UserPass Allow cross-site scripting
-        description: UserPass Allow cross-site scripting. Explicit for Authentication.
+        description: "UserPass Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -97,7 +97,7 @@ class UserPass(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
 
         return '', 200, self.get_headers()
@@ -107,41 +107,41 @@ class UserPass(ErrorHandlingMethodView):
         """
         ---
         summary: UserPass
-        description: Authenticate a Rucio account temporarily via username and password.
+        description: "Authenticate a Rucio account temporarily via username and password."
         tags:
           - Auth
         parameters:
         - name: X-Rucio-Account
           in: header
-          description: Account identifier as a string.
+          description: "Account identifier as a string."
           schema:
             type: string
           required: true
         - name: X-Rucio-Username
           in: header
-          description: Username as a string.
+          description: "Username as a string."
           schema:
             type: string
           required: true
         - name: X-Rucio-Password
           in: header
-          description: password as a text-plain string.
+          description: "password as a text-plain string."
           schema:
             type: string
           required: true
         - name: X-Rucio-AppID
           in: header
-          description: Application identifier as a string.
+          description: "Application identifier as a string."
           schema:
             type: string
         - name: X-Forwarded-For
           in: header
-          description: The forward ip address.
+          description: "The forward ip address."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -167,17 +167,17 @@ class UserPass(ErrorHandlingMethodView):
               X-Rucio-Auth-Account:
                 schema:
                   type: string
-                description: The rucio account used for authentication
+                description: "The rucio account used for authentication"
           206:
-            description: Partial content containing X-Rucio-Auth-Accounts header
+            description: "Partial content containing X-Rucio-Auth-Accounts header"
             headers:
               X-Rucio-Auth-Accounts:
                 schema:
                   type: string
-                description: The rucio accounts corresponding to the provided identity as a csv string
+                description: "The rucio accounts corresponding to the provided identity as a csv string"
 
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -247,12 +247,12 @@ class OIDC(ErrorHandlingMethodView):
         """
         ---
         summary: OIDC Allow cross-site scripting
-        description: OIDC Allow cross-site scripting. Explicit for Authentication.
+        description: "OIDC Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -269,7 +269,7 @@ class OIDC(ErrorHandlingMethodView):
                   type: string
                   enum: ['true']
           404:
-            description: Not found
+            description: "Not found"
         """
 
         return '', 200, self.get_headers()
@@ -279,13 +279,13 @@ class OIDC(ErrorHandlingMethodView):
         """
         ---
         summary: OIDC
-        description: Authenticate a Rucio account via OIDC.
+        description: "Authenticate a Rucio account via OIDC."
         tags:
           - Auth
         parameters:
         - name: HTTP_X_RUCIO_ACCOUNT
           in: header
-          description: Account identifier as a string.
+          description: "Account identifier as a string."
           schema:
             type: string
         - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE
@@ -318,14 +318,14 @@ class OIDC(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-OIDC-Auth-URL:
-                description: User & Rucio OIDC Client specific Authorization URL
+                description: "User & Rucio OIDC Client specific Authorization URL"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -394,12 +394,12 @@ class RedirectOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: RedirectOIDC Allow cross-site scripting
-        description: RedirectOIDC Allow cross-site scripting. Explicit for Authentication.
+        description: "RedirectOIDC Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -416,7 +416,7 @@ class RedirectOIDC(ErrorHandlingMethodView):
                   type: string
                   enum: ['true']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -425,7 +425,7 @@ class RedirectOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: RedirectOIDC
-        description: Authenticate a Rucio account via RedirectOIDC.
+        description: "Authenticate a Rucio account via RedirectOIDC."
         tags:
           - Auth
         parameters:
@@ -435,10 +435,10 @@ class RedirectOIDC(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               Content-Type:
@@ -446,9 +446,9 @@ class RedirectOIDC(ErrorHandlingMethodView):
                   type: string
                   enum: ['application/octet-stream']
           303:
-            description: Redirect
+            description: "Redirect"
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -509,12 +509,12 @@ class CodeOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: CodeOIDC Allow cross-site scripting
-        description: CodeOIDC Allow cross-site scripting. Explicit for Authentication.
+        description: "CodeOIDC Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -531,7 +531,7 @@ class CodeOIDC(ErrorHandlingMethodView):
                   type: string
                   enum: ['true']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -540,7 +540,7 @@ class CodeOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: CodeOIDC
-        description: Authenticate a Rucio account via CodeOIDC.
+        description: "Authenticate a Rucio account via CodeOIDC."
         tags:
           - Auth
         parameters:
@@ -550,9 +550,9 @@ class CodeOIDC(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           400:
-            description: Invalid request
+            description: "Invalid request"
         """
         headers = self.get_headers()
 
@@ -606,12 +606,12 @@ class TokenOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: TokenOIDC Allow cross-site scripting
-        description: TokenOIDC Allow cross-site scripting. Explicit for Authentication.
+        description: "TokenOIDC Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -628,7 +628,7 @@ class TokenOIDC(ErrorHandlingMethodView):
                   type: string
                   enum: ['true']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -637,7 +637,7 @@ class TokenOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: TokenOIDC
-        description: Authenticate a Rucio account via TokenOIDC.
+        description: "Authenticate a Rucio account via TokenOIDC."
         tags:
           - Auth
         parameters:
@@ -647,18 +647,18 @@ class TokenOIDC(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-Auth-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -721,12 +721,12 @@ class RefreshOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: RefreshOIDC Allow cross-site scripting
-        description: RefreshOIDC Allow cross-site scripting. Explicit for Authentication.
+        description: "RefreshOIDC Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -747,7 +747,7 @@ class RefreshOIDC(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -756,7 +756,7 @@ class RefreshOIDC(ErrorHandlingMethodView):
         """
         ---
         summary: RefreshOIDC
-        description: Authenticate a Rucio account via RefreshOIDC.
+        description: "Authenticate a Rucio account via RefreshOIDC."
         tags:
           - Auth
         parameters:
@@ -772,18 +772,18 @@ class RefreshOIDC(ErrorHandlingMethodView):
           required: true
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-Auth-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -830,12 +830,12 @@ class GSS(ErrorHandlingMethodView):
         """
         ---
         summary: GSS Allow cross-site scripting
-        description: GSS Allow cross-site scripting. Explicit for Authentication.
+        description: "GSS Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -856,7 +856,7 @@ class GSS(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -865,7 +865,7 @@ class GSS(ErrorHandlingMethodView):
         """
         ---
         summary: GSS
-        description: Authenticate a Rucio account via GSS.
+        description: "Authenticate a Rucio account via GSS."
         tags:
           - Auth
         parameters:
@@ -889,18 +889,18 @@ class GSS(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-Auth-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
 
         headers = self.get_headers()
@@ -960,12 +960,12 @@ class x509(ErrorHandlingMethodView):  # noqa: N801
         """
         ---
         summary: x509 Allow cross-site scripting
-        description: x509 Allow cross-site scripting. Explicit for Authentication.
+        description: "x509 Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -986,7 +986,7 @@ class x509(ErrorHandlingMethodView):  # noqa: N801
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -995,7 +995,7 @@ class x509(ErrorHandlingMethodView):  # noqa: N801
         """
         ---
         summary: x509
-        description: Authenticate a Rucio account via x509.
+        description: "Authenticate a Rucio account via x509."
         tags:
           - Auth
         parameters:
@@ -1016,32 +1016,32 @@ class x509(ErrorHandlingMethodView):  # noqa: N801
           in: header
           schema:
             type: boolean
-          description: If set to true, a HTTP 206 response will be returned if the identity is associated with multiple accounts.
+          description: "If set to true, a HTTP 206 response will be returned if the identity is associated with multiple accounts."
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-Auth-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
               X-Rucio-Auth-Account:
-                description: The rucio account corresponding to the provided identity
+                description: "The rucio account corresponding to the provided identity"
                 schema:
                   type: string
           206:
-            description: Partial content containing X-Rucio-Auth-Accounts header
+            description: "Partial content containing X-Rucio-Auth-Accounts header"
             headers:
               X-Rucio-Auth-Accounts:
                 schema:
                   type: string
-                description: The rucio accounts corresponding to the provided identity as a csv string
+                description: "The rucio accounts corresponding to the provided identity as a csv string"
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
         headers['Content-Type'] = 'application/octet-stream'
@@ -1130,12 +1130,12 @@ class SSH(ErrorHandlingMethodView):
         """
         ---
         summary: SSH Allow cross-site scripting
-        description: SSH Allow cross-site scripting. Explicit for Authentication.
+        description: "SSH Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -1156,7 +1156,7 @@ class SSH(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -1165,7 +1165,7 @@ class SSH(ErrorHandlingMethodView):
         """
         ---
         summary: SSH
-        description: Authenticate a Rucio account via SSH.
+        description: "Authenticate a Rucio account via SSH."
         tags:
           - Auth
         parameters:
@@ -1189,18 +1189,18 @@ class SSH(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-Auth-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -1259,12 +1259,12 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         """
         ---
         summary: SSHChallengeToken Allow cross-site scripting
-        description: SSHChallengeToken Allow cross-site scripting. Explicit for Authentication.
+        description: "SSHChallengeToken Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -1285,7 +1285,7 @@ class SSHChallengeToken(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -1294,7 +1294,7 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         """
         ---
         summary: SSHChallengeToken
-        description: Authenticate a Rucio account via SSHChallengeToken.
+        description: "Authenticate a Rucio account via SSHChallengeToken."
         tags:
           - Auth
         parameters:
@@ -1313,18 +1313,18 @@ class SSHChallengeToken(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-SSH-Challenge-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-SSH-Challenge-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -1374,12 +1374,12 @@ class SAML(ErrorHandlingMethodView):
         """
         ---
         summary: SAML Allow cross-site scripting
-        description: SAML Allow cross-site scripting. Explicit for Authentication.
+        description: "SAML Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -1400,7 +1400,7 @@ class SAML(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -1409,7 +1409,7 @@ class SAML(ErrorHandlingMethodView):
         """
         ---
         summary: SAML
-        description: Authenticate a Rucio account via SAML.
+        description: "Authenticate a Rucio account via SAML."
         tags:
           - Auth
         parameters:
@@ -1428,22 +1428,22 @@ class SAML(ErrorHandlingMethodView):
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               X-Rucio-Auth-Token:
-                description: The authentication token
+                description: "The authentication token"
                 schema:
                   type: string
               X-Rucio-Auth-Token-Expires:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
               X-Rucio-SAML-Auth-URL:
-                description: The time when the token expires
+                description: "The time when the token expires"
                 schema:
                   type: string
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
         headers = self.get_headers()
 
@@ -1500,14 +1500,14 @@ class SAML(ErrorHandlingMethodView):
         """
         ---
         summary: Post a SAML request
-        description: Post a SAML request
+        description: "Post a SAML request"
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         if not EXTRA_MODULES['onelogin']:
             return "SAML not configured on the server side.", 200, [('X-Rucio-Auth-Token', '')]
@@ -1544,12 +1544,12 @@ class Validate(ErrorHandlingMethodView):
         """
         ---
         summary: Validate Allow cross-site scripting
-        description: Validate Allow cross-site scripting. Explicit for Authentication.
+        description: "Validate Allow cross-site scripting. Explicit for Authentication."
         tags:
           - Auth
         responses:
           200:
-            description: OK
+            description: "OK"
             headers:
               Access-Control-Allow-Origin:
                 schema:
@@ -1570,7 +1570,7 @@ class Validate(ErrorHandlingMethodView):
                   type: string
                   enum: ['X-Rucio-Auth-Token']
           404:
-            description: Not found
+            description: "Not found"
         """
         return '', 200, self.get_headers()
 
@@ -1579,7 +1579,7 @@ class Validate(ErrorHandlingMethodView):
         """
         ---
         summary: Validate
-        description: Validate a Rucio auth token.
+        description: "Validate a Rucio auth token."
         tags:
           - Auth
         parameters:
@@ -1590,9 +1590,9 @@ class Validate(ErrorHandlingMethodView):
           required: true
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Cannot authenticate
+            description: "Cannot authenticate"
         """
 
         headers = self.get_headers()

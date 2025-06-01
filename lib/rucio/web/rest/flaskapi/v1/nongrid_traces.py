@@ -42,7 +42,7 @@ class XAODTrace(ErrorHandlingMethodView):
         """
         ---
         summary: Trace endpoints
-        description: Trace endpoint used by the XAOD framework to post data access information.
+        description: "Trace endpoint used by the XAOD framework to post data access information."
         tags:
           - Nongrid traces
         requestBody:
@@ -52,18 +52,18 @@ class XAODTrace(ErrorHandlingMethodView):
                 type: object
                 properties:
                   payload:
-                    description: Dictionary containing the trace information.
+                    description: "Dictionary containing the trace information."
                     type: object
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Cannot decode json data.
+            description: "Cannot decode json data."
         """
         headers = self.get_headers()
 

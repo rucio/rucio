@@ -29,21 +29,21 @@ class Config(ErrorHandlingMethodView):
         """
         ---
         summary: List
-        description: List the full configuration.
+        description: "List the full configuration."
         tags:
           - Config
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: A dict with the sections as keys and a dict with the configuration as value.
+                  description: "A dict with the sections as keys and a dict with the configuration as value."
                   type: object
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         res = {}
         for section in config.sections(issuer=request.environ['issuer'], vo=request.environ['vo']):
@@ -57,7 +57,7 @@ class Config(ErrorHandlingMethodView):
         """
         ---
         summary: Create
-        description: Create or set the configuration option in the requested section.
+        description: "Create or set the configuration option in the requested section."
         tags:
           - Config
         requestBody:
@@ -68,18 +68,18 @@ class Config(ErrorHandlingMethodView):
                 type: object
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           400:
-            description: The input data was incomplete or invalid
+            description: "The input data was incomplete or invalid"
           500:
-            description: Configuration error
+            description: "Configuration error"
         """
         parameters = json_parameters()
         for section, section_config in parameters.items():
@@ -106,7 +106,7 @@ class Section(ErrorHandlingMethodView):
         parameters:
         - name: section
           in: path
-          description: The section to return.
+          description: "The section to return."
           schema:
             type: string
           style: simple
@@ -119,22 +119,22 @@ class Section(ErrorHandlingMethodView):
                 - bytes
                 properties:
                   bytes:
-                    description: The new limit in bytes.
+                    description: "The new limit in bytes."
                     type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: Dictionary of section options.
+                  description: "Dictionary of section options."
                   type: object
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Config not found
+            description: "Config not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         res = {}
         for item in config.items(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
@@ -158,36 +158,36 @@ class OptionGetDel(ErrorHandlingMethodView):
         """
         ---
         summary: Get option
-        description: Returns the value of an option
+        description: "Returns the value of an option"
         tags:
           - Config
         parameters:
         - name: section
           in: path
-          description: The section.
+          description: "The section."
           schema:
             type: string
           style: simple
         - name: option
           in: path
-          description: The option of the section.
+          description: "The option of the section."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The value of the option
+                  description: "The value of the option"
                   type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Config not found
+            description: "Config not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             result = config.get(section=section, option=option, issuer=request.environ['issuer'], vo=request.environ['vo'])
@@ -201,27 +201,27 @@ class OptionGetDel(ErrorHandlingMethodView):
         """
         ---
         summary: Delete option
-        description: Delete an option of a section.
+        description: "Delete an option of a section."
         tags:
           - Config
         parameters:
         - name: section
           in: path
-          description: The section.
+          description: "The section."
           schema:
             type: string
           style: simple
         - name: option
           in: path
-          description: The option of the section.
+          description: "The option of the section."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         config.remove_option(section=section, option=option, issuer=request.environ['issuer'], vo=request.environ['vo'])
         return '', 200
@@ -234,40 +234,40 @@ class OptionSet(ErrorHandlingMethodView):
         """
         ---
         summary: Create value
-        description: Create or set the value of an option.
+        description: "Create or set the value of an option."
         tags:
           - Config
         parameters:
         - name: section
           in: path
-          description: The section.
+          description: "The section."
           schema:
             type: string
           style: simple
         - name: option
           in: path
-          description: The option of the section.
+          description: "The option of the section."
           schema:
             type: string
           style: simple
         - name: value
           in: path
-          description: The value to set.
+          description: "The value to set."
           schema:
             type: string
           style: simple
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           500:
-            description: Value could not be set
+            description: "Value could not be set"
             content:
               application/json:
                 schema:

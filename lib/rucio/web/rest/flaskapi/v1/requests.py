@@ -38,144 +38,144 @@ class RequestGet(ErrorHandlingMethodView):
         """
         ---
         summary: Get Request
-        description: Get a request for a given DID to a destination RSE.
+        description: "Get a request for a given DID to a destination RSE."
         tags:
           - Requests
         parameters:
         - name: scope_name
           in: path
-          description: Data identifier (scope)/(name).
+          description: "Data identifier (scope)/(name)."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: Destination rse.
+          description: "Destination rse."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The request associated with the DID and destination RSE.
+                  description: "The request associated with the DID and destination RSE."
                   type: object
                   properties:
                     id:
-                      description: The id of the request.
+                      description: "The id of the request."
                       type: string
                     request_type:
-                      description: The request type.
+                      description: "The request type."
                       type: string
                       enum: ["T", "U", "D", "I", "O"]
                     scope:
-                      description: The scope of the transfer.
+                      description: "The scope of the transfer."
                       type: string
                     name:
-                      description: The name of the transfer.
+                      description: "The name of the transfer."
                       type: string
                     did_type:
-                      description: The did type.
+                      description: "The did type."
                       type: string
                     dest_rse_id:
-                      description: The destination RSE id.
+                      description: "The destination RSE id."
                       type: string
                     source_rse_id:
-                      description: The source RSE id.
+                      description: "The source RSE id."
                       type: string
                     attributes:
-                      description: All attributes associated with the request.
+                      description: "All attributes associated with the request."
                       type: string
                     state:
-                      description: The state of the request.
+                      description: "The state of the request."
                       type: string
                       enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
                     external_id:
-                      description: External id of the request.
+                      description: "External id of the request."
                       type: string
                     external_host:
-                      description: External host of the request.
+                      description: "External host of the request."
                       type: string
                     retry_count:
-                      description: The numbers of attempted retires.
+                      description: "The numbers of attempted retries."
                       type: integer
                     err_msg:
-                      description: An error message if one occurred.
+                      description: "An error message if one occurred."
                       type: string
                     previous_attempt_id:
-                      description: The id of the previous attempt.
+                      description: "The id of the previous attempt."
                       type: string
                     rule_id:
-                      description: The id of the associated replication rule.
+                      description: "The id of the associated replication rule."
                       type: string
                     activity:
-                      description: The activity of the request.
+                      description: "The activity of the request."
                       type: string
                     bytes:
-                      description: The size of the did in bytes.
+                      description: "The size of the did in bytes."
                       type: integer
                     md5:
-                      description: The md5 checksum of the did to transfer.
+                      description: "The md5 checksum of the did to transfer."
                       type: string
                     adler32:
-                      description: The adler32 checksum of the did to transfer.
+                      description: "The adler32 checksum of the did to transfer."
                       type: string
                     dest_url:
-                      description: The destination url.
+                      description: "The destination url."
                       type: string
                     submitted_at:
-                      description: The time the request got submitted.
+                      description: "The time the request got submitted."
                       type: string
                     started_at:
-                      description: The time the request got started.
+                      description: "The time the request got started."
                       type: string
                     transferred_at:
-                      description: The time the request got transferred.
+                      description: "The time the request got transferred."
                       type: string
                     estimated_at:
-                      description: The time the request got estimated.
+                      description: "The time the request got estimated."
                       type: string
                     submitter_id:
-                      description: The id of the submitter.
+                      description: "The id of the submitter."
                       type: string
                     estimated_stated_at:
-                      description: The estimation of the started at value.
+                      description: "The estimation of the started at value."
                       type: string
                     estimated_transferred_at:
-                      description: The estimation of the transferred at value.
+                      description: "The estimation of the transferred at value."
                       type: string
                     staging_started_at:
-                      description: The time the staging got started.
+                      description: "The time the staging got started."
                       type: string
                     staging_finished_at:
-                      description: The time the staging got finished.
+                      description: "The time the staging got finished."
                       type: string
                     account:
-                      description: The account which issued the request.
+                      description: "The account which issued the request."
                       type: string
                     requested_at:
-                      description: The time the request got requested.
+                      description: "The time the request got requested."
                       type: string
                     priority:
-                      description: The priority of the request.
+                      description: "The priority of the request."
                       type: integer
                     transfertool:
-                      description: The transfertool used.
+                      description: "The transfertool used."
                       type: string
                     source_rse:
-                      description: The name of the source RSE.
+                      description: "The name of the source RSE."
                       type: string
                     dest_rse:
-                      description: The name of the destination RSE.
+                      description: "The name of the destination RSE."
                       type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scope, name = parse_scope_name(scope_name, flask.request.environ['vo'])
@@ -203,144 +203,144 @@ class RequestHistoryGet(ErrorHandlingMethodView):
         """
         ---
         summary: Get Historical Request
-        description: List a historical request for a given DID to a destination RSE.
+        description: "List a historical request for a given DID to a destination RSE."
         tags:
           - Requests
         parameters:
         - name: scope_name
           in: path
-          description: Data identifier (scope)/(name).
+          description: "Data identifier (scope)/(name)."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: Destination rse.
+          description: "Destination rse."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: The request associated with the DID and destination RSE.
+                  description: "The request associated with the DID and destination RSE."
                   type: object
                   properties:
                     id:
-                      description: The id of the request.
+                      description: "The id of the request."
                       type: string
                     request_type:
-                      description: The request type.
+                      description: "The request type."
                       type: string
                       enum: ["T", "U", "D", "I", "O"]
                     scope:
-                      description: The scope of the transfer.
+                      description: "The scope of the transfer."
                       type: string
                     name:
-                      description: The name of the transfer.
+                      description: "The name of the transfer."
                       type: string
                     did_type:
-                      description: The did type.
+                      description: "The did type."
                       type: string
                     dest_rse_id:
-                      description: The destination RSE id.
+                      description: "The destination RSE id."
                       type: string
                     source_rse_id:
-                      description: The source RSE id.
+                      description: "The source RSE id."
                       type: string
                     attributes:
-                      description: All attributes associated with the request.
+                      description: "All attributes associated with the request."
                       type: string
                     state:
-                      description: The state of the request.
+                      description: "The state of the request."
                       type: string
                       enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
                     external_id:
-                      description: External id of the request.
+                      description: "External id of the request."
                       type: string
                     external_host:
-                      description: External host of the request.
+                      description: "External host of the request."
                       type: string
                     retry_count:
-                      description: The numbers of attempted retires.
+                      description: "The numbers of attempted retries."
                       type: integer
                     err_msg:
-                      description: An error message if one occurred.
+                      description: "An error message if one occurred."
                       type: string
                     previous_attempt_id:
-                      description: The id of the previous attempt.
+                      description: "The id of the previous attempt."
                       type: string
                     rule_id:
-                      description: The id of the associated replication rule.
+                      description: "The id of the associated replication rule."
                       type: string
                     activity:
-                      description: The activity of the request.
+                      description: "The activity of the request."
                       type: string
                     bytes:
-                      description: The size of the did in bytes.
+                      description: "The size of the did in bytes."
                       type: integer
                     md5:
-                      description: The md5 checksum of the did to transfer.
+                      description: "The md5 checksum of the did to transfer."
                       type: string
                     adler32:
-                      description: The adler32 checksum of the did to transfer.
+                      description: "The adler32 checksum of the did to transfer."
                       type: string
                     dest_url:
-                      description: The destination url.
+                      description: "The destination url."
                       type: string
                     submitted_at:
-                      description: The time the request got submitted.
+                      description: "The time the request got submitted."
                       type: string
                     started_at:
-                      description: The time the request got started.
+                      description: "The time the request got started."
                       type: string
                     transferred_at:
-                      description: The time the request got transferred.
+                      description: "The time the request got transferred."
                       type: string
                     estimated_at:
-                      description: The time the request got estimated.
+                      description: "The time the request got estimated."
                       type: string
                     submitter_id:
-                      description: The id of the submitter.
+                      description: "The id of the submitter."
                       type: string
                     estimated_stated_at:
-                      description: The estimation of the started at value.
+                      description: "The estimation of the started at value."
                       type: string
                     estimated_transferred_at:
-                      description: The estimation of the transferred at value.
+                      description: "The estimation of the transferred at value."
                       type: string
                     staging_started_at:
-                      description: The time the staging got started.
+                      description: "The time the staging got started."
                       type: string
                     staging_finished_at:
-                      description: The time the staging got finished.
+                      description: "The time the staging got finished."
                       type: string
                     account:
-                      description: The account which issued the request.
+                      description: "The account which issued the request."
                       type: string
                     requested_at:
-                      description: The time the request got requested.
+                      description: "The time the request got requested."
                       type: string
                     priority:
-                      description: The priority of the request.
+                      description: "The priority of the request."
                       type: integer
                     transfertool:
-                      description: The transfertool used.
+                      description: "The transfertool used."
                       type: string
                     source_rse:
-                      description: The name of the source RSE.
+                      description: "The name of the source RSE."
                       type: string
                     dest_rse:
-                      description: The name of the destination RSE.
+                      description: "The name of the destination RSE."
                       type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scope, name = parse_scope_name(scope_name, flask.request.environ['vo'])
@@ -368,13 +368,13 @@ class RequestList(ErrorHandlingMethodView):
         """
         ---
         summary: List Requests
-        description: List requests for a given source and destination RSE or site.
+        description: "List requests for a given source and destination RSE or site."
         tags:
           - Requests
         parameters:
         - name: src_rse
           in: query
-          description: The source rse.
+          description: "The source rse."
           schema:
             type: array
             items:
@@ -383,11 +383,11 @@ class RequestList(ErrorHandlingMethodView):
                 - rse_id
               properties:
                 rse_id:
-                  description: The id of the rse.
+                  description: "The id of the rse."
                   type: string
         - name: dest_rse
           in: query
-          description: The destination rse.
+          description: "The destination rse."
           schema:
             type: array
             items:
@@ -396,148 +396,148 @@ class RequestList(ErrorHandlingMethodView):
                 - rse_id
               properties:
                 rse_id:
-                  description: The id of the rse.
+                  description: "The id of the rse."
                   type: string
         - name: src_site
           in: query
-          description: The source site.
+          description: "The source site."
           schema:
             type: string
         - name: dest_site
           in: query
-          description: The destination site.
+          description: "The destination site."
           schema:
             type: string
         - name: request_states
           in: query
-          description: The accepted request states. Delimited by comma.
+          description: "The accepted request states. Delimited by comma."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: All requests matching the arguments. Separated by the new line character.
+                  description: "All requests matching the arguments. Separated by the new line character."
                   type: array
                   items:
-                    description: A request.
+                    description: "A request."
                     type: object
                     properties:
                       id:
-                        description: The id of the request.
+                        description: "The id of the request."
                         type: string
                       request_type:
-                        description: The request type.
+                        description: "The request type."
                         type: string
                         enum: ["T", "U", "D", "I", "O"]
                       scope:
-                        description: The scope of the transfer.
+                        description: "The scope of the transfer."
                         type: string
                       name:
-                        description: The name of the transfer.
+                        description: "The name of the transfer."
                         type: string
                       did_type:
-                        description: The did type.
+                        description: "The did type."
                         type: string
                       dest_rse_id:
-                        description: The destination RSE id.
+                        description: "The destination RSE id."
                         type: string
                       source_rse_id:
-                        description: The source RSE id.
+                        description: "The source RSE id."
                         type: string
                       attributes:
-                        description: All attributes associated with the request.
+                        description: "All attributes associated with the request."
                         type: string
                       state:
-                        description: The state of the request.
+                        description: "The state of the request."
                         type: string
                         enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
                       external_id:
-                        description: External id of the request.
+                        description: "External id of the request."
                         type: string
                       external_host:
-                        description: External host of the request.
+                        description: "External host of the request."
                         type: string
                       retry_count:
-                        description: The numbers of attempted retires.
+                        description: "The numbers of attempted retries."
                         type: integer
                       err_msg:
-                        description: An error message if one occurred.
+                        description: "An error message if one occurred."
                         type: string
                       previous_attempt_id:
-                        description: The id of the previous attempt.
+                        description: "The id of the previous attempt."
                         type: string
                       rule_id:
-                        description: The id of the associated replication rule.
+                        description: "The id of the associated replication rule."
                         type: string
                       activity:
-                        description: The activity of the request.
+                        description: "The activity of the request."
                         type: string
                       bytes:
-                        description: The size of the did in bytes.
+                        description: "The size of the did in bytes."
                         type: integer
                       md5:
-                        description: The md5 checksum of the did to transfer.
+                        description: "The md5 checksum of the did to transfer."
                         type: string
                       adler32:
-                        description: The adler32 checksum of the did to transfer.
+                        description: "The adler32 checksum of the did to transfer."
                         type: string
                       dest_url:
-                        description: The destination url.
+                        description: "The destination url."
                         type: string
                       submitted_at:
-                        description: The time the request got submitted.
+                        description: "The time the request got submitted."
                         type: string
                       started_at:
-                        description: The time the request got started.
+                        description: "The time the request got started."
                         type: string
                       transferred_at:
-                        description: The time the request got transferred.
+                        description: "The time the request got transferred."
                         type: string
                       estimated_at:
-                        description: The time the request got estimated.
+                        description: "The time the request got estimated."
                         type: string
                       submitter_id:
-                        description: The id of the submitter.
+                        description: "The id of the submitter."
                         type: string
                       estimated_stated_at:
-                        description: The estimation of the started at value.
+                        description: "The estimation of the started at value."
                         type: string
                       estimated_transferred_at:
-                        description: The estimation of the transferred at value.
+                        description: "The estimation of the transferred at value."
                         type: string
                       staging_started_at:
-                        description: The time the staging got started.
+                        description: "The time the staging got started."
                         type: string
                       staging_finished_at:
-                        description: The time the staging got finished.
+                        description: "The time the staging got finished."
                         type: string
                       account:
-                        description: The account which issued the request.
+                        description: "The account which issued the request."
                         type: string
                       requested_at:
-                        description: The time the request got requested.
+                        description: "The time the request got requested."
                         type: string
                       priority:
-                        description: The priority of the request.
+                        description: "The priority of the request."
                         type: integer
                       transfertool:
-                        description: The transfertool used.
+                        description: "The transfertool used."
                         type: string
                       source_rse:
-                        description: The name of the source RSE.
+                        description: "The name of the source RSE."
                         type: string
                       dest_rse:
-                        description: The name of the destination RSE.
+                        description: "The name of the destination RSE."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         src_rse = flask.request.args.get('src_rse', default=None)
         dst_rse = flask.request.args.get('dst_rse', default=None)
@@ -595,13 +595,13 @@ class RequestHistoryList(ErrorHandlingMethodView):
         """
         ---
         summary: List Historic Requests
-        description: List historical requests for a given source and destination RSE or site.
+        description: "List historical requests for a given source and destination RSE or site."
         tags:
           - Requests
         parameters:
         - name: src_rse
           in: query
-          description: The source rse.
+          description: "The source rse."
           schema:
             type: array
             items:
@@ -610,11 +610,11 @@ class RequestHistoryList(ErrorHandlingMethodView):
                 - rse_id
               properties:
                 rse_id:
-                  description: The id of the rse.
+                  description: "The id of the rse."
                   type: string
         - name: dest_rse
           in: query
-          description: The destination rse.
+          description: "The destination rse."
           schema:
             type: array
             items:
@@ -623,160 +623,160 @@ class RequestHistoryList(ErrorHandlingMethodView):
                 - rse_id
               properties:
                 rse_id:
-                  description: The id of the rse.
+                  description: "The id of the rse."
                   type: string
         - name: src_site
           in: query
-          description: The source site.
+          description: "The source site."
           schema:
             type: string
         - name: dest_site
           in: query
-          description: The destination site.
+          description: "The destination site."
           schema:
             type: string
         - name: request_states
           in: query
-          description: The accepted request states. Delimited by comma.
+          description: "The accepted request states. Delimited by comma."
           schema:
             type: string
         - name: offset
           in: query
-          description: The offset of the list.
+          description: "The offset of the list."
           schema:
             type: integer
             default: 0
         - name: limit
           in: query
-          description: The maximum number of items to return.
+          description: "The maximum number of items to return."
           schema:
             type: integer
             default: 100
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: All requests matching the arguments. Separated by a new line character.
+                  description: "All requests matching the arguments. Separated by a new line character."
                   type: array
                   items:
-                    description: A request.
+                    description: "A request."
                     type: object
                     properties:
                       id:
-                        description: The id of the request.
+                        description: "The id of the request."
                         type: string
                       request_type:
-                        description: The request type.
+                        description: "The request type."
                         type: string
                         enum: ["T", "U", "D", "I", "O"]
                       scope:
-                        description: The scope of the transfer.
+                        description: "The scope of the transfer."
                         type: string
                       name:
-                        description: The name of the transfer.
+                        description: "The name of the transfer."
                         type: string
                       did_type:
-                        description: The did type.
+                        description: "The did type."
                         type: string
                       dest_rse_id:
-                        description: The destination RSE id.
+                        description: "The destination RSE id."
                         type: string
                       source_rse_id:
-                        description: The source RSE id.
+                        description: "The source RSE id."
                         type: string
                       attributes:
-                        description: All attributes associated with the request.
+                        description: "All attributes associated with the request."
                         type: string
                       state:
-                        description: The state of the request.
+                        description: "The state of the request."
                         type: string
                         enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
                       external_id:
-                        description: External id of the request.
+                        description: "External id of the request."
                         type: string
                       external_host:
-                        description: External host of the request.
+                        description: "External host of the request."
                         type: string
                       retry_count:
-                        description: The numbers of attempted retires.
+                        description: "The numbers of attempted retries."
                         type: integer
                       err_msg:
-                        description: An error message if one occurred.
+                        description: "An error message if one occurred."
                         type: string
                       previous_attempt_id:
-                        description: The id of the previous attempt.
+                        description: "The id of the previous attempt."
                         type: string
                       rule_id:
-                        description: The id of the associated replication rule.
+                        description: "The id of the associated replication rule."
                         type: string
                       activity:
-                        description: The activity of the request.
+                        description: "The activity of the request."
                         type: string
                       bytes:
-                        description: The size of the did in bytes.
+                        description: "The size of the did in bytes."
                         type: integer
                       md5:
-                        description: The md5 checksum of the did to transfer.
+                        description: "The md5 checksum of the did to transfer."
                         type: string
                       adler32:
-                        description: The adler32 checksum of the did to transfer.
+                        description: "The adler32 checksum of the did to transfer."
                         type: string
                       dest_url:
-                        description: The destination url.
+                        description: "The destination url."
                         type: string
                       submitted_at:
-                        description: The time the request got submitted.
+                        description: "The time the request got submitted."
                         type: string
                       started_at:
-                        description: The time the request got started.
+                        description: "The time the request got started."
                         type: string
                       transferred_at:
-                        description: The time the request got transferred.
+                        description: "The time the request got transferred."
                         type: string
                       estimated_at:
-                        description: The time the request got estimated.
+                        description: "The time the request got estimated."
                         type: string
                       submitter_id:
-                        description: The id of the submitter.
+                        description: "The id of the submitter."
                         type: string
                       estimated_stated_at:
-                        description: The estimation of the started at value.
+                        description: "The estimation of the started at value."
                         type: string
                       estimated_transferred_at:
-                        description: The estimation of the transferred at value.
+                        description: "The estimation of the transferred at value."
                         type: string
                       staging_started_at:
-                        description: The time the staging got started.
+                        description: "The time the staging got started."
                         type: string
                       staging_finished_at:
-                        description: The time the staging got finished.
+                        description: "The time the staging got finished."
                         type: string
                       account:
-                        description: The account which issued the request.
+                        description: "The account which issued the request."
                         type: string
                       requested_at:
-                        description: The time the request got requested.
+                        description: "The time the request got requested."
                         type: string
                       priority:
-                        description: The priority of the request.
+                        description: "The priority of the request."
                         type: integer
                       transfertool:
-                        description: The transfertool used.
+                        description: "The transfertool used."
                         type: string
                       source_rse:
-                        description: The name of the source RSE.
+                        description: "The name of the source RSE."
                         type: string
                       dest_rse:
-                        description: The name of the destination RSE.
+                        description: "The name of the destination RSE."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         src_rse = flask.request.args.get('src_rse', default=None)
         dst_rse = flask.request.args.get('dst_rse', default=None)
@@ -836,72 +836,72 @@ class RequestMetricsGet(ErrorHandlingMethodView):
         """
         ---
         summary: Get Request Statistics
-        description: Get statistics of requests grouped by source, destination, and activity.
+        description: "Get statistics of requests grouped by source, destination, and activity."
         tags:
           - Requests
         parameters:
         - name: dest_rse
           in: query
-          description: The destination RSE name
+          description: "The destination RSE name"
           schema:
             type: string
         - name: source_rse
           in: query
-          description: The source RSE name
+          description: "The source RSE name"
           schema:
             type: string
         - name: activity
           in: query
-          description: The activity
+          description: "The activity"
           schema:
             type: string
         - name: group_by_rse_attribute
           in: query
-          description: The parameter to group the RSEs by.
+          description: "The parameter to group the RSEs by."
           schema:
             type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: Statistics of requests by source, destination, and activity.
+                  description: "Statistics of requests by source, destination, and activity."
                   type: array
                   items:
-                    description: Statistics of the request group for a given (source, destination, activity) tuple.
+                    description: "Statistics of the request group for a given (source, destination, activity) tuple."
                     type: object
                     properties:
                       src_rse:
                         type: string
-                        description: The name of this links source RSE
+                        description: "The name of this links source RSE"
                       dst_rse:
                         type: string
-                        description: The name of this links destination RSE
+                        description: "The name of this links destination RSE"
                       distance:
                         type: integer
-                        description: The distance between the source and destination RSE
+                        description: "The distance between the source and destination RSE"
                       files:
                         type: object
                         properties:
                           done-total-1h:
                             type: integer
-                            description: The total number of files successfully transferred in the last 1 hour
+                            description: "The total number of files successfully transferred in the last 1 hour"
                           done-total-6h:
                             type: integer
-                            description: The total number of files successfully transferred in the last 6 hours
+                            description: "The total number of files successfully transferred in the last 6 hours"
                           failed-total-1h:
                             type: integer
-                            description: The total number of transfer failures in the last 1 hour
+                            description: "The total number of transfer failures in the last 1 hour"
                           failed-total-6h:
                             type: integer
-                            description: The total number of transfer failures in the last 6 hours
+                            description: "The total number of transfer failures in the last 6 hours"
                           queued-total:
                             type: integer
-                            description: The total number of files queued in rucio
+                            description: "The total number of files queued in rucio"
                           queued:
                             type: object
-                            description: Per-activity number of queued files
+                            description: "Per-activity number of queued files"
                             additionalProperties:
                               type: integer
                           done:
@@ -915,7 +915,7 @@ class RequestMetricsGet(ErrorHandlingMethodView):
                                   type: integer
                           failed:
                             type: object
-                            description: Per-activity number of transfer failures in the last 1 and 6 hours
+                            description: "Per-activity number of transfer failures in the last 1 and 6 hours"
                             additionalProperties:
                               type: object
                               properties:
@@ -928,21 +928,21 @@ class RequestMetricsGet(ErrorHandlingMethodView):
                         properties:
                           done-total-1h:
                             type: integer
-                            description: The total number of bytes successfully transferred in the last 1 hour
+                            description: "The total number of bytes successfully transferred in the last 1 hour"
                           done-total-6h:
                             type: integer
-                            description: The total number of bytes successfully transferred in the last 6 hours
+                            description: "The total number of bytes successfully transferred in the last 6 hours"
                           queued-total:
                             type: integer
-                            description: The total number of bytes queued to be transferred by rucio
+                            description: "The total number of bytes queued to be transferred by rucio"
                           queued:
                             type: object
-                            description: Per-activity amount of queued bytes
+                            description: "Per-activity amount of queued bytes"
                             additionalProperties:
                               type: integer
                           done:
                             type: object
-                            description: Per-activity number of transferred bytes in the last 1 and 6 hours
+                            description: "Per-activity number of transferred bytes in the last 1 and 6 hours"
                             additionalProperties:
                               type: object
                               properties:
@@ -955,7 +955,7 @@ class RequestMetricsGet(ErrorHandlingMethodView):
                       - src_rse
                       - dst_rse
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         dst_rse = flask.request.args.get('dst_rse', default=None)
         src_rse = flask.request.args.get('src_rse', default=None)
@@ -980,6 +980,7 @@ class RequestMetricsGet(ErrorHandlingMethodView):
                 yield render_json(**result) + '\n'
         return try_stream(generate())
 
+
 class TransferLimits(ErrorHandlingMethodView):
     """ REST API to get, set or delete transfer limits. """
 
@@ -988,67 +989,68 @@ class TransferLimits(ErrorHandlingMethodView):
         """
         ---
         summary: Get Transfer Limits
-        description: Get all the transfer limits.
+        description: "Get all the transfer limits."
         tags:
           - Requests
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: All the transfer limits
+                  description: "All the transfer limits"
                   type: array
                   items:
                     type: object
                     properties:
                       id:
-                        description: The transfer limit id.
+                        description: "The transfer limit id."
                         type: string
                       rse_expression:
-                        description: The RSE expression for which the limit applies.
+                        description: "The RSE expression for which the limit applies."
                         type: string
                       direction:
-                        description: The direction in which this limit applies (source/destination)
+                        description: "The direction in which this limit applies (source/destination)"
                         type: string
                       max_transfers:
-                        description: Maximum number of transfers allowed.
+                        description: "Maximum number of transfers allowed."
                         type: integer
                       volume:
-                        description: Maximum transfer volume in bytes.
+                        description: "Maximum transfer volume in bytes."
                         type: integer
                       deadline:
-                        description: Maximum waiting time in hours until a datasets gets released.
+                        description: "Maximum waiting time in hours until a dataset gets released."
                         type: integer
                       strategy:
-                        description: defines how to handle datasets: `fifo` (each file released separately) or `grouped_fifo` (wait for the entire dataset to fit)
+                        description: "Defines how to handle datasets: `fifo` (each file released separately) or `grouped_fifo` (wait for the entire dataset to fit)"
                         type: string
                       transfers:
-                        description: Current number of active transfers
+                        description: "Current number of active transfers"
                         type: integer
                       waitings:
-                        description: Current number of waiting transfers
+                        description: "Current number of waiting transfers"
                         type: integer
                       updated_at:
-                        description: Datetime of the last update.
+                        description: "Datetime of the last update."
                         type: string
                       created_at:
-                        description: Datetime of the creation of the transfer limit.
+                        description: "Datetime of the creation of the transfer limit."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         transfer_limits = request.list_transfer_limits(issuer=flask.request.environ['issuer'], vo=flask.request.environ['vo'])
+
         def generate() -> "Iterator[str]":
-                for limit in transfer_limits:
-                    yield json.dumps(limit, cls=APIEncoder) + '\n'
+            for limit in transfer_limits:
+                yield json.dumps(limit, cls=APIEncoder) + '\n'
         return try_stream(generate())
 
     def put(self) -> Union[flask.Response, tuple[str, int]]:
         """
         ---
         summary: Set Transfer Limit
-        description: Create or update a transfer limit for a specific RSE expression and activity.
+        description: "Create or update a transfer limit for a specific RSE expression and activity."
         tags:
           - Requests
         requestBody:
@@ -1062,63 +1064,63 @@ class TransferLimits(ErrorHandlingMethodView):
                 properties:
                   rse_expression:
                     type: string
-                    description: The RSE expression for which the transfer limit is being set.
+                    description: "The RSE expression for which the transfer limit is being set."
                   activity:
                     type: string
-                    description: The activity to which the transfer limit applies.
+                    description: "The activity to which the transfer limit applies."
                   max_transfers:
                     type: integer
-                    description: The maximum number of transfers allowed.
+                    description: "The maximum number of transfers allowed."
                   direction:
                     type: string
-                    description: The direction of the transfer limit (source or destination).
+                    description: "The direction of the transfer limit (source or destination)."
                     enum: ["SOURCE", "DESTINATION"]
                     default: "DESTINATION"
                   volume:
                     type: integer
-                    description: The maximum transfer volume in bytes.
+                    description: "The maximum transfer volume in bytes."
                   deadline:
                     type: integer
-                    description: The maximum waiting time in hours until a dataset is released.
+                    description: "The maximum waiting time in hours until a dataset is released."
                   strategy:
                     type: string
-                    description: The strategy for handling datasets (e.g., `fifo` or `grouped_fifo`).
+                    description: "The strategy for handling datasets (e.g., `fifo` or `grouped_fifo`)."
                   transfers:
                     type: integer
-                    description: The current number of active transfers.
+                    description: "The current number of active transfers."
                   waitings:
                     type: integer
-                    description: The current number of waiting transfers.
+                    description: "The current number of waiting transfers."
         responses:
           201:
-            description: Transfer limit set successfully.
+            description: "Transfer limit set successfully."
           400:
-            description: Invalid input data.
+            description: "Invalid input data."
           401:
-            description: Invalid Auth Token.
+            description: "Invalid Auth Token."
           500:
-            description: Internal server error.
+            description: "Internal server error."
         """
         parameters = json_parameters()
         rse_expression = param_get(parameters, 'rse_expression')
         max_transfers = param_get(parameters, 'max_transfers')
 
         try:
-          request.set_transfer_limit(
-            rse_expression=rse_expression,
-            max_transfers=max_transfers,
-            activity=param_get(parameters, 'activity', default=None),
-            direction=param_get(parameters, 'direction', default=TransferLimitDirection.DESTINATION),
-            volume=param_get(parameters, 'volume', default=None),
-            deadline=param_get(parameters, 'deadline', default=None),
-            strategy=param_get(parameters, 'strategy', default=None),
-            transfers=param_get(parameters, 'transfers', default=None),
-            waitings=param_get(parameters, 'waitings', default=None),
-            issuer=flask.request.environ['issuer'],
-            vo=flask.request.environ['vo']
-          )
+            request.set_transfer_limit(
+                rse_expression=rse_expression,
+                max_transfers=max_transfers,
+                activity=param_get(parameters, 'activity', default=None),
+                direction=param_get(parameters, 'direction', default=TransferLimitDirection.DESTINATION),
+                volume=param_get(parameters, 'volume', default=None),
+                deadline=param_get(parameters, 'deadline', default=None),
+                strategy=param_get(parameters, 'strategy', default=None),
+                transfers=param_get(parameters, 'transfers', default=None),
+                waitings=param_get(parameters, 'waitings', default=None),
+                issuer=flask.request.environ['issuer'],
+                vo=flask.request.environ['vo']
+            )
         except AccessDenied as error:
-          return generate_http_error_flask(401, error)
+            return generate_http_error_flask(401, error)
 
         return '', 201
 
@@ -1126,41 +1128,42 @@ class TransferLimits(ErrorHandlingMethodView):
         """
         ---
         summary: Delete Transfer Limit
-        description: Delete a transfer limit for an RSE expression.
+        description: "Delete a transfer limit for an RSE expression."
         tags:
           - Requests
         parameters:
           - name: rse_expression
             in: query
-            description: The RSE expression to delete the limit for.
+            description: "The RSE expression to delete the limit for."
             required: true
             schema:
               type: string
         responses:
           200:
-            description: Transfer limit deleted successfully.
+            description: "Transfer limit deleted successfully."
           400:
-            description: Invalid input data.
+            description: "Invalid input data."
           401:
-            description: Invalid Auth Token.
+            description: "Invalid Auth Token."
           500:
-            description: Internal server error.
+            description: "Internal server error."
         """
         parameters = json_parameters()
         rse_expression = param_get(parameters, 'rse_expression')
 
         try:
-          request.delete_transfer_limit(
-            rse_expression=rse_expression,
-            activity=param_get(parameters, 'activity', default=None),
-            direction=param_get(parameters, 'direction', default=TransferLimitDirection.DESTINATION),
-            issuer=flask.request.environ['issuer'],
-            vo=flask.request.environ['vo']
-          )
+            request.delete_transfer_limit(
+                rse_expression=rse_expression,
+                activity=param_get(parameters, 'activity', default=None),
+                direction=param_get(parameters, 'direction', default=TransferLimitDirection.DESTINATION),
+                issuer=flask.request.environ['issuer'],
+                vo=flask.request.environ['vo']
+            )
         except AccessDenied as error:
-          return generate_http_error_flask(401, error)
+            return generate_http_error_flask(401, error)
 
         return '', 200
+
 
 def blueprint():
     bp = AuthenticatedBlueprint('requests', __name__, url_prefix='/requests')

@@ -1323,7 +1323,7 @@ class DownloadClient:
     def _resolve_one_item_dids(self, item: dict[str, Any]) -> "Iterator[dict[str, Any]]":
         """
         Resolve scopes or wildcard DIDs to lists of full did names:
-        
+
         Parameters
         ----------
         item :

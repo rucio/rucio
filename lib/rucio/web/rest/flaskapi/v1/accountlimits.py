@@ -35,13 +35,13 @@ class LocalAccountLimit(ErrorHandlingMethodView):
         parameters:
         - name: account
           in: path
-          description: The account for the accountlimit.
+          description: "The account for the accountlimit."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: The rse for the accountlimit.
+          description: "The rse for the accountlimit."
           schema:
             type: string
           style: simple
@@ -54,20 +54,20 @@ class LocalAccountLimit(ErrorHandlingMethodView):
                 - bytes
                 properties:
                   bytes:
-                    description: The new limit in bytes.
+                    description: "The new limit in bytes."
                     type: integer
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No RSE or account found for the given id.
+            description: "No RSE or account found for the given id."
         """
         parameters = json_parameters()
         bytes_param = param_get(parameters, 'bytes')
@@ -89,23 +89,23 @@ class LocalAccountLimit(ErrorHandlingMethodView):
         parameters:
         - name: account
           in: path
-          description: The account for the accountlimit.
+          description: "The account for the accountlimit."
           schema:
             type: string
           style: simple
         - name: rse
           in: path
-          description: The rse for the accountlimit.
+          description: "The rse for the accountlimit."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No RSE or account found for the given id.
+            description: "No RSE or account found for the given id."
         """
         try:
             delete_local_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
@@ -127,13 +127,13 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
         parameters:
         - name: account
           in: path
-          description: The account for the accountlimit.
+          description: "The account for the accountlimit."
           schema:
             type: string
           style: simple
         - name: rse_expression
           in: path
-          description: The rse expression for the accountlimit.
+          description: "The rse expression for the accountlimit."
           schema:
             type: string
           style: simple
@@ -146,20 +146,20 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
                 - bytes
                 properties:
                   bytes:
-                    description: The new limit in bytes.
+                    description: "The new limit in bytes."
                     type: integer
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ['Created']
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No RSE or account found for the given id.
+            description: "No RSE or account found for the given id."
         """
         parameters = json_parameters()
         bytes_param = param_get(parameters, 'bytes')
@@ -187,23 +187,23 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
         parameters:
         - name: account
           in: path
-          description: The account for the accountlimit.
+          description: "The account for the accountlimit."
           schema:
             type: string
           style: simple
         - name: rse_expression
           in: path
-          description: The rse expression for the accountlimit.
+          description: "The rse expression for the accountlimit."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No RSE or account found for the given id.
+            description: "No RSE or account found for the given id."
         """
         try:
             delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))

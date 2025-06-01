@@ -45,22 +45,22 @@ class Ping(ErrorHandlingMethodView):
         """
         ---
         summary: Ping
-        description: Ping the server and get data about it.
+        description: "Ping the server and get data about it."
         tags:
           - Ping
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: object
                   properties:
                     version:
-                      description: The server version.
+                      description: "The server version."
                       type: string
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         headers = self.get_headers()
         response = jsonify(version=version.version_string())

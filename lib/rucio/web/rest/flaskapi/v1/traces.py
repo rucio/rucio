@@ -42,7 +42,7 @@ class Trace(ErrorHandlingMethodView):
         """
         ---
       summary: Trace
-      description: Trace endpoint used by the pilot and CLI clients to post data access information.
+      description: "Trace endpoint used by the pilot and CLI clients to post data access information."
       tags:
         - Trace
       parameters:
@@ -59,49 +59,49 @@ class Trace(ErrorHandlingMethodView):
               oneOf:
                 ObjectSchema:
                   - requires: [eventType, clientState, account]
-                  - description: touch one or more DIDs
+                  - description: "Touch one or more DIDs"
                 UploadSchema:
                   - requires: [eventType, hostname, account, eventVersion, uuid, scope, dataset, remoteSite, filesize, protocol, transferStart]
-                  - description: upload method
+                  - description: "Upload method"
                 DownloadSchema:
                   - requires: [eventType, hostname, localSite, account, eventVersion, uuid, scope, filename, dataset, filesize, clientState, stateReason]
-                  - description: download method
+                  - description: "Download method"
                 GetSchema:
                   - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
-                  - description: get method, mainly sent by pilots
+                  - description: "Get method, mainly sent by pilots"
                 PutSchema:
                   - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
-                  - description: put method, mainly sent by pilots
+                  - description: "Put method, mainly sent by pilots"
                 SpecialSchema:
                   - requires: [eventType, clientState, account]
-                  - description: A special schema to capture most unsupported eventTypes
+                  - description: "A special schema to capture most unsupported eventTypes"
             - type: array
               items:
                 type: object
                 oneOf:
                   ObjectSchema:
                     - requires: [eventType, clientState, account]
-                    - description: touch one or more DIDs
+                    - description: "Touch one or more DIDs"
                   UploadSchema:
                     - requires: [eventType, hostname, account, eventVersion, uuid, scope, dataset, remoteSite, filesize, protocol, transferStart]
-                    - description: upload method
+                    - description: "Upload method"
                   DownloadSchema:
                     - requires: [eventType, hostname, localSite, account, eventVersion, uuid, scope, filename, dataset, filesize, clientState, stateReason]
-                    - description: download method
+                    - description: "Download method"
                   GetSchema:
                     - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
-                    - description: get method, mainly sent by pilots
+                    - description: "Get method, mainly sent by pilots"
                   PutSchema:
                     - requires: [eventType, localSite, eventVersion, uuid, scope, filename, dataset]
-                    - description: put method, mainly sent by pilots
+                    - description: "Put method, mainly sent by pilots"
                   SpecialSchema:
                     - requires: [eventType, clientState, account]
-                    - description: A special schema to capture most unsupported eventTypes
+                    - description: "A special schema to capture most unsupported eventTypes"
       responses:
         201:
-          description: OK
+          description: "OK"
         400:
-          description: Cannot decode json data.
+          description: "Cannot decode json data."
     """
         headers = self.get_headers()
         parameters = request.data
@@ -112,10 +112,10 @@ class Trace(ErrorHandlingMethodView):
         # Trace gateway handles all errors and sends them to a log - no need for any error checking
         trace_ip = request.headers.get("X-Forwarded-For", default=request.remote_addr)
         try:
-          trace(request=parameters, trace_ip=trace_ip)
-          return Response("Created", 201, headers)
+            trace(request=parameters, trace_ip=trace_ip)
+            return Response("Created", 201, headers)
         except JSONDecodeError as err:
-          return generate_http_error_flask(400, err)
+            return generate_http_error_flask(400, err)
 
 
 def blueprint():

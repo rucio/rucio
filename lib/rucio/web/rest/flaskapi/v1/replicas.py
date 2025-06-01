@@ -154,76 +154,76 @@ class Replicas(ErrorHandlingMethodView):
         """
         ---
         summary: Get Replicas
-        description: List all replicas for data identifiers.
+        description: "List all replicas for data identifiers."
         tags:
           - Replicas
         parameters:
         - name: scope_name
           in: path
-          description: The DID associated with the replicas.
+          description: "The DID associated with the replicas."
           schema:
             type: string
           style: simple
         - name: X-Forwarded-For
           in: header
-          description: The client ip
+          description: "The client ip"
           schema:
             type: string
         - name: schemes
           in: query
-          description: The schemes of the replicas.
+          description: "The schemes of the replicas."
           schema:
             type: string
         - name: select
           in: query
-          description: The sorting algorithm.
+          description: "The sorting algorithm."
           schema:
             type: string
             enum: ["geoip", "random"]
         - name: limit
           in: query
-          description: The maximum number of replicas returned.
+          description: "The maximum number of replicas returned."
           schema:
             type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list with all replicas.
+                  description: "A list with all replicas."
                   type: array
                   items:
-                    description: A replica. Possibly contains more information.
+                    description: "A replica. Possibly contains more information."
                     type: object
                     properties:
                       scope:
-                        description: The scope of the replica.
+                        description: "The scope of the replica."
                         type: string
                       name:
-                        description: The name of the replica.
+                        description: "The name of the replica."
                         type: string
                       bytes:
-                        description: The size of the replica in bytes.
+                        description: "The size of the replica in bytes."
                         type: integer
                       md5:
-                        description: The md5 checksum of the replica.
+                        description: "The md5 checksum of the replica."
                         type: string
                       adler32:
-                        description: The adler32 checksum of the replica.
+                        description: "The adler32 checksum of the replica."
                         type: string
                       pfns:
-                        description: The pfns associated with the replica.
+                        description: "The pfns associated with the replica."
                         type: array
                       rses:
-                        description: The rse associated with the replica.
+                        description: "The rse associated with the replica."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Did not found
+            description: "Did not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ['vo'])
@@ -277,7 +277,7 @@ class Replicas(ErrorHandlingMethodView):
         """
         ---
         summary: Create File Replicas
-        description: Create file replicas at a given RSE.
+        description: "Create file replicas at a given RSE."
         tags:
           - Replicas
         requestBody:
@@ -290,10 +290,10 @@ class Replicas(ErrorHandlingMethodView):
                 - files
                 properties:
                   rse:
-                    description: The rse for the replication
+                    description: "The rse for the replication"
                     type: string
                   files:
-                    description: The files to replicate
+                    description: "The files to replicate"
                     type: array
                     items:
                       type: object
@@ -303,53 +303,53 @@ class Replicas(ErrorHandlingMethodView):
                         - name
                       properties:
                         pfn:
-                          description: The pfn of the replica.
+                          description: "The pfn of the replica."
                           type: string
                         name:
-                          description: The DID name.
+                          description: "The DID name."
                           type: string
                         bytes:
-                          description: The size of the replica in bytes.
+                          description: "The size of the replica in bytes."
                           type: integer
                         state:
-                          description: The state of the replica.
+                          description: "The state of the replica."
                           type: string
                         path:
-                          description: The path of the new replica.
+                          description: "The path of the new replica."
                           type: string
                         md5:
-                          description: The md5 checksum.
+                          description: "The md5 checksum."
                           type: string
                         adler32:
-                          description: The adler32 checksum.
+                          description: "The adler32 checksum."
                           type: string
                         lcok_cnt:
-                          description: The lock count.
+                          description: "The lock count."
                           type: integer
                         tombstone:
-                          description: The tombstone.
+                          description: "The tombstone."
                           type: string
                   ignore_availability:
-                    description: The ignore availability.
+                    description: "The ignore availability."
                     type: boolean
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
                   enum: ["Created"]
           400:
-            description: Invalid Path
+            description: "Invalid Path"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse or scope not found
+            description: "Rse or scope not found"
           409:
-            description: Replica or Did already exists
+            description: "Replica or Did already exists"
           503:
-            description: Resource temporary unavailable
+            description: "Resource temporary unavailable"
         """
         parameters = json_parameters(parse_response)
         rse = param_get(parameters, 'rse')
@@ -380,7 +380,7 @@ class Replicas(ErrorHandlingMethodView):
         """
         ---
         summary: Update File Replicas
-        description: Update file replicas state at a given RSE.
+        description: "Update file replicas state at a given RSE."
         tags:
           - Replicas
         requestBody:
@@ -393,39 +393,39 @@ class Replicas(ErrorHandlingMethodView):
                 - files
                 properties:
                   rse:
-                    description: The rse for the replication
+                    description: "The rse for the replication"
                     type: string
                   files:
-                    description: The files to replicate
+                    description: "The files to replicate"
                     type: array
                     items:
                       type: object
                       properties:
                         name:
-                          description: The pfn of the replica.
+                          description: "The pfn of the replica."
                           type: string
                         state:
-                          description: The pfn of the replica.
+                          description: "The pfn of the replica."
                           type: string
                         path:
-                          description: The pfn of the replica.
+                          description: "The pfn of the replica."
                           type: string
                         error_message:
-                          description: The error message if an error occurred.
+                          description: "The error message if an error occurred."
                           type: string
                         broken_rule_id:
-                          description: The id of the broken rule if one was found.
+                          description: "The id of the broken rule if one was found."
                           type: string
                         broken_message:
-                          description: The message of the broken rule.
+                          description: "The message of the broken rule."
                           type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           400:
-            description: Cannot decode json parameter list
+            description: "Cannot decode json parameter list"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
         """
         parameters = json_parameters(parse_response)
         rse = param_get(parameters, 'rse')
@@ -442,7 +442,7 @@ class Replicas(ErrorHandlingMethodView):
         """
         ---
         summary: Delete File Replicas
-        description: Delete file replicas at a given RSE.
+        description: "Delete file replicas at a given RSE."
         tags:
           - Replicas
         requestBody:
@@ -455,10 +455,10 @@ class Replicas(ErrorHandlingMethodView):
                   - files
                 properties:
                   rse:
-                    description: The rse name.
+                    description: "The rse name."
                     type: string
                   files:
-                    description: The files to delete.
+                    description: "The files to delete."
                     type: array
                     items:
                       type: object
@@ -466,17 +466,17 @@ class Replicas(ErrorHandlingMethodView):
                         - name
                       properties:
                         name:
-                          description: The name of the replica.
+                          description: "The name of the replica."
                           type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Rse or Replica not found
+            description: "Rse or Replica not found"
         """
         parameters = json_parameters(parse_response)
         rse = param_get(parameters, 'rse')
@@ -507,28 +507,28 @@ class ListReplicas(ErrorHandlingMethodView):
         """
         ---
         summary: List Replicas
-        description: List all replicas for a DID.
+        description: "List all replicas for a DID."
         tags:
           - Replicas
         parameters:
         - name: X-Forwarded-For
           in: header
-          description: The client ip address.
+          description: "The client ip address."
           schema:
             type: string
         - name: limit
           in: query
-          description: The maximum number pfns per replica to return.
+          description: "The maximum number pfns per replica to return."
           schema:
             type: integer
         - name: select
           in: query
-          description: Requested sorting of the result, e.g., 'geoip', 'random'.
+          description: "Requested sorting of the result, e.g., 'geoip', 'random'."
           schema:
             type: string
         - name: sort
           in: query
-          description: Requested sorting of the result, e.g., 'geoip', 'random'.
+          description: "Requested sorting of the result, e.g., 'geoip', 'random'."
           schema:
             type: string
         requestBody:
@@ -538,62 +538,62 @@ class ListReplicas(ErrorHandlingMethodView):
                 type: object
                 properties:
                   client_location:
-                    description: The clients location.
+                    description: "The client's location."
                     type: string
                   dids:
-                    description: List of Dids.
+                    description: "List of Dids."
                     type: array
                     items:
                       type: object
                       properties:
                         scope:
-                          description: The scope of the did.
+                          description: "The scope of the did."
                           type: string
                         name:
-                          description: The name of the did.
+                          description: "The name of the did."
                           type: string
                   schemes:
-                    description: A list of schemes to filter the replicas.
+                    description: "A list of schemes to filter the replicas."
                     type: array
                     items:
                       type: string
                   sort:
-                    description: Requested sorting of the result, e.g., 'geoip', 'random'.
+                    description: "Requested sorting of the result, e.g., 'geoip', 'random'."
                     type: string
                   unavailable:
-                    description: If unavailable rse should be considered.
+                    description: "If unavailable rse should be considered."
                     type: boolean
                     deprecated: true
                   ignore_availability:
-                    description: If the availability should be ignored.
+                    description: "If the availability should be ignored."
                     type: boolean
                   rse_expression:
-                    description: The RSE expression to restrict on a list of RSEs.
+                    description: "The RSE expression to restrict on a list of RSEs."
                     type: string
                   all_states:
-                    description: Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary.
+                    description: "Return all replicas whatever state they are in. Adds an extra 'states' entry in the result dictionary."
                     type: boolean
                   domain:
-                    description: The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']
+                    description: "The network domain for the call, either None, 'wan' or 'lan'. None is fallback to 'wan', 'all' is both ['lan','wan']"
                     type: string
                   signature_lifetime:
-                    description: If supported, in seconds, restrict the lifetime of the signed PFN.
+                    description: "If supported, in seconds, restrict the lifetime of the signed PFN."
                     type: integer
                   resolve_archives:
-                    description:  When set to True, find archives which contain the replicas.
+                    description: "When set to True, find archives which contain the replicas."
                     type: boolean
                   resolve_parents:
-                    description: When set to True, find all parent datasets which contain the replicas.
+                    description: "When set to True, find all parent datasets which contain the replicas."
                     type: boolean
                   updated_after:
-                    description: datetime object (UTC time), only return replicas updated after this time
+                    description: "datetime object (UTC time), only return replicas updated after this time"
                     type: string
                   nrandom:
-                    description: The maximum number of replicas to return.
+                    description: "The maximum number of replicas to return."
                     type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
@@ -602,59 +602,59 @@ class ListReplicas(ErrorHandlingMethodView):
                     type: object
                     properties:
                       scope:
-                        description: The scope of the replica.
+                        description: "The scope of the replica."
                         type: string
                       name:
-                        description: The name of the replica.
+                        description: "The name of the replica."
                         type: string
                       bytes:
-                        description: The size of the replica in bytes.
+                        description: "The size of the replica in bytes."
                         type: integer
                       md5:
-                        description: The md5 checksum.
+                        description: "The md5 checksum."
                         type: string
                       adler32:
-                        description: The adler32 checksum.
+                        description: "The adler32 checksum."
                         type: string
                       pfns:
-                        description: The pfns.
+                        description: "The pfns."
                         type: array
                       rses:
-                        description: The RSESs.
+                        description: "The RSESs."
                         type: array
               application/metalink4+xml:
                 schema:
                   type: object
                   properties:
                     scope:
-                      description: The scope of the replica.
+                      description: "The scope of the replica."
                       type: string
                     name:
-                      description: The name of the replica.
+                      description: "The name of the replica."
                       type: string
                     bytes:
-                      description: The size of the replica in bytes.
+                      description: "The size of the replica in bytes."
                       type: integer
                     md5:
-                      description: The md5 checksum.
+                      description: "The md5 checksum."
                       type: string
                     adler32:
-                      description: The adler32 checksum.
+                      description: "The adler32 checksum."
                       type: string
                     pfns:
-                      description: The pfns.
+                      description: "The pfns."
                       type: array
                     rses:
-                      description: The RSESs.
+                      description: "The RSESs."
                       type: array
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Did not found.
+            description: "Did not found."
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         content_type = request.accept_mimetypes.best_match(['application/x-json-stream', 'application/metalink4+xml'], 'application/x-json-stream')
         metalink = (content_type == 'application/metalink4+xml')
@@ -765,7 +765,7 @@ class ReplicasDIDs(ErrorHandlingMethodView):
         """
         ---
         summary: List Replicas Dids
-        description: List the DIDs associated to a list of replicas.
+        description: "List the DIDs associated to a list of replicas."
         tags:
           - Replicas
         requestBody:
@@ -777,16 +777,16 @@ class ReplicasDIDs(ErrorHandlingMethodView):
                 - rse
                 properties:
                   pfns:
-                    description: The list of pfns.
+                    description: "The list of pfns."
                     type: array
                     items:
                       type: string
                   rse:
-                    description: The RSE name.
+                    description: "The RSE name."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
@@ -795,23 +795,23 @@ class ReplicasDIDs(ErrorHandlingMethodView):
                     type: object
                     additionalProperties:
                       x-additionalPropertiesName: mapped PFNs to DIDs
-                      description: A mapping from a pfn to a did.
+                      description: "A mapping from a pfn to a did."
                       type: object
                       properties:
                         scope:
-                          description: The scope of the DID.
+                          description: "The scope of the DID."
                           type: string
                         name:
-                          description: The name of the DID.
+                          description: "The name of the DID."
                           type: string
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         pfns = param_get(parameters, 'pfns', default=[])
@@ -834,7 +834,7 @@ class BadReplicas(ErrorHandlingMethodView):
         """
         ---
         summary: Declare Bad Replicas
-        description: Declares a list of bad replicas.
+        description: "Declares a list of bad replicas."
         tags:
           - Replicas
         requestBody:
@@ -844,36 +844,36 @@ class BadReplicas(ErrorHandlingMethodView):
                 type: object
                 properties:
                   replicas:
-                    description: The list of pfns or list of dicts with "scope", "name", "rse_id"/"rse"
+                    description: "The list of pfns or list of dicts with 'scope', 'name', 'rse_id'/'rse'"
                     type: array
                     items:
                       type: string
                   pfns:
                     deprecated: true
-                    description: The list of pfns, for backward compatibility with older versions of the ReplicaClient
+                    description: "The list of pfns, for backward compatibility with older versions of the ReplicaClient"
                     type: array
                     items:
                       type: string
                   reason:
-                    description: The reason for the declaration.
+                    description: "The reason for the declaration."
                     type: string
                   force:
-                    description: If true, ignore existing replica status in the bad_replicas table.
+                    description: "If true, ignore existing replica status in the bad_replicas table."
                     type: boolean
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: Returns the not declared files.
+                  description: "Returns the not declared files."
                   type: array
           400:
-            description: Can not decode json parameter list.
+            description: "Can not decode json parameter list."
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters()
         replicas = param_get(parameters, 'replicas', default=[]) or param_get(parameters, 'pfns', default=[])
@@ -897,7 +897,7 @@ class QuarantineReplicas(ErrorHandlingMethodView):
         """
         ---
         summary: Quarantine replicas
-        description: Quarantine replicas.
+        description: "Quarantine replicas."
         tags:
           - Replicas
         requestBody:
@@ -909,7 +909,7 @@ class QuarantineReplicas(ErrorHandlingMethodView):
                     - replicas
                 properties:
                   replicas:
-                    description: replicas
+                    description: "replicas"
                     type: array
                     items:
                       type: object
@@ -917,27 +917,27 @@ class QuarantineReplicas(ErrorHandlingMethodView):
                         - path
                       properties:
                             path:
-                                description: path
+                                description: "path"
                                 type:   string
                             scope:
-                                description: scope
+                                description: "scope"
                                 type:   string
                             name:
-                                description: name
+                                description: "name"
                                 type:   string
                   rse:
-                    description: RSE name
+                    description: "RSE name"
                     type: string
                   rse_id:
-                    description: RSE id
+                    description: "RSE id"
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
           403:
-            description: Forbidden.
+            description: "Forbidden."
           404:
-            description: Not found
+            description: "Not found"
         """
 
         parameters = json_parameters()
@@ -965,7 +965,7 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
         """
         ---
         summary: Declare Suspicious Replicas
-        description: Declare a list of suspicious replicas.
+        description: "Declare a list of suspicious replicas."
         tags:
           - Replicas
         requestBody:
@@ -975,27 +975,27 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
                 type: object
                 properties:
                   pfns:
-                    description: The list of pfns.
+                    description: "The list of pfns."
                     type: array
                     items:
                       type: string
                   reason:
-                    description: The reason for the declaration.
+                    description: "The reason for the declaration."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: Returns the not declared files.
+                  description: "Returns the not declared files."
                   type: array
           400:
-            description: Can not decode json parameter list.
+            description: "Can not decode json parameter list."
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters(parse_response)
         pfns = param_get(parameters, 'pfns', default=[])
@@ -1012,28 +1012,28 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
         """
         ---
         summary: List Suspicious Replicas
-        description: List the suspicious replicas on a list of RSEs.
+        description: "List the suspicious replicas on a list of RSEs."
         tags:
           - Replicas
         parameters:
         - name: rse_expression
           in: query
-          description: The RSE expression to filter for.
+          description: "The RSE expression to filter for."
           schema:
             type: string
         - name: younger_than
           in: query
-          description: Date to filter for.
+          description: "Date to filter for."
           schema:
             type: string
         - name: nattempts
           in: query
-          description: The maximum number of attempts to make.
+          description: "The maximum number of attempts to make."
           schema:
             type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
@@ -1042,29 +1042,29 @@ class SuspiciousReplicas(ErrorHandlingMethodView):
                     type: object
                     properties:
                       scope:
-                        description: The scope of the Replica.
+                        description: "The scope of the Replica."
                         type: string
                       name:
-                        description: The name of the Replica.
+                        description: "The name of the Replica."
                         type: string
                       rse:
-                        description: The rse name.
+                        description: "The rse name."
                         type: string
                       rse_id:
-                        description: The id of the rse.
+                        description: "The id of the rse."
                         type: string
                       cnt:
-                        description: The number of replicas.
+                        description: "The number of replicas."
                         type: integer
                       created_at:
-                        description: The time when the replica was created.
+                        description: "The time when the replica was created."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         rse_expression, younger_than, nattempts = None, None, None
         if request.query_string:
@@ -1092,93 +1092,93 @@ class BadReplicasStates(ErrorHandlingMethodView):
         """
         ---
         summary: List Bad Replicas By States
-        description: List the bad or suspicious replicas by states.
+        description: "List the bad or suspicious replicas by states."
         tags:
           - Replicas
         parameters:
         - name: state
           in: query
-          description: The state of the file.
+          description: "The state of the file."
           schema:
             type: string
             enum: [SUSPICIOUS, BAD]
         - name: rse
           in: query
-          description: The rse name.
+          description: "The rse name."
           schema:
             type: string
         - name: younger_than
           in: query
-          description: Date to select bad replicas younger than this date.
+          description: "Date to select bad replicas younger than this date."
           schema:
             type: string
             format: date-time
         - name: older_than
           in: query
-          description: Date to select bad replicas older than this date.
+          description: "Date to select bad replicas older than this date."
           schema:
             type: string
             format: date-time
         - name: limit
           in: query
-          description: The maximum number of replicas returned.
+          description: "The maximum number of replicas returned."
           schema:
             type: integer
         - name: list_pfns
           in: query
-          description: Flag to include pfns.
+          description: "Flag to include pfns."
           schema:
             type: boolean
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of all result replicas.
+                  description: "A list of all result replicas."
                   type: array
                   items:
                     oneOf:
                       - type: object
                         properties:
                           scope:
-                            description: The scope of the replica.
+                            description: "The scope of the replica."
                             type: string
                           name:
-                            description: The name of the replica.
+                            description: "The name of the replica."
                             type: string
                           type:
-                            description: The type of the replica.
+                            description: "The type of the replica."
                             type: string
                       - type: object
                         properties:
                           scope:
-                            description: The scope of the replica.
+                            description: "The scope of the replica."
                             type: string
                           name:
-                            description: The name of the replica.
+                            description: "The name of the replica."
                             type: string
                           rse:
-                            description: The name of the associated rse.
+                            description: "The name of the associated rse."
                             type: string
                           rse_id:
-                            description: The id of the associated rse.
+                            description: "The id of the associated rse."
                             type: string
                           state:
-                            description: The state of the replica.
+                            description: "The state of the replica."
                             type: string
                           created_at:
-                            description: The date-time the replica was created.
+                            description: "The date-time the replica was created."
                             type: string
                             format: date-time
                           updated_at:
-                            description: The date-time the replica was updated.
+                            description: "The date-time the replica was updated."
                             type: string
                             format: date-time
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         list_pfns = False
         state, rse, younger_than, older_than, limit = None, None, None, None, None
@@ -1219,55 +1219,55 @@ class BadReplicasSummary(ErrorHandlingMethodView):
         """
         ---
         summary: Bad Replicas Summary
-        description: Return a summary of the bad replicas by incident.
+        description: "Return a summary of the bad replicas by incident."
         tags:
           - Replicas
         parameters:
         - name: rse_expression
           in: query
-          description: The RSE expression.
+          description: "The RSE expression."
           schema:
             type: string
         - name: from_date
           in: query
-          description: The start date.
+          description: "The start date."
           schema:
             type: string
             format: date-time
         - name: to_date
           in: query
-          description: The end date.
+          description: "The end date."
           schema:
             type: string
             format: date-time
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of summaries.
+                  description: "A list of summaries."
                   type: array
                   items:
                     type: object
                     properties:
                       rse:
-                        description: The name of the associated RSE.
+                        description: "The name of the associated RSE."
                         type: string
                       rse_id:
-                        description: The id of the associated RSE.
+                        description: "The id of the associated RSE."
                         type: string
                       created_at:
-                        description: The creation date-time.
+                        description: "The creation date-time."
                         type: string
                         format: date-time
                       reason:
-                        description: The reason for the incident.
+                        description: "The reason for the incident."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         rse_expression, from_date, to_date = None, None, None
         if request.query_string:
@@ -1298,77 +1298,77 @@ class DatasetReplicas(ErrorHandlingMethodView):
         """
         ---
         summary: List Dataset Replicas
-        description: List dataset replicas.
+        description: "List dataset replicas."
         tags:
           - Replicas
         parameters:
         - name: scope_name
           in: path
-          description: data identifier (scope)/(name).
+          description: "data identifier (scope)/(name)."
           schema:
             type: string
           style: simple
         - name: deep
           in: query
-          description: Flag to ennable lookup at the file level.
+          description: "Flag to enable lookup at the file level."
           schema:
             type: boolean
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of dataset replicas.
+                  description: "A list of dataset replicas."
                   type: array
                   items:
                     type: object
                     properties:
                       scope:
-                        description: The scope of the replica.
+                        description: "The scope of the replica."
                         type: string
                       name:
-                        description: The name of the replica.
+                        description: "The name of the replica."
                         type: string
                       rse:
-                        description: The name of the associated RSE.
+                        description: "The name of the associated RSE."
                         type: string
                       rse_id:
-                        description: The id of the associated RSE.
+                        description: "The id of the associated RSE."
                         type: string
                       bytes:
-                        description: The size of the replica.
+                        description: "The size of the replica."
                         type: integer
                       length:
-                        description: The length of the replica.
+                        description: "The length of the replica."
                         type: integer
                       available_bytes:
-                        description: The number of available bytes of the replica.
+                        description: "The number of available bytes of the replica."
                         type: integer
                       available_length:
-                        description: The available length of the replica.
+                        description: "The available length of the replica."
                         type: integer
                       state:
-                        description: The state of the replica.
+                        description: "The state of the replica."
                         type: string
                       created_at:
-                        description: The date-time the replica was created.
+                        description: "The date-time the replica was created."
                         type: string
                         format: date-time
                       updated_at:
-                        description: The date-time the replica was updated.
+                        description: "The date-time the replica was updated."
                         type: string
                         format: date-time
                       accessed_at:
-                        description: The date-time the replica was accessed.
+                        description: "The date-time the replica was accessed."
                         type: string
                         format: date-time
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ['vo'])
@@ -1391,7 +1391,7 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
         """
         ---
         summary: List Dataset Replicas for Multiple DIDs
-        description: List dataset replicas for multiple dids.
+        description: "List dataset replicas for multiple dids."
         tags:
           - Replicas
         requestBody:
@@ -1403,76 +1403,76 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
                 - dids
                 properties:
                   dids:
-                    description: A list of dids.
+                    description: "A list of dids."
                     type: array
                     items:
-                      description: A did.
+                      description: "A did."
                       type: object
                       properties:
                         scope:
-                          description: The scope of the did.
+                          description: "The scope of the did."
                           type: string
                         name:
-                          description: The name of the did.
+                          description: "The name of the did."
                           type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of dataset replicas.
+                  description: "A list of dataset replicas."
                   type: array
                   items:
                     type: object
                     properties:
                       scope:
-                        description: The scope of the replica.
+                        description: "The scope of the replica."
                         type: string
                       name:
-                        description: The name of the replica.
+                        description: "The name of the replica."
                         type: string
                       rse:
-                        description: The name of the associated RSE.
+                        description: "The name of the associated RSE."
                         type: string
                       rse_id:
-                        description: The id of the associated RSE.
+                        description: "The id of the associated RSE."
                         type: string
                       bytes:
-                        description: The size of the replica.
+                        description: "The size of the replica."
                         type: integer
                       length:
-                        description: The length of the replica.
+                        description: "The length of the replica."
                         type: integer
                       available_bytes:
-                        description: The number of available bytes of the replica.
+                        description: "The number of available bytes of the replica."
                         type: integer
                       available_length:
-                        description: The available length of the replica.
+                        description: "The available length of the replica."
                         type: integer
                       state:
-                        description: The state of the replica.
+                        description: "The state of the replica."
                         type: string
                       created_at:
-                        description: The date-time the replica was created.
+                        description: "The date-time the replica was created."
                         type: string
                         format: date-time
                       updated_at:
-                        description: The date-time the replica was updated.
+                        description: "The date-time the replica was updated."
                         type: string
                         format: date-time
                       accessed_at:
-                        description: The date-time the replica was accessed.
+                        description: "The date-time the replica was accessed."
                         type: string
                         format: date-time
           400:
-            description: Bad Request.
+            description: "Bad Request."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         parameters = json_parameters(parse_response)
         dids = param_get(parameters, 'dids')
@@ -1503,22 +1503,22 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
         parameters:
         - name: scope_name
           in: path
-          description: data identifier (scope)/(name).
+          description: "data identifier (scope)/(name)."
           schema:
             type: string
           style: simple
         - name: deep
           in: query
-          description: Flag to ennable lookup at the file level.
+          description: "Flag to ennable lookup at the file level."
           schema:
             type: boolean
         responses:
           200:
-            description: OK. This needs documentation!
+            description: "OK. This needs documentation!"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ['vo'])
@@ -1541,70 +1541,70 @@ class ReplicasRSE(ErrorHandlingMethodView):
         """
         ---
         summary: List Dataset Replicas per RSE
-        description: List dataset replicas per RSE.
+        description: "List dataset replicas per RSE."
         tags:
           - Replicas
         parameters:
         - name: rse
           in: path
-          description: The rse to filter for.
+          description: "The rse to filter for."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  description: A list of dataset replicas.
+                  description: "A list of dataset replicas."
                   type: array
                   items:
                     type: object
                     properties:
                       scope:
-                        description: The scope of the replica.
+                        description: "The scope of the replica."
                         type: string
                       name:
-                        description: The name of the replica.
+                        description: "The name of the replica."
                         type: string
                       rse:
-                        description: The name of the associated RSE.
+                        description: "The name of the associated RSE."
                         type: string
                       rse_id:
-                        description: The id of the associated RSE.
+                        description: "The id of the associated RSE."
                         type: string
                       bytes:
-                        description: The size of the replica.
+                        description: "The size of the replica."
                         type: integer
                       length:
-                        description: The length of the replica.
+                        description: "The length of the replica."
                         type: integer
                       available_bytes:
-                        description: The number of available bytes of the replica.
+                        description: "The number of available bytes of the replica."
                         type: integer
                       available_length:
-                        description: The available length of the replica.
+                        description: "The available length of the replica."
                         type: integer
                       state:
-                        description: The state of the replica.
+                        description: "The state of the replica."
                         type: string
                       created_at:
-                        description: The date-time the replica was created.
+                        description: "The date-time the replica was created."
                         type: string
                         format: date-time
                       updated_at:
-                        description: The date-time the replica was updated.
+                        description: "The date-time the replica was updated."
                         type: string
                         format: date-time
                       accessed_at:
-                        description: The date-time the replica was accessed.
+                        description: "The date-time the replica was accessed."
                         type: string
                         format: date-time
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
 
         def generate(vo):
@@ -1620,7 +1620,7 @@ class BadDIDs(ErrorHandlingMethodView):
         """
         ---
         summary: Mark Bad by DID
-        description: Declare a list of bad replicas by DID.
+        description: "Declare a list of bad replicas by DID."
         tags:
           - Replicas
         requestBody:
@@ -1630,43 +1630,43 @@ class BadDIDs(ErrorHandlingMethodView):
                 type: object
                 properties:
                   expires_at:
-                    description: The expires at value.
+                    description: "The expires at value."
                     type: string
                     format: date-time
                   dids:
-                    description: The list of dids associated with the bad replicas.
+                    description: "The list of dids associated with the bad replicas."
                     type: array
                     items:
                       type: object
                       properties:
                         scope:
-                          description: The scope of the did.
+                          description: "The scope of the did."
                           type: string
                         name:
-                          description: The name of the did.
+                          description: "The name of the did."
                           type: string
                   rse:
-                    description: The name of the rse.
+                    description: "The name of the rse."
                     type: string
                   reason:
-                    description: The reason for the change.
+                    description: "The reason for the change."
                     type: string
         responses:
           201:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
-                  description: All files not declared as bad.
+                  description: "All files not declared as bad."
                   type: array
                   items:
                     type: string
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
         """
         parameters = json_parameters(parse_response)
         expires_at = param_get(parameters, 'expires_at', default=None)
@@ -1701,7 +1701,7 @@ class BadPFNs(ErrorHandlingMethodView):
         """
         ---
         summary: Declare Bad PFNs
-        description: Declare a list of bad PFNs.
+        description: "Declare a list of bad PFNs."
         tags:
           - Replicas
         requestBody:
@@ -1711,32 +1711,32 @@ class BadPFNs(ErrorHandlingMethodView):
                 type: object
                 properties:
                   expires_at:
-                    description: The expires at value. Only apply to TEMPORARY_UNAVAILABLE.
+                    description: "The expires at value. Only apply to TEMPORARY_UNAVAILABLE."
                     type: string
                     format: date-time
                   pfns:
-                    description: The list of pfns associated with the bad PFNs.
+                    description: "The list of pfns associated with the bad PFNs."
                     type: array
                     items:
                       type: string
                   state:
-                    description: The state to set the PFNs to.
+                    description: "The state to set the PFNs to."
                     type: string
                     enum: ["BAD", "SUSPICIOUS", "TEMPORARY_UNAVAILABLE"]
                   reason:
-                    description: The reason for the change.
+                    description: "The reason for the change."
                     type: string
         responses:
           201:
-            description: Created
+            description: "Created"
           400:
-            description: Cannot decode json parameter list.
+            description: "Cannot decode json parameter list."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Replica not found
+            description: "Replica not found"
           409:
-            description: Duplicate
+            description: "Duplicate"
         """
         parameters = json_parameters(parse_response)
         expires_at = param_get(parameters, 'expires_at', default=None)
@@ -1770,7 +1770,7 @@ class Tombstone(ErrorHandlingMethodView):
         """
         ---
         summary: Set Tombstone
-        description: Set a tombstone on a list of replicas.
+        description: "Set a tombstone on a list of replicas."
         tags:
           - Replicas
         requestBody:
@@ -1780,7 +1780,7 @@ class Tombstone(ErrorHandlingMethodView):
                 type: object
                 properties:
                   replicas:
-                    description: The replicas to set the tombstone to.
+                    description: "The replicas to set the tombstone to."
                     type: array
                     items:
                       type: object
@@ -1790,23 +1790,23 @@ class Tombstone(ErrorHandlingMethodView):
                         - name
                       properties:
                         rse:
-                          description: The rse associated with the tombstone.
+                          description: "The rse associated with the tombstone."
                           type: string
                         scope:
-                          description: The scope of the replica
+                          description: "The scope of the replica"
                           type: string
                         name:
-                          description: The name of the replica.
+                          description: "The name of the replica."
                           type: string
         responses:
           201:
-            description: Created
+            description: "Created"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: Not found
+            description: "Not found"
           423:
-            description: Replica is locked.
+            description: "Replica is locked."
         """
         parameters = json_parameters(parse_response)
         replicas = param_get(parameters, 'replicas', default=[])

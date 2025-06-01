@@ -68,23 +68,23 @@ class Rule(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
           406:
-            description: Not Acceptable
+            description: "Not Acceptable"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
         """
         parameters = json_parameters(optional=True)
         estimate_ttc = param_get(parameters, 'estimate_ttc', default=False)
@@ -107,12 +107,12 @@ class Rule(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
         requestBody:
-          description: Parameters for the new rule.
+          description: "Parameters for the new rule."
           content:
             'application/json':
               schema:
@@ -121,58 +121,58 @@ class Rule(ErrorHandlingMethodView):
                 - options
                 properties:
                   options:
-                    description: The parameters to change.
+                    description: "The parameters to change."
                     type: object
                     properties:
                       lifetime:
-                        description: The time in which the rule will expire in seconds.
+                        description: "The time in which the rule will expire in seconds."
                         type: integer
                       account:
-                        description: The account of the replication rule.
+                        description: "The account of the replication rule."
                         type: string
                       state:
-                        description: The state of the replication rule.
+                        description: "The state of the replication rule."
                         type: string
                       cancel_requests:
-                        description: Cancels all requests if used together with state.
+                        description: "Cancels all requests if used together with state."
                         type: boolean
                       priority:
-                        description: The priority of a rule.
+                        description: "The priority of a rule."
                         type: integer
                       child_rule_id:
-                        description: The child rule. Parent and child rule must be on the same dataset.
+                        description: "The child rule. Parent and child rule must be on the same dataset."
                         type: string
                       meta:
-                        description: The meta of a rule.
+                        description: "The meta of a rule."
                         type: object
                       boost_rule:
-                        description: Boosts the processing of a rule.
+                        description: "Boosts the processing of a rule."
                         type: object
                       locked:
-                        description: The locked state of the replication rule.
+                        description: "The locked state of the replication rule."
                         type: boolean
                       comment:
-                        description: The comment of the replication rule.
+                        description: "The comment of the replication rule."
                         type: string
                       activity:
-                        description: The activity of a replication rule.
+                        description: "The activity of a replication rule."
                         type: string
                       source_replica_expression:
-                        description: The source replica expression of a replication rule.
+                        description: "The source replica expression of a replication rule."
                         type: string
                       eol_at:
-                        description: The end of life of a replication rule.
+                        description: "The end of life of a replication rule."
                         type: string
                       purge_replicas:
-                        description: Purge replicas
+                        description: "Purge replicas"
                         type: boolean
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
        """
         parameters = json_parameters()
         options: dict[str, Any] = param_get(parameters, 'options')
@@ -197,17 +197,17 @@ class Rule(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
         """
         parameters = json_parameters()
         purge_replicas = param_get(parameters, 'purge_replicas', default=None)
@@ -233,17 +233,17 @@ class AllRule(ErrorHandlingMethodView):
           - Rule
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           406:
-            description: Not Acceptable
+            description: "Not Acceptable"
         """
         try:
             def generate(filters, vo):
@@ -261,7 +261,7 @@ class AllRule(ErrorHandlingMethodView):
         tags:
           - Rule
         requestBody:
-          description: Parameters for the new rule.
+          description: "Parameters for the new rule."
           content:
             'application/json':
               schema:
@@ -273,88 +273,88 @@ class AllRule(ErrorHandlingMethodView):
                 - rse_expression
                 properties:
                   dids:
-                    description: The list of data identifiers.
+                    description: "The list of data identifiers."
                     type: array
                     items:
                       type: object
                       properties:
                         scope:
-                          description: The scope of the data identifier
+                          description: "The scope of the data identifier"
                           type: string
                         name:
-                          description: The name of the data identifier
+                          description: "The name of the data identifier"
                           type: string
                   account:
-                    description: The account of the issuer.
+                    description: "The account of the issuer."
                     type: string
                   copies:
-                    description: The number of replicas.
+                    description: "The number of replicas."
                     type: integer
                   rse_expression:
-                    description: The rse expression which gets resolved into a list of RSEs.
+                    description: "The rse expression which gets resolved into a list of RSEs."
                     type: string
                   grouping:
-                    description: The grouping of the files to take into account. (ALL, DATASET, NONE)
+                    description: "The grouping of the files to take into account. (ALL, DATASET, NONE)"
                     type: string
                   weight:
-                     description: Weighting scheme to be used.
+                     description: "Weighting scheme to be used."
                      type: number
                   lifetime:
-                     description: The lifetime of the replication rule in seconds.
+                     description: "The lifetime of the replication rule in seconds."
                      type: integer
                   locked:
-                     description: If the rule is locked.
+                     description: "If the rule is locked."
                      type: boolean
                   subscription_id:
-                     description: The subscription_id, if the rule is created by a subscription.
+                     description: "The subscription_id, if the rule is created by a subscription."
                      type: string
                   sourse_replica_expression:
-                     description: Only use replicas as source from these RSEs.
+                     description: "Only use replicas as source from these RSEs."
                      type: string
                   activity:
-                     description: Activity to be passed to the conveyor.
+                     description: "Activity to be passed to the conveyor."
                      type: string
                   notify:
-                     description: Notification setting of the rule ('Y', 'N', 'C'; None = 'N').
+                     description: "Notification setting of the rule ('Y', 'N', 'C'; None = 'N')."
                      type: string
                   purge_replicas:
-                     description: Purge setting if a replica should be directly deleted after the rule is deleted.
+                     description: "Purge setting if a replica should be directly deleted after the rule is deleted."
                      type: boolean
                   ignore_availability:
-                     description: Option to ignore the availability of RSEs.
+                     description: "Option to ignore the availability of RSEs."
                      type: boolean
                   comments:
-                     description: Comment about the rule.
+                     description: "Comment about the rule."
                      type: string
                   ask_approval:
-                     description: Ask for approval for this rule.
+                     description: "Ask for approval for this rule."
                      type: boolean
                   asynchronous:
-                     description: Create replication rule asynchronously by the judge-injector.
+                     description: "Create replication rule asynchronously by the judge-injector."
                      type: boolean
                   priority:
-                     description: Priority of the rule and the transfers which should be submitted.
+                     description: "Priority of the rule and the transfers which should be submitted."
                      type: integer
                   split_container:
-                     description: Should a container rule be split into individual dataset rules.
+                     description: "Should a container rule be split into individual dataset rules."
                      type: boolean
                   meta:
-                     description: Dictionary with metadata from the WFMS.
+                     description: "Dictionary with metadata from the WFMS."
                      type: string
         responses:
           201:
-            description: Rule created.
+            description: "Rule created."
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: string
-                    description: Id of each created rule.
+                    description: "Id of each created rule."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           409:
             description: |
               - Invalid Replication Rule
@@ -433,13 +433,13 @@ class ReplicaLocks(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
@@ -448,29 +448,29 @@ class ReplicaLocks(ErrorHandlingMethodView):
                     type: object
                     properties:
                       scope:
-                        description: The scope of the lock.
+                        description: "The scope of the lock."
                         type: string
                       name:
-                        description: The name of the lock.
+                        description: "The name of the lock."
                         type: string
                       rse_id:
-                        description: The rse_id of the lock.
+                        description: "The rse_id of the lock."
                         type: string
                       rse:
-                        description: Information about the rse of the lock.
+                        description: "Information about the rse of the lock."
                         type: object
                       state:
-                        description: The state of the lock.
+                        description: "The state of the lock."
                         type: string
                       rule_id:
-                        description: The rule_id of the lock.
+                        description: "The rule_id of the lock."
                         type: string
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           406:
-            description: Not Acceptable
+            description: "Not Acceptable"
         """
 
         def generate(vo):
@@ -492,7 +492,7 @@ class ReduceRule(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
@@ -505,24 +505,24 @@ class ReduceRule(ErrorHandlingMethodView):
                 - copies
                 properties:
                   copies:
-                    description: Number of copies to keep.
+                    description: "Number of copies to keep."
                     type: integer
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: string
-                    description: Rule id.
+                    description: "Rule id."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           409:
-            description: Rule replace failed.
+            description: "Rule replace failed."
         """
         parameters = json_parameters()
         copies = param_get(parameters, 'copies')
@@ -554,7 +554,7 @@ class MoveRule(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
@@ -567,33 +567,33 @@ class MoveRule(ErrorHandlingMethodView):
                 - rse_expression
                 properties:
                   rse_expression:
-                    description: The new rse expression.
+                    description: "The new rse expression."
                     type: string
                   rule_id:
-                    description: The rule_id of the rule to moves. If specified, overrides the `rule_id` parameter.
+                    description: "The rule_id of the rule to moves. If specified, overrides the `rule_id` parameter."
                     type: string
                   activity:
-                    description: The `activity` of the moved rule.
+                    description: "The `activity` of the moved rule."
                     type: string
                   source_replica_expression:
-                    description: The `source_replica_expression` of the moved rule.
+                    description: "The `source_replica_expression` of the moved rule."
                     type: string
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: string
-                    description: Rule id.
+                    description: "Rule id."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           409:
-            description: Rule replace failed.
+            description: "Rule replace failed."
         """
         parameters = json_parameters()
         rse_expression = param_get(parameters, 'rse_expression')
@@ -635,42 +635,42 @@ class RuleHistory(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: array
                   items:
                     type: object
-                    description: Rule history object.
+                    description: "Rule history object."
                     properties:
                       updated_at:
                         type: string
-                        description: The date of the update.
+                        description: "The date of the update."
                       state:
                         type: string
-                        description: The state of the update.
+                        description: "The state of the update."
                       locks_ok_cnt:
                         type: integer
-                        description: The number of locks which are ok.
+                        description: "The number of locks which are ok."
                       locks_stuck_cnt:
                         type: integer
-                        description: The number of locks which are stuck.
+                        description: "The number of locks which are stuck."
                       locks_replicating_cnt:
                         type: integer
-                        description: The number of locks which are replicating.
+                        description: "The number of locks which are replicating."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           406:
-            description: Not acceptable.
+            description: "Not acceptable."
         """
         def generate(issuer, vo):
             for history in list_replication_rule_history(rule_id, issuer=issuer, vo=vo):
@@ -692,52 +692,52 @@ class RuleHistoryFull(ErrorHandlingMethodView):
         parameters:
         - name: scope_name
           in: path
-          description: The data identifier of scope-name to retrieve the history from. ((scope)/(name))
+          description: "The data identifier of scope-name to retrieve the history from. ((scope)/(name))"
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/x-json-stream:
                 schema:
                   type: array
                   items:
                     type: object
-                    description: Rule history object.
+                    description: "Rule history object."
                     properties:
                       rule_id:
                         type: string
-                        description: The id of the rule.
+                        description: "The id of the rule."
                       updated_at:
                         type: string
-                        description: The date of the update.
+                        description: "The date of the update."
                       created_at:
                         type: string
-                        description: The date of the creation.
+                        description: "The date of the creation."
                       rse_expression:
                         type: string
-                        description: The rse expression.
+                        description: "The rse expression."
                       state:
                         type: string
-                        description: The state of the update.
+                        description: "The state of the update."
                       account:
                         type: string
-                        description: The account who initiated the change.
+                        description: "The account who initiated the change."
                       locks_ok_cnt:
                         type: integer
-                        description: The number of locks which are ok.
+                        description: "The number of locks which are ok."
                       locks_stuck_cnt:
                         type: integer
-                        description: The number of locks which are stuck.
+                        description: "The number of locks which are stuck."
                       locks_replicating_cnt:
                         type: integer
-                        description: The number of locks which are replicating.
+                        description: "The number of locks which are replicating."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable.
+            description: "Not acceptable."
         """
         try:
             scope, name = parse_scope_name(scope_name, request.environ['vo'])
@@ -764,13 +764,13 @@ class RuleAnalysis(ErrorHandlingMethodView):
         parameters:
         - name: rule_id
           in: path
-          description: The id of the replication rule.
+          description: "The id of the replication rule."
           schema:
             type: string
           style: simple
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
@@ -778,46 +778,46 @@ class RuleAnalysis(ErrorHandlingMethodView):
                   properties:
                     rule_error:
                       type: string
-                      description: The state of the rule.
+                      description: "The state of the rule."
                     transfers:
                       type: array
-                      description: List of all transfer errors.
+                      description: "List of all transfer errors."
                       items:
                         type: object
                         properties:
                           scope:
                             type: string
-                            description: The scope of the transfer.
+                            description: "The scope of the transfer."
                           name:
                             type: string
-                            description: The name of the lock.
+                            description: "The name of the lock."
                           rse_id:
                             type: string
-                            description: The rse_id of the transferred lock.
+                            description: "The rse_id of the transferred lock."
                           rse:
                             type: object
-                            description: Information about the rse of the transferred lock.
+                            description: "Information about the rse of the transferred lock."
                           attempts:
                             type: integer
-                            description: The number of attempts.
+                            description: "The number of attempts."
                           last_error:
                             type: string
-                            description: The last error that occurred.
+                            description: "The last error that occurred."
                           last_source:
                             type: string
-                            description: The last source.
+                            description: "The last source."
                           sources:
                             type: array
-                            description: All available rse sources.
+                            description: "All available rse sources."
                           last_time:
                             type: string
-                            description: The time of the last transfer.
+                            description: "The time of the last transfer."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           404:
-            description: No rule found for the given id
+            description: "No rule found for the given id"
           406:
-            description: Not acceptable.
+            description: "Not acceptable."
         """
         analysis = examine_replication_rule(rule_id, issuer=request.environ['issuer'], vo=request.environ['vo'])
         return Response(render_json(**analysis), content_type='application/json')

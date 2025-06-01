@@ -364,14 +364,14 @@ def set_transfer_limit(
             raise exception.AccessDenied(f'{issuer} cannot set transfer limits. {auth_result.message}')
 
         request.set_transfer_limit(rse_expression=rse_expression,
-                                activity=activity,
-                                direction=direction,
-                                max_transfers=max_transfers,
-                                volume=volume,
-                                deadline=deadline,
-                                strategy=strategy,
-                                transfers=transfers,
-                                waitings=waitings)
+                                   activity=activity,
+                                   direction=direction,
+                                   max_transfers=max_transfers,
+                                   volume=volume,
+                                   deadline=deadline,
+                                   strategy=strategy,
+                                   transfers=transfers,
+                                   waitings=waitings)
 
 
 def delete_transfer_limit(
@@ -398,6 +398,6 @@ def delete_transfer_limit(
             raise exception.AccessDenied(f'{issuer} cannot delete transfer limits. {auth_result.message}')
 
         request.delete_transfer_limit(rse_expression=rse_expression,
-                                    activity=activity,
-                                    direction=direction,
-                                    session=session)
+                                      activity=activity,
+                                      direction=direction,
+                                      session=session)

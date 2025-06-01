@@ -28,28 +28,28 @@ class Export(ErrorHandlingMethodView):
         """
         ---
         summary: Export data
-        description: Export data from rucio.
+        description: "Export data from rucio."
         tags:
           - Export
         parameters:
         - name: distance
           in: query
-          description: Should the distance be enabled?
+          description: "Should the distance be enabled?"
           schema:
             type: boolean
           required: false
         responses:
           200:
-            description: OK
+            description: "OK"
             content:
               application/json:
                 schema:
                   type: object
-                  description: Dictionary with rucio data.
+                  description: "Dictionary with rucio data."
           401:
-            description: Invalid Auth Token
+            description: "Invalid Auth Token"
           406:
-            description: Not acceptable
+            description: "Not acceptable"
         """
         distance = request.args.get('distance', default='True') == 'True'
         return Response(render_json(**export_data(issuer=request.environ['issuer'], distance=distance, vo=request.environ['vo'])), content_type='application/json')
