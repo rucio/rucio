@@ -28,10 +28,7 @@ RUN test "x${PYTHON}" = "x3.10" && \
     python -m pip --no-cache-dir install --upgrade pip && \
     # setuptools will be reinstalled via pip when installing requirements
     dnf remove -y python3-setuptools && \
-    dnf clean all && \
-    rpm -i https://download.oracle.com/otn_software/linux/instantclient/1912000/oracle-instantclient19.12-basiclite-19.12.0.0.0-1.x86_64.rpm && \
-    echo "/usr/lib/oracle/19.12/client64/lib" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
-    ldconfig
+    dnf clean all
 
 WORKDIR /usr/local/src/rucio
 
