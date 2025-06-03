@@ -16,8 +16,6 @@ import enum
 from collections import namedtuple
 from typing import Literal, get_args
 
-from rucio.common.config import config_get_bool
-
 """
 Constants.
 
@@ -32,21 +30,16 @@ RESERVED_KEYS = ['scope', 'name', 'account', 'did_type', 'is_open', 'monotonic',
 KEY_TYPES = ['ALL', 'COLLECTION', 'FILE', 'DERIVED']
 # all(container, dataset, file), collection(dataset or container), file, derived(compute from file for collection)
 
-SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
-              'gsiftp': ['srm', 'gsiftp'],
-              'https': ['https', 'davs', 'srm+https', 'cs3s'],
-              'davs': ['https', 'davs', 'srm+https', 'cs3s'],
-              'srm+https': ['https', 'davs', 'srm+https', 'cs3s'],
-              'cs3s': ['https', 'davs', 'srm+https', 'cs3s'],
-              'root': ['root'],
-              'scp': ['scp'],
-              'rsync': ['rsync'],
-              'rclone': ['rclone']}
-if config_get_bool('transfers', 'srm_https_compatibility', raise_exception=False, default=False):
-    SCHEME_MAP['srm'].append('https')
-    SCHEME_MAP['https'].append('srm')
-    SCHEME_MAP['srm'].append('davs')
-    SCHEME_MAP['davs'].append('srm')
+BASE_SCHEME_MAP = {'srm': ['srm', 'gsiftp'],
+                   'gsiftp': ['srm', 'gsiftp'],
+                   'https': ['https', 'davs', 'srm+https', 'cs3s'],
+                   'davs': ['https', 'davs', 'srm+https', 'cs3s'],
+                   'srm+https': ['https', 'davs', 'srm+https', 'cs3s'],
+                   'cs3s': ['https', 'davs', 'srm+https', 'cs3s'],
+                   'root': ['root'],
+                   'scp': ['scp'],
+                   'rsync': ['rsync'],
+                   'rclone': ['rclone']}
 
 SORTING_ALGORITHMS_LITERAL = Literal['geoip', 'custom_table', 'random']
 SORTING_ALGORITHMS = list(get_args(SORTING_ALGORITHMS_LITERAL))
