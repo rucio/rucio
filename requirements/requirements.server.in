@@ -29,9 +29,9 @@ requests-kerberos==0.15.0                                   # kerberos_extras fo
 python-swiftclient==4.7.0                                   # swift_extras
 argcomplete==3.5.3                                          # argcomplete_extras; Bash tab completion for argparse
 python-magic==0.4.27                                        # dumper_extras; File type identification using libmagic
-cx_oracle==8.3.0                                            # oracle_extras
+oracledb==3.1.1                                             # oracle_extras
 psycopg[pool]==3.2.3                                        # postgresql
-psycopg[binary]==3.2.3; implementation_name=="cpython"       # postgresql binary optimizations
+psycopg[binary]==3.2.3; implementation_name=="cpython"      # postgresql binary optimizations
 PyMySQL==1.1.1                                              # mysql_extras
 PyYAML==6.0.2                                               # globus_extras and used for reading test configuration files
 globus-sdk==3.41.0                                          # globus_extras
