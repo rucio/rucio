@@ -10,11 +10,6 @@ FROM almalinux:9.1 as base
     ENV PATH="${PYTHON_VENV}/bin:${PATH}"
     ENV PYTHON_310_PATCH_VERSION="4"
 
-FROM base as oracle-client
-    RUN dnf install -y libnsl libaio nodejs npm
-    RUN rpm -i https://download.oracle.com/otn_software/linux/instantclient/1912000/oracle-instantclient19.12-basiclite-19.12.0.0.0-1.x86_64.rpm && \
-        echo "/usr/lib/oracle/19.12/client64/lib" > /etc/ld.so.conf.d/oracle-instantclient.conf;
-
 FROM base as python
     RUN if [ "$PYTHON" == "3.9" ] ; then \
             dnf install -y epel-release.noarch && \
@@ -89,7 +84,6 @@ FROM python as mod_wsgi
         fi && \
         echo -e '# NOTE:\n# Only one mod_wsgi can be loaded at a time.\n# Don'"'"'t attempt to load if already loaded.\n<IfModule !wsgi_module>\n    LoadModule wsgi_module modules/mod_wsgi.so\n</IfModule>\n' > /etc/httpd/conf.modules.d/05-wsgi-python.conf;
 
-
 FROM python as rucio-runtime
     WORKDIR /usr/local/src/rucio
     COPY tools tools
@@ -148,10 +142,6 @@ FROM rucio-runtime as final
     COPY --from=gfal2 /usr/lib64/gfal2.so /usr/lib64/gfal2.so
 
     RUN mv /usr/lib64/gfal2.so ${PYTHON_VENV}/lib/python${PYTHON}/site-packages/gfal2.so;
-
-    COPY --from=oracle-client /usr/share/oracle /usr/share/oracle
-    COPY --from=oracle-client /usr/lib/oracle /usr/lib/oracle/
-    COPY --from=oracle-client /etc/ld.so.conf.d/oracle-instantclient.conf /etc/ld.so.conf.d/oracle-instantclient.conf
 
     COPY --from=requirements ${PYTHON_VENV} ${PYTHON_VENV}
     COPY --from=mod_wsgi /usr/lib64/httpd/modules /usr/lib64/httpd/modules
