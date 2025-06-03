@@ -18,7 +18,7 @@
 # Choose one of the databases+schema below
 # Oracle, PostgreSQL, MySQL/MariaDB are fully supported
 
-#sqlalchemy.url=oracle://user:pass@servicename
+#sqlalchemy.url=oracle+oracledb://user:pass@servicename
 #version_table_schema=rucio
 
 #sqlalchemy.url=postgresql+psycopg://rucio:rucio@psql-hostname:5432/rucio
