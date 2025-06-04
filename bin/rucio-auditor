@@ -78,10 +78,11 @@ def main(args):
     if not config.config_has_section('auditor'):
         raise NoSectionError("Auditor section required in config to run the auditor daemon.")
 
-    cache_dir = config.config_get('auditor', 'cache')
-    results_dir = config.config_get('auditor', 'results')
+    cache_dir = config.config_get('auditor', 'cache')  # doc: Path to the folder to store the `rucio-auditor` cache. Example: `/opt/rucio/auditor-cache`
+    results_dir = config.config_get('auditor', 'results')  # doc: Path to the folder to store the `rucio-auditor` results. Example: `/opt/rucio/auditor-results`
 
-    logfilename = os.path.join(config.config_get('common', 'logdir'), 'auditor.log')
+    log_dir = config.config_get('common', 'logdir')  # doc: Path of the directory for logs, joined with `auditor.log``
+    logfilename = os.path.join(log_dir, 'auditor.log')
     logger.info('Starting auditor')
 
     def termhandler(sign, trace):
