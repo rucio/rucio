@@ -23,7 +23,8 @@ def did():
 
 
 @did.command("list")
-@click.option("-r", "--recursive", default=False, is_flag=True, help="List data identifiers recursively.")
+@click.option("-r", "--recursive", default=False, is_flag=True, help="List data identifiers recursively")
+@click.option("--csv", default=False, is_flag=True, help="Output as csv")
 @click.option(
     "--filter", "filter_",
     help="""
@@ -41,7 +42,7 @@ def did():
 @click.option("--pfn", hidden=True)
 @click.option("--guid", hidden=True)
 @click.pass_context
-def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid):
+def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid, csv):
     """
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
@@ -49,18 +50,19 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid):
     """
     if parent:
         for did in did_pattern:
-            list_parent_dids(Arguments({"no_pager": ctx.obj.no_pager, "did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+            list_parent_dids(Arguments({"no_pager": ctx.obj.no_pager, "did": did, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
     else:
-        args = Arguments({"no_pager": ctx.obj.no_pager, "did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
+        args = Arguments({"no_pager": ctx.obj.no_pager, "did": did_pattern, "recursive": recursive, "filter": filter_, "short": short, "csv": csv})
         list_dids(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.command("show")
 @click.argument("dids", nargs=-1)
+@click.option("--csv", default=False, is_flag=True, help="Output as csv")
 @click.pass_context
-def show(ctx, dids):
+def show(ctx, dids, csv):
     """List attributes, statuses, or parents for data identifiers"""
-    stat(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    stat(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @did.command("add")
@@ -118,10 +120,11 @@ def content():
 
 @content.command("history")
 @click.argument("dids", nargs=-1)
+@click.option("--csv", default=False, is_flag=True, help="Output as csv")
 @click.pass_context
-def content_history(ctx, dids):
+def content_history(ctx, dids, csv):
     """List the content history of a collection-type DID"""
-    list_content_history(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_content_history(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @content.command("add")
@@ -148,10 +151,11 @@ def content_remove(ctx, dids, from_did):
 @content.command("list")
 @click.argument("dids", nargs=-1)
 @click.option("--short", is_flag=True, default=False, help="Just dump the list of DIDs.")
+@click.option("--csv", default=False, is_flag=True, help="Output as csv")
 @click.pass_context
-def content_list_(ctx, dids, short):
+def content_list_(ctx, dids, short, csv):
     """List the content of a collection-type DID"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "short": short})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "short": short, "csv": csv})
     list_content(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
