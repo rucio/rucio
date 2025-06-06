@@ -124,7 +124,7 @@ def test_trace_ip():
             validate_schema(obj)
 
 
-def test_non_existant_event_type_validation_rejection():
+def test_non_existent_event_type_validation_rejection():
     event_type = "put_new_type"
     obj = json.dumps({"eventType": f"{event_type}"})
     with pytest.raises(TraceValidationSchemaNotFound):

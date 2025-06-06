@@ -485,7 +485,7 @@ class TemporaryDidFactory:
             'guid': generate_uuid(),
         }
         activity = get_schema_value('ACTIVITY')['enum'][0]
-        self.upload_client.upload([item], activity=activity)
+        self.upload_client.upload(items=[item], activity=activity)
         did: DIDDict = {'scope': scope, 'name': name}
         self.created_dids.add((scope, name))
         return item if return_full_item else did
@@ -515,7 +515,7 @@ class TemporaryDidFactory:
                          'guid': generate_uuid(),
                          })
             self.created_dids.add((scope, name))
-        self.upload_client.upload(items)
+        self.upload_client.upload(items=items)
         return items
 
 

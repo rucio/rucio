@@ -17,6 +17,7 @@ import logging
 import os
 import shutil
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -29,6 +30,9 @@ from rucio.common.constants import RseAttr
 from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded, ResourceTemporaryUnavailable
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import add_protocol, add_rse_attribute
+
+if TYPE_CHECKING:
+    from rucio.common.types import FileToUploadDict
 
 
 @pytest.fixture
@@ -55,30 +59,42 @@ def scope(vo, containerized_rses, test_scope, mock_scope):
     else:
         return str(mock_scope)
 
-@pytest.mark.parametrize("file_config_mock", [
-    { # Use rucio.cfg as-is.
-    },
-    pytest.param(
-    { # Remove "account" from the "[client]" section.
-        "removes": [
-            ('client', 'account')
-        ]
-    }, marks=pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'multi_vo',
-                                reason="See https://github.com/rucio/rucio/issues/7394"))
-], indirect=True)
+
+@pytest.mark.parametrize(
+    "file_config_mock",
+    [
+        {},  # Use rucio.cfg as-is.
+
+        pytest.param(
+            {
+                # Remove “account” from the “[client]” section.
+                "removes": [
+                    ("client", "account"),
+                ],
+            },
+            marks=pytest.mark.skipif(
+                "SUITE" in os.environ and os.environ["SUITE"] == "multi_vo",
+                reason="See https://github.com/rucio/rucio/issues/7394",
+            ),
+        ),
+    ],
+    indirect=True,
+)
 def test_upload_single(file_config_mock, rse, scope, upload_client, download_client, file_factory):
     local_file = file_factory.file_generator()
     download_dir = file_factory.base_dir
     fn = os.path.basename(local_file)
 
-    # upload a file
-    status = upload_client.upload([{
+    item: FileToUploadDict = {
         'path': local_file,
         'rse': rse,
         'did_scope': scope,
         'did_name': fn,
         'guid': generate_uuid()
-    }])
+    }
+
+    # upload a file
+    status = upload_client.upload(items=[item])
     assert status == 0
 
     # download the file
@@ -98,24 +114,24 @@ def test_upload_multi(rse, scope, upload_client, download_client, file_factory):
     fn1 = os.path.basename(local_file1)
     fn2 = os.path.basename(local_file2)
 
-    items = [
+    items: list[FileToUploadDict] = [
         {
             'path': local_file1,
             'rse': rse,
             'did_scope': scope,
             'did_name': fn1,
-            'guid': generate_uuid()
+            'guid': generate_uuid(),
         },
         {
             'path': local_file2,
             'rse': rse,
             'did_scope': scope,
             'did_name': fn2,
-            'guid': generate_uuid()
-        }
+            'guid': generate_uuid(),
+        },
     ]
 
-    status = upload_client.upload(items)
+    status = upload_client.upload(items=items)
     assert status == 0
     # download the files
     did1 = f"{scope}:{fn1}"
@@ -137,18 +153,17 @@ def test_upload_file_already_exists_single(rse, scope, upload_client, file_facto
     traces = []
     local_file = file_factory.file_generator()
 
-    item = [
-        {
-            'path': local_file,
-            'rse': rse,
-            'did_scope': scope,
-        }
-    ]
+    item: FileToUploadDict = {
+        'path': local_file,
+        'rse': rse,
+        'did_scope': scope,
+    }
+
     # upload the file
-    upload_client.upload(item)
+    upload_client.upload(items=[item])
     # re_upload the file
     with pytest.raises(NoFilesUploaded):
-        upload_client.upload(item, traces_copy_out=traces)
+        upload_client.upload(items=[item], traces_copy_out=traces)
     assert len(traces) == 1 and traces[0]['stateReason'] == 'File already exists'
 
 
@@ -156,7 +171,7 @@ def test_upload_file_already_exists_multi(rse, scope, upload_client, file_factor
     traces = []
     local_file = file_factory.file_generator()
 
-    items = [
+    items: list[FileToUploadDict] = [
         {
             'path': local_file,
             'rse': rse,
@@ -171,21 +186,20 @@ def test_upload_file_already_exists_multi(rse, scope, upload_client, file_factor
 
     # upload the file twice in the same upload command
     with pytest.raises(NotAllFilesUploaded):
-        upload_client.upload(items, traces_copy_out=traces)
+        upload_client.upload(items=items, traces_copy_out=traces)
 
     assert len(traces) == 2 and traces[1]['stateReason'] == 'File already exists'
 
 
 def test_upload_source_not_found(rse, scope, upload_client):
-    items = [
-        {
-            'path': 'non_existant_local_file',
-            'rse': rse,
-            'did_scope': scope,
-        }
-    ]
+    item: FileToUploadDict = {
+        'path': 'non_existent_local_file',
+        'rse': rse,
+        'did_scope': scope,
+    }
+
     with pytest.raises(InputValidationError):
-        upload_client.upload(items)
+        upload_client.upload(items=[item])
 
 
 def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, file_factory):
@@ -224,7 +238,8 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
     # Upload a file
     path = file_factory.file_generator()
     name = os.path.basename(path)
-    item = {
+
+    item: FileToUploadDict = {
         'path': path,
         'rse': rse,
         'did_scope': str(mock_scope),
@@ -232,7 +247,7 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
         'guid': generate_uuid(),
     }
     summary_path = file_factory.base_dir / 'summary'
-    upload_client.upload([item], summary_file_path=summary_path)
+    upload_client.upload(items=[item], summary_file_path=summary_path)
 
     # Verify that the lan protocol was used for the upload
     with open(summary_path) as json_file:
@@ -265,7 +280,8 @@ def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_fact
 
     path = file_factory.file_generator()
     name = os.path.basename(path)
-    item = {
+
+    item: FileToUploadDict = {
         'path': path,
         'rse': rse_name,
         'did_scope': str(mock_scope),
@@ -273,16 +289,17 @@ def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_fact
         'guid': generate_uuid(),
         'impl': impl
     }
+
     with TemporaryDirectory() as tmp_dir:
         with patch('rucio.rse.protocols.%s.Default.put' % impl, side_effect=lambda pfn, dest, dir, **kw: shutil.copy(path, tmp_dir)) as mock_put, \
-                patch('rucio.rse.protocols.%s.Default.connect' % impl),\
-                patch('rucio.rse.protocols.%s.Default.exists' % impl, side_effect=lambda pfn, **kw: False),\
-                patch('rucio.rse.protocols.%s.Default.delete' % impl),\
-                patch('rucio.rse.protocols.%s.Default.rename' % impl),\
-                patch('rucio.rse.protocols.%s.Default.stat' % impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}),\
+                patch('rucio.rse.protocols.%s.Default.connect' % impl), \
+                patch('rucio.rse.protocols.%s.Default.exists' % impl, side_effect=lambda pfn, **kw: False), \
+                patch('rucio.rse.protocols.%s.Default.delete' % impl), \
+                patch('rucio.rse.protocols.%s.Default.rename' % impl), \
+                patch('rucio.rse.protocols.%s.Default.stat' % impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}), \
                 patch('rucio.rse.protocols.%s.Default.close' % impl):
             mock_put.__name__ = "mock_put"
-            upload_client.upload([item])
+            upload_client.upload(items=[item])
             mock_put.assert_called()
 
 
@@ -322,7 +339,8 @@ def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_sc
 
     path = file_factory.file_generator()
     name = os.path.basename(path)
-    item = {
+
+    item: FileToUploadDict = {
         'path': path,
         'rse': rse_name,
         'did_scope': str(mock_scope),
@@ -330,7 +348,7 @@ def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_sc
         'guid': generate_uuid()
     }
 
-    status = upload_client.upload([item])
+    status = upload_client.upload(items=[item])
     assert status == 0
 
 
@@ -375,7 +393,8 @@ def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_cli
 
     path = file_factory.file_generator()
     name = os.path.basename(path)
-    item = {
+
+    item: FileToUploadDict = {
         'path': path,
         'rse': rse_name,
         'did_scope': str(mock_scope),
@@ -385,14 +404,14 @@ def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_cli
 
     with TemporaryDirectory() as tmp_dir:
         with patch('rucio.rse.protocols.%s.Default.put' % supported_impl, side_effect=lambda pfn, dest, dir, **kw: shutil.copy(path, tmp_dir)) as mock_put, \
-                patch('rucio.rse.protocols.%s.Default.connect' % supported_impl),\
-                patch('rucio.rse.protocols.%s.Default.exists' % supported_impl, side_effect=lambda pfn, **kw: False),\
-                patch('rucio.rse.protocols.%s.Default.delete' % supported_impl),\
-                patch('rucio.rse.protocols.%s.Default.rename' % supported_impl),\
-                patch('rucio.rse.protocols.%s.Default.stat' % supported_impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}),\
+                patch('rucio.rse.protocols.%s.Default.connect' % supported_impl), \
+                patch('rucio.rse.protocols.%s.Default.exists' % supported_impl, side_effect=lambda pfn, **kw: False), \
+                patch('rucio.rse.protocols.%s.Default.delete' % supported_impl), \
+                patch('rucio.rse.protocols.%s.Default.rename' % supported_impl), \
+                patch('rucio.rse.protocols.%s.Default.stat' % supported_impl, side_effect=lambda pfn: {'filesize': os.stat(path)[os.path.stat.ST_SIZE], 'adler32': adler32(path)}), \
                 patch('rucio.rse.protocols.%s.Default.close' % supported_impl):
             mock_put.__name__ = "mock_put"
-            upload_client.upload([item])
+            upload_client.upload(items=[item])
             mock_put.assert_called()
 
 
@@ -400,15 +419,14 @@ def test_upload_file_ignore_availability(rse_factory, scope, upload_client, file
     rse, rse_id = rse_factory.make_posix_rse()
     rucio_client.update_rse(rse, {'availability_write': False})
     local_file = file_factory.file_generator()
-    item = [
-        {
-            'path': local_file,
-            'rse': rse,
-            'did_scope': scope,
-        }
-    ]
 
-    status = upload_client.upload(item, ignore_availability=True)
+    item: FileToUploadDict = {
+        'path': local_file,
+        'rse': rse,
+        'did_scope': scope,
+    }
+
+    status = upload_client.upload(items=[item], ignore_availability=True)
     assert status == 0
 
 
@@ -437,10 +455,12 @@ def test_upload_registration_fail(rse, scope, upload_client_registration_fail, f
 
     # upload a file and check that exception is raised
     with pytest.raises(NoFilesUploaded):
-        upload_client_registration_fail.upload([{
+        item: FileToUploadDict = {
             'path': local_file,
             'rse': rse,
             'did_scope': scope,
             'did_name': fn,
             'guid': generate_uuid()
-        }])
+        }
+
+        upload_client_registration_fail.upload(items=[item])
