@@ -26,7 +26,7 @@ import rucio.daemons.reaper.reaper
 from rucio.common.checksum import adler32
 from rucio.common.constants import RseAttr
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
-from rucio.common.types import InternalAccount
+from rucio.common.types import FileToUploadDict, InternalAccount
 from rucio.common.utils import generate_uuid
 from rucio.core import config as core_config
 from rucio.core import did as did_core
@@ -355,17 +355,16 @@ def test_fts_recoverable_failures_handled_on_multihop(vo, did_factory, root_acco
     # a FTS "Recoverable" failure on checksum validation
     local_file = file_factory.file_generator()
     did = did_factory.random_file_did()
-    did_factory.upload_client.upload(
-        [
-            {
-                'path': local_file,
-                'rse': src_rse,
-                'did_scope': did['scope'].external,
-                'did_name': did['name'],
-                'no_register': True,
-            }
-        ]
-    )
+
+    item: FileToUploadDict = {
+        'path': local_file,
+        'rse': src_rse,
+        'did_scope': did['scope'].external,
+        'did_name': did['name'],
+        'no_register': True,
+    }
+
+    did_factory.upload_client.upload(items=[item])
     replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
@@ -1157,17 +1156,16 @@ def overwrite_on_tape_topology(rse_factory, did_factory, root_account, vo, file_
         local_file = file_factory.file_generator()
         did = did_factory.random_file_did()
         did_factory.upload_test_file(src_rse, path=local_file, **did)
-        did_factory.upload_client.upload(
-            [
-                {
-                    'path': file_factory.file_generator(size=3) if simulate_dst_corrupted else local_file,
-                    'rse': dst_rse,
-                    'did_scope': did['scope'].external,
-                    'did_name': did['name'],
-                    'no_register': True,
-                }
-            ]
-        )
+
+        item: FileToUploadDict = {
+            'path': file_factory.file_generator(size=3) if simulate_dst_corrupted else local_file,
+            'rse': dst_rse,
+            'did_scope': did['scope'].external,
+            'did_name': did['name'],
+            'no_register': True,
+        }
+
+        did_factory.upload_client.upload(items=[item])
         return did
 
     def __create_dids(did1_corrupted=True, did2_corrupted=True):
@@ -1232,17 +1230,16 @@ def test_overwrite_hops(overwrite_on_tape_topology, caches_mock, did_factory, fi
     Ensure that we request overwrite of intermediate hops on multi-hop transfers towards TAPE RSEs
     """
     rse1_id, rse2_id, rse3_id, did1, did2 = overwrite_on_tape_topology(did1_corrupted=False, did2_corrupted=True)
-    did_factory.upload_client.upload(
-        [
-            {
-                'path': file_factory.file_generator(size=3),
-                'rse': rse_core.get_rse_name(rse2_id),
-                'did_scope': did1['scope'].external,
-                'did_name': did1['name'],
-                'no_register': True,
-            }
-        ]
-    )
+
+    item: FileToUploadDict = {
+            'path': file_factory.file_generator(size=3),
+            'rse': rse_core.get_rse_name(rse2_id),
+            'did_scope': did1['scope'].external,
+            'did_name': did1['name'],
+            'no_register': True,
+        }
+
+    did_factory.upload_client.upload(items=[item])
     all_rses = [rse1_id, rse2_id, rse3_id]
 
     submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=0, transfertype='single', filter_transfertool=None)

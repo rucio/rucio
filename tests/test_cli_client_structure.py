@@ -13,12 +13,16 @@
 # limitations under the License.
 import json
 import tempfile
+from typing import TYPE_CHECKING
 
 import pytest
 
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator
+
+if TYPE_CHECKING:
+    from rucio.common.types import FileToUploadDict
 
 
 def test_main_args():
@@ -401,7 +405,15 @@ def test_lifetime_exception(rucio_client, mock_scope):
     mock_did = tempfile.NamedTemporaryFile()
     mock_rse = "MOCK-POSIX"
     upload_client = UploadClient(rucio_client)
-    upload_client.upload(items=[{"path": mock_did.name, "rse": mock_rse, "did_scope": mock_scope.external}])
+
+    item: FileToUploadDict = {
+        'path': mock_did.name,
+        'rse': mock_rse,
+        'did_scope': mock_scope.external,
+    }
+
+    upload_client.upload(items=[item])
+
     with open(input_file.name, "w") as f:
         f.write(f"{mock_scope}:{mock_did.name.split('/')[-1]}")
 
