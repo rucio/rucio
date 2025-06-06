@@ -25,7 +25,7 @@ import pytest
 from rucio.client.downloadclient import DownloadClient
 from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
-from rucio.common.types import InternalScope
+from rucio.common.types import FileToUploadDict, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
 from rucio.core import scope as scope_core
@@ -653,17 +653,20 @@ def test_download_file_with_impl(rse_factory, did_factory, download_client, mock
                               'wan': {'read': 2, 'write': 2, 'delete': 2}}})
     path = file_generator()
     name = os.path.basename(path)
-    item = {
+
+    item: FileToUploadDict = {
         'path': path,
         'rse': rse,
         'did_scope': str(mock_scope),
         'did_name': name,
         'guid': generate_uuid(),
     }
-    did_factory.upload_client.upload([item])
+
+    did_factory.upload_client.upload(items=[item])
     did_str = '%s:%s' % (mock_scope, name)
+
     with patch('rucio.rse.protocols.%s.Default.get' % impl, side_effect=lambda pfn, dest, **kw: shutil.copy(path, dest)) as mock_get, \
-            patch('rucio.rse.protocols.%s.Default.connect' % impl),\
+            patch('rucio.rse.protocols.%s.Default.connect' % impl), \
             patch('rucio.rse.protocols.%s.Default.close' % impl):
         download_client.download_dids([{'did': did_str, 'impl': impl}])
         mock_get.assert_called()
@@ -710,18 +713,20 @@ def test_download_file_with_supported_protocol_from_config(rse_factory, did_fact
 
     path = file_generator()
     name = os.path.basename(path)
-    item = {
+
+    item: FileToUploadDict = {
         'path': path,
         'rse': rse,
         'did_scope': str(mock_scope),
         'did_name': name,
         'guid': generate_uuid(),
     }
-    did_factory.upload_client.upload([item])
+
+    did_factory.upload_client.upload(items=[item])
     did_str = '%s:%s' % (mock_scope, name)
 
     with patch('rucio.rse.protocols.%s.Default.get' % supported_impl, side_effect=lambda pfn, dest, **kw: shutil.copy(path, dest)) as mock_get, \
-            patch('rucio.rse.protocols.%s.Default.connect' % supported_impl),\
+            patch('rucio.rse.protocols.%s.Default.connect' % supported_impl), \
             patch('rucio.rse.protocols.%s.Default.close' % supported_impl):
         download_client.download_dids([{'did': did_str, 'impl': supported_impl}])
         mock_get.assert_called()

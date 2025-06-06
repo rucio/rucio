@@ -31,7 +31,7 @@ from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.types import InternalScope, LoggerFunction
+from rucio.common.types import FileToUploadDict, InternalScope, LoggerFunction
 from rucio.common.utils import execute, generate_uuid
 from rucio.core.monitor import MetricManager
 from rucio.core.scope import list_scopes
@@ -214,7 +214,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
         fnames = []
         lfns = []
         physical_fnames = []
-        files = []
+        items: list[FileToUploadDict] = []
         for _ in range(nbfiles):
             fname = generate_didname(metadata=metadata, dsn=dsn, did_type="file")
             lfns.append(fname)
@@ -223,7 +223,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
             physical_fnames.append(physical_fname)
             generate_file(physical_fname, filesize, logger=logger)
             fnames.append(fname)
-            file_ = {
+            file_: FileToUploadDict = {
                 "did_scope": scope,
                 "did_name": fname,
                 "dataset_scope": scope,
@@ -235,11 +235,11 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
                 file_["dataset_meta"] = metadata
                 if dataset_lifetime:
                     file_["dataset_meta"]["lifetime"] = dataset_lifetime
-            files.append(file_)
+            items.append(file_)
         logger(logging.INFO, "Upload %s:%s to %s", scope, dsn, rse)
         try:
             upload_client = UploadClient(client)
-            ret = upload_client.upload(files)
+            ret = upload_client.upload(items=items)
             if ret == 0:
                 logger(logging.INFO, "%s successfully registered on %s", dsn, rse)
                 METRICS.counter(name="addnewdataset.done").inc()

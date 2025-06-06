@@ -26,7 +26,7 @@ import uuid
 from copy import deepcopy
 from datetime import datetime
 from logging import DEBUG
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
 from rich.padding import Padding
@@ -57,6 +57,9 @@ from rucio.common.exception import (
 from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, extract_scope, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
+
+if TYPE_CHECKING:
+    from rucio.common.types import FileToUploadDict
 
 EXTRA_MODULES = import_extras(['argcomplete'])
 
@@ -947,29 +950,44 @@ def upload(args, client, logger, console, spinner):
         elif len(did) == 2:
             logger.warning('Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
 
-    items = []
+    items: list[FileToUploadDict] = []
     for arg in args.args:
         if arg.count(':') > 0:
             continue
+        if args.pfn and args.impl:
+            logger.warning('Ignoring --impl option because --pfn option given')
+            args.impl = None
+
+        item: FileToUploadDict = {'path': arg, 'rse': args.rse}
+
+        if args.scope:
+            item['did_scope'] = args.scope
+        if args.name:
+            item['did_name'] = args.name
+        if dsscope:
+            item['dataset_scope'] = dsscope
+        if dsname:
+            item['dataset_name'] = dsname
+        if args.impl:
+            item['impl'] = args.impl
+        if args.protocol:
+            item['force_scheme'] = args.protocol
         if args.pfn:
-            if args.impl:
-                logger.warning('Ignoring --impl option because --pfn option given')
-                args.impl = None
-        items.append({'path': arg,
-                      'rse': args.rse,
-                      'did_scope': args.scope,
-                      'did_name': args.name,
-                      'impl': args.impl,
-                      'dataset_scope': dsscope,
-                      'dataset_name': dsname,
-                      'force_scheme': args.protocol,
-                      'pfn': args.pfn,
-                      'no_register': args.no_register,
-                      'lifetime': args.lifetime,
-                      'register_after_upload': args.register_after_upload,
-                      'transfer_timeout': args.transfer_timeout,
-                      'guid': args.guid,
-                      'recursive': args.recursive})
+            item['pfn'] = args.pfn
+        if args.no_register:
+            item['no_register'] = True
+        if args.register_after_upload:
+            item['register_after_upload'] = True
+        if args.lifetime is not None:
+            item['lifetime'] = int(args.lifetime)
+        if args.transfer_timeout is not None:
+            item['transfer_timeout'] = int(args.transfer_timeout)
+        if args.guid:
+            item['guid'] = args.guid
+        if args.recursive:
+            item['recursive'] = True
+
+        items.append(item)
 
     if len(items) < 1:
         raise InputValidationError('No files could be extracted from the given arguments')
@@ -978,6 +996,7 @@ def upload(args, client, logger, console, spinner):
         logger.error("A single GUID was specified on the command line, but there are multiple files to upload.")
         logger.error("If GUID auto-detection is not used, only one file may be uploaded at a time")
         raise InputValidationError('Invalid input argument composition')
+
     if len(items) > 1 and args.name:
         logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
         logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
@@ -991,7 +1010,7 @@ def upload(args, client, logger, console, spinner):
     from rucio.client.uploadclient import UploadClient
     upload_client = UploadClient(client, logger=logger)
     summary_file_path = 'rucio_upload.json' if args.summary else None
-    upload_client.upload(items, summary_file_path)
+    upload_client.upload(items=items, summary_file_path=summary_file_path)
     return SUCCESS
 
 
