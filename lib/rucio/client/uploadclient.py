@@ -21,7 +21,8 @@ import os.path
 import random
 import socket
 import time
-from typing import TYPE_CHECKING, Any, Final, Optional, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
 from rucio import version
 from rucio.client.client import Client
@@ -106,7 +107,7 @@ class UploadClient:
     def upload(
             self,
             items: "Iterable[FileToUploadDict]",
-            summary_file_path: Optional[str] = None,
+            summary_file_path: Optional[Union[str, os.PathLike[str]]] = None,
             traces_copy_out: Optional[list["TraceBaseDict"]] = None,
             ignore_availability: bool = False,
             activity: Optional[str] = None
@@ -226,7 +227,7 @@ class UploadClient:
             rse_attributes = {}
             try:
                 rse_attributes = self.client.list_rse_attributes(rse)
-            except:
+            except Exception:
                 logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
             if (self.client_location and 'lan' in rse_settings['domain'] and RseAttr.SITE in rse_attributes):
                 if self.client_location['site'] == rse_attributes[RseAttr.SITE]:
@@ -377,7 +378,8 @@ class UploadClient:
                     if checksum_name in file:
                         final_summary[file_did_str][checksum_name] = file[checksum_name]
 
-            with open(summary_file_path, 'w') as summary_file:
+            summary_path = Path(summary_file_path)
+            with summary_path.open('w') as summary_file:
                 json.dump(final_summary, summary_file, sort_keys=True, indent=1)
 
         if num_succeeded == 0:
