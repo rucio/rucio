@@ -1045,11 +1045,21 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
     did = did_factory.upload_test_file(src_rse)
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    # Fake that the transfer is submitted and lost
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Set the correct checksum on both source and destination
+            file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
+            file['destinations'] = [set_query_parameters(d_url, {'checksum': replica['adler32']}) for d_url in file['destinations']]
+
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
+        # Fake that the transfer is submitted and lost
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     __update_request(request['id'], external_id='some-fake-random-id')
 
@@ -1064,7 +1074,8 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     # The source ranking must not be updated for submission failures and lost transfers
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == 0
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
 
