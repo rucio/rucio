@@ -452,6 +452,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
     )
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
@@ -525,6 +526,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         RECEIVER_GRACEFUL_STOP.clear()
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -579,6 +581,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         RECEIVER_GRACEFUL_STOP.clear()
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -623,6 +626,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         RECEIVER_GRACEFUL_STOP.clear()
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
@@ -692,6 +696,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
             RECEIVER_GRACEFUL_STOP.clear()
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.THROTTLER, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 @pytest.mark.parametrize("file_config_mock", [{
@@ -1023,6 +1028,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_lost_transfers(rse_factory, did_factory, root_account):
@@ -1425,6 +1431,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 @pytest.mark.parametrize("core_config_mock", [
@@ -1556,6 +1563,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     assert dict_stats[rse2_id][rse1_id]['bytes_done'] == 2
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 def test_checksum_validation(rse_factory, did_factory, root_account):
@@ -1608,6 +1616,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     assert request['state'] == RequestState.FAILED
 
 
+@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("file_config_mock", [
