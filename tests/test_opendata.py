@@ -189,14 +189,11 @@ class TestOpenDataCore:
         doi_after = opendata.get_opendata_did(scope=mock_scope, name=name)["doi"]
         assert doi_after == doi, "DOI should be updated"
 
-        return
-        # TODO: skip for now, not sure why this does not work
-
         # also via a dedicated method
         doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
         assert doi_after == doi, "DOI should be updated"
 
-        doi = "10.1234/test.doi.v2"
+        doi = doi_generator()
         opendata.update_opendata_doi(scope=mock_scope, name=name, doi=doi)
         doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
         assert doi_after == doi, "DOI should be updated"
