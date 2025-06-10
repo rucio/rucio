@@ -20,7 +20,7 @@ from rucio.core.did import add_did, set_status
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import did_name_generator
+from rucio.tests.common import did_name_generator, doi_generator
 
 
 def skip_without_json():
@@ -183,7 +183,7 @@ class TestOpenDataCore:
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
         opendata.add_opendata_did(scope=mock_scope, name=name)
 
-        doi = "10.1234/test.doi"
+        doi = doi_generator()
         # generic update method
         opendata.update_opendata_did(scope=mock_scope, name=name, doi=doi)
         doi_after = opendata.get_opendata_did(scope=mock_scope, name=name)["doi"]
@@ -192,7 +192,7 @@ class TestOpenDataCore:
         return
         # TODO: skip for now, not sure why this does not work
 
-        # also via dedicated method
+        # also via a dedicated method
         doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
         assert doi_after == doi, "DOI should be updated"
 
