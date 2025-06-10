@@ -17,10 +17,10 @@ from collections.abc import Callable
 from os import PathLike
 
 if sys.version_info < (3, 11):  # pragma: no cover
-    from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, TypeGuard, Union  # noqa: UP035
+    from typing_extensions import TYPE_CHECKING, Any, Literal, NotRequired, Optional, Required, TypedDict, TypeGuard, Union  # noqa: UP035
     PathTypeAlias = Union[PathLike, str]
 else:
-    from typing import TYPE_CHECKING, Any, Literal, NotRequired, Optional, TypedDict, TypeGuard, Union
+    from typing import TYPE_CHECKING, Any, Literal, NotRequired, Optional, Required, TypedDict, TypeGuard, Union
     PathTypeAlias = PathLike
 
 
@@ -389,8 +389,8 @@ class TraceSchemaDict(TypedDict):
 class FileToUploadDict(TypedDict):
     path: PathTypeAlias
     rse: str
-    did_scope: str
-    did_name: str
+    did_scope: NotRequired[str]
+    did_name: NotRequired[str]
     dataset_scope: NotRequired[str]
     dataset_name: NotRequired[str]
     dataset_meta: NotRequired[str]
@@ -406,6 +406,8 @@ class FileToUploadDict(TypedDict):
 
 
 class FileToUploadWithCollectedInfoDict(FileToUploadDict):
+    did_name: Required[str]
+    did_scope: Required[str]
     basename: str
     adler32: str
     md5: str
@@ -415,12 +417,11 @@ class FileToUploadWithCollectedInfoDict(FileToUploadDict):
     dirname: str
     upload_result: dict
     bytes: int
-    basename: str
 
 
 class FileToUploadWithCollectedAndDatasetInfoDict(FileToUploadWithCollectedInfoDict):
-    dataset_scope: str
-    dataset_name: str
+    dataset_scope: Required[str]
+    dataset_name: Required[str]
 
 
 class RequestGatewayDict(TypedDict):
