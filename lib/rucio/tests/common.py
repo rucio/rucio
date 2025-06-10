@@ -150,6 +150,12 @@ def rfc2253_dn_generator() -> str:
     random_dn = "CN={}, O={}, C={}".format(random_cn, random_o, random_c)
     return random_dn
 
+def doi_generator() -> str:
+    """ Generate random DOI.
+
+    :returns: A random DOI
+    """
+    return '10.1234/' + ''.join(choices(ascii_letters + digits, k=10))  # noqa: S311
 
 def file_generator(size: int = 2, namelen: int = 10) -> str:
     """ Create a bogus file and returns it's name.
