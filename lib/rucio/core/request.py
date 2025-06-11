@@ -31,7 +31,7 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, false, func, null, true
 
 from rucio.common.config import config_get_bool, config_get_int
-from rucio.common.constants import RseAttr
+from rucio.common.constants import RseAttr, TransferLimitDirection
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import FilterDict, InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.common.utils import chunks, generate_uuid
@@ -41,7 +41,7 @@ from rucio.core.monitor import MetricManager
 from rucio.core.rse import RseCollection, RseData, get_rse_attribute, get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import filter_thread_work, models
-from rucio.db.sqla.constants import LockState, ReplicaState, RequestErrMsg, RequestState, RequestType, TransferLimitDirection
+from rucio.db.sqla.constants import LockState, ReplicaState, RequestErrMsg, RequestState, RequestType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 

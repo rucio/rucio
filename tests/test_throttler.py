@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import delete
 
+from rucio.common.constants import TransferLimitDirection
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids
 from rucio.core.distance import add_distance
@@ -34,7 +35,7 @@ from rucio.core.request import (
 from rucio.daemons.conveyor.preparer import preparer
 from rucio.daemons.conveyor.throttler import throttler
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
+from rucio.db.sqla.constants import DIDType, RequestState, RequestType
 from rucio.db.sqla.session import get_session, transactional_session
 from rucio.tests.common import skiplimitedsql
 

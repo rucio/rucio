@@ -28,7 +28,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.config import config_get, config_get_list
-from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr
+from rucio.common.constants import SUPPORTED_PROTOCOLS, RseAttr, TransferLimitDirection
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
 from rucio.common.utils import construct_non_deterministic_pfn, get_transfer_schemas
 from rucio.core import did
@@ -39,7 +39,7 @@ from rucio.core.monitor import MetricManager
 from rucio.core.request import DirectTransfer, RequestSource, RequestWithSources, TransferDestination, transition_request_state
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, RequestState, RequestType, TransferLimitDirection
+from rucio.db.sqla.constants import DIDType, RequestState, RequestType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.transfertool.bittorrent import BittorrentTransfertool
