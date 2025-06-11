@@ -414,7 +414,7 @@ referencing==0.36.2
     #   -r requirements.server.txt
     #   jsonschema
     #   jsonschema-specifications
-requests==2.32.3
+requests==2.32.4
     # via
     #   -r requirements.server.txt
     #   geoip2
