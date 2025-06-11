@@ -26,13 +26,14 @@ from sqlalchemy import null
 
 import rucio.db.sqla.util
 from rucio.common import exception
+from rucio.common.constants import TransferLimitDirection
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
 from rucio.core.request import get_request_stats, re_sync_all_transfer_limits, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, reset_stale_waiting_requests, set_transfer_limit_stats
 from rucio.core.rse import RseCollection, RseData
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
-from rucio.db.sqla.constants import RequestState, TransferLimitDirection
+from rucio.db.sqla.constants import RequestState
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

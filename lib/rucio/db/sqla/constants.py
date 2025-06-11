@@ -196,9 +196,9 @@ class SubscriptionState(Enum):
     BROKEN = 'B'
 
 
-class TransferLimitDirection(Enum):
-    SOURCE = 'S'
-    DESTINATION = 'D'
+#class TransferLimitDirection(Enum):
+#    SOURCE = 'S'
+#    DESTINATION = 'D'
 
 
 class DatabaseOperationType(Enum):
