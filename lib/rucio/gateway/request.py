@@ -19,11 +19,12 @@ Interface for the requests abstraction layer
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
+from rucio.common.constants import TransferLimitDirection
 from rucio.common.types import InternalAccount, InternalScope, RequestGatewayDict
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
-from rucio.db.sqla.constants import DatabaseOperationType, TransferLimitDirection
+from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 

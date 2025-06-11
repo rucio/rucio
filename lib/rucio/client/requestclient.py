@@ -19,8 +19,8 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import TransferLimitDirection
 from rucio.common.utils import build_url
-from rucio.db.sqla.constants import TransferLimitDirection
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
