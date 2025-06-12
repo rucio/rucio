@@ -587,7 +587,7 @@ class UploadClient:
                 elif not len(fnames):
                     logger(logging.WARNING, 'Skipping %s because it has no files in it. Subdirectories are not supported.' % dname)
             elif os.path.isdir(path) and recursive:
-                files.extend(cast("list[FileToUploadWithCollectedInfoDict]", self._recursive(item)))
+                files.extend(cast("list[FileToUploadWithCollectedInfoDict]", self._collect_files_recursive(item)))
             elif os.path.isfile(path) and not recursive:
                 file = self._collect_file_info(path, item)
                 files.append(file)
@@ -839,7 +839,7 @@ class UploadClient:
         if self.tracing:
             send_trace(trace, self.client.trace_host, self.client.user_agent)
 
-    def _recursive(self, item: "FileToUploadDict") -> list["FileToUploadWithCollectedAndDatasetInfoDict"]:
+    def _collect_files_recursive(self, item: "FileToUploadDict") -> list["FileToUploadWithCollectedAndDatasetInfoDict"]:
         """
         If the --recursive flag is set, it replicates the folder structure recursively into collections
         A folder only can have either other folders inside or files, but not both of them
