@@ -47,10 +47,10 @@ else:
     SAML_SUPPORT = False
 
 # check if there is preferred server side config for webui authentication
-AUTH_TYPE = config_get('webui', 'auth_type', False, None)
+AUTH_TYPE = config_get('webui', 'auth_type', False, None)  # doc: Preferred server side config for webui authentication.
 if AUTH_TYPE == 'oidc':
     try:
-        AUTH_ISSUER_WEBUI = config_get('webui', 'auth_issuer')
+        AUTH_ISSUER_WEBUI = config_get('webui', 'auth_issuer')  # doc: Mandatory if `auth_type` = `oidc`
     except:
         render_template("problem.html", msg="Please specify auth_issuer in the [webui] section of the Rucio configuration.")
 

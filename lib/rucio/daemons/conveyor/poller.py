@@ -170,7 +170,7 @@ def poller(
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
-    timeout = config_get_float('conveyor', 'poll_timeout', default=None, raise_exception=False)
+    timeout = config_get_float('conveyor', 'poll_timeout', default=None, raise_exception=False)  # doc: Timeout
     multi_vo = config_get_bool('common', 'multi_vo', False, None)
     oidc_support = config_get_bool('conveyor', 'poller_oidc_support', default=False, raise_exception=False)
 

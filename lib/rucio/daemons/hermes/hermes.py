@@ -114,7 +114,7 @@ def setup_activemq(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = config_get_list("messaging-hermes", "brokers")
+        brokers_alias = config_get_list("messaging-hermes", "brokers")  # doc: Brokers
     except:
         raise Exception("Could not load brokers from configuration")
 
@@ -154,14 +154,14 @@ def setup_activemq(
             "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
         )
 
-    port = config_get_int("messaging-hermes", "port")
+    port = config_get_int("messaging-hermes", "port")  # doc: Port of the broker if `use_ssl` is set.
     vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
     username = None
     password = None
     if not use_ssl:
-        username = config_get("messaging-hermes", "username")
-        password = config_get("messaging-hermes", "password")
-        port = config_get_int("messaging-hermes", "nonssl_port")
+        username = config_get("messaging-hermes", "username")  # doc: Username of the broker. Mandatory if `use_ssl` is not set.
+        password = config_get("messaging-hermes", "password")  # doc: Password of the `username`. Mandatory if `use_ssl` is not set.
+        port = config_get_int("messaging-hermes", "nonssl_port")  # doc: Port of the broker if `use_ssl` is not set.
 
     conns = []
     for broker in brokers_resolved:
@@ -186,8 +186,8 @@ def setup_activemq(
         )
         if use_ssl:
             con.set_ssl(
-                key_file=config_get("messaging-hermes", "ssl_key_file"),
-                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
+                key_file=config_get("messaging-hermes", "ssl_key_file"),  # doc: Path of the certificate key file defined in `ssl_cert_file`. Mandatory if `use_ssl` is set.
+                cert_file=config_get("messaging-hermes", "ssl_cert_file"),  # doc: Path of the certificate file. Mandatory if `use_ssl` is set.
             )
 
         con.set_listener(
@@ -195,7 +195,7 @@ def setup_activemq(
         )
 
         conns.append(con)
-    destination = config_get("messaging-hermes", "destination")
+    destination = config_get("messaging-hermes", "destination")  # doc:  Name of the destination topic. Example: `/topic/rucio.events`.
     return conns, destination, username, password, use_ssl
 
 
@@ -612,7 +612,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     if "influx" in services_list:
         influx_endpoint = None
         try:
-            influx_endpoint = config_get("hermes", "influxdb_endpoint", False, None)
+            influx_endpoint = config_get("hermes", "influxdb_endpoint", False, None)  # doc:  URL of InfluxDB. Mandatory if `influx` is specified in `services_list`.
             if not influx_endpoint:
                 logger(
                     logging.ERROR,
@@ -623,7 +623,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     if "elastic" in services_list:
         elastic_endpoint = None
         try:
-            elastic_endpoint = config_get("hermes", "elastic_endpoint", False, None)
+            elastic_endpoint = config_get("hermes", "elastic_endpoint", False, None)  # doc: URL of Elasticsearch. Mandatory if `elastic` is specified in `services_list`.
             if not elastic_endpoint:
                 logger(
                     logging.ERROR,

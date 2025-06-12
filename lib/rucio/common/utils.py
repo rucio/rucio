@@ -645,7 +645,9 @@ def extract_scope(
         default_extract: str = 'def'
 ) -> 'Sequence[str]':
     scope_extraction_algorithms = ScopeExtractionAlgorithms()
-    extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
+    common_extract_scope = config_get('common', 'extract_scope', False, None)  # doc: Extraction algorithm for scope. Equivalent to [policy] extract_scope
+    policy_extract_scope = config_get('policy', 'extract_scope', False, None)  # doc: Extraction algorithm for scope. Equivalent to [common] extract_scope
+    extract_scope_convention = common_extract_scope or policy_extract_scope
     if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
         extract_scope_convention = default_extract
     return scope_extraction_algorithms.extract_scope(did, scopes, extract_scope_convention)
