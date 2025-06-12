@@ -951,7 +951,7 @@ class BaseClient:
                 self.headers['X-Rucio-Auth-Token'] = self.auth_token
                 return True
 
-        if not os.path.exists(self.token_file):
+        if not path.exists(self.token_file):
             return False
 
         try:
