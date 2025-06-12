@@ -1379,10 +1379,9 @@ class UploadClient:
         if path and isinstance(path, str):
             if path[-1] == '/':
                 path = path[0:-1]
-            i = 0
             path = os.path.abspath(path)
             for root, dirs, fnames in os.walk(path):
-                if len(dirs) > 0 and len(fnames) > 0 and i == 0:
+                if len(dirs) > 0 and len(fnames) > 0:
                     self.logger(logging.ERROR, 'A container can only have either collections or files, not both')
                     raise InputValidationError('Invalid input folder structure')
                 if len(fnames) > 0:
@@ -1403,7 +1402,6 @@ class UploadClient:
                 elif len(dirs) == 0 and len(fnames) == 0:
                     self.logger(logging.WARNING, 'The folder %s is empty, skipping' % root)
                     continue
-                i += 1
         # if everything went ok, replicate the folder structure in Rucio storage
         for dataset in datasets:
             try:
