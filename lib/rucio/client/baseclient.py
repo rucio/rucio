@@ -967,7 +967,11 @@ class BaseClient:
         if not os.path.isdir(self.token_path):
             try:
                 self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
-                makedirs(self.token_path, 0o700)
+                try:
+                    makedirs(self.token_path, 0o700)
+                except FileExistsError:
+                    msg = f'Token directory already exists at {self.token_path} - skipping'
+                    self.logger.debug(msg)
             except Exception:
                 raise
 
