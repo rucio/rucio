@@ -145,7 +145,7 @@ def main(args):
             for each in tmp_list:
                 queue.put(each)
 
-    except:
+    except Exception:
         logging.error('Main process failed: %s', sys.exc_info()[0])
 
     terminate.set()

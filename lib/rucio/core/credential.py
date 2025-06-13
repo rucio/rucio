@@ -73,7 +73,7 @@ def get_signed_url(
         if not isinstance(lifetime, int):
             try:
                 lifetime = int(lifetime)
-            except:
+            except Exception:
                 raise UnsupportedOperation('Lifetime must be convertible to numeric.')
 
     if service == 'gcs':

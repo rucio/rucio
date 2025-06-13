@@ -115,7 +115,7 @@ def setup_activemq(
     brokers_resolved = []
     try:
         brokers_alias = config_get_list("messaging-hermes", "brokers")
-    except:
+    except Exception:
         raise Exception("Could not load brokers from configuration")
 
     logger(logging.INFO, "[broker] Resolving broker dns alias: %s", brokers_alias)
@@ -148,7 +148,7 @@ def setup_activemq(
     use_ssl = True
     try:
         use_ssl = config_get_bool("messaging-hermes", "use_ssl")
-    except:
+    except Exception:
         logger(
             logging.INFO,
             "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",

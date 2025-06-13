@@ -444,5 +444,5 @@ class MetricManager:
         for server in self.push_gateways:
             try:
                 push_to_gateway(server.strip(), job=job, registry=self.registry, grouping_key=grouping_key)
-            except:
+            except Exception:
                 continue

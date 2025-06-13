@@ -43,7 +43,7 @@ def group_space(site: str) -> int:
     group_total = 0
     try:
         site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site)
-    except:
+    except Exception:
         return group_total
 
     for rse in site_groupdisks:

@@ -70,7 +70,7 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
     rule = {}
     try:
         rule = get_rule(rule_id)
-    except:
+    except Exception:
         pytest.raises(RuleNotFound, get_rule, rule_id)
     child_rule = rebalance_rule(rule, 'Rebalance', rse2, priority=3)
 
@@ -200,7 +200,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     rule_cleaner(once=True)
     try:
         rule = get_rule(rule_id)
-    except:
+    except Exception:
         pytest.raises(RuleNotFound, get_rule, rule_id)
 
     # Create dataset 4 of 200 GB and create a rule on RSE 3. The copy on RSE 2 is secondary
@@ -215,7 +215,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     rule_cleaner(once=True)
     try:
         rule = get_rule(rule_id)
-    except:
+    except Exception:
         pytest.raises(RuleNotFound, get_rule, rule_id)
 
     for dataset in dsn:

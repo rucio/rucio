@@ -442,7 +442,7 @@ def redirect_auth_oidc(
         elif 'http' in redirect_result and not fetchtoken:
             # return redirection URL
             return redirect_result
-    except:
+    except Exception:
         raise CannotAuthenticate(traceback.format_exc())
 
 
