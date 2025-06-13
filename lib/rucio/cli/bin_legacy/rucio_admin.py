@@ -752,7 +752,7 @@ def add_scope(args, client, logger, console, spinner):
 
     """
     client.add_scope(account=args.account, scope=args.scope)
-    print('Added new scope to account: %s-%s' % (args.scope, args.account))
+    print(f'Added new scope to {args.account}: {args.scope}')
     return SUCCESS
 
 
