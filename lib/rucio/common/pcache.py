@@ -66,7 +66,7 @@ def run_cmd(args: "subprocess._CMD", timeout: int = 0) -> tuple[int, Optional[by
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
 
-    except:
+    except Exception:
         return (-2, None)
 
     # Set the timer if a timeout value was given
@@ -620,7 +620,7 @@ class Pcache:
             f.write(self.src + '\n')
             f.close()
             self.chmod(fname, 0o666)
-        except:
+        except Exception:
             pass
 
         # Record GUID if given
@@ -631,7 +631,7 @@ class Pcache:
                 f.write(self.guid + '\n')
                 f.close()
                 self.chmod(fname, 0o666)
-            except:
+            except Exception:
                 pass
 
         # Try to transfer the file up the the number of retries allowed
@@ -857,7 +857,7 @@ class Pcache:
             self.log(ERROR, "rename %s %s", xfer_file, cache_file)
             try:
                 os.unlink(xfer_file)
-            except:
+            except Exception:
                 pass
             self.fail(104)
 
@@ -904,12 +904,12 @@ class Pcache:
                 try:
                     stat_info = os.stat(src)
                     self.log(INFO, "stat(%s) = %s", src, stat_info)
-                except:
+                except Exception:
                     self.log(INFO, "cannot stat %s", src)
                 try:
                     stat_info = os.stat(dst)
                     self.log(INFO, "stat(%s) = %s", dst, stat_info)
-                except:
+                except Exception:
                     self.log(INFO, "cannot stat %s", dst)
             return ret
 
@@ -933,7 +933,7 @@ class Pcache:
             f = open(filename, 'r')
             data = int(f.read().strip())
             f.close()
-        except:
+        except Exception:
             data = 0
         return data
 
@@ -948,9 +948,9 @@ class Pcache:
             for f in os.listdir(stats_dir):
                 try:
                     os.unlink(os.path.join(stats_dir, f))
-                except:
+                except Exception:
                     pass
-        except:
+        except Exception:
             pass
         # XXXX error handling
         pass
@@ -965,7 +965,7 @@ class Pcache:
             data = f.read()
             f.close()
             value = int(data)
-        except:
+        except Exception:
             # XXXX
             value = 0
         value += delta
@@ -974,7 +974,7 @@ class Pcache:
             f.write("%s\n" % value)
             f.close()
             self.chmod(stats_file, 0o666)
-        except:
+        except Exception:
             pass
             # XXX
         self.unlock_dir(stats_dir)
@@ -993,7 +993,7 @@ class Pcache:
             f = open(filename)
             data = f.read()
             size = int(data)
-        except:
+        except Exception:
             pass
 
         # If we could not fetch the size, do a reinventory
@@ -1034,7 +1034,7 @@ class Pcache:
             f.write("%s\n" % size)
             f.close()
             self.chmod(filename, 0o666)
-        except:
+        except Exception:
             pass  # XXXX
 
         self.unlock_file(inventory_lock)
@@ -1066,16 +1066,16 @@ class Pcache:
             maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
             if (maxfd == resource.RLIM_INFINITY):
                 maxfd = MAXFD
-        except:
+        except Exception:
             try:
                 maxfd = os.sysconf("SC_OPEN_MAX")
-            except:
+            except Exception:
                 maxfd = MAXFD  # use default value
 
         for fd in range(0, maxfd + 1):
             try:
                 os.close(fd)
-            except:
+            except Exception:
                 pass
 
     # Panda server callback functions
@@ -1103,7 +1103,7 @@ class Pcache:
                              url, retry, data, ret)
                     if ret == "True":
                         break
-                except:
+                except Exception:
                     exc, msg, tb = sys.exc_info()
                     self.log(ERROR, "post to %s, data=%s, error=%s", url, data, msg)
                 retry += 1
@@ -1184,7 +1184,7 @@ class Pcache:
         if 0:
             try:
                 os.unlink(name)
-            except:
+            except Exception:
                 pass
         status = fcntl.lockf(f, fcntl.LOCK_UN)
         f.close()
@@ -1196,7 +1196,7 @@ class Pcache:
             try:
                 f.close()
                 os.unlink(filename)
-            except:
+            except Exception:
                 pass
 
     # Cleanup functions
@@ -1276,7 +1276,7 @@ class Pcache:
     def cleanup_failed_transfer(self) -> None:
         try:
             os.unlink(self.pcache_dir + 'xfer')
-        except:
+        except Exception:
             pass
 
     def empty_dir(self, d: str) -> None:
@@ -1295,7 +1295,7 @@ class Pcache:
                 try:
                     guid = open(fullname).read().strip()
                     self.deleted_guids.append(guid)
-                except:
+                except Exception:
                     pass  # XXXX
             elif name == "mru" and os.path.islink(fullname):
                 try:

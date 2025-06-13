@@ -65,7 +65,7 @@ def add_scope(scope, account, *, session: "Session"):
             raise Duplicate('Scope \'%s\' already exists!' % scope)
         else:
             raise RucioException(e)
-    except:
+    except Exception:
         raise RucioException(str(format_exc()))
 
 

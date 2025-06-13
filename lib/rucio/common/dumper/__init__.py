@@ -199,7 +199,7 @@ def temp_file(
 
     try:
         yield tmp, os.path.basename(tpath)
-    except:
+    except Exception:
         # Close and remove temporal file on failure
         tmp.close()
         os.unlink(tpath)

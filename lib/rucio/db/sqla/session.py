@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 try:
     main_script = os.path.basename(sys.argv[0])
     CURRENT_COMPONENT = main_script.split('-')[1]
-except:
+except Exception:
     CURRENT_COMPONENT = None
 
 DATABASE_SECTION = 'database'
@@ -63,7 +63,7 @@ try:
         sql_connection = config_get('%s-database' % CURRENT_COMPONENT, 'default', check_config_table=False).strip()
         if sql_connection and len(sql_connection):
             DATABASE_SECTION = '%s-database' % CURRENT_COMPONENT
-except:
+except Exception:
     pass
 
 DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
@@ -221,7 +221,7 @@ def get_engine() -> 'Engine':
         for param, param_type in config_params:
             try:
                 params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
-            except:
+            except Exception:
                 pass
         _ENGINE = create_engine(sql_connection, **params)
         if 'mysql' in sql_connection:
@@ -406,7 +406,7 @@ def read_session(function: "Callable[P, R]"):
             except DatabaseError as error:
                 session.rollback()  # type: ignore
                 raise DatabaseException(str(error))
-            except:
+            except Exception:
                 session.rollback()  # type: ignore
                 raise
             finally:
@@ -451,7 +451,7 @@ def stream_session(function: "Callable[P, R]"):
             except DatabaseError as error:
                 session.rollback()  # type: ignore
                 raise DatabaseException(str(error))
-            except:
+            except Exception:
                 session.rollback()  # type: ignore
                 raise
             finally:
@@ -460,7 +460,7 @@ def stream_session(function: "Callable[P, R]"):
             try:
                 for row in function(*args, session=session, **kwargs):
                     yield row
-            except:
+            except Exception:
                 raise
     return _update_session_wrapper(new_funct, function)
 
@@ -491,7 +491,7 @@ def transactional_session(function: "Callable[P, R]") -> 'Callable':
             except DatabaseError as error:
                 session.rollback()  # type: ignore
                 raise DatabaseException(str(error))
-            except:
+            except Exception:
                 session.rollback()  # type: ignore
                 raise
             finally:

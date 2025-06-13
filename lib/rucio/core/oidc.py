@@ -173,7 +173,7 @@ def __get_rucio_oidc_clients(keytimeout: int = 43200) -> tuple[dict, dict]:
     try:
         with open(IDPSECRETS) as client_secret_file:
             client_secrets = json.load(client_secret_file)
-    except:
+    except Exception:
         return (clients, admin_clients)
     for iss in client_secrets:
         try:
@@ -1426,7 +1426,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
             try:
                 token_dict['audience'] = inspect_claims['aud']
                 token_dict['authz_scope'] = inspect_claims['scope']
-            except:
+            except Exception:
                 pass
         METRICS.counter(name='JSONWebToken.valid').inc()
         # if token is valid and coming from known issuer --> check aud and scope and save it if unknown

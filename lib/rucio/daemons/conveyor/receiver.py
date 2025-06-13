@@ -151,7 +151,7 @@ def receiver(
     use_ssl = True
     try:
         use_ssl = config_get_bool('messaging-fts3', 'use_ssl')
-    except:
+    except Exception:
         logging.info('could not find use_ssl in configuration -- please update your rucio.cfg')
 
     port = config_get_int('messaging-fts3', 'port')

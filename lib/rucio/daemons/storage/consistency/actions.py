@@ -166,7 +166,7 @@ class Stats:
         try:
             with open(self.path, "r") as f:
                 data = f.read()
-        except:
+        except Exception:
             data = ""
         data = json.loads(data or "{}")
         data.update(self.Data)
@@ -332,7 +332,7 @@ def was_cc_attempted(
 ) -> Optional[bool]:
     try:
         f = open(stats_file, "r")
-    except:
+    except Exception:
         print("get_data: error ", stats_file)
         return None
     stats = json.loads(f.read())
@@ -347,7 +347,7 @@ def was_cc_processed(
 ) -> Optional[bool]:
     try:
         f = open(stats_file, "r")
-    except:
+    except Exception:
         print("get_data: error ", stats_file)
         return None
     stats = json.loads(f.read())
