@@ -340,7 +340,7 @@ class TestDidMetaElastic:
 
         tmp_dsn1 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
-        meta = {meta_key1 : meta_value1, meta_key2 : meta_value2}
+        meta = {meta_key1: meta_value1, meta_key2: meta_value2}
         elastic_meta.set_metadata_bulk(scope=mock_scope, name=tmp_dsn1, meta=meta)
         metadata = elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn1)
         assert metadata[meta_key1] == meta_value1
