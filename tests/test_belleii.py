@@ -84,6 +84,7 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
         assert rules[0]['rse_expression'] == 'ANY=true'
         assert (rules[0]['expires_at'] - datetime.utcnow()).days == 30
 
+
 @skip_non_belleii
 def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
@@ -117,6 +118,7 @@ def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account,
         con_scope, con_name = extract_scope(container, [])
         metadata = did_client.get_metadata(con_scope, con_name, plugin='ALL')
         assert all(item in metadata.items() for item in container_meta.items())
+
 
 @skip_non_belleii
 def test_belle2_schema(rse_factory, did_factory, root_account, did_client):

@@ -38,5 +38,6 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
     perm = {'add_account': perm_add_account}
     return perm.get(action)(issuer=issuer, kwargs=kwargs, session=session)
 
+
 def perm_add_account(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
     return False
