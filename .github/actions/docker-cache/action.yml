@@ -20,7 +20,7 @@ runs:
       uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
         path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-${{ hashFiles('**/Dockerfile', '**/requirements*.txt', '**/etc/docker/test/*.Dockerfile') }}
+        key: ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
         restore-keys: |
           ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-
           ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-
