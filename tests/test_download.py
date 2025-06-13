@@ -16,13 +16,14 @@ import logging
 import os
 import shutil
 import tarfile
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest.mock import ANY, MagicMock, patch
 from zipfile import ZipFile
 
 import pytest
 
 from rucio.client.downloadclient import DownloadClient
+from rucio.common.checksum import md5
 from rucio.common.config import config_add_section, config_set
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, RucioException
 from rucio.common.types import FileToUploadDict, InternalScope
@@ -753,3 +754,74 @@ def test_download_traceless(rucio_client):
     client = DownloadClient(client=rucio_client, logger=None, tracing=True)
     assert client.logger is not None
     assert client.tracing is True
+
+
+# Adapted from tests/test_bin_rucio download tests
+@pytest.mark.noparallel(reason='fails when run in parallel')
+def test_download_no_subdir(download_client, did_factory, rse_factory):
+    """CLIENT(USER): Rucio download files with the 'no_subdir' argument, ensure the scope dir is not created, and check that files already found locally are not replaced"""
+    rse, _ = rse_factory.make_posix_rse()
+    did = did_factory.upload_test_file(rse)
+    did_str = '%s:%s' % (did['scope'], did['name'])
+    with TemporaryDirectory() as tmp_dir:
+        download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'no_subdir': True}])
+        assert did['name'] in os.listdir(tmp_dir)
+        time_created = os.stat(os.path.join(tmp_dir, did['name'])).st_ctime
+
+        # try a second time, verify the file has not been downloaded again
+        download_client.download_dids([{'did': did_str, 'base_dir': tmp_dir, 'no_subdir': True}])
+        assert os.stat(os.path.join(tmp_dir, did['name'])).st_ctime == time_created
+
+
+def test_download_check_md5(rucio_client, rse_factory, mock_scope, download_client, vo):
+    """CLIENT(USER): Rucio download succeeds MD5 only"""
+    # user has a file to upload
+    rse, _ = rse_factory.make_posix_rse()
+    with NamedTemporaryFile() as tmp_file:
+        filename = tmp_file.name.split('/')[-1]
+        file_md5 = md5(tmp_file.name)
+        filesize = os.stat(tmp_file.name).st_size
+        lfn = {'name': filename, 'scope': mock_scope.external, 'bytes': filesize, 'md5': file_md5}
+        # user uploads file
+        rucio_client.add_replicas(files=[lfn], rse=rse)
+        rse_settings = rsemgr.get_rse_info(rse=rse, vo=vo)
+        protocol = rsemgr.create_protocol(rse_settings, 'write')
+        protocol.connect()
+        pfn = list(protocol.lfns2pfns(lfn).values())[0]
+        protocol.put(tmp_file.name[5:], pfn, tmp_file.name[:5])
+        protocol.close()
+
+    with TemporaryDirectory() as tmp_dir:
+        # download files
+        download_client.download_dids([{'did': f"{mock_scope}:{filename}", 'base_dir': tmp_dir}])
+        assert os.path.exists(os.path.join(tmp_dir, mock_scope.external, filename))
+
+    # MD5 mismatch
+    with NamedTemporaryFile() as tmp_file:
+        filename = tmp_file.name.split('/')[-1]
+        filesize = os.stat(tmp_file.name).st_size
+        lfn = {'name': filename, 'scope': mock_scope.external, 'bytes': filesize, 'md5': '0123456789abcdef0123456789abcdef'}
+        # user uploads file
+        rucio_client.add_replicas(files=[lfn], rse=rse)
+        rse_settings = rsemgr.get_rse_info(rse=rse, vo=vo)
+        protocol = rsemgr.create_protocol(rse_settings, 'write')
+        protocol.connect()
+        pfn = list(protocol.lfns2pfns(lfn).values())[0]
+        protocol.put(tmp_file.name[5:], pfn, tmp_file.name[:5])
+        protocol.close()
+
+    with TemporaryDirectory() as tmp_dir:
+        # download files
+        with pytest.raises(NoFilesDownloaded):
+            download_client.download_dids([{'did': f"{mock_scope}:{filename}", 'base_dir': tmp_dir}])
+
+
+def test_download_dataset(download_client, rse_factory, did_factory):
+    """CLIENT(USER): Rucio download dataset"""
+    rse, _ = rse_factory.make_posix_rse()
+    dataset = did_factory.upload_test_dataset(rse, nb_files=3)
+    with TemporaryDirectory() as tmp_dir:
+        download_client.download_dids([{'did': f'{dataset[0]["dataset_scope"]}:{dataset[0]["dataset_name"]}', 'base_dir': tmp_dir}])
+        # Default behavior is to create a subdir for the dataset
+        for f in dataset:
+            assert os.path.exists(os.path.join(tmp_dir, f['dataset_name'], f['did_name']))

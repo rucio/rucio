@@ -24,10 +24,11 @@ import pytest
 
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
-from rucio.common.checksum import adler32
+from rucio.common.checksum import adler32, md5
 from rucio.common.config import config_add_section, config_set
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InputValidationError, NoFilesUploaded, NotAllFilesUploaded, ResourceTemporaryUnavailable
+from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.rse import add_protocol, add_rse_attribute
 
@@ -60,26 +61,13 @@ def scope(vo, containerized_rses, test_scope, mock_scope):
         return str(mock_scope)
 
 
-@pytest.mark.parametrize(
-    "file_config_mock",
-    [
-        {},  # Use rucio.cfg as-is.
-
-        pytest.param(
-            {
-                # Remove “account” from the “[client]” section.
-                "removes": [
-                    ("client", "account"),
-                ],
-            },
-            marks=pytest.mark.skipif(
-                "SUITE" in os.environ and os.environ["SUITE"] == "multi_vo",
-                reason="See https://github.com/rucio/rucio/issues/7394",
-            ),
-        ),
-    ],
-    indirect=True,
-)
+@pytest.mark.parametrize("file_config_mock", [
+    {},  # Use rucio.cfg as-is.
+    pytest.param(
+        {  # Remove "account" from the "[client]" section.
+            "removes": [('client', 'account')]
+        }, marks=pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'multi_vo', reason="See https://github.com/rucio/rucio/issues/7394"))
+    ], indirect=True)
 def test_upload_single(file_config_mock, rse, scope, upload_client, download_client, file_factory):
     local_file = file_factory.file_generator()
     download_dir = file_factory.base_dir
@@ -464,3 +452,210 @@ def test_upload_registration_fail(rse, scope, upload_client_registration_fail, f
         }
 
         upload_client_registration_fail.upload(items=[item])
+
+
+# The following tests are adapted from tests in tests/test_bin_rucio
+@pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason="Requires DB access")
+def test_upload_file_register_after_upload(rse, scope, upload_client, rucio_client, file_factory, vo):
+    """CLIENT(USER): Rucio upload files with registration after upload"""
+    local_file1 = file_factory.file_generator()
+    local_file2 = file_factory.file_generator()
+    local_file3 = file_factory.file_generator()
+
+    local_file1_name = os.path.basename(local_file1)
+    local_file2_name = os.path.basename(local_file2)
+    local_file3_name = os.path.basename(local_file3)
+
+    status = upload_client.upload([
+        {
+            "did_scope": scope,
+            "rse": rse,
+            "did_name": fn,
+            "path": path,
+            "register_after_upload": True
+        }
+        for fn, path in zip([local_file1_name, local_file2_name, local_file3_name], [local_file1, local_file2, local_file3])
+    ])
+    assert status == 0
+
+    # Trying to upload again produces an error
+    with pytest.raises(NoFilesUploaded):
+        upload_client.upload([
+            {
+                "did_scope": scope,
+                "rse": rse,
+                "did_name": local_file1_name,
+                "path": local_file1,
+            }
+        ])
+
+    # removing replica -> file on RSE should be overwritten
+    # (simulating an upload error, where a part of the file is uploaded but the replica is not registered)
+    from sqlalchemy import and_, delete
+
+    from rucio.db.sqla import models, session
+
+    db_session = session.get_session()
+    internal_scope = InternalScope(scope, vo=vo)
+    for model in [models.RSEFileAssociation, models.ReplicaLock, models.ReplicationRule, models.DidMeta, models.DataIdentifier]:
+        stmt = delete(
+            model
+        ).where(
+            and_(
+                model.name == local_file1_name,
+                model.scope == internal_scope)
+            )
+        db_session.execute(stmt)
+    db_session.commit()
+
+    # After removing the replica, you can upload with the replica name however you like
+    local_file4 = file_factory.file_generator()
+    upload_client.upload([
+        {"did_scope": scope, "rse": rse, "did_name": local_file1_name, "path": local_file4, "register_after_upload": True}])
+    assert md5(local_file4) == [replica for replica in rucio_client.list_replicas(dids=[{'name': local_file1_name, 'scope': scope}])][0]['md5']
+
+
+@pytest.mark.xfail(reason="Permission error needs to be resolved")
+def test_upload_repeat_after_deletion(file_factory, rse_factory, upload_client, scope, rucio_client):
+    """CLIENT(USER): Rucio upload repeated files"""
+    # One of the files to upload is already catalogued but was removed
+    rse, _ = rse_factory.make_posix_rse()
+
+    local_file1 = file_factory.file_generator()
+    local_file1_name = os.path.basename(local_file1)
+
+    upload_client.upload([
+        {
+            "did_scope": scope,
+            "rse": rse,
+            "did_name": local_file1_name,
+            "path": local_file1,
+        }
+    ])
+
+    # Find and delete the rule
+    print([f for f in rucio_client.list_replication_rules({'name': local_file1_name})])
+    rule_id = [f['id'] for f in rucio_client.list_replication_rules({'name': local_file1_name})][0]
+    rucio_client.delete_replication_rule(rule_id)
+
+    # Delete the file from the RSE
+    # ??? Why does root not have permission to delete the file?
+    rucio_client.delete_replicas(rse, [{'scope': scope, 'name': local_file1_name}])
+
+    # File can be re-uploaded
+    status = upload_client.upload([
+        {
+            "did_scope": scope,
+            "rse": rse,
+            "did_name": local_file1_name,
+            "path": local_file1,
+        }
+    ])
+    assert status == 0
+
+
+def test_upload_repeated_file_dataset(file_factory, rse_factory, rucio_client, upload_client, scope):
+    """CLIENT(USER): Rucio upload repeated files to dataset"""
+    # One of the files to upload is already in the dataset
+
+    rse, _ = rse_factory.make_posix_rse()
+    tmp_file1 = file_factory.file_generator()
+    tmp_file2 = file_factory.file_generator()
+
+    tmp_file1_name = os.path.basename(tmp_file1)
+    tmp_file2_name = os.path.basename(tmp_file2)
+
+    tmp_dataset = f"DSet{generate_uuid()}"
+    # User uploads a dataset with a single file
+    status = upload_client.upload([
+        {"dataset_name": tmp_dataset, "dataset_scope": scope, "path": tmp_file1, "rse": rse, "did_scope": scope, "did_name": tmp_file1_name}
+    ])
+    assert status == 0
+
+    # Other files are added to the same dataset
+    status = upload_client.upload([
+        {"dataset_name": tmp_dataset, "dataset_scope": scope, "path": tmp_file2, "rse": rse, "did_scope": scope, "did_name": tmp_file2_name}
+    ])
+    assert status == 0
+    # All files are added to the same dataset
+    files = [f['name'] for f in rucio_client.list_files(scope=scope, name=tmp_dataset)]
+    assert tmp_file1_name in files
+    assert tmp_file2_name in files
+
+
+def test_upload_adds_md5digest(file_factory, rse_factory, rucio_client, upload_client, scope):
+    """CLIENT(USER): Upload Checksums"""
+    # user has a file to upload
+    rse, _ = rse_factory.make_posix_rse()
+    tmp_file = file_factory.file_generator()
+    tmp_file_name = os.path.basename(tmp_file)
+    file_md5 = md5(tmp_file)
+    # user uploads file
+    upload_client.upload([
+        {
+            "did_scope": scope,
+            "rse": rse,
+            "did_name": tmp_file_name,
+            "path": tmp_file,
+        }
+    ])
+
+    meta = rucio_client.get_metadata(scope=scope, name=tmp_file_name)
+    assert 'md5' in meta
+    assert meta['md5'] == file_md5
+
+
+def test_upload_recursive(rse_factory, rucio_client, upload_client, scope):
+    """CLIENT(USER): Upload and preserve folder structure"""
+    rse, _ = rse_factory.make_posix_rse()
+    with TemporaryDirectory() as tmp_dir:
+        folder1 = '%s/folder_%s' % (tmp_dir, generate_uuid())
+        folder2 = '%s/folder_%s' % (tmp_dir, generate_uuid())
+        folder3 = '%s/folder_%s' % (tmp_dir, generate_uuid())
+        folder11 = '%s/folder_%s' % (folder1, generate_uuid())
+        folder12 = '%s/folder_%s' % (folder1, generate_uuid())
+        folder13 = '%s/folder_%s' % (folder1, generate_uuid())
+        file1 = 'file_%s' % generate_uuid()
+        file2 = 'file_%s' % generate_uuid()
+
+        os.makedirs(folder1)
+        os.makedirs(folder2)
+        os.makedirs(folder3)
+        os.makedirs(folder11)
+        os.makedirs(folder12)
+        os.makedirs(folder13)
+
+        with open('%s/%s' % (folder11, file1), 'w') as f:
+            f.write(generate_uuid())
+        with open('%s/%s' % (folder2, file2), 'w') as f:
+            f.write(generate_uuid())
+
+        status = upload_client.upload([
+            {
+                "did_scope": scope,
+                "path": tmp_dir,
+                "recursive": True,
+                "rse": rse,
+            }
+        ])
+        assert status == 0
+
+        contents = [f['name'] for f in rucio_client.list_content(scope=scope, name=tmp_dir.split('/')[-1])]
+        assert len(contents) == 2
+        assert folder1.split('/')[-1] in contents
+        assert folder2.split('/')[-1] in contents
+        assert folder3.split('/')[-1] not in contents  # Folder 3 is empty, and is skipped during upload
+
+        contents = [f['name'] for f in rucio_client.list_content(scope=scope, name=folder1.split('/')[-1])]
+        assert len(contents) == 1
+        assert folder11.split('/')[-1] in contents
+        assert folder12.split('/')[-1] not in contents  # 12 and 13 are empty, and are skipped during upload
+        assert folder13.split('/')[-1] not in contents
+
+        contents = [f['name'] for f in rucio_client.list_content(scope=scope, name=folder11.split('/')[-1])]
+        assert len(contents) == 1
+        assert file1 in contents
+
+        contents = [f['name'] for f in rucio_client.list_content(scope=scope, name=folder2.split('/')[-1])]
+        assert len(contents) == 1
+        assert file2 in contents
