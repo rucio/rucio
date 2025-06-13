@@ -482,7 +482,7 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
 
     # now set config to not ignore errors
     core_config.set("core", "geoip_ignore_error", False)
-    
+
     # invalidate cache for __get_distance so that __get_geoip_db is called
     replica_sorter.REGION.invalidate()
 
@@ -499,7 +499,7 @@ def test_sort_geoip_address_not_found_error(vo, rest_client, auth_token, protoco
 
     # reset to ignore errors for other tests
     core_config.set("core", "geoip_ignore_error", True)
-    
+
 
 @pytest.mark.noparallel(reason='fails when run in parallel, replicas should not be changed')
 def test_get_sorted_list_replicas_no_metalink(vo, rest_client, auth_token, protocols_setup, mock_scope):
