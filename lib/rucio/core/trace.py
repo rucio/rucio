@@ -71,7 +71,7 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
     BROKERS_ALIAS = config_get_list('trace', 'brokers')
-except:
+except Exception:
     raise Exception('Could not load brokers from configuration')
 
 PORT = config_get_int('trace', 'port')
@@ -285,7 +285,7 @@ for broker in BROKERS_ALIAS:
     try:
         addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
         BROKERS_RESOLVED = [ai[4][0] for ai in addrinfos]
-    except:
+    except Exception:
         pass
 
 CONNS = []

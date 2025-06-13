@@ -78,7 +78,7 @@ class AMQConsumer(stomp.ConnectionListener):
                 if k.endswith("_at"):
                     if v:
                         report["payload"][k] = v.split(".")[0]
-        except:
+        except Exception:
             pass
 
         self.__ids.append(msg_id)

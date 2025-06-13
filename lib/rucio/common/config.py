@@ -41,7 +41,7 @@ def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
     for conv in (int, float):
         try:
             return conv(value)
-        except:
+        except Exception:
             pass
 
     return value

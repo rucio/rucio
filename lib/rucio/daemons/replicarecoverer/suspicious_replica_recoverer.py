@@ -198,7 +198,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
     try:
         json_file = open(json_file_name, mode="r")
         logger(logging.INFO, "JSON file has been opened.")
-    except:
+    except Exception:
         logger(logging.WARNING, "An error occurred while trying to open the JSON file.")
         must_sleep = True
         return must_sleep
