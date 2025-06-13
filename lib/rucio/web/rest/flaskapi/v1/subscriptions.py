@@ -34,7 +34,7 @@ class Subscription(ErrorHandlingMethodView):
         summary: Get Subscription
         description: "Retrieve a subscription."
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: account
           in: path
@@ -122,7 +122,7 @@ class Subscription(ErrorHandlingMethodView):
         summary: Update subscription
         description: "Update an existing subscription."
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: account
           in: path
@@ -209,7 +209,7 @@ class Subscription(ErrorHandlingMethodView):
         summary: Create subscription
         description: "Create a new subscription"
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: account
           in: path
@@ -328,7 +328,7 @@ class SubscriptionName(ErrorHandlingMethodView):
         summary: Get Subscription by Name
         description: "Retrieve a subscription by name."
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: name
           in: path
@@ -414,7 +414,7 @@ class Rules(ErrorHandlingMethodView):
         summary: Get Replication Rules
         description: "Return all rules of a given subscription id."
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: account
           in: path
@@ -479,7 +479,7 @@ class States(ErrorHandlingMethodView):
         summary: Get states
         description: "Return a summary of the states of all rules of a given subscription id."
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: account
           in: path
@@ -541,7 +541,7 @@ class SubscriptionId(ErrorHandlingMethodView):
         summary: Get Subscription from ID
         description: "Retrieve a subscription matching the given subscription id."
         tags:
-          - Replicas
+          - Subscription
         parameters:
         - name: subscription_id
           in: path
