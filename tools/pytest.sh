@@ -41,8 +41,7 @@ elif [[ "${RDBMS:-}" =~ mysql.* ]]; then
   echo "Disabling parallel testing for mysql"
   NO_XDIST="True"
 elif [[ "${RDBMS:-}" == "oracle" ]]; then
-  # no parallel tests on oracle, because of random "cx_Oracle.DatabaseError:
-  # ORA-00060: deadlock detected while waiting for resource"
+  # no parallel tests on oracle, because of potential database deadlock errors.
   echo "Disabling parallel testing for oracle"
   NO_XDIST="True"
 fi
