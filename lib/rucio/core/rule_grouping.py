@@ -1616,4 +1616,3 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
     for rse_id in account_counters_files:
         account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes_=account_counters_bytes[rse_id], session=session)
     session.flush()
-
