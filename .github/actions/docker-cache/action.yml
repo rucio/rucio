@@ -17,6 +17,7 @@ runs:
         driver-opts: network=host
     
     - name: Cache Docker layers
+      id: cache-docker-layers
       uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
         path: /tmp/.buildx-cache
@@ -24,4 +25,11 @@ runs:
         restore-keys: |
           ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-
           ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-
-          ${{ runner.os }}-buildx-autotest- 
+          ${{ runner.os }}-buildx-autotest-
+    
+    - name: Set BuildKit cache environment variables
+      shell: bash
+      run: |
+        echo "BUILDX_CACHE_FROM=type=local,src=/tmp/.buildx-cache" >> $GITHUB_ENV
+        echo "BUILDX_CACHE_TO=type=local,dest=/tmp/.buildx-cache-new,mode=max" >> $GITHUB_ENV
+        echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV

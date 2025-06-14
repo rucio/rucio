@@ -109,11 +109,6 @@ jobs:
         shell: bash
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-
-          # BuildKit cache configuration
-          export DOCKER_BUILDKIT=1
-          export BUILDX_CACHE_FROM="type=local,src=/tmp/.buildx-cache"
-          export BUILDX_CACHE_TO="type=local,dest=/tmp/.buildx-cache-new,mode=max"
           
           docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam pull
           i=0; until [ "$i" -ge 3 ]; do
