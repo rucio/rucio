@@ -27,7 +27,13 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Conveyor-Throttler daemon is responsible for managing the internal queue of transfer requests. Depending on transfer limits of current and waiting transfers, it decides whether a transfer should be put in the queue or not.", epilog='''
+    description = (
+        "The Conveyor-Throttler daemon is responsible for managing the internal queue of transfer requests. "
+        "Depending on transfer limits of current and waiting transfers, "
+        "it decides whether a transfer should be put in the queue or not."
+    )
+
+    parser = argparse.ArgumentParser(description=description, epilog='''
 In this example, the transfer limit will be one transfer which means that there should be only one active transfer at the time.
 There will be two waiting transfer requests and no current active transfer.
 After running the daemon, there will be one transfer in the queue which can then be started.
