@@ -225,7 +225,7 @@ class TestBinRucio:
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
-        assert 'Added new scope to account: %s-%s\n' % (tmp_scp, tmp_acc) in out
+        assert f'Added new scope to {tmp_acc}: {tmp_scp}' in out
 
     def test_add_rse(self):
         """CLIENT(ADMIN): Add RSE"""
