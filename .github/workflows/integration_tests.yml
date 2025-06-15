@@ -108,8 +108,22 @@ jobs:
       - name: Build rucio-dev images
         id: images
         shell: bash
+        env:
+          BUILDX_CACHE_FROM: ${{ steps.docker-cache.outputs.cache-from }}
+          BUILDX_CACHE_TO: ${{ steps.docker-cache.outputs.cache-to }}
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          
+          # Debug environment variables
+          echo "Environment variables:"
+          echo "DOCKER_BUILDKIT: $DOCKER_BUILDKIT"
+          echo "BUILDX_CACHE_FROM: $BUILDX_CACHE_FROM"
+          echo "BUILDX_CACHE_TO: $BUILDX_CACHE_TO"
+          
+          # Debug cache directories
+          echo "Cache directories before build:"
+          ls -la /tmp/.buildx-cache 
+          ls -la /tmp/.buildx-cache-new 
           
           docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam pull
           i=0; until [ "$i" -ge 3 ]; do
@@ -123,11 +137,20 @@ jobs:
             fi
           done
 
+          # Debug cache directories after build
+          echo "Cache directories after build:"
+          ls -la /tmp/.buildx-cache || echo "Cache directory does not exist"
+          ls -la /tmp/.buildx-cache-new || echo "New cache directory does not exist"
+
           # Move cache to preserve it for next run
           if [ -d "/tmp/.buildx-cache-new" ]; then
             rm -rf /tmp/.buildx-cache
             mv /tmp/.buildx-cache-new /tmp/.buildx-cache
           fi
+          
+          # Verify final cache state
+          echo "Final cache state:"
+          ls -la /tmp/.buildx-cache || echo "Cache directory does not exist"
 
           docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
