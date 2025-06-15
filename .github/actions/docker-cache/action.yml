@@ -1,0 +1,58 @@
+name: 'Docker Layer Caching'
+description: 'Sets up Docker Buildx and caches Docker layers'
+inputs:
+  dist:
+    description: 'Distribution name'
+    required: true
+  python:
+    description: 'Python version'
+    required: true
+
+outputs:
+  cache-from:
+    description: 'BuildKit cache-from configuration'
+    value: ${{ steps.cache-config.outputs.cache-from }}
+  cache-to:
+    description: 'BuildKit cache-to configuration'
+    value: ${{ steps.cache-config.outputs.cache-to }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+      with:
+        driver-opts: network=host
+    
+    - name: Cache Docker layers
+      id: cache-docker-layers
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-
+          ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-
+          ${{ runner.os }}-buildx-autotest-
+    
+    - name: Debug cache 
+      shell: bash
+      run: |
+        echo "Cache hit: ${{ steps.cache-docker-layers.outputs.cache-hit }}"
+        echo "Cache key: ${{ runner.os }}-buildx-autotest-${{ inputs.dist }}-${{ inputs.python }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}"
+        echo "Cache path exists: $(if [ -d "/tmp/.buildx-cache" ]; then echo "Yes"; else echo "No"; fi)"
+        echo "Cache contents:"
+        ls -la /tmp/.buildx-cache || echo "Cache directory does not exist"
+        
+    - name: Set cache configuration
+      id: cache-config
+      shell: bash
+      run: |
+        # Set outputs for the workflow to use
+        echo "cache-from=type=local,src=/tmp/.buildx-cache" >> $GITHUB_OUTPUT
+        echo "cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max" >> $GITHUB_OUTPUT
+        
+        # Set environment variables for the current job
+        echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+        echo "BUILDX_CACHE_FROM=type=local,src=/tmp/.buildx-cache" >> $GITHUB_ENV
+        echo "BUILDX_CACHE_TO=type=local,dest=/tmp/.buildx-cache-new,mode=max" >> $GITHUB_ENV
