@@ -29,16 +29,20 @@ the new header have to be provided too.
 import argparse
 import logging
 import os
+import shutil
+import subprocess
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, ValuesView
 from enum import Enum, auto
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 try:
     from tqdm import tqdm
 except ImportError:
     pass
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, ValuesView
 
 
 class Arguments:
@@ -74,7 +78,7 @@ class ResultStates(Enum):
         return 0
 
 
-def exit_code_from_result_states(states: ValuesView[ResultStates]) -> int:
+def exit_code_from_result_states(states: 'ValuesView[ResultStates]') -> int:
     """
     Returns the exit code corresponding to the provided ResultStates.
 
@@ -363,7 +367,7 @@ def template_exists_for_file(file_path: str) -> bool:
         return False
 
 
-def get_all_files_recursive(path: str) -> Iterator[str]:
+def get_all_files_recursive(path: str) -> 'Iterator[str]':
     """
     Returns all files in the project, known to the versioning system. This
     includes the files in subdirectories.
@@ -371,8 +375,12 @@ def get_all_files_recursive(path: str) -> Iterator[str]:
     :param path: The path which should contain the files.
     :returns: An Iterator over all files found in the VS.
     """
-    command = f"cd {path} && git ls-files"
-    command_out = os.popen(command).read().strip()
+
+    git_exe = shutil.which("git") or "git"  # absolute path, or fall back
+
+    # Compared to `os.popen`, `subprocess.run` avoids the shell‑injection warning (ruff S605)
+    completed = subprocess.run([git_exe, "ls-files"], cwd=path, capture_output=True, text=True, check=False,)
+    command_out = completed.stdout.strip()
 
     if not command_out:
         logging.warning("This does not seem to be a git project or no files found. We won't traverse the folder here.")
@@ -382,9 +390,9 @@ def get_all_files_recursive(path: str) -> Iterator[str]:
         yield f
 
 
-def get_all_suitable_files_recursive(path: str) -> Iterator[str]:
+def get_all_suitable_files_recursive(path: str) -> 'Iterator[str]':
     """
-    Returns all files for which a template exist and which are in the VS. This
+    Returns all files for which a template exists and which are in the VS. This
     includes the files in subdirectories.
 
     :param path: The path which should contain the files.
