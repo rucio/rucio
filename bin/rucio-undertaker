@@ -27,7 +27,13 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Undertaker daemon is responsible for managing expired DIDs. It deletes DIDs, but not replicas by checking if there are DIDs where the 'expired_at' date property is older than the current timestamp.", epilog='''
+    description = (
+        "The Undertaker daemon is responsible for managing expired DIDs. "
+        "It deletes DIDs, but not replicas by checking if there are DIDs where the "
+        "'expired_at' date property is older than the current timestamp."
+    )
+
+    parser = argparse.ArgumentParser(description=description, epilog='''
 Create a DID that is already expired by setting its lifetime to -1::
 
   $ python

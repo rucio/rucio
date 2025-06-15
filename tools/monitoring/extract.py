@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from json import loads as jloads
-from time import sleep
 
 import elasticsearch as es
 import stomp
@@ -78,7 +77,7 @@ class AMQConsumer(stomp.ConnectionListener):
                 if k.endswith("_at"):
                     if v:
                         report["payload"][k] = v.split(".")[0]
-        except:
+        except Exception:
             pass
 
         self.__ids.append(msg_id)
@@ -101,17 +100,3 @@ class AMQConsumer(stomp.ConnectionListener):
                 self.__conn.ack(msg["id"], self.__subscription_id)
         self.__reports = []
         self.__ids = []
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=0)
-    conn = stomp.Connection(host_and_ports=[(broker, broker_port)], reconnect_attempts_max=5)
-    if borker_use_ssl:
-        conn.set_ssl(key_file=ssl_key_file, cert_file=ssl_cert_file)
-
-    conn.set_listener("", AMQConsumer(conn, chunksize, subscription_id))
-    conn.connect(wait=True)
-    conn.subscribe(destination=queue, ack="client-individual", id=subscription_id)
-    while True:
-        sleep(3600)
-    conn.disconnect()

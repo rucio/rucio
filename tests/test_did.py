@@ -907,7 +907,7 @@ class TestDIDClients:
 
         did_client.add_dataset(scope=scope, name=dsn, lifetime=10000000)
         did2 = did_client.get_did(scope, dsn)
-        assert type(did2['expired_at']) == datetime
+        assert isinstance(did2['expired_at'], datetime)
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')

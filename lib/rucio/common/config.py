@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-
 def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
     if value.lower() in ['true', 'yes', 'on']:
         return True
@@ -42,7 +41,7 @@ def convert_to_any_type(value: str) -> Union[bool, int, float, str]:
     for conv in (int, float):
         try:
             return conv(value)
-        except:
+        except Exception:
             pass
 
     return value

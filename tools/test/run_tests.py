@@ -153,7 +153,7 @@ def run_case_logger(run_case_kwargs: dict, stdlog=sys.stderr):
             sys.stderr = logfile
             try:
                 run_case(**run_case_kwargs)
-            except:
+            except Exception:
                 traceback.print_exc(file=sys.stderr)
                 case_log(caseid, f'errored with {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}', file=defaultstderr)
                 return False
@@ -164,7 +164,7 @@ def run_case_logger(run_case_kwargs: dict, stdlog=sys.stderr):
         try:
             print(startmsg, file=sys.stderr)
             run_case(**run_case_kwargs)
-        except:
+        except Exception:
             traceback.print_exc(file=sys.stderr)
             case_log(caseid, f'errored with {sys.exc_info()[0].__name__}: {sys.exc_info()[1]}', file=defaultstderr)
             return False

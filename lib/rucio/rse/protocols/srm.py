@@ -101,7 +101,7 @@ class Default(protocol.RSEProtocol):
             # force type conversion
             try:
                 port = int(port)
-            except:
+            except Exception:
                 port = ''
 
             if self.attributes['hostname'] != hostname and\

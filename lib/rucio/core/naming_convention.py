@@ -69,7 +69,7 @@ def add_naming_convention(
         new_convention.save(session=session)
     except IntegrityError:
         raise Duplicate('Naming convention already exists!')
-    except:
+    except Exception:
         raise RucioException(str(format_exc()))
 
 

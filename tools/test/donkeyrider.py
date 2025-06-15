@@ -20,10 +20,10 @@ import signal
 import sys
 
 # make sure the following imports work
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-import build_images
-from matrix_parser import parse_matrix
-from run_tests import run_tests
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))  # noqa: E402
+import build_images  # noqa: E402
+from matrix_parser import parse_matrix  # noqa: E402
+from run_tests import run_tests  # noqa: E402
 
 
 def shutdown(signum, frame):

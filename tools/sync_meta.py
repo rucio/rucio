@@ -63,7 +63,7 @@ if __name__ == '__main__':
                         c.add_scope('root', value)
                     except Duplicate:
                         print(f'Scope {value} already added')
-        except:
+        except Exception:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
             print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))

@@ -63,7 +63,7 @@ def main(argv):
         except InvalidObject as err:
             print(err)
             continue
-        except:
+        except Exception:
             errno, errstr = sys.exc_info()[:2]
             trcbck = traceback.format_exc()
             print('Interrupted processing with %s %s %s.' % (errno, errstr, trcbck))

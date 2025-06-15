@@ -127,7 +127,7 @@ root_git_dir = subprocess.check_output('git rev-parse --show-toplevel', shell=Tr
 try:
     with open(root_git_dir + '/.githubtoken', 'r') as f:
         github_token = f.readline().strip()
-except:
+except Exception:
     print('No github token file found at %s' % root_git_dir + '/.githubtoken')
     sys.exit(-1)
 

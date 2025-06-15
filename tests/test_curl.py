@@ -108,7 +108,15 @@ class TestCurlRucio:
         exitcode, out, err = execute(cmd)
         assert 'X-Rucio-Auth-Token' in out
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
-        cmd = '''curl -s -i --cacert %s -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -H "Rucio-Type: user" -H "Content-Type: application/json" -d '{"type": "USER", "email": "rucio@email.com"}' -X POST %s/accounts/%s''' % (self.cacert, self.host, account_name_generator())
+
+        cmd = ("curl -s -i --cacert %s "
+               '-H "X-Rucio-Auth-Token: $RUCIO_TOKEN" '
+               '-H "Rucio-Type: user" '
+               '-H "Content-Type: application/json" '
+               "-d '{\"type\": \"USER\", \"email\": \"rucio@email.com\"}' "
+               "-X POST %s/accounts/%s"
+               ) % (self.cacert, self.host, account_name_generator())
+
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out)

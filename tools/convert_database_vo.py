@@ -163,7 +163,7 @@ def rename_vo(old_vo, new_vo, insert_new_vo=False, description=None, email=None,
             print(str(AddConstraint(fkc)) + ';')
             if commit_changes:
                 conn.execute(AddConstraint(fkc))
-    except:
+    except Exception:
         success = False
         print(format_exc())
         print('Exception occurred, changes not committed to DB.')
@@ -264,7 +264,7 @@ def remove_vo(vo, commit_changes=False, skip_history=False):
             print(str(AddConstraint(fkc)) + ';')
             if commit_changes:
                 conn.execute(AddConstraint(fkc))
-    except:
+    except Exception:
         success = False
         print(format_exc())
         print('Exception occurred, changes not committed to DB.')

@@ -403,7 +403,7 @@ class TestAuthCoreAPIoidc:
             auth_url = get_auth_oidc(InternalAccount('webui', **self.vo), session=self.db_session, **kwargs)
             assert 'https://test_auth_url_string' in auth_url
 
-        except:
+        except Exception:
             print(traceback.format_exc())
 
     def test_get_token_oidc_unknown_state(self):

@@ -306,6 +306,7 @@ class TestDidMetaMongo:
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
 
+
 @pytest.fixture
 def elastic_meta():
     return ElasticDidMeta(
@@ -328,7 +329,6 @@ class TestDidMetaElastic:
         elastic_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
         assert elastic_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key] == meta_value
 
-
     @pytest.mark.dirty
     def test_delete_metadata(self, mock_scope, root_account, elastic_meta):
         """ DID Meta (ELASTIC) : Deletes metadata key """
@@ -340,7 +340,7 @@ class TestDidMetaElastic:
 
         tmp_dsn1 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
-        meta = {meta_key1 : meta_value1, meta_key2 : meta_value2}
+        meta = {meta_key1: meta_value1, meta_key2: meta_value2}
         elastic_meta.set_metadata_bulk(scope=mock_scope, name=tmp_dsn1, meta=meta)
         metadata = elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn1)
         assert metadata[meta_key1] == meta_value1
@@ -351,7 +351,6 @@ class TestDidMetaElastic:
         metadata = elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn1)
         assert metadata[meta_key1] == meta_value1
         assert meta_key2 not in metadata
-
 
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account, elastic_meta):

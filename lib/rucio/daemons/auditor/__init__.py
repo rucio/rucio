@@ -247,7 +247,7 @@ def check(
                                  results_dir)
             if output:
                 process_output(output)
-        except:
+        except Exception:
             elapsed = (datetime.now() - start).total_seconds() / 60
             logger.error('Check of "%s" failed in %d minutes, %d remaining attempts', rse, elapsed, attempts, exc_info=True)
             success = False

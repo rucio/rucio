@@ -20,7 +20,7 @@ from rucio.rse.protocols import protocol
 
 try:
     import arc  # pylint: disable=import-error
-except:
+except Exception:
     pass
 
 
@@ -59,7 +59,7 @@ class Default(protocol.RSEProtocol):
         self.cfg = arc.UserConfig()
         try:
             self.cfg.ProxyPath(os.environ['X509_USER_PROXY'])
-        except:
+        except Exception:
             pass
 
     def path2pfn(self, path):

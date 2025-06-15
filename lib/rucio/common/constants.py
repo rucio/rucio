@@ -69,10 +69,12 @@ FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SES
 
 MAX_MESSAGE_LENGTH = 4000
 
+
 @enum.unique
 class TransferLimitDirection(enum.Enum):
     SOURCE = 'S'
     DESTINATION = 'D'
+
 
 @enum.unique
 class SuspiciousAvailability(enum.Enum):

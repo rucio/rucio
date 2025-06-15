@@ -103,7 +103,7 @@ class AMQConsumer:
             else:
                 self.__logger(logging.DEBUG, 'Check failed: %s %s '
                               % (isinstance(msg, dict), 'operation' in msg.keys()))
-        except:
+        except Exception:
             self.__logger(logging.ERROR, str(format_exc()))
 
 

@@ -27,7 +27,14 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Abacus-RSE daemon is responsible for updating RSE usages. It checks if there are new entries in the UpdatedRSECounter table and updates the RSE counter in the RSECounter table by adding or substrating the amount of files and the size.", epilog='''
+    description = (
+        "The Abacus-RSE daemon is responsible for updating RSE usages. "
+        "It checks if there are new entries in the UpdatedRSECounter table "
+        "and updates the RSE counter in the RSECounter table "
+        "by adding or subtracting the amount of files and the size."
+    )
+
+    parser = argparse.ArgumentParser(description=description, epilog='''
 Upload a file to your RSE::
 
   $ rucio upload --rse MOCK --scope mock filename.txt

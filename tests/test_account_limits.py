@@ -86,13 +86,13 @@ class TestCoreAccountLimits:
         assert len(results) == 1
         assert results[rse1_id] == limit1
         account_limit.set_local_account_limit(account=account, rse_id=rse2_id, bytes_=limit2, session=db_session)
-        results = account_limit.get_local_account_limit(account=account, rse_ids=[rse1_id, rse2_id],session=db_session)
+        results = account_limit.get_local_account_limit(account=account, rse_ids=[rse1_id, rse2_id], session=db_session)
         assert len(results) == 2
         assert results[rse1_id] == limit1
         assert results[rse2_id] == limit2
         account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=db_session)
         account_limit.delete_local_account_limit(account=account, rse_id=rse2_id, session=db_session)
-        results = account_limit.get_local_account_limit(account=account,rse_ids=[rse1_id, rse2_id], session=db_session)
+        results = account_limit.get_local_account_limit(account=account, rse_ids=[rse1_id, rse2_id], session=db_session)
         assert len(results) == 0
 
     def test_local_account_limit_all_rses(self, account, rse_factory, db_session):

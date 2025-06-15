@@ -27,7 +27,15 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Judge-Cleaner daemon is responsible for cleaning expired replication rules. It deletes rules by checking if the 'expired_at' date property is older than the current timestamp. If the rule is expired, it will first remove one lock for the replica and parent datasets if the DID belongs to any. Then it will set a tombstone to the replica to mark it as deletable if there are no rules protecting the replica. After these steps, the rule gets deleted.", epilog='''
+    description = (
+        "The Judge-Cleaner daemon is responsible for cleaning expired replication rules. "
+        "It deletes rules by checking if the 'expired_at' date property is older than the current timestamp. "
+        "If the rule is expired, it will first remove one lock for the replica and parent datasets if the DID belongs to any. "
+        "Then it will set a tombstone to the replica to mark it as deletable if there are no rules protecting the replica. "
+        "After these steps, the rule gets deleted."
+    )
+
+    parser = argparse.ArgumentParser(description=description, epilog='''
 Upload a file to your RSE::
 
   $ rucio upload --rse MOCK --scope mock --name file filename.txt

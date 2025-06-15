@@ -127,7 +127,10 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     session.commit()  # pylint: disable=no-member
             session = get_session()
         except (DatabaseException, DatabaseError) as error:
-            if re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0]) or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0]) or re.match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(error.args[0])) or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]:
+            if (re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0])
+                    or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0])
+                    or re.match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(error.args[0]))
+                    or MYSQL_LOCK_WAIT_TIMEOUT_EXCEEDED in error.args[0]):
                 logger(logging.WARNING, 'Lock detected when handling request - skipping: %s', str(error))
             else:
                 logger(logging.ERROR, 'Exception', exc_info=True)

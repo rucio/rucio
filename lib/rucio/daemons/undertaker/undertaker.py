@@ -103,7 +103,7 @@ def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_hand
                     logger(logging.WARNING, 'Locks detected for chunk')
                 else:
                     logger(logging.ERROR, 'Got database error %s.', str(e))
-    except:
+    except Exception:
         logging.critical(traceback.format_exc())
 
 

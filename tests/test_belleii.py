@@ -84,6 +84,7 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
         assert rules[0]['rse_expression'] == 'ANY=true'
         assert (rules[0]['expires_at'] - datetime.utcnow()).days == 30
 
+
 @skip_non_belleii
 def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
@@ -91,7 +92,7 @@ def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account,
     rse_client.add_rse_attribute(rse=rse1, key='ANY', value='True')
     config_set('dirac', 'lifetime', '{"user.*": 2592400}')
     lfn_name = did_name_generator('file')
-    lfn_meta = {'events': 10, 'key1':'value1'}
+    lfn_meta = {'events': 10, 'key1': 'value1'}
     # Create replicas on rse1 using addfile in mock scope (not lifetime)
     lfns = [{'lfn': lfn_name, 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid(), 'meta': lfn_meta}]
     files = [{'scope': extract_scope(lfn['lfn'], [])[0], 'name': lfn['lfn']} for lfn in lfns]
@@ -115,8 +116,9 @@ def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account,
         metadata = did_client.get_metadata(dsn_scope, dsn_name, plugin='ALL')
         assert all(item in metadata.items() for item in dataset_meta.items())
         con_scope, con_name = extract_scope(container, [])
-        metadata = did_client.get_metadata(con_scope , con_name, plugin='ALL')
+        metadata = did_client.get_metadata(con_scope, con_name, plugin='ALL')
         assert all(item in metadata.items() for item in container_meta.items())
+
 
 @skip_non_belleii
 def test_belle2_schema(rse_factory, did_factory, root_account, did_client):

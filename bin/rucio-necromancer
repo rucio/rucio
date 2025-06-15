@@ -27,7 +27,13 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Necromancer daemon is responsible for managing bad replicas. If a replica that got declared bad has other replicas, it will try to recover it by requesting a new transfer. If there are no replicas anymore, then the file gets marked as lost.", epilog='''
+    description = (
+        "The Necromancer daemon is responsible for managing bad replicas. "
+        "If a replica that got declared bad has other replicas, it will try to recover it by requesting a new transfer. "
+        "If there are no replicas anymore, then the file gets marked as lost."
+    )
+
+    parser = argparse.ArgumentParser(description=description, epilog='''
 Lost replica:
 In this example the file gets uploaded and will only have this replica as there are no replication rules. If it gets declared bad, there will be no replica to recover from.
 Therefore the replica gets marked as lost.
