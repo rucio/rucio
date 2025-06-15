@@ -47,6 +47,7 @@ jobs:
           fetch-depth: 0
           
       - name: Setup Docker caching
+        id: docker-cache
         uses: ./dev/rucio/.github/actions/docker-cache
         with:
           dist: ${{ matrix.cfg.DIST }}
@@ -107,6 +108,9 @@ jobs:
       - name: Build rucio-dev images
         id: images
         shell: bash
+        env:
+          BUILDX_CACHE_FROM: ${{ steps.docker-cache.outputs.cache-from }}
+          BUILDX_CACHE_TO: ${{ steps.docker-cache.outputs.cache-to }}
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           
