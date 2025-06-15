@@ -19,33 +19,10 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Clean up any stale cache directories
-      shell: bash
-      run: |
-        echo "Cleaning up any stale cache directories..."
-        if [ -d "/tmp/.buildx-cache-new" ]; then
-          echo "Found stale /tmp/.buildx-cache-new directory, removing it"
-          rm -rf /tmp/.buildx-cache-new
-        fi
-        mkdir -p /tmp/.buildx-cache
-        
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
       with:
         driver-opts: network=host
-    
-    - name: Verify Docker BuildKit setup
-      shell: bash
-      run: |
-        echo "Verifying Docker BuildKit setup..."
-        docker info | grep -i buildkit || echo "BuildKit not found in docker info"
-        docker buildx ls
-        
-        # Test BuildKit functionality with a simple build
-        echo 'FROM alpine:latest' > /tmp/test.Dockerfile
-        echo 'RUN echo "Testing BuildKit"' >> /tmp/test.Dockerfile
-        echo "Testing BuildKit with a simple build:"
-        DOCKER_BUILDKIT=1 docker buildx build --progress=plain --load -t test:latest -f /tmp/test.Dockerfile /tmp/
     
     - name: Cache Docker layers
       id: cache-docker-layers
@@ -79,49 +56,3 @@ runs:
         echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
         echo "BUILDX_CACHE_FROM=type=local,src=/tmp/.buildx-cache" >> $GITHUB_ENV
         echo "BUILDX_CACHE_TO=type=local,dest=/tmp/.buildx-cache-new,mode=max" >> $GITHUB_ENV
-        
-    - name: Test cache functionality
-      shell: bash
-      run: |
-        echo "Testing cache functionality with a simple build..."
-        
-        # Create a test Dockerfile
-        mkdir -p /tmp/cache-test
-        cat > /tmp/cache-test/Dockerfile << 'EOF'
-        FROM alpine:latest
-        RUN echo "Layer 1" > /layer1.txt
-        RUN echo "Layer 2" > /layer2.txt
-        RUN echo "Layer 3" > /layer3.txt
-        EOF
-        
-        # First build - should populate the cache
-        echo "First build - populating cache:"
-        DOCKER_BUILDKIT=1 docker buildx build \
-          --cache-from=type=local,src=/tmp/.buildx-cache \
-          --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-          --progress=plain \
-          --load -t cache-test:1 \
-          -f /tmp/cache-test/Dockerfile /tmp/cache-test/
-          
-        # Check if cache was created
-        echo "Cache after first build:"
-        ls -la /tmp/.buildx-cache-new || echo "Cache directory does not exist"
-        
-        # Move cache
-        if [ -d "/tmp/.buildx-cache-new" ]; then
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-        fi
-        
-        # Second build - should use the cache
-        echo "Second build - should use cache:"
-        DOCKER_BUILDKIT=1 docker buildx build \
-          --cache-from=type=local,src=/tmp/.buildx-cache \
-          --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-          --progress=plain \
-          --load -t cache-test:2 \
-          -f /tmp/cache-test/Dockerfile /tmp/cache-test/
-        
-        # Check if we got cache hits (grep for "CACHED")
-        echo "Checking for cache hits in the build output..."
-        docker history cache-test:2
