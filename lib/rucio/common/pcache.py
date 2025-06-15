@@ -1181,11 +1181,6 @@ class Pcache:
             return
 
         # XXXX does this create a possible race condition?
-        if 0:
-            try:
-                os.unlink(name)
-            except Exception:
-                pass
         status = fcntl.lockf(f, fcntl.LOCK_UN)
         f.close()
         del self.locks[name]
