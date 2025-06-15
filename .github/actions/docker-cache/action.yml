@@ -8,14 +8,6 @@ inputs:
     description: 'Python version'
     required: true
 
-outputs:
-  cache-from:
-    description: 'BuildKit cache-from configuration'
-    value: ${{ steps.cache-config.outputs.cache-from }}
-  cache-to:
-    description: 'BuildKit cache-to configuration'
-    value: ${{ steps.cache-config.outputs.cache-to }}
-
 runs:
   using: "composite"
   steps:
@@ -39,6 +31,6 @@ runs:
       id: cache-config
       shell: bash
       run: |
-        echo "cache-from=type=local,src=/tmp/.buildx-cache" >> $GITHUB_OUTPUT
-        echo "cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max" >> $GITHUB_OUTPUT
         echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+        echo "BUILDX_CACHE_FROM=type=local,src=/tmp/.buildx-cache" >> $GITHUB_ENV
+        echo "BUILDX_CACHE_TO=type=local,dest=/tmp/.buildx-cache-new,mode=max" >> $GITHUB_ENV

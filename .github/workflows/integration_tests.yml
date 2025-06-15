@@ -108,9 +108,6 @@ jobs:
       - name: Build rucio-dev images
         id: images
         shell: bash
-        env:
-          BUILDX_CACHE_FROM: ${{ steps.docker-cache.outputs.cache-from }}
-          BUILDX_CACHE_TO: ${{ steps.docker-cache.outputs.cache-to }}
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           
