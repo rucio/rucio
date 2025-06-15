@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from json import loads as jloads
-from time import sleep
 
 import elasticsearch as es
 import stomp
@@ -103,6 +102,7 @@ class AMQConsumer(stomp.ConnectionListener):
         self.__ids = []
 
 
+"""
 if __name__ == "__main__":
     logging.basicConfig(level=0)
     conn = stomp.Connection(host_and_ports=[(broker, broker_port)], reconnect_attempts_max=5)
@@ -115,3 +115,4 @@ if __name__ == "__main__":
     while True:
         sleep(3600)
     conn.disconnect()
+"""
