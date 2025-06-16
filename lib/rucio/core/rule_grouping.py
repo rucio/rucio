@@ -1317,9 +1317,9 @@ def __set_replica_unavailable(replica, *, session: "Session"):
 @transactional_session
 def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session", logger=logging.log):
     """
-    Apply a replication rule to one did.
+    Apply a replication rule to one DID.
 
-    :param did:          the did object
+    :param did:          the DID object
     :param rule:         the rule object
     :param rses:         target rses_ids
     :param source_rses:  source rses_ids

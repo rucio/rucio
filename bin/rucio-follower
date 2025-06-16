@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Follower is a daemon to aggregate all the events affecting the dids
+Follower is a daemon to aggregate all the events affecting the DIDs
 """
 
 import argparse

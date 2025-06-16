@@ -234,7 +234,7 @@ def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     if not vo:
         vo = 'def'
 
-    # The ':' in did is replaced by '/', also an '/' is added. Why?
+    # The ':' in DID is replaced by '/', also an '/' is added. Why?
     pattern = get_schema_value('SCOPE_NAME_REGEXP', vo)
     text = '/' + scope_name
 

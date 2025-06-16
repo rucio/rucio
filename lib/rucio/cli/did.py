@@ -130,7 +130,7 @@ def content_history(ctx, dids):
 @click.argument("dids", nargs=-1)
 @click.pass_context
 def content_add_(ctx, to_did, from_file, dids):
-    """Attach a list [dids] of Data IDentifiers (file or collection-type) to an other Data IDentifier (collection-type)"""
+    """Attach a list [dids] of data identifiers (file or collection-type) to another data identifier (collection-type)"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "todid": to_did, "fromfile": from_file})
     attach(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -140,7 +140,7 @@ def content_add_(ctx, to_did, from_file, dids):
 @click.argument("dids", nargs=-1)
 @click.pass_context
 def content_remove(ctx, dids, from_did):
-    """Detach [dids], a list of DIDs (file or collection-type) from an other Data Identifier (collection type)"""
+    """Detach [dids], a list of DIDs (file or collection-type) from another Data Identifier (collection type)"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "fromdid": from_did})
     detach(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 

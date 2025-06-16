@@ -199,7 +199,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param scope: The scope name
         :param name: The data identifier name
         :param session: The database session in use
-        :returns: the metadata for the did
+        :returns: the metadata for the DID
         """
         statement = sql.SQL("SELECT data from {} WHERE scope = {} AND name = {}").format(
             sql.Identifier(self.table),
@@ -221,8 +221,8 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         Set single metadata key.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be added
         :param value: the value of the key to be added
         :param recursive: recurse into DIDs (not supported)
@@ -234,8 +234,8 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         Bulk set metadata keys.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param metadata: dictionary of metadata keypairs to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
@@ -262,8 +262,8 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         Delete a key from metadata.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be deleted
         :param session: the database session in use
         """

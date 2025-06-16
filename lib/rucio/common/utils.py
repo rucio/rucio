@@ -961,7 +961,7 @@ def parse_did_filter_from_string_fe(
 
     :param input_string: String containing the filter options.
     :param name: DID name.
-    :param type: The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container.
+    :param type: The type of the DID: all(container, dataset, file), collection(dataset or container), dataset, container.
     :param omit_name: omit addition of name to filters.
     :return: list of dictionaries with each dictionary as a separate OR expression.
     """

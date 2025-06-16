@@ -28,7 +28,7 @@ class TestPermissionCoreGateway:
     usr = 'jdoe'
 
     def test_permission_add_did(self, vo, root_account):
-        """ PERMISSION(CORE): Check permission to add a did"""
+        """ PERMISSION(CORE): Check permission to add a DID"""
         scope = scope_name_generator()
         add_scope(scope=InternalScope(scope, vo=vo), account=root_account)
         assert has_permission(issuer='panda', action='add_did', kwargs={'scope': scope}, vo=vo)

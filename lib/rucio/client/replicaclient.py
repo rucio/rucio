@@ -416,7 +416,7 @@ class ReplicaClient(BaseClient):
 
     def list_dataset_replicas(self, scope, name, deep=False):
         """
-        List dataset replicas for a did (scope:name).
+        List dataset replicas for a DID (scope:name).
 
         Parameters
         ----------
@@ -446,7 +446,7 @@ class ReplicaClient(BaseClient):
 
     def list_dataset_replicas_bulk(self, dids):
         """
-        List dataset replicas for a did (scope:name).
+        List dataset replicas for a DID (scope:name).
 
         Parameters
         ----------

@@ -294,7 +294,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
 
     # Run reaper the first time.
     # the expired non-archive replica of c_with_expired_replica must be removed,
-    # but the did must not be removed, and it must still remain in the dataset because
+    # but the DID must not be removed, and it must still remain in the dataset because
     # it still has the replica from inside the archive
     assert replica_core.get_replica(rse_id=rse_id, **c_with_expired_replica)
     cache_region.invalidate()
@@ -322,7 +322,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
 
     # Expire the first archive and run reaper again
     # the archive will be removed; and c_first_archive_only must be removed from datasets
-    # and from the did table.
+    # and from the DID table.
     replica_core.set_tombstone(rse_id=rse_id, tombstone=datetime.utcnow() - timedelta(days=1), **archive1)
     cache_region.invalidate()
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=2 * archive_size + nb_c_outside_archive * constituent_size)
@@ -381,7 +381,7 @@ def test_archive_removal_impact_on_constituents(rse_factory, did_factory, mock_s
     'rucio.core.replica.REGION',
 ]}], indirect=True)
 def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock, caches_mock):
-    """ REAPER (DAEMON): Test that the options to keep the did and content history work."""
+    """ REAPER (DAEMON): Test that the options to keep the DID and content history work."""
     [reaper_cache_region, _config_cache_region, _replica_cache_region] = caches_mock
     scope = InternalScope('data13_hip', vo=vo)
     account = root_account

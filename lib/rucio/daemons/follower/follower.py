@@ -38,7 +38,7 @@ def aggregate_events(
         once: bool = False
 ) -> None:
     """
-    Collect all the events affecting the dids followed by the corresponding account.
+    Collect all the events affecting the DIDs followed by the corresponding account.
     """
 
     logging.info('event_aggregation: started')

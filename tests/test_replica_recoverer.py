@@ -582,7 +582,7 @@ def test_vo_agnostic_rules(file_config_mock, replica_client, rse_factory, scope_
     except KeyboardInterrupt:
         stop()
 
-    # dids without types now have a different behavior
+    # DIDs without types now have a different behavior
 
     for replica in replicas_without_types:
         # Files that are now acted on now the datatype can be found.

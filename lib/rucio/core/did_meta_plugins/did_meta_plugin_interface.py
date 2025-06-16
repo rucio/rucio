@@ -113,8 +113,8 @@ class DidMetaPlugin(metaclass=ABCMeta):
         """
         Deletes the metadata stored for the given key.
 
-        :param scope: The scope of the did.
-        :param name: The name of the did.
+        :param scope: The scope of the DID.
+        :param name: The name of the DID.
         :param key: Key of the metadata.
         :param session: The database session in use.
         """
@@ -139,7 +139,7 @@ class DidMetaPlugin(metaclass=ABCMeta):
 
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
-        :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+        :param did_type: the type of the DID: all(container, dataset, file), collection(dataset or container), dataset, container, file.
         :param ignore_case: ignore case distinctions.
         :param limit: limit number.
         :param offset: offset number.

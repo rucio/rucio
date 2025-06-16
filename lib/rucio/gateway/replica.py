@@ -434,7 +434,7 @@ def list_dataset_replicas_bulk(
         vo: str = 'def'
 ) -> 'Iterator[dict[str, Any]]':
     """
-    :param dids: The list of did dictionaries with scope and name.
+    :param dids: The list of DID dictionaries with scope and name.
     :param vo: The VO to act on.
 
     :returns: A list of dict dataset replicas
@@ -552,7 +552,7 @@ def add_bad_dids(
     """
     Add bad replica entries for DIDs.
 
-    :param dids: the list of dids with bad replicas at rse.
+    :param dids: the list of DIDs with bad replicas at rse.
     :param rse: the rse with the bad replicas.
     :param issuer: The issuer account.
     :param state: One of the possible states : BAD

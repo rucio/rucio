@@ -13,7 +13,7 @@
 # limitations under the License.
 
 '''
-Undertaker is a daemon to manage expired did.
+Undertaker is a daemon to manage expired DID.
 '''
 
 import functools
@@ -51,7 +51,7 @@ DAEMON_NAME = 'undertaker'
 
 def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10) -> None:
     """
-    Main loop to select and delete dids.
+    Main loop to select and delete DIDs.
     """
     paused_dids = {}  # {(scope, name): datetime}
     run_daemon(
@@ -72,7 +72,7 @@ def run_once(paused_dids: dict[tuple, datetime], chunk_size: int, heartbeat_hand
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     try:
-        # Refresh paused dids
+        # Refresh paused DIDs
         iter_paused_dids = deepcopy(paused_dids)
         for key in iter_paused_dids:
             if datetime.utcnow() > paused_dids[key]:

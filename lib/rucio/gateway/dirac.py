@@ -63,7 +63,7 @@ def add_files(
                 rses[rse] = rse_id
             lfn['rse_id'] = rses[rse]
 
-        # Check if the issuer can add dids and use skip_availabitlity
+        # Check if the issuer can add DIDs and use skip_availabitlity
         for rse in rses:
             rse_id = rses[rse]
             kwargs = {'rse': rse, 'rse_id': rse_id}

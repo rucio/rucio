@@ -28,7 +28,7 @@ class TestUtils:
     """UTILS (COMMON): test utilisty functions"""
 
     def test_parse_did_filter_string(self):
-        """(COMMON/UTILS): test parsing of did filter string"""
+        """(COMMON/UTILS): test parsing of DID filter string"""
         test_cases = [{
             'input': 'type=all,length=3,length>4,length>=6,length<=7,  test=b, created_after=1900-01-01T00:00:00.000Z',
             'expected_filter': {'length': 3, 'length.gt': 4, 'length.gte': 6, 'length.lte': 7, 'test': 'b', 'created_after': datetime.datetime.strptime('1900-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')},

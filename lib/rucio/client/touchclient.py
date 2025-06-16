@@ -49,7 +49,7 @@ class TouchClient(BaseClient):
         Raises
         ------
         DataIdentifierNotFound
-            If given dids does not exist.
+            If given DIDs does not exist.
         RSENotFound
             If rse is not None and given rse does not exist.
         UnsupportedDIDType

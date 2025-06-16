@@ -221,7 +221,7 @@ class Replicas(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           404:
-            description: "Did not found"
+            description: "DID not found"
           406:
             description: "Not acceptable"
         """
@@ -347,7 +347,7 @@ class Replicas(ErrorHandlingMethodView):
           404:
             description: "Rse or scope not found"
           409:
-            description: "Replica or Did already exists"
+            description: "Replica or DID already exists"
           503:
             description: "Resource temporary unavailable"
         """
@@ -541,16 +541,16 @@ class ListReplicas(ErrorHandlingMethodView):
                     description: "The client's location."
                     type: string
                   dids:
-                    description: "List of Dids."
+                    description: "List of DIDs."
                     type: array
                     items:
                       type: object
                       properties:
                         scope:
-                          description: "The scope of the did."
+                          description: "The scope of the DID."
                           type: string
                         name:
-                          description: "The name of the did."
+                          description: "The name of the DID."
                           type: string
                   schemes:
                     description: "A list of schemes to filter the replicas."
@@ -652,7 +652,7 @@ class ListReplicas(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           404:
-            description: "Did not found."
+            description: "DID not found."
           406:
             description: "Not acceptable"
         """
@@ -764,7 +764,7 @@ class ReplicasDIDs(ErrorHandlingMethodView):
     def post(self):
         """
         ---
-        summary: List Replicas Dids
+        summary: List Replicas DIDs
         description: "List the DIDs associated to a list of replicas."
         tags:
           - Replicas
@@ -795,7 +795,7 @@ class ReplicasDIDs(ErrorHandlingMethodView):
                     type: object
                     additionalProperties:
                       x-additionalPropertiesName: mapped PFNs to DIDs
-                      description: "A mapping from a pfn to a did."
+                      description: "A mapping from a pfn to a DID."
                       type: object
                       properties:
                         scope:
@@ -1391,7 +1391,7 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
         """
         ---
         summary: List Dataset Replicas for Multiple DIDs
-        description: "List dataset replicas for multiple dids."
+        description: "List dataset replicas for multiple DIDs."
         tags:
           - Replicas
         requestBody:
@@ -1403,17 +1403,17 @@ class DatasetReplicasBulk(ErrorHandlingMethodView):
                 - dids
                 properties:
                   dids:
-                    description: "A list of dids."
+                    description: "A list of DIDs."
                     type: array
                     items:
-                      description: "A did."
+                      description: "A DID."
                       type: object
                       properties:
                         scope:
-                          description: "The scope of the did."
+                          description: "The scope of the DID."
                           type: string
                         name:
-                          description: "The name of the did."
+                          description: "The name of the DID."
                           type: string
         responses:
           200:
@@ -1634,16 +1634,16 @@ class BadDIDs(ErrorHandlingMethodView):
                     type: string
                     format: date-time
                   dids:
-                    description: "The list of dids associated with the bad replicas."
+                    description: "The list of DIDs associated with the bad replicas."
                     type: array
                     items:
                       type: object
                       properties:
                         scope:
-                          description: "The scope of the did."
+                          description: "The scope of the DID."
                           type: string
                         name:
-                          description: "The name of the did."
+                          description: "The name of the DID."
                           type: string
                   rse:
                     description: "The name of the rse."

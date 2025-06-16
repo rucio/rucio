@@ -172,7 +172,7 @@ class TestGatewayExternalRepresentation:
 
     def test_gateway_did(self, vo, account_name, scope_name):
         """ DID (Gateway): Test external representation of DIDs """
-        # add some dids
+        # add some DIDs
         ext_parent = did_name_generator('container')
         ext_child = did_name_generator('dataset')
         add_did(scope_name, ext_parent, 'container', issuer='root', account=account_name, vo=vo)

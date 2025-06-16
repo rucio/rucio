@@ -155,7 +155,7 @@ def test_archive_on_dataset_level(rse_factory, did_factory, root_account):
     archive = did_factory.random_file_did(name_suffix='.zip')
     add_replicas(rse_id=rse_id, files=[{**archive, 'bytes': 500, 'type': 'FILE', 'adler32': 'beefbeef'}], account=root_account)
     constituents = [did_factory.random_file_did() for _ in range(2)]
-    # Add archive to one dataset _before_ attaching files to the archive (before is_archive is set on the archive did)
+    # Add archive to one dataset _before_ attaching files to the archive (before is_archive is set on the archive DID)
     attach_dids(dids=[archive], account=root_account, **dataset1)
     attach_dids(dids=[{**c, 'bytes': 200, 'adler32': 'ababbaba'} for c in constituents], account=root_account, **archive)
     # Attach to another dataset _after_ attaching files to the archive

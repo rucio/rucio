@@ -279,7 +279,7 @@ def list_rebalance_rule_candidates(
 
     vo = get_rse_vo(rse_id=rse_id)
 
-    # dumps can be applied only for decommission since the dumps doesn't contain info from dids
+    # dumps can be applied only for decommission since the dumps doesn't contain info from DIDs
     if mode == "decommission":
         return _list_rebalance_rule_candidates_dump(rse_id, mode)
 

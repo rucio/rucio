@@ -93,9 +93,9 @@ class MongoDidMeta(DidMetaPlugin):
         :param scope: The scope name
         :param name: The data identifier name
         :param session: The database session in use
-        :returns: The metadata for the did
+        :returns: The metadata for the DID
         """
-        # get first document with this did == _id
+        # get first document with this DID == _id
         doc = self.col.find_one({
             "_id": "{}:{}".format(scope.internal, name)
         })
@@ -113,8 +113,8 @@ class MongoDidMeta(DidMetaPlugin):
         """
         Set single metadata key.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be added
         :param value: the value of the key to be added
         :param recursive: recurse into DIDs (not supported)
@@ -126,8 +126,8 @@ class MongoDidMeta(DidMetaPlugin):
         """
         Bulk set metadata keys.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param metadata: dictionary of metadata keypairs to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
@@ -137,7 +137,7 @@ class MongoDidMeta(DidMetaPlugin):
             if key in metadata:
                 metadata.pop(key)
 
-        # set first document with did == _id
+        # set first document with DID == _id
         self.col.update_one(
             {
                 "_id": "{}:{}".format(scope.internal, name)
@@ -157,8 +157,8 @@ class MongoDidMeta(DidMetaPlugin):
         """
         Delete a key from metadata.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be deleted
         """
         meta = {key: ""}

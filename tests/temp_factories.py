@@ -184,7 +184,7 @@ class TemporaryRSEFactory:
 
 class TemporaryDidFactory:
     """
-    Factory which keeps track of created dids and cleans up everything related to these dids at the end.
+    Factory which keeps track of created DIDs and cleans up everything related to these DIDs at the end.
     All files related to the same test will have the same uuid in the name for easier debugging.
     """
 
@@ -260,7 +260,7 @@ class TemporaryDidFactory:
             dids: "Iterable[DIDDict]"
     ) -> None:
         """
-        Register the provided dids to be cleaned up on teardown
+        Register the provided DIDs to be cleaned up on teardown
         """
         self.created_dids.update((did['scope'], did['name']) for did in dids)
 

@@ -695,7 +695,7 @@ class TestDaemon:
                                                     dry_run=False,
                                                     comments='Ni ! Ni!',
                                                     priority=1)
-        # Since the subscription is wrongly defined, the new dids should not be processed
+        # Since the subscription is wrongly defined, the new DIDs should not be processed
         with pytest.raises(JSONDecodeError):
             run(threads=1, bulk=1000000, once=True)
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]

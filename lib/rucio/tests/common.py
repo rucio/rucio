@@ -102,13 +102,13 @@ def scope_name_generator() -> str:
 
 
 def did_name_generator(did_type: str = 'file', name_prefix: str = '', name_suffix: str = '', path: Optional[str] = None) -> str:
-    """ Generate random did name.
+    """ Generate random DID name.
     :param did_type: A string to create a meaningful did_name depending on the did_type (file, dataset, container)
-    :param name_prefix: String to prefix to the did name
-    :param name_suffix: String to append to the did name
+    :param name_prefix: String to prefix to the DID name
+    :param name_suffix: String to append to the DID name
     :param path: If specified, use the path to generate the did_name
 
-    :returns: A random did name
+    :returns: A random DID name
     """
     if os.getenv('POLICY') == 'belleii':
         if path is not None:

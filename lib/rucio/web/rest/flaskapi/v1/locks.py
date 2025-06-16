@@ -46,7 +46,7 @@ class LockByRSE(ErrorHandlingMethodView):
                 type: object
                 properties:
                   did_type:
-                    description: "The did type to filter for."
+                    description: "The DID type to filter for."
                     type: string
                     enum: ['dataset']
         responses:
@@ -95,7 +95,7 @@ class LockByRSE(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           500:
-            description: "Wrong did type"
+            description: "Wrong DID type"
             content:
               application/json:
                 schema:
@@ -143,7 +143,7 @@ class LocksByScopeName(ErrorHandlingMethodView):
                 type: object
                 properties:
                   did_type:
-                    description: "The did type to filter for."
+                    description: "The DID type to filter for."
                     type: string
                     enum: ['dataset']
         responses:
@@ -192,7 +192,7 @@ class LocksByScopeName(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           500:
-            description: "Wrong did type"
+            description: "Wrong DID type"
             content:
               application/json:
                 schema:
@@ -229,8 +229,8 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
         :status 400: Wrong DID type.
         :returns: Line separated list of dictionary with lock information.
         ---
-        summary: Get locks by dids
-        description: "Get all dataset locks for the associated dids."
+        summary: Get locks by DIDs
+        description: "Get all dataset locks for the associated DIDs."
         tags:
           - Lock
         requestBody:
@@ -240,23 +240,23 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
                 type: object
                 properties:
                   dids:
-                    description: "The dids associated with the locks."
+                    description: "The DIDs associated with the locks."
                     type: array
                     items:
                       type: object
-                      description: "A did"
+                      description: "A DID"
                       required:
                         - scope
                         - name
                       properties:
                         scope:
-                          description: "The scope of the did."
+                          description: "The scope of the DID."
                           type: string
                         name:
-                          description: "The name of the did."
+                          description: "The name of the DID."
                           type: string
                         type:
-                          description: "The type of the did."
+                          description: "The type of the DID."
                           type: string
                           enum: ['dataset', 'container']
         responses:
@@ -305,12 +305,12 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           400:
-            description: "Wrong did type"
+            description: "Wrong DID type"
             content:
               application/json:
                 schema:
                   type: string
-                  enum: ['Can not find the list of DIDs in the data. Use "dids" keyword.']
+                  enum: ['Cannot find the list of DIDs in the data. Use "dids" keyword.']
           406:
             description: "Not acceptable"
 

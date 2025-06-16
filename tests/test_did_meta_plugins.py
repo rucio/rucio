@@ -37,7 +37,7 @@ class TestDidMetaDidColumn:
 
     @pytest.mark.dirty
     def test_add_did_meta(self, mock_scope, root_account):
-        """ DID Meta (Hardcoded): Add did meta """
+        """ DID Meta (Hardcoded): Add DID meta """
         did_name = did_name_generator('dataset')
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
         set_metadata(scope=mock_scope, name=did_name, key='project', value='data12_8TeV')
@@ -45,7 +45,7 @@ class TestDidMetaDidColumn:
 
     @pytest.mark.dirty
     def test_get_did_meta(self, mock_scope, root_account):
-        """ DID Meta (Hardcoded): Get did meta """
+        """ DID Meta (Hardcoded): Get DID meta """
         did_name = did_name_generator('dataset')
         dataset_meta = {'project': 'data12_8TeV'}
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', meta=dataset_meta, account=root_account)
@@ -53,7 +53,7 @@ class TestDidMetaDidColumn:
 
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account):
-        """ DID Meta (Hardcoded): List did meta """
+        """ DID Meta (Hardcoded): List DID meta """
         dsns = []
         tmp_dsn1 = did_name_generator('dataset')
 
@@ -111,7 +111,7 @@ class TestDidMetaJSON:
 
     @pytest.mark.dirty
     def test_add_did_meta(self, mock_scope, root_account):
-        """ DID Meta (JSON): Add did meta """
+        """ DID Meta (JSON): Add DID meta """
         skip_without_json()
 
         did_name = did_name_generator('dataset')
@@ -144,7 +144,7 @@ class TestDidMetaJSON:
 
     @pytest.mark.dirty
     def test_get_metadata(self, mock_scope, root_account):
-        """ DID Meta (JSON): Get did meta """
+        """ DID Meta (JSON): Get DID meta """
         skip_without_json()
 
         did_name = did_name_generator('dataset')
@@ -156,7 +156,7 @@ class TestDidMetaJSON:
 
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account):
-        """ DID Meta (JSON): List did meta """
+        """ DID Meta (JSON): List DID meta """
         skip_without_json()
 
         meta_key1 = 'my_key_%s' % generate_uuid()
@@ -239,7 +239,7 @@ class TestDidMetaMongo:
 
     @pytest.mark.dirty
     def test_set_get_metadata(self, mock_scope, root_account, mongo_meta):
-        """ DID Meta (MONGO): Get/set did meta """
+        """ DID Meta (MONGO): Get/set DID meta """
 
         did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
@@ -250,7 +250,7 @@ class TestDidMetaMongo:
 
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account, mongo_meta):
-        """ DID Meta (MONGO): List did meta """
+        """ DID Meta (MONGO): List DID meta """
 
         meta_key1 = 'my_key_%s' % generate_uuid()
         meta_key2 = 'my_key_%s' % generate_uuid()
@@ -321,7 +321,7 @@ class TestDidMetaElastic:
 
     @pytest.mark.dirty
     def test_set_get_metadata(self, mock_scope, root_account, elastic_meta):
-        """ DID Meta (ELASTIC): Get/set did meta """
+        """ DID Meta (ELASTIC): Get/set DID meta """
         did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
         meta_value = 'my_value_%s' % generate_uuid()
@@ -331,7 +331,7 @@ class TestDidMetaElastic:
 
     @pytest.mark.dirty
     def test_delete_metadata(self, mock_scope, root_account, elastic_meta):
-        """ DID Meta (ELASTIC) : Deletes metadata key """
+        """ DID Meta (ELASTIC): Deletes metadata key """
 
         meta_key1 = 'my_key_%s' % generate_uuid()
         meta_key2 = 'my_key_%s' % generate_uuid()
@@ -354,7 +354,7 @@ class TestDidMetaElastic:
 
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account, elastic_meta):
-        """ DID Meta (ELASTIC): List did meta """
+        """ DID Meta (ELASTIC): List DID meta """
 
         meta_key1 = 'my_key_%s' % generate_uuid()
         meta_key2 = 'my_key_%s' % generate_uuid()
@@ -422,7 +422,7 @@ class TestDidMetaExternalPostgresJSON:
 
     @pytest.mark.dirty
     def test_set_get_metadata(self, mock_scope, root_account, postgres_json_meta):
-        """ DID Meta (POSTGRES_JSON): Get/set did meta """
+        """ DID Meta (POSTGRES_JSON): Get/set DID meta """
 
         did_name = did_name_generator('dataset')
         meta_key = 'my_key_%s' % generate_uuid()
@@ -433,7 +433,7 @@ class TestDidMetaExternalPostgresJSON:
 
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account, postgres_json_meta):
-        """ DID Meta (POSTGRES_JSON): List did meta """
+        """ DID Meta (POSTGRES_JSON): List DID meta """
 
         meta_key1 = 'my_key_%s' % generate_uuid()
         meta_key2 = 'my_key_%s' % generate_uuid()
@@ -494,7 +494,7 @@ class TestDidMetaClient:
 
     @pytest.mark.dirty
     def test_set_metadata(self, mock_scope, did_client, db_session):
-        """ META (CLIENTS) : Adds a fully set json column to a did, updates if some keys present """
+        """ META (CLIENTS): Adds a fully set json column to a DID, updates if some keys present """
         tmp_name = did_name_generator('dataset')
         scope = mock_scope.external
         did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
@@ -522,7 +522,7 @@ class TestDidMetaClient:
 
     @pytest.mark.dirty
     def test_delete_metadata(self, mock_scope, did_client):
-        """ META (CLIENTS) : Deletes metadata key """
+        """ META (CLIENTS): Deletes metadata key """
         skip_without_json()
         scope = mock_scope.external
         tmp_name = did_name_generator('dataset')
@@ -547,7 +547,7 @@ class TestDidMetaClient:
 
     @pytest.mark.dirty
     def test_get_metadata(self, mock_scope, did_client, db_session):
-        """ META (CLIENTS) : Gets all metadata for the given did """
+        """ META (CLIENTS): Gets all metadata for the given DID """
         tmp_name = did_name_generator('dataset')
         scope = mock_scope.external
         did_client.add_did(scope=scope, name=tmp_name, did_type="DATASET")
@@ -580,9 +580,9 @@ class TestDidMetaClient:
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='fails when run in parallel')
     def test_list_dids(self, did_client, db_session):
-        """ META (CLIENTS) : Get all dids matching the values of the provided metadata keys """
+        """ META (CLIENTS): Get all DIDs matching the values of the provided metadata keys """
 
-        # Test did Columns use case
+        # Test DID Columns use case
         dsns = []
         tmp_scope = 'mock'
         tmp_dsn1 = did_name_generator('dataset')
@@ -728,7 +728,7 @@ def testdid(vo, mock_scope, root_account):
 
 
 def test_did_set_metadata_bulk_single(testdid):
-    """ DID (CORE) : Test setting metadata in bulk with a single key-value pair """
+    """ DID (CORE): Test setting metadata in bulk with a single key-value pair """
     skip_without_json()
 
     testkey = 'testkey'
@@ -742,7 +742,7 @@ def test_did_set_metadata_bulk_single(testdid):
 
 
 def test_did_set_metadata_bulk_multi(testdid):
-    """ DID (CORE) : Test setting metadata in bulk with multiple key-values """
+    """ DID (CORE): Test setting metadata in bulk with multiple key-values """
     skip_without_json()
 
     testkeys = list(map(lambda i: 'testkey' + str(i), range(3)))
@@ -759,7 +759,7 @@ def test_did_set_metadata_bulk_multi(testdid):
 
 
 def test_set_dids_metadata_bulk_multi(did_factory):
-    """ DID (CORE) : Test setting metadata in bulk with multiple key-values on multiple dids"""
+    """ DID (CORE): Test setting metadata in bulk with multiple key-values on multiple DIDs"""
     skip_without_json()
     nb_dids = 5
     dids = [did_factory.make_dataset() for _ in range(nb_dids)]
@@ -781,7 +781,7 @@ def test_set_dids_metadata_bulk_multi(did_factory):
 
 
 def test_did_set_metadata_bulk_multi_client(testdid):
-    """ DID (CLIENT) : Test setting metadata in bulk with multiple key-values """
+    """ DID (CLIENT): Test setting metadata in bulk with multiple key-values """
     skip_without_json()
 
     testkeys = list(map(lambda i: 'testkey' + str(i), range(3)))
@@ -803,7 +803,7 @@ def test_did_set_metadata_bulk_multi_client(testdid):
 
 
 def test_set_dids_metadata_bulk_multi_client(did_factory, rucio_client):
-    """ DID (CLIENT) : Test setting metadata in bulk with multiple key-values on multiple dids"""
+    """ DID (CLIENT): Test setting metadata in bulk with multiple key-values on multiple DIDs"""
     skip_without_json()
     nb_dids = 5
     dids = [did_factory.make_dataset() for _ in range(nb_dids)]

@@ -241,7 +241,7 @@ class TestRucioClients:
         # config
         assert client.set_config_option("mock_section", "mock_option", value=0)
 
-        # did
+        # DID
         assert list(client.list_dids(scope='mock', filters={})) is not None
 
         # replica
