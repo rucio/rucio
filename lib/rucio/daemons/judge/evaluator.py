@@ -52,7 +52,7 @@ def re_evaluator(
         did_limit: int = 100
 ) -> None:
     """
-    Main loop to check the re-evaluation of dids.
+    Main loop to check the re-evaluation of DIDs.
     """
 
     paused_dids = {}  # {(scope, name): datetime}
@@ -81,13 +81,13 @@ def run_once(
     # heartbeat
     start = time.time()  # NOQA
 
-    # Refresh paused dids
+    # Refresh paused DIDs
     iter_paused_dids = copy.copy(paused_dids)
     for key in iter_paused_dids:
         if datetime.utcnow() > paused_dids[key]:
             del paused_dids[key]
 
-    # Select a bunch of dids for re evaluation for this worker
+    # Select a bunch of DIDs for re-evaluation for this worker
     dids = get_updated_dids(total_workers=total_workers,
                             worker_number=worker_number,
                             limit=did_limit,
@@ -106,7 +106,7 @@ def run_once(
         if graceful_stop.is_set():
             break
 
-        # Check if this did has already been operated on
+        # Check if this DID has already been operated on
         did_tag = '%s:%s' % (did.scope.internal, did.name)
         if did_tag in done_dids:
             if did.rule_evaluation_action in done_dids[did_tag]:
@@ -116,7 +116,7 @@ def run_once(
         else:
             done_dids[did_tag] = []
 
-        # Jump paused dids
+        # Jump paused DIDs
         if (did.scope.internal, did.name) in paused_dids:
             continue
 

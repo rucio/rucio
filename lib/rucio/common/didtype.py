@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-DID type to represent a did and to simplify operations on it
+DID type to represent a DID and to simplify operations on it
 """
 
 from typing import Any, Union
@@ -25,7 +25,7 @@ class DID:
 
     """
     Class used to store a DID
-    Given an object did of type DID
+    Given an object DID of type DID
     scope is stored in did.scope
     name is stored in did.name
     """

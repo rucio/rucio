@@ -100,7 +100,7 @@ def test_download_exception_return_information(did_factory, rse_factory, downloa
 @pytest.mark.dirty(reason='creates a new scope which is not cleaned up')
 def test_overlapping_did_names(rse_factory, did_factory, download_client, root_account, mock_scope, vo):
     """
-    Downloading two different did with different scope but same name to the same directory must fail
+    Downloading two different DIDs with different scope but same name to the same directory must fail
     """
     rse, _ = rse_factory.make_posix_rse()
     scope1 = mock_scope
@@ -146,7 +146,7 @@ def test_overlapping_containers_and_wildcards(rse_factory, did_factory, download
     container_str = '%s:%s' % (container['scope'], container['name'])
 
     with TemporaryDirectory() as tmp_dir:
-        # No filters: all dids will be grouped and downloaded together
+        # No filters: all DIDs will be grouped and downloaded together
         result = download_client.download_dids([{'did': dataset1_str, 'base_dir': tmp_dir},
                                                 {'did': dataset2_str, 'base_dir': tmp_dir},
                                                 {'did': dataset3_str, 'base_dir': tmp_dir},
@@ -204,7 +204,7 @@ def test_download_to_two_paths(rse_factory, did_factory, download_client):
     did100_str = '%s:%s' % (item100['did_scope'], item100['did_name'])
 
     with TemporaryDirectory() as tmp_dir1, TemporaryDirectory() as tmp_dir2:
-        # Download two overlapping wildcard dids to two separate paths.
+        # Download two overlapping wildcard DIDs to two separate paths.
         # 000 will be in both paths. Other two files only in one of the two paths.
         result = download_client.download_dids([{'did': '%s:%s.*0' % (scope, base_name), 'base_dir': tmp_dir1},
                                                 {'did': '%s:%s.0*' % (scope, base_name), 'base_dir': tmp_dir2}])
@@ -443,7 +443,7 @@ def test_trace_copy_out_and_checksum_validation(vo, rse_factory, did_factory, do
     did_str = '%s:%s' % (did['scope'], did['name'])
 
     with TemporaryDirectory() as tmp_dir:
-        # Try downloading non-existing did
+        # Try downloading non-existing DID
         traces = []
         with pytest.raises(NoFilesDownloaded):
             download_client.download_dids([{'did': 'some:randomNonExistingDid', 'base_dir': tmp_dir}], traces_copy_out=traces)
@@ -470,13 +470,13 @@ def test_trace_copy_out_and_checksum_validation(vo, rse_factory, did_factory, do
 
     # Switch to a new empty directory
     with TemporaryDirectory() as tmp_dir:
-        # Wildcards in did name are not allowed on pfn downloads
+        # Wildcards in DID name are not allowed on pfn downloads
         traces = []
         with pytest.raises(InputValidationError):
             download_client.download_pfns([{'did': '%s:*' % scope, 'pfn': pfn, 'rse': rse, 'base_dir': tmp_dir}], traces_copy_out=traces)
         assert not traces
 
-        # Same pfn, but without wildcard in the did should work
+        # Same pfn, but without a wildcard in the DID should work
         traces = []
         download_client.download_pfns([{'did': did_str, 'pfn': pfn, 'rse': rse, 'base_dir': tmp_dir}], traces_copy_out=traces)
         assert len(traces) == 1 and traces[0]['clientState'] == 'DONE'

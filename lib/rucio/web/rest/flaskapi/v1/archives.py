@@ -54,10 +54,10 @@ class Archive(ErrorHandlingMethodView):
                     type: object
                     properties:
                       scope:
-                        description: "The scope of the did."
+                        description: "The scope of the DID."
                         type: string
                       name:
-                        description: "The name of the did."
+                        description: "The name of the DID."
                         type: string
                       bytes:
                         description: "The number of bytes."

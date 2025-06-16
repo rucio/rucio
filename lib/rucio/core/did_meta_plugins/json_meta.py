@@ -122,8 +122,8 @@ class JSONDidMeta(DidMetaPlugin):
         """
         Delete a key from the metadata column
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be deleted
         :param session: The database session in use.
         """

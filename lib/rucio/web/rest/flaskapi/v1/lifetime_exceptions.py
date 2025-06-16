@@ -56,7 +56,7 @@ class LifetimeException(ErrorHandlingMethodView):
                         description: "The name of the lifetime exception."
                         type: string
                       did_type:
-                        description: "The type of the did."
+                        description: "The type of the DID."
                         type: string
                         enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
                       account:
@@ -108,14 +108,14 @@ class LifetimeException(ErrorHandlingMethodView):
                 type: object
                 properties:
                   dids:
-                    description: "List of dids associated with the lifetime exception."
+                    description: "List of DIDs associated with the lifetime exception."
                     type: array
                     items:
-                      description: "A did"
+                      description: "A DID"
                       type: object
                       properties:
                         name:
-                          description: "The name of the did."
+                          description: "The name of the DID."
                           type: string
                   pattern:
                     description: "The pattern of the lifetime exception."
@@ -201,7 +201,7 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
                         description: "The name of the lifetime exception."
                         type: string
                       did_type:
-                        description: "The type of the did."
+                        description: "The type of the DID."
                         type: string
                         enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
                       account:

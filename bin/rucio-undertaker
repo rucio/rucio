@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Undertaker is a daemon to manage expired did.
+Undertaker is a daemon to manage expired DID.
 """
 
 import argparse

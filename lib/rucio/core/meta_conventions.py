@@ -180,10 +180,10 @@ def list_values(key: str, *, session: "Session") -> list[str]:
 @read_session
 def validate_meta(meta: dict, did_type: DIDType, *, session: "Session") -> None:
     """
-    Validates metadata for a did.
+    Validates metadata for a DID.
 
     :param meta: the dictionary of metadata.
-    :param meta: the type of the did, e.g, DATASET, CONTAINER, FILE.
+    :param meta: the type of the DID, e.g, DATASET, CONTAINER, FILE.
     :param session: The database session in use.
 
     :raises InvalidObject:

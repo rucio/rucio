@@ -563,7 +563,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
 
 
 class UpdatedDID(BASE, ModelBase):
-    """Represents the recently updated dids"""
+    """Represents the recently updated DIDs"""
     __tablename__ = 'updated_dids'
     id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
     scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))

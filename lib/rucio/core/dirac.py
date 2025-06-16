@@ -46,7 +46,7 @@ def _exists(
     session: "Session"
 ) -> tuple[bool, Optional[DIDType]]:
     """
-    Check if the did exists
+    Check if the DID exists
 
     :scope: The scope
     :name: The name

@@ -41,9 +41,9 @@ class LockClient(BaseClient):
         Parameters
         ----------
         scope :
-            The scope of the did of the locks to list.
+            The scope of the DID of the locks to list.
         name :
-            The name of the did of the locks to list.
+            The name of the DID of the locks to list.
 
         """
 
@@ -80,7 +80,7 @@ class LockClient(BaseClient):
             list of dictionaries with lock info
         """
 
-        # convert did list to list of dictionaries
+        # convert DID list to list of dictionaries
         if not all(did.get("type", "dataset") in ("dataset", "container") for did in dids):
             raise ValueError("DID type can be either 'container' or 'dataset'")
 

@@ -492,7 +492,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     #  List all the active subscriptions
     subscriptions = get_subscriptions(logger=logger)
 
-    #  Loop over all the new dids
+    #  Loop over all the new DIDs
     #  Get the new DIDs based on the is_new flag
     logger(logging.DEBUG, "Listing new dids")
     for did in list_new_dids(

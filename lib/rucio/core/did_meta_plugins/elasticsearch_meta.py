@@ -109,7 +109,7 @@ class ElasticDidMeta(DidMetaPlugin):
         :param scope: The scope name
         :param name: The data identifier name
         :param session: The database session in use
-        :returns: The metadata for the did
+        :returns: The metadata for the DID
         :raises DataIdentifierNotFound: If the DID metadata is not found.
         :raises RucioException: If another error occurs during the process.
         """
@@ -136,8 +136,8 @@ class ElasticDidMeta(DidMetaPlugin):
         """
         Set single metadata key.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be added
         :param value: the value of the key to be added
         :param recursive: recurse into DIDs (not supported)
@@ -159,8 +159,8 @@ class ElasticDidMeta(DidMetaPlugin):
         """
         Bulk set metadata keys.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param meta: dictionary of metadata keypairs to be added
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
@@ -201,8 +201,8 @@ class ElasticDidMeta(DidMetaPlugin):
         """
         Delete a key from metadata.
 
-        :param scope: the scope of did
-        :param name: the name of the did
+        :param scope: the scope of DID
+        :param name: the name of the DID
         :param key: the key to be deleted
         :raises DataIdentifierNotFound: If the DID is not found.
         :raises RucioException: If an error occurs while setting the metadata.

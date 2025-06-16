@@ -1298,7 +1298,7 @@ def list_replicas(
             session: "Session"
     ) -> tuple[int, Any]:
         """
-        Find all FILE dids contained in collections from temp_table and return them in a newly
+        Find all FILE DIDs contained in collections from temp_table and return them in a newly
         created temporary table.
         """
         resolved_files_temp_table = temp_table_mngr(session).create_scope_name_table()
@@ -1391,7 +1391,7 @@ def list_replicas(
         Builds a query which list the replicas of FILEs from users input, but ignores
         collections in the same input.
 
-        Note: These FILE dids must be returned to the user even if they don't have replicas,
+        Note: These FILE DIDs must be returned to the user even if they don't have replicas,
         hence the outerjoin against the replicas_subquery.
         """
         return select(
@@ -1426,7 +1426,7 @@ def list_replicas(
             session: "Session"
     ) -> tuple[int, int, int]:
         """
-        Find how many files, collections and constituents are among the dids in the temp_table
+        Find how many files, collections and constituents are among the DIDs in the temp_table
         """
         stmt = select(
             func.sum(
@@ -1493,7 +1493,7 @@ def list_replicas(
             nrandom
             # Only try this optimisation if list_replicas was called on collection(s).
             # I didn't consider handling the case when list_replica is called with a mix of
-            # file/archive/collection dids: database queries in those cases are more complex
+            # file/archive/collection DIDs: database queries in those cases are more complex
             # and people don't usually call list_replicas with nrandom on file/archive_constituents anyway.
             and (num_files_in_collections and not num_constituents and not num_files)
             # The following code introduces overhead if it fails to pick n random replicas.
@@ -1533,7 +1533,7 @@ def list_replicas(
         )
         session.execute(stmt)
 
-        # Fetch all replicas for randomly selected dids and apply filters on python side
+        # Fetch all replicas for randomly selected DIDs and apply filters on python side
         stmt = _list_replicas_for_collection_files_stmt(random_dids_temp_table, replicas_subquery)
         stmt = stmt.order_by('scope', 'name')
         replica_tuples = session.execute(stmt)
@@ -1583,7 +1583,7 @@ def __bulk_add_new_file_dids(
     session: "Session"
 ) -> Literal[True]:
     """
-    Bulk add new dids.
+    Bulk add new DIDs.
 
     :param dids: the list of new files.
     :param account: The account owner.
@@ -1636,7 +1636,7 @@ def __bulk_add_file_dids(
     session: "Session"
 ) -> list[dict[str, Any]]:
     """
-    Bulk add new dids.
+    Bulk add new DIDs.
 
     :param dids: the list of files.
     :param account: The account owner.
@@ -1703,7 +1703,7 @@ def __bulk_add_replicas(
     session: "Session"
 ) -> tuple[int, int]:
     """
-    Bulk add new dids.
+    Bulk add new DIDs.
 
     :param rse_id: the RSE id.
     :param dids: the list of files.
@@ -2016,7 +2016,7 @@ def __cleanup_after_replica_deletion(
     session: "Session"
 ) -> None:
     """
-    Perform update of collections/archive associations/dids after the removal of their replicas
+    Perform update of collections/archive associations/DIDs after the removal of their replicas
     :param rse_id: the rse id
     :param files: list of files whose replica got deleted
     :param session: The database session in use.
@@ -2080,7 +2080,7 @@ def __cleanup_after_replica_deletion(
                                             rse_id=rse_id). \
                 save(session=session, flush=False)
 
-    # Delete did from the content for the last did
+    # Delete DID from the content for the last DID
     while parents_to_analyze:
         did_associations_to_remove = set()
 
@@ -2287,7 +2287,7 @@ def __cleanup_after_replica_deletion(
 
         session.execute(stmt)
 
-    # delete empty dids
+    # delete empty DIDs
     if did_condition:
         for chunk in chunks(did_condition, 10):
             stmt = select(
@@ -2426,7 +2426,7 @@ def __cleanup_after_replica_deletion(
         for chunk in chunks(messages, 100):
             add_messages(chunk, session=session)
 
-        # Delete dids
+        # Delete DIDs
         dids_to_delete_filter = exists(select(1)
                                        .where(and_(models.DataIdentifier.scope == scope_name_temp_table.scope,
                                                    models.DataIdentifier.name == scope_name_temp_table.name)))
@@ -2806,7 +2806,7 @@ def touch_replica(
     session: "Session"
 ) -> bool:
     """
-    Update the accessed_at timestamp of the given file replica/did but don't wait if row is locked.
+    Update the accessed_at timestamp of the given file replica/DID but don't wait if row is locked.
 
     :param replica: a dictionary with the information of the affected replica.
     :param session: The database session in use.
@@ -2921,8 +2921,8 @@ def get_and_lock_file_replicas(
     """
     Get file replicas for a specific scope:name.
 
-    :param scope:          The scope of the did.
-    :param name:           The name of the did.
+    :param scope:          The scope of the DID.
+    :param name:           The name of the DID.
     :param nowait:         Nowait parameter for the FOR UPDATE statement
     :param restrict_rses:  Possible RSE_ids to filter on.
     :param session:        The db session in use.
@@ -2957,8 +2957,8 @@ def get_source_replicas(
     """
     Get source replicas for a specific scope:name.
 
-    :param scope:          The scope of the did.
-    :param name:           The name of the did.
+    :param scope:          The scope of the DID.
+    :param name:           The name of the DID.
     :param soruce_rses:    Possible RSE_ids to filter on.
     :param session:        The db session in use.
     :returns:              List of SQLAlchemy Replica Objects

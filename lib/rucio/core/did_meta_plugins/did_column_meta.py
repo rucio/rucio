@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 class DidColumnMeta(DidMetaPlugin):
     """
-    A metadata plugin to interact with the base did table metadata.
+    A metadata plugin to interact with the base DID table metadata.
     """
     def __init__(self):
         super(DidColumnMeta, self).__init__()
@@ -78,7 +78,7 @@ class DidColumnMeta(DidMetaPlugin):
                 except TypeError as error:
                     raise exception.InvalidValueForKey(error)
                 if not rowcount:
-                    # check for did presence
+                    # check for DID presence
                     raise exception.UnsupportedOperation('%s for %s:%s cannot be updated' % (key, scope, name))
             elif key == 'lifetime':
                 try:
@@ -89,12 +89,12 @@ class DidColumnMeta(DidMetaPlugin):
                 except TypeError as error:
                     raise exception.InvalidValueForKey(error)
                 if not rowcount:
-                    # check for did presence
+                    # check for DID presence
                     raise exception.UnsupportedOperation('%s for %s:%s cannot be updated' % (key, scope, name))
             elif key in ['guid', 'events']:
                 rowcount = did_query.filter_by(did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
                 if not rowcount:
-                    # check for did presence
+                    # check for DID presence
                     raise exception.UnsupportedOperation('%s for %s:%s cannot be updated' % (key, scope, name))
 
                 session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
@@ -105,7 +105,7 @@ class DidColumnMeta(DidMetaPlugin):
             elif key == 'adler32':
                 rowcount = did_query.filter_by(did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
                 if not rowcount:
-                    # check for did presence
+                    # check for DID presence
                     raise exception.UnsupportedOperation('%s for %s:%s cannot be updated' % (key, scope, name))
 
                 session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
@@ -114,7 +114,7 @@ class DidColumnMeta(DidMetaPlugin):
             elif key == 'bytes':
                 rowcount = did_query.filter_by(did_type=DIDType.FILE).update({key: value}, synchronize_session=False)
                 if not rowcount:
-                    # check for did presence
+                    # check for DID presence
                     raise exception.UnsupportedOperation('%s for %s:%s cannot be updated' % (key, scope, name))
 
                 session.query(models.DataIdentifierAssociation).filter_by(child_scope=scope, child_name=name, child_type=DIDType.FILE).update({key: value}, synchronize_session=False)
@@ -176,7 +176,7 @@ class DidColumnMeta(DidMetaPlugin):
 
         :param scope: the scope name.
         :param filters: dictionary of attributes by which the results should be filtered.
-        :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+        :param did_type: the type of the DID: all(container, dataset, file), collection(dataset or container), dataset, container, file.
         :param ignore_case: ignore case distinctions.
         :param limit: limit number.
         :param offset: offset number.
@@ -281,8 +281,8 @@ class DidColumnMeta(DidMetaPlugin):
         """
         Deletes the metadata stored for the given key.
 
-        :param scope: The scope of the did.
-        :param name: The name of the did.
+        :param scope: The scope of the DID.
+        :param name: The name of the DID.
         :param key: Key of the metadata.
         """
         raise NotImplementedError('The DidColumnMeta plugin does not currently support deleting metadata.')
