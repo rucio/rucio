@@ -85,7 +85,7 @@ def add_exception(
     """
     Add exceptions to Lifetime Model.
 
-    :param dids:        The list of dids
+    :param dids:        The list of DIDs
     :param account:     The account of the requester.
     :param pattern:     The account.
     :param comments:    The comments associated to the exception.
@@ -160,7 +160,7 @@ def __add_exception(
     """
     Add exceptions to Lifetime Model.
 
-    :param dids:                   The list of dids
+    :param dids:                   The list of DIDs
     :param account:                The account of the requester.
     :param pattern:                The pattern of the exception (not used).
     :param comments:               The comments associated to the exception.

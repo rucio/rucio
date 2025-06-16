@@ -285,7 +285,7 @@ class DownloadClient:
         -------
 
             A list of dictionaries with an entry for each file, containing the input options,
-            the did, and the clientState. clientState can be one of the following:
+            the DID, and the clientState. clientState can be one of the following:
             ALREADY_DONE, DONE, FILE_NOT_FOUND, FAIL_VALIDATE, FAILED
 
         Raises
@@ -422,7 +422,7 @@ class DownloadClient:
         -------
 
             A list of dictionaries with an entry for each file, containing the input options,
-            the did, and the clientState.
+            the DID, and the clientState.
 
         Raises
         ------
@@ -499,7 +499,7 @@ class DownloadClient:
         -------
 
             A list of dictionaries with an entry for each file, containing the input options,
-            the did, and the clientState.
+            the DID, and the clientState.
 
         Raises
         ------
@@ -1021,7 +1021,7 @@ class DownloadClient:
         -------
 
             A list of dictionaries with an entry for each file, containing the input options,
-            the did, and the clientState.
+            the DID, and the clientState.
 
 
         Raises
@@ -1173,7 +1173,7 @@ class DownloadClient:
         -------
 
             A list of dictionaries with an entry for each file, containing the input options,
-            the did, and the clientState.
+            the DID, and the clientState.
         """
         trace_custom_fields = trace_custom_fields or {}
         logger = self.logger
@@ -1322,7 +1322,7 @@ class DownloadClient:
 
     def _resolve_one_item_dids(self, item: dict[str, Any]) -> "Iterator[dict[str, Any]]":
         """
-        Resolve scopes or wildcard DIDs to lists of full did names:
+        Resolve scopes or wildcard DIDs to lists of full DID names:
 
         Parameters
         ----------
@@ -1456,10 +1456,10 @@ class DownloadClient:
             if not found_compatible_group:
                 item_groups.append([item])
 
-        # List replicas for dids
+        # List replicas for DIDs
         merged_items_with_sources = []
         for item_group in item_groups:
-            # Take configuration from the first item in the group; but dids from all items
+            # Take configuration from the first item in the group; but DIDs from all items
             item = item_group[0]
             input_dids = {DID(did): did
                           for item in item_group
@@ -1512,15 +1512,15 @@ class DownloadClient:
             logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
             if not nrandom or nrandom != len(file_items):
-                # If list_replicas didn't resolve any file DIDs for any input did, we pass through the input DID.
+                # If list_replicas didn't resolve any file DIDs for any input DID, we pass through the input DID.
                 # This is done to keep compatibility with later code which generates "FILE_NOT_FOUND" traces
                 # and output items.
                 # In the special case of nrandom, when serverside filtering is applied, it's "normal" for some input
-                # dids to be ignored as long as we got exactly nrandom file_items from the server.
+                # DIDs to be ignored as long as we got exactly nrandom file_items from the server.
                 for input_did in input_dids:
                     if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
                         logger(logging.ERROR, 'DID does not exist: %s' % input_did)
-                        # TODO: store did directly as DIDType object
+                        # TODO: store DID directly as DIDType object
                         file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set(), 'impl': impl or None})
 
             # filtering out tape sources
@@ -1534,7 +1534,7 @@ class DownloadClient:
                         logger(logging.WARNING, 'The requested DID {} only has replicas on tape. Direct download from tape is prohibited. '
                                                 'Please request a transfer to a non-tape endpoint.'.format(file_item['did']))
 
-            # Match the file did back to the dids which were provided to list_replicas.
+            # Match the file DID back to the DIDs which were provided to list_replicas.
             # Later, this will allow to match the file back to input_items via did_to_input_items
             for file_item in file_items:
                 file_did = DID(file_item['did'])
@@ -1628,7 +1628,7 @@ class DownloadClient:
 
         all_dest_file_paths = set()
 
-        # get replicas for every file of the given dids
+        # get replicas for every file of the given DIDs
         for file_item in file_items:
             file_did = DID(file_item['did'])
             input_items = list(itertools.chain.from_iterable(did_to_input_items.get(did, []) for did in file_item['input_dids']))
@@ -1676,7 +1676,7 @@ class DownloadClient:
             file_item['dest_file_paths'] = list(dest_file_paths)
             file_item['temp_file_path'] = '%s.part' % file_item['dest_file_paths'][0]
 
-            # the file did str is not an unique key for this dict because multiple calls of list_replicas
+            # the file DID str is not a unique key for this dict because multiple calls of list_replicas
             # could result in the same DID multiple times. So we're using the id of the dictionary objects
             fiid = id(file_item)
             fiid_to_file_item[fiid] = file_item

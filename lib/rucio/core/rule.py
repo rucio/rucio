@@ -191,7 +191,7 @@ def add_rule(
     logger: LoggerFunction = logging.log
 ) -> list[str]:
     """
-    Adds a replication rule for every did in dids
+    Adds a replication rule for every DID in DIDs
 
     :param dids:                       List of data identifiers.
     :param account:                    Account issuing the rule.
@@ -277,7 +277,7 @@ def add_rule(
         notify_value = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS}.get(notify or '', RuleNotification.NO)
 
         for elem in dids:
-            # 3. Get the did
+            # 3. Get the DID
             with METRICS.timer('add_rule.get_did'):
                 try:
                     stmt = select(
@@ -292,7 +292,7 @@ def add_rule(
                 except TypeError as error:
                     raise InvalidObject(error.args) from error  # https://pylint.readthedocs.io/en/latest/user_guide/messages/warning/raise-missing-from.html
 
-            # 3.1 If the did is a constituent, relay the rule to the archive
+            # 3.1 If the DID is a constituent, relay the rule to the archive
             if did.did_type == DIDType.FILE and did.constituent:
                 # Check if a single replica of this DID exists; Do not put rule on file if there are only replicas on TAPE
                 stmt = select(
@@ -407,7 +407,7 @@ def add_rule(
                 logger(logging.DEBUG, "Forced injection of rule %s", str(new_rule.id))
 
             if asynchronous or delay_injection:
-                # TODO: asynchronous mode only available for closed dids (on the whole tree?)
+                # TODO: asynchronous mode only available for closed DIDs (on the whole tree?)
                 new_rule.state = RuleState.INJECT
                 logger(logging.DEBUG, "Created rule %s for injection", str(new_rule.id))
                 if delay_injection:
@@ -485,7 +485,7 @@ def add_rules(
     logger: LoggerFunction = logging.log
 ) -> dict[tuple[InternalScope, str], list[str]]:
     """
-    Adds a list of replication rules to every did in dids
+    Adds a list of replication rules to every DID in DIDs
 
     :params dids:    List of data identifiers.
     :param rules:    List of dictionaries defining replication rules.
@@ -521,7 +521,7 @@ def add_rules(
             all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
-            # 2. Get the did
+            # 2. Get the DID
             with METRICS.timer('add_rules.get_did'):
                 try:
                     stmt = select(
@@ -536,7 +536,7 @@ def add_rules(
                 except TypeError as error:
                     raise InvalidObject(error.args) from error
 
-            # 2.1 If the did is a constituent, relay the rule to the archive
+            # 2.1 If the DID is a constituent, relay the rule to the archive
             if did.did_type == DIDType.FILE and did.constituent:  # Check if a single replica of this DID exists
                 stmt = select(
                     func.count()
@@ -584,7 +584,7 @@ def add_rules(
 
             rule_ids[(elem['scope'], elem['name'])] = []
 
-            # 3. Resolve the did into its contents
+            # 3. Resolve the DID into its contents
             with METRICS.timer('add_rules.resolve_dids_to_locks_replicas'):
                 # Get all Replicas, not only the ones interesting for the rse_expression
                 datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
@@ -828,7 +828,7 @@ def inject_rule(
         dids = [{'scope': dataset['scope'], 'name': dataset['name']} for dataset in rucio.core.did.list_child_datasets(scope=rule.scope, name=rule.name, session=session)]
         # Remove duplicates from the list of dictionaries
         dids = [dict(t) for t in {tuple(d.items()) for d in dids}]
-        # Remove dids which already have a similar rule
+        # Remove DIDs which already have a similar rule
         stmt = select(
             models.ReplicationRule.id
         ).where(
@@ -881,7 +881,7 @@ def inject_rule(
     with METRICS.timer('inject_rule.create_rse_selector'):
         rseselector = RSESelector(account=rule['account'], rses=rses, weight=rule.weight, copies=rule.copies, ignore_account_limit=rule.ignore_account_limit, session=session)
 
-    # 3. Get the did
+    # 3. Get the DID
     with METRICS.timer('inject_rule.get_did'):
         try:
             stmt = select(
@@ -1104,7 +1104,7 @@ def list_associated_rules_for_file(
     :param session: The database session in use.
     :raises:        RucioException
     """
-    rucio.core.did.get_did(scope=scope, name=name, session=session)  # Check if the did actually exists
+    rucio.core.did.get_did(scope=scope, name=name, session=session)  # Check if the DID actually exists
     stmt = select(
         models.ReplicationRule,
         models.DataIdentifier.bytes
@@ -1364,7 +1364,7 @@ def repair_rule(
                 rule.locks_stuck_cnt = count.state_counter
         logger(logging.DEBUG, "Finished resetting counters for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
-        # Get the did
+        # Get the DID
         stmt = select(
             models.DataIdentifier
         ).where(
@@ -1387,7 +1387,7 @@ def repair_rule(
             hard_repair = True
             logger(logging.DEBUG, 'Repairing rule %s in HARD mode', str(rule.id))
 
-        # Resolve the did to its contents
+        # Resolve the DID to its contents
         datasetfiles, locks, replicas, source_replicas = __resolve_did_to_locks_and_replicas(did=did,
                                                                                              nowait=True,
                                                                                              restrict_rses=[rse['id'] for rse in rses],
@@ -2060,10 +2060,10 @@ def re_evaluate_did(
     logger: LoggerFunction = logging.log
 ) -> None:
     """
-    Re-Evaluates a did.
+    Re-Evaluates a DID.
 
-    :param scope:                   The scope of the did to be re-evaluated.
-    :param name:                    The name of the did to be re-evaluated.
+    :param scope:                   The scope of the DID to be re-evaluated.
+    :param name:                    The name of the DID to be re-evaluated.
     :param rule_evaluation_action:  The Rule evaluation action.
     :param session:                 The database session in use.
     :param logger:                  Optional decorated logger that can be passed from the calling daemons or servers.
@@ -2086,7 +2086,7 @@ def re_evaluate_did(
     else:
         __evaluate_did_detach(did, session=session, logger=logger)
 
-    # Update size and length of did
+    # Update size and length of DID
     if session.bind.dialect.name == 'oracle':
         stmt = select(
             func.sum(models.DataIdentifierAssociation.bytes),
@@ -2118,12 +2118,12 @@ def get_updated_dids(
     session: "Session"
 ) -> list[tuple[str, InternalScope, str, DIDReEvaluation]]:
     """
-    Get updated dids.
+    Get updated DIDs.
 
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
-    :param limit:              Maximum number of dids to return.
-    :param blocked_dids:       Blocked dids to filter.
+    :param limit:              Maximum number of DIDs to return.
+    :param blocked_dids:       Blocked DIDs to filter.
     :param session:            Database session in use.
     """
     blocked_dids = blocked_dids or []
@@ -2135,7 +2135,7 @@ def get_updated_dids(
     )
     stmt = filter_thread_work(session=session, query=stmt, total_threads=total_workers, thread_id=worker_number, hash_variable='name')
 
-    # Remove blocked dids from query, but only do the first 30 ones, not to overload the query
+    # Remove blocked DIDs from query, but only do the first 30 ones, not to overload the query
     if blocked_dids:
         chunk = list(chunks(blocked_dids, 30))[0]
         stmt = stmt.where(tuple_(models.UpdatedDID.scope, models.UpdatedDID.name).notin_(chunk))
@@ -3403,9 +3403,9 @@ def __evaluate_did_detach(
     logger: LoggerFunction = logging.log
 ) -> None:
     """
-    Evaluate a parent did which has children removed.
+    Evaluate a parent DID which has children removed.
 
-    :param eval_did:  The did object in use.
+    :param eval_did:  The DID object in use.
     :param session:   The database session in use.
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     """
@@ -3563,9 +3563,9 @@ def __evaluate_did_attach(
     logger: LoggerFunction = logging.log
 ) -> None:
     """
-    Evaluate a parent did which has new children
+    Evaluate a parent DID which has new children
 
-    :param eval_did:  The did object in use.
+    :param eval_did:  The DID object in use.
     :param session:   The database session in use.
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     :raises:          ReplicationRuleCreationTemporaryFailed
@@ -3793,7 +3793,7 @@ def __evaluate_did_attach(
                         # Insert rule history
                         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
-            # Unflage the dids
+            # Unflag the DIDs
             with METRICS.timer('evaluate_did_attach.update_did'):
                 for did in new_child_dids:
                     did.rule_evaluation = None
@@ -3815,9 +3815,9 @@ def __resolve_did_to_locks_and_replicas(
            dict[tuple[str, str], models.RSEFileAssociation],
            dict[tuple[str, str], str]]:
     """
-    Resolves a did to its constituent children and reads the locks and replicas of all the constituent files.
+    Resolves a DID to its constituent children and reads the locks and replicas of all the constituent files.
 
-    :param did:            The db object of the did the rule is applied on.
+    :param did:            The db object of the DID the rule is applied on.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible rses of the rule, so only these replica/locks should be considered.
     :param source_rses:    Source rses for this rule. These replicas are not row-locked.
@@ -3922,7 +3922,7 @@ def __resolve_dids_to_locks_and_replicas(
            dict[tuple[str, str], models.RSEFileAssociation],
            dict[tuple[str, str], str]]:
     """
-    Resolves a list of dids to its constituent children and reads the locks and replicas of all the constituent files.
+    Resolves a list of DIDs to its constituent children and reads the locks and replicas of all the constituent files.
 
     :param dids:           The list of DataIdentifierAssociation objects.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
@@ -3940,7 +3940,7 @@ def __resolve_dids_to_locks_and_replicas(
     restrict_rses = restrict_rses or []
 
     if dids[0].child_type == DIDType.FILE:
-        # All the dids will be files!
+        # All the DIDs will be files!
         # Prepare the datasetfiles
         files = []
         for did in dids:

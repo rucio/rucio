@@ -1266,7 +1266,7 @@ def add_rule(args, client, logger, console, spinner):
     """
     %(prog)s add-rule <did> <copies> <rse-expression> [options]
 
-    Add a rule to a did.
+    Add a rule to a DID.
     """
 
     dids = []

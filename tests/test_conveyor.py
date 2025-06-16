@@ -302,7 +302,7 @@ def test_fts_non_recoverable_failures_handled_on_multihop(vo, did_factory, root_
 
     all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
-    # Register a did which doesn't exist. It will trigger an non-recoverable error during the FTS transfer.
+    # Register a DID which doesn't exist. It will trigger a non-recoverable error during the FTS transfer.
     did = did_factory.random_file_did()
     replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
@@ -549,7 +549,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
 
         all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
-        # Register a did which doesn't exist. It will trigger a failure error during the FTS transfer.
+        # Register a DID which doesn't exist. It will trigger a failure error during the FTS transfer.
         did = did_factory.random_file_did()
         replica_client.add_replicas(rse=src_rse, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
 
@@ -1138,7 +1138,7 @@ def overwrite_on_tape_topology(rse_factory, did_factory, root_account, vo, file_
     Prepares the XRD* RSEs for an overwrite_on_tape test.
     - fakes that one xroot RSE is a tape destination (and rollbacks the change after the test)
 
-    Return a factory which allows to upload/register/add_rule for two dids
+    Return a factory which allows to upload/register/add_rule for two DIDs
     """
 
     rse1 = 'XRD1'

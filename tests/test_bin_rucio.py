@@ -986,7 +986,7 @@ class TestBinRucio:
         print(out, err)
         assert 'Arguments filter and metalink cannot be used together' in err
 
-        # Use did and metalink option
+        # Use DID and metalink option
         cmd = 'rucio download --legacy --metalink=test mock:test'
         exitcode, out, err = execute(cmd)
         print(out, err)
@@ -1689,7 +1689,7 @@ class TestBinRucio:
 
     @pytest.mark.dirty
     def test_list_did_recursive(self):
-        """ CLIENT(USER): List did recursive """
+        """ CLIENT(USER): List DID recursive """
         # Setup nested collections
         tmp_scope = 'mock'
         tmp_container_1 = 'container_%s' % generate_uuid()

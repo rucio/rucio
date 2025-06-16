@@ -61,7 +61,7 @@ class TestUndertaker:
 
         # arbitrary keys do not work without JSON support (sqlite, Oracle < 12)
         if json_implemented():
-            # Add generic metadata on did
+            # Add generic metadata on DID
             set_metadata(mock_scope, dsns1[0]['name'], "test_key", "test_value")
 
         replicas = list()
@@ -81,7 +81,7 @@ class TestUndertaker:
             assert get_replica(scope=replica['scope'], name=replica['name'], rse_id=rse_id)['tombstone'] is not None
 
     def test_list_expired_dids_with_locked_rules(self, rse_factory, vo, mock_scope, root_account, jdoe_account):
-        """ UNDERTAKER (CORE): Test that the undertaker does not list expired dids with locked rules"""
+        """ UNDERTAKER (CORE): Test that the undertaker does not list expired DIDs with locked rules"""
 
         # Add quota
         rse, rse_id = rse_factory.make_rse()

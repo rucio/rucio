@@ -1086,7 +1086,7 @@ def perm_add_bad_pfns(issuer: "InternalAccount", kwargs: dict[str, Any], *, sess
 
 def perm_remove_did_from_followed(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
     """
-    Checks if an account can remove did from followed table.
+    Checks if an account can remove DID from followed table.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
@@ -1101,7 +1101,7 @@ def perm_remove_did_from_followed(issuer: "InternalAccount", kwargs: dict[str, A
 
 def perm_remove_dids_from_followed(issuer: "InternalAccount", kwargs: dict[str, Any], *, session: "Optional[Session]" = None) -> bool:
     """
-    Checks if an account can bulk remove dids from followed table.
+    Checks if an account can bulk remove DIDs from followed table.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

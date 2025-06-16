@@ -55,12 +55,12 @@ def skip_without_json():
 class TestDIDCore:
 
     def test_list_dids(self, vo):
-        """ DATA IDENTIFIERS (CORE): List dids """
+        """ DATA IDENTIFIERS (CORE): List DIDs """
         for d in list_dids(scope=InternalScope('data13_hip', vo=vo), filters={'name': '*'}, did_type='collection'):
             print(d)
 
     def test_delete_dids(self, mock_scope, root_account):
-        """ DATA IDENTIFIERS (CORE): Delete dids """
+        """ DATA IDENTIFIERS (CORE): Delete DIDs """
         dsns = [{'name': did_name_generator('dataset'),
                  'scope': mock_scope,
                  'purge_replicas': False,
@@ -70,7 +70,7 @@ class TestDIDCore:
         delete_dids(dids=dsns, account=root_account)
 
     def test_touch_dids_atime(self, mock_scope, root_account):
-        """ DATA IDENTIFIERS (CORE): Touch dids accessed_at timestamp"""
+        """ DATA IDENTIFIERS (CORE): Touch DIDs accessed_at timestamp"""
         tmp_dsn1 = did_name_generator('dataset')
         tmp_dsn2 = did_name_generator('dataset')
 
@@ -87,7 +87,7 @@ class TestDIDCore:
         assert get_did_atime(scope=mock_scope, name=tmp_dsn2) is None
 
     def test_touch_dids_access_cnt(self, mock_scope, root_account):
-        """ DATA IDENTIFIERS (CORE): Increase dids access_cnt"""
+        """ DATA IDENTIFIERS (CORE): Increase DIDs access_cnt"""
         tmp_dsn1 = did_name_generator('dataset')
         tmp_dsn2 = did_name_generator('dataset')
 
@@ -125,7 +125,7 @@ class TestDIDCore:
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
     def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory):
-        """ DATA IDENTIFIERS (CORE): Get did with dynamic resolve of size"""
+        """ DATA IDENTIFIERS (CORE): Get DID with dynamic resolve of size"""
         rse_name, rse_id = rse_factory.make_mock_rse()
 
         # make a dataset with 2 files in it and verify get_did(dynamic) on dataset
@@ -207,7 +207,7 @@ class TestDIDCore:
 
     @pytest.mark.dirty
     def test_add_did_to_followed(self, mock_scope, root_account):
-        """ DATA IDENTIFIERS (CORE): Mark a did as followed """
+        """ DATA IDENTIFIERS (CORE): Mark a DID as followed """
         dsn = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
@@ -221,7 +221,7 @@ class TestDIDCore:
 
     @pytest.mark.dirty
     def test_get_users_following_did(self, mock_scope, root_account):
-        """ DATA IDENTIFIERS (CORE): Get the list of users following a did """
+        """ DATA IDENTIFIERS (CORE): Get the list of users following a DID """
         dsn = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
@@ -236,7 +236,7 @@ class TestDIDCore:
 
     @pytest.mark.dirty
     def test_remove_did_from_followed(self, mock_scope, root_account):
-        """ DATA IDENTIFIERS (CORE): Mark a did as not followed """
+        """ DATA IDENTIFIERS (CORE): Mark a DID as not followed """
         dsn = did_name_generator('dataset')
 
         add_did(scope=mock_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
@@ -358,7 +358,7 @@ class TestDIDGateway:
 class TestDIDClients:
 
     def test_list_dids(self, did_client, replica_client, scope_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): List dids by pattern."""
+        """ DATA IDENTIFIERS (CLIENT): List DIDs by pattern."""
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         tmp_scope = scope_name_generator()
         tmp_files = []
@@ -399,8 +399,8 @@ class TestDIDClients:
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope names')
     def test_list_recursive(self, did_client, scope_client):
-        """ DATA IDENTIFIERS (CLIENT): List did recursive """
-        # Create nested containers and datast
+        """ DATA IDENTIFIERS (CLIENT): List DID recursive """
+        # Create nested containers and datasets
         tmp_scope_1 = ('list-did-recursive-%s' % generate_uuid())[:25]
         tmp_scope_2 = ('list-did-recursive-%s' % generate_uuid())[:25]
         scope_client.add_scope('root', tmp_scope_1)
@@ -444,7 +444,7 @@ class TestDIDClients:
 
     @pytest.mark.dirty
     def test_list_by_metadata(self, did_client):
-        """ DATA IDENTIFIERS (CLIENT): List did with metadata"""
+        """ DATA IDENTIFIERS (CLIENT): List DID with metadata"""
         dsns = []
         tmp_scope = 'mock'
         tmp_dsn1 = did_name_generator('dataset')
@@ -495,7 +495,7 @@ class TestDIDClients:
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')
     def test_add_did(self, vo, did_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): Add, populate, list did content"""
+        """ DATA IDENTIFIERS (CLIENT): Add, populate, list DID content"""
         tmp_scope = 'mock'
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
@@ -601,7 +601,7 @@ class TestDIDClients:
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')
     def test_attach_dids_to_dids(self, did_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): Attach dids to dids"""
+        """ DATA IDENTIFIERS (CLIENT): Attach DIDs to DIDs"""
         tmp_scope = 'mock'
         tmp_rse, rse_id = rse_factory.make_mock_rse()
         nb_datasets = 5
@@ -740,7 +740,7 @@ class TestDIDClients:
 
     @pytest.mark.dirty
     def test_did_hierarchy(self, did_client, replica_client, scope_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): Check did hierarchy rule """
+        """ DATA IDENTIFIERS (CLIENT): Check DID hierarchy rule """
 
         account = 'jdoe'
         rse, rse_id = rse_factory.make_mock_rse()
@@ -778,7 +778,7 @@ class TestDIDClients:
             #     assert r['level'] == 1
 
     def test_detach_did(self, did_client, replica_client, scope_client, rse_factory):
-        """ DATA IDENTIFIERS (CLIENT): Detach dids from a did"""
+        """ DATA IDENTIFIERS (CLIENT): Detach DIDs from a DID"""
 
         account = 'jdoe'
         rse, rse_id = rse_factory.make_mock_rse()
@@ -1248,7 +1248,7 @@ def test_bulk_get_meta_inheritance(vo, rse_factory, mock_scope, did_factory, ruc
 @pytest.mark.dirty
 @pytest.mark.noparallel(reason='uses pre-defined scope')
 def test_list_by_length(vo, root_account, rse_factory, mock_scope, did_factory, did_client):
-    """ DATA IDENTIFIERS (CLIENT): List did with length """
+    """ DATA IDENTIFIERS (CLIENT): List DID with length """
 
     tmp_scope = scope_name_generator()
     scope.add_scope(tmp_scope, 'root', 'root', vo)

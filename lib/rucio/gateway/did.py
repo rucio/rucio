@@ -43,11 +43,11 @@ def list_dids(
     vo: str = 'def',
 ) -> 'Iterator[dict[str, Any]]':
     """
-    List dids in a scope.
+    List DIDs in a scope.
 
     :param scope: The scope name.
     :param filters: Filter arguments in form supported by the filter engine.
-    :param did_type:  The type of the did: all(container, dataset, file), collection(dataset or container), dataset, container
+    :param did_type:  The type of the DID: all(container, dataset, file), collection(dataset or container), dataset, container
     :param ignore_case: Ignore case distinctions.
     :param limit: The maximum number of DIDs returned.
     :param offset: Offset number.
@@ -87,7 +87,7 @@ def add_did(
     vo: str = 'def',
 ) -> None:
     """
-    Add data did.
+    Add data DID.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -96,7 +96,7 @@ def add_did(
     :param account: The account owner. If None, then issuer is selected as owner.
     :param statuses: Dictionary with statuses, e.g.g {'monotonic':True}.
     :meta: Meta-data associated with the data identifier is represented using key/value pairs in a dictionary.
-    :rules: Replication rules associated with the data did. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
+    :rules: Replication rules associated with the data DID. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     :param lifetime: DID's lifetime (in seconds).
     :param dids: The content.
     :param rse: The RSE name when registering replicas.
@@ -155,9 +155,9 @@ def add_dids(
     vo: str = 'def',
 ) -> None:
     """
-    Bulk Add did.
+    Bulk Add DID.
 
-    :param dids: A list of dids.
+    :param dids: A list of DIDs.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
@@ -193,7 +193,7 @@ def attach_dids(
     vo='def',
 ) -> None:
     """
-    Append content to data did.
+    Append content to data DID.
 
     :param attachment: The attachment.
     :param issuer: The issuer account.
@@ -240,7 +240,7 @@ def attach_dids_to_dids(
     vo: str = 'def',
 ) -> None:
     """
-    Append content to dids.
+    Append content to DIDs.
 
     :param attachments: The contents.
     :param issuer: The issuer account.
@@ -468,15 +468,15 @@ def scope_list(
 
 def get_did(scope: str, name: str, dynamic_depth: Optional[DIDType] = None, vo: str = 'def') -> "dict[str, Any]":
     """
-    Retrieve a single data did.
+    Retrieve a single data DID.
 
     :param scope: The scope name.
     :param name: The data identifier name.
     :param dynamic_depth: the DID type to use as source for estimation of this DIDs length/bytes.
-    If set to None, or to a value which doesn't make sense (ex: requesting depth = CONTAINER for a did of type DATASET)
+    If set to None, or to a value which doesn't make sense (ex: requesting depth = CONTAINER for a DID of type DATASET)
     will not compute the size dynamically.
     :param vo: The VO to act on.
-    :return did: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
+    :return DID: Dictionary containing {'name', 'scope', 'type'}, Exception otherwise
     """
 
     internal_scope = InternalScope(scope, vo=vo)
@@ -496,7 +496,7 @@ def set_metadata(
     vo: str = 'def',
 ) -> None:
     """
-    Add metadata to data did.
+    Add metadata to data DID.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -529,7 +529,7 @@ def set_metadata_bulk(
     vo: str = 'def',
 ) -> None:
     """
-    Add metadata to data did.
+    Add metadata to data DID.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -563,7 +563,7 @@ def set_dids_metadata_bulk(
     Add metadata to a list of data identifiers.
 
     :param issuer: The issuer account.
-    :param dids: A list of dids including metadata.
+    :param dids: A list of DIDs including metadata.
     :param recursive: Option to propagate the metadata update to content.
     :param vo: The VO to act on.
     """
@@ -612,8 +612,8 @@ def get_metadata_bulk(
     vo: str = 'def',
 ) -> 'Iterator[dict[str, Any]]':
     """
-    Get metadata for a list of dids
-    :param dids:               A list of dids.
+    Get metadata for a list of DIDs
+    :param dids:               A list of DIDs.
     :param inherit:            A boolean. If set to true, the metadata of the parent are concatenated.
     :param plugin:             The metadata plugin to query, 'ALL' for all available plugins
     :param vo:                 The VO to act on.
@@ -638,8 +638,8 @@ def delete_metadata(
     """
     Delete a key from the metadata column
 
-    :param scope: the scope of did
-    :param name: the name of the did
+    :param scope: the scope of DID
+    :param name: the name of the DID
     :param key: the key to be deleted
     :param vo: The VO to act on.
     """
@@ -685,7 +685,7 @@ def get_dataset_by_guid(
     :param guid: The GUID.
     :param vo: The VO to act on.
 
-    :returns: A did
+    :returns: A DID
     """
     with db_session(DatabaseOperationType.READ) as session:
         dids = did.get_dataset_by_guid(guid=guid, session=session)
@@ -702,7 +702,7 @@ def list_parent_dids(
     vo: str = 'def',
 ) -> 'Iterator[dict[str, Any]]':
     """
-    List parent datasets and containers of a did.
+    List parent datasets and containers of a DID.
 
     :param scope:   The scope.
     :param name:    The name.
@@ -763,7 +763,7 @@ def resurrect(
     """
     Resurrect DIDs.
 
-    :param dids: A list of dids.
+    :param dids: A list of DIDs.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     """
@@ -808,7 +808,7 @@ def add_did_to_followed(
     vo: str = 'def'
 ) -> None:
     """
-    Mark a did as followed by the given account
+    Mark a DID as followed by the given account
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -828,7 +828,7 @@ def add_dids_to_followed(
     """
     Bulk mark datasets as followed
 
-    :param dids: A list of dids.
+    :param dids: A list of DIDs.
     :param account: The account owner.
     """
     internal_account = InternalAccount(account, vo=vo)
@@ -842,7 +842,7 @@ def get_users_following_did(
     vo: str = 'def'
 ) -> 'Iterator[dict[str, str]]':
     """
-    Return list of users following a did
+    Return list of users following a DID
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -863,7 +863,7 @@ def remove_did_from_followed(
     vo: str = 'def'
 ) -> None:
     """
-    Mark a did as not followed
+    Mark a DID as not followed
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -890,7 +890,7 @@ def remove_dids_from_followed(
     """
     Bulk mark datasets as not followed
 
-    :param dids: A list of dids.
+    :param dids: A list of DIDs.
     :param account: The account owner.
     """
     kwargs = {'dids': dids, 'issuer': issuer}

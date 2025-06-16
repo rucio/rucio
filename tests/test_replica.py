@@ -820,7 +820,7 @@ def test_client_access_denied_on_delete_replicas(rse_factory, mock_scope, replic
 
 
 def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, replica_client, did_client, root_account):
-    """ REPLICA (CLIENT): dids of type FILE, but without replicas, must be listed with empty pfns and rses"""
+    """ REPLICA (CLIENT): DIDs of type FILE, but without replicas, must be listed with empty pfns and rses"""
     rse, _ = rse_factory.make_posix_rse()
     file = did_factory.random_file_did()
     dataset = did_factory.make_dataset()
@@ -842,7 +842,7 @@ def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, 
     assert len(replicas) == 1
     assert not replicas[0]['rses']
     assert not replicas[0]['pfns']
-    # TODO: fix listing dids without replicas from datasets and containers and uncomment the following 2 asserts
+    # TODO: fix listing DIDs without replicas from datasets and containers and uncomment the following 2 asserts
     # assert list(replica_client.list_replicas(dids=[dataset]))
     # assert list(replica_client.list_replicas(dids=[container]))
 

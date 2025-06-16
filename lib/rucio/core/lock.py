@@ -81,7 +81,7 @@ def get_dataset_locks_bulk(dids: "Iterable[dict[str, Any]]", *, session: "Sessio
     Get the dataset locks of a list of datasets or containers, recursively
 
     :param dids:           List of dictionaries {"scope":scope(type:InternalScope), "name":name,
-                           "type":did type(DIDType.DATASET or DIDType.CONTAINER)}, "type" is optional
+                           "type":DID type(DIDType.DATASET or DIDType.CONTAINER)}, "type" is optional
     :param session:        The db session to use.
     :return:               Generator of lock_info dicts, may contain duplicates
     """
@@ -156,8 +156,8 @@ def get_replica_locks(scope: InternalScope, name: str, nowait: bool = False, res
     """
     Get the active replica locks for a file
 
-    :param scope:          Scope of the did.
-    :param name:           Name of the did.
+    :param scope:          Scope of the DID.
+    :param name:           Name of the DID.
     :param nowait:         Nowait parameter for the FOR UPDATE statement.
     :param restrict_rses:  Possible RSE_ids to filter on.
     :param session:        The db session.
@@ -334,8 +334,8 @@ def successful_transfer(scope: InternalScope, name: str, rse_id: str, nowait: bo
     """
     Update the state of all replica locks because of an successful transfer
 
-    :param scope:    Scope of the did
-    :param name:     Name of the did
+    :param scope:    Scope of the DID
+    :param name:     Name of the DID
     :param rse_id:   RSE id
     :param nowait:   Nowait parameter for the for_update queries.
     :param session:  DB Session.
@@ -426,8 +426,8 @@ def failed_transfer(scope: InternalScope, name: str, rse_id: str, error_message:
     Update the state of all replica locks because of a failed transfer.
     If a transfer is permanently broken for a rule, the broken_rule_id should be filled which puts this rule into the SUSPENDED state.
 
-    :param scope:           Scope of the did.
-    :param name:            Name of the did.
+    :param scope:           Scope of the DID.
+    :param name:            Name of the DID.
     :param rse_id:          RSE id.
     :param error_message:   The error why this transfer failed.
     :param broken_rule_id:  Id of the rule which will be suspended.

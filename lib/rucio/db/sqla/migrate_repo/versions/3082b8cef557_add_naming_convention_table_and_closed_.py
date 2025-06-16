@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add convention table and closed_at to dids '''
+''' add convention table and closed_at to DIDs '''
 
 import datetime
 

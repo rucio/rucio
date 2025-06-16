@@ -724,7 +724,7 @@ class UploadClient:
         file_did = {'scope': file_scope, 'name': file_name}
         replica_for_api = self._convert_file_for_api(file)
         try:
-            # if the remote checksum is different, this did must not be used
+            # if the remote checksum is different, this DID must not be used
             meta = self.client.get_metadata(file_scope, file_name)
             logger(logging.INFO, 'File DID already exists')
             logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))

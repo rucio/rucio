@@ -103,7 +103,7 @@ class MetaLinkRedirector(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           404:
-            description: "Rse or did not found"
+            description: "Rse or DID not found"
           406:
             description: "Not acceptable"
         """
@@ -263,7 +263,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
           404:
-            description: "Rse or did not found"
+            description: "Rse or DID not found"
         """
         headers = self.get_headers()
 

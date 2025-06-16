@@ -68,6 +68,6 @@ def add_(ctx, subscription_name, did_filter, rule, comment, lifetime, account, p
 @click.pass_context
 def touch(ctx, dids):
     """Reevaluate list of DIDs against all active subscriptions"""
-    # TODO make reeval accept dids as a list
+    # TODO make reeval accept DIDs as a list
     dids = ",".join(dids)
     reevaluate_did_for_subscription(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

@@ -76,16 +76,16 @@ RESTRICTED_CHARACTERS = {
 @read_session
 def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
     """
-    Gets the metadata for a given did from a specified plugin.
+    Gets the metadata for a given DID from a specified plugin.
 
     If [plugin] is set to "all", metadata from all available metadata plugins will be returned,
     else [plugin] can be used to only return the metadata using a specific plugin.
 
-    :param scope: The scope of the did.
+    :param scope: The scope of the DID.
     :param name: The data identifier name.
     :param plugin: (optional) Filter specific metadata plugins.
     :param session: (optional) The database session in use.
-    :returns: Dictionary containing metadata for did.
+    :returns: Dictionary containing metadata for DID.
     :raises: UnsupportedMetadataPlugin: If the specified plugin is not enabled/available
     """
     if plugin.lower() == "all":
@@ -104,9 +104,9 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
 @transactional_session
 def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"):
     """
-    Sets metadata for a given did.
+    Sets metadata for a given DID.
 
-    :param scope: The scope of the did.
+    :param scope: The scope of the DID.
     :param name: The data identifier name.
     :param key: Metadata key.
     :param value: Metadata value.
@@ -138,7 +138,7 @@ def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"
 @transactional_session
 def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session"):
     """
-    Bulk sets metadata for a given did.
+    Bulk sets metadata for a given DID.
 
     :param scope: The scope name.
     :param name: The data identifier name.
@@ -188,8 +188,8 @@ def delete_metadata(scope, name, key, *, session: "Session"):
     """
     Deletes metadata stored for a given key.
 
-    :param scope: The scope of the did.
-    :param name: The name of the did.
+    :param scope: The scope of the DID.
+    :param name: The name of the DID.
     :param key: Key of the metadata.
     """
     for metadata_plugin in METADATA_PLUGIN_MODULES:
@@ -207,7 +207,7 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
 
     :param scope: the scope name.
     :param filters: dictionary of attributes by which the results should be filtered.
-    :param did_type: the type of the did: all(container, dataset, file), collection(dataset or container), dataset, container, file.
+    :param did_type: the type of the DID: all(container, dataset, file), collection(dataset or container), dataset, container, file.
     :param ignore_case: ignore case distinctions.
     :param limit: limit number.
     :param offset: offset number.
@@ -215,7 +215,7 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     :param recursive: Recursively list DIDs content.
     :param ignore_dids: List of DIDs to refrain from yielding.
     :param session: The database session in use.
-    :returns: List of dids satisfying metadata criteria.
+    :returns: List of DIDs satisfying metadata criteria.
     :raises: InvalidMetadata
     """
     # backwards compatibility for filters as single {}.

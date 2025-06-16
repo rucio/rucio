@@ -672,7 +672,7 @@ class TestMultiVoClients:
         assert shr in account_list_new
 
     def test_dids_at_different_vos(self, vo, second_vo, did_client):
-        """ MULTI VO (CLIENT): Test that dids from 2nd vo don't interfere """
+        """ MULTI VO (CLIENT): Test that DIDs from 2nd vo don't interfere """
         scope_uuid = str(generate_uuid()).lower()[:16]
         scope = 'shr_%s' % scope_uuid
         add_scope(scope, 'root', 'root', vo=vo)

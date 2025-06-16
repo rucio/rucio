@@ -1055,7 +1055,7 @@ def perm_add_bad_pfns(issuer, kwargs, *, session: "Optional[Session]" = None):
 
 def perm_remove_did_from_followed(issuer, kwargs, *, session: "Optional[Session]" = None):
     """
-    Checks if an account can remove did from followed table.
+    Checks if an account can remove DID from followed table.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
@@ -1070,7 +1070,7 @@ def perm_remove_did_from_followed(issuer, kwargs, *, session: "Optional[Session]
 
 def perm_remove_dids_from_followed(issuer, kwargs, *, session: "Optional[Session]" = None):
     """
-    Checks if an account can bulk remove dids from followed table.
+    Checks if an account can bulk remove DIDs from followed table.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

@@ -55,7 +55,7 @@ class DIDClient(BaseClient):
                 like <key>.<operation>, e.g. key1 >= value1 is equivalent to {'key1.gte': value}, where <operation> belongs to one
                 of the set {'lte', 'gte', 'gt', 'lt', 'ne' or ''}. Equivalence doesn't require an operator.
             did_type :
-                The type of the did: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
+                The type of the DID: 'all'(container, dataset or file)|'collection'(dataset or container)|'dataset'|'container'|'file'
             long :
                 Long format option to display more information for each DID.
             recursive :
@@ -325,14 +325,14 @@ class DIDClient(BaseClient):
             ignore_duplicate: bool = False
     ) -> bool:
         """
-        Add dids to dids.
+        Add DIDs to DIDs.
 
         Parameters
         ----------
         attachments :
             The attachments.
-            An attachment contains: "scope", "name", "dids".
-            dids is: [{'scope': scope, 'name': name}, ...]
+            An attachment contains: "scope", "name", "DIDs".
+            DIDs is: [{'scope': scope, 'name': name}, ...]
         ignore_duplicate :
             If True, ignore duplicate entries.
         """
@@ -358,8 +358,8 @@ class DIDClient(BaseClient):
         ----------
         attachments :
             The attachments.
-            An attachment contains: "scope", "name", "dids".
-            dids is: [{'scope': scope, 'name': name}, ...]
+            An attachment contains: "scope", "name", "DIDs".
+            DIDs is: [{'scope': scope, 'name': name}, ...]
         ignore_duplicate :
             If True, ignore duplicate entries.
         """
@@ -377,8 +377,8 @@ class DIDClient(BaseClient):
         ----------
         attachments :
             The attachments.
-            An attachment contains: "scope", "name", "dids".
-            dids is: [{'scope': scope, 'name': name}, ...]
+            An attachment contains: "scope", "name", "DIDs".
+            DIDs is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
@@ -393,8 +393,8 @@ class DIDClient(BaseClient):
         ----------
         attachments :
             The attachments.
-            An attachment contains: "scope", "name", "dids".
-            dids is: [{'scope': scope, 'name': name}, ...]
+            An attachment contains: "scope", "name", "DIDs".
+            DIDs is: [{'scope': scope, 'name': name}, ...]
         """
         return self.attach_dids_to_dids(attachments=attachments)
 
@@ -661,7 +661,7 @@ class DIDClient(BaseClient):
         Parameters
         ----------
         dids :
-            A list of dids.
+            A list of DIDs.
         inherit :
             A boolean. If set to true, the metadata of the parent are concatenated.
         plugin :
@@ -752,7 +752,7 @@ class DIDClient(BaseClient):
         Parameters
         ----------
         dids :
-            A list of dids including metadata, i.e.
+            A list of DIDs including metadata, i.e.
             [{'scope': scope1, 'name': name1, 'meta': {key1: value1, key2: value2}}, ...].
         recursive :
             Option to propagate the metadata update to content.
@@ -902,7 +902,7 @@ class DIDClient(BaseClient):
         Returns
         -------
 
-            A did
+            A DID
         """
 
         path = '/'.join([self.DIDS_BASEURL, guid, 'guid'])
@@ -954,7 +954,7 @@ class DIDClient(BaseClient):
             name: str
     ) -> "Iterator[dict[str, Any]]":
         """
-        List parent dataset/containers of a did.
+        List parent dataset/containers of a DID.
 
         Parameters
         ----------
@@ -1016,12 +1016,12 @@ class DIDClient(BaseClient):
 
     def resurrect(self, dids: "Sequence[Mapping[str, Any]]") -> bool:
         """
-        Resurrect a list of dids.
+        Resurrect a list of DIDs.
 
         Parameters
         ----------
         dids :
-            A list of dids [{'scope': scope, 'name': name}, ...]
+            A list of DIDs [{'scope': scope, 'name': name}, ...]
         """
         path = '/'.join([self.DIDS_BASEURL, 'resurrect'])
         url = build_url(choice(self.list_hosts), path=path)

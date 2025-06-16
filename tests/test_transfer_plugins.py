@@ -85,7 +85,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
 
     """Transfer with an installed plugin for scheduling based on transfer activity"""
 
-    # Produce a new did
+    # Produce a new DID
     mock_did = did_factory.random_file_did()
 
     # Make the transfer path
@@ -124,7 +124,7 @@ def test_scheduling_hints(file_config_mock, did_factory, rse_factory, root_accou
 def test_activity_missing(file_config_mock, did_factory, rse_factory, root_account):
     """Ensure default is selected when the activity is not listed in the config, but is in the schema"""
     # Do not add config section for priority, but do add the FTS3
-    # Produce a new did
+    # Produce a new DID
     mock_did = did_factory.random_file_did()
 
     # Make the transfer path
@@ -177,7 +177,7 @@ class TestCollocationHints:
         }
     ], indirect=True)
     def test_collocation_hints(self, file_config_mock, did_factory, rse_factory, root_account):
-        """For a mock collocation algorithm, it can produce the 4 levels of hints required for each did"""
+        """For a mock collocation algorithm, it can produce the 4 levels of hints required for each DID"""
 
         mock_did = did_factory.random_file_did()
         transfer_path = _make_transfer_path(mock_did, rse_factory, root_account)
