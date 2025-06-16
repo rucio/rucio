@@ -37,6 +37,7 @@ def version_string_with_vcs() -> str:
     """ Get the version string with VCS """
     return "%s-%s" % (canonical_version_string(), vcs_version_string())
 
+
 def current_version() -> str:
     """ Get the current version """
     components = 2 if version_string().startswith("1.") else 1
