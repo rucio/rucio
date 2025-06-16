@@ -2098,7 +2098,7 @@ class PriorityQueue:
 def check_policy_package_version(package: str) -> None:
     import importlib
 
-    from rucio.version import version_string
+    from rucio.version import current_version
     '''
     Checks that the Rucio version supported by the policy package is compatible
     with this version. Raises an exception if not.
@@ -2113,10 +2113,8 @@ def check_policy_package_version(package: str) -> None:
         # package is not versioned
         return
     supported_version = module.SUPPORTED_VERSION if isinstance(module.SUPPORTED_VERSION, list) else [module.SUPPORTED_VERSION]
-    components = 2 if version_string().startswith("1.") else 1
-    current_version = ".".join(version_string().split(".")[:components])
-    if current_version not in supported_version:
-        raise PolicyPackageVersionError(package, current_version, supported_version)
+    if current_version() not in supported_version:
+        raise PolicyPackageVersionError(package, current_version(), supported_version)
 
 
 class Availability:
