@@ -41,6 +41,19 @@ jobs:
         with:
           path: dev/rucio
           fetch-depth: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        with:
+          driver-opts: network=host
+      - name: Cache Docker layers
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-
+            ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-
+            ${{ runner.os }}-buildx-autotest-
       - name: Select tag for rucio containers
         shell: bash
         run: |
@@ -98,6 +111,12 @@ jobs:
         shell: bash
         run: |
           docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+
+          # BuildKit cache configuration
+          export DOCKER_BUILDKIT=1
+          export BUILDX_CACHE_FROM="type=local,src=/tmp/.buildx-cache"
+          export BUILDX_CACHE_TO="type=local,dest=/tmp/.buildx-cache-new,mode=max"
+          
           docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam pull
           i=0; until [ "$i" -ge 3 ]; do
             IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py --output list \
@@ -109,6 +128,13 @@ jobs:
               echo "::warning::Building images failed, retrying…"
             fi
           done
+
+          # Move cache to preserve it for next run
+          if [ -d "/tmp/.buildx-cache-new" ]; then
+            rm -rf /tmp/.buildx-cache
+            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          fi
+
           docker logout https://ghcr.io
           if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
           echo "images=$IMAGES" >> $GITHUB_OUTPUT
