@@ -235,7 +235,7 @@ def delete_global_account_limit(
 
 def get_local_account_usage(
     account: str,
-    rse: str,
+    rse: Optional[str],
     issuer: str,
     vo: str = 'def',
 ) -> list[dict[str, Any]]:
@@ -270,7 +270,7 @@ def get_local_account_usage(
 
 def get_global_account_usage(
     account: str,
-    rse_expression: str,
+    rse_expression: Optional[str],
     issuer: str,
     vo: str = 'def',
 ) -> list[dict[str, Any]]:
