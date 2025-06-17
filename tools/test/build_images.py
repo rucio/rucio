@@ -67,7 +67,12 @@ def build_images(matrix, script_args):
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
             cache_args = ()
             if script_args.build_no_cache:
-                cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
+                pull_flag = '--pull-always' if use_podman else '--pull'
+                # Do NOT pull for release branches
+                if not script_args.branch.startswith("release-"):
+                    cache_args = ('--no-cache', pull_flag)
+                else:
+                    cache_args = ('--no-cache',)
             elif script_args.cache_repo:
                 args = ('docker', 'pull', imagetag)
                 print("Running", " ".join(args), file=sys.stderr, flush=True)
