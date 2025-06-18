@@ -22,7 +22,7 @@ from sqlalchemy import delete, update
 from rucio.core.heartbeat import cardiac_arrest, die, list_heartbeats, list_payload_counts, live, sanity_check
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.models import Heartbeat
-from rucio.db.sqla.session import db_session
+from rucio.db.sqla.session import db_session as db_session_context
 
 
 @pytest.fixture
@@ -172,7 +172,7 @@ class TestHeartbeat:
                 Heartbeat.updated_at: two_days_ago
             })
 
-            with db_session(DatabaseOperationType.WRITE) as session:
+            with db_session_context(DatabaseOperationType.WRITE) as session:
                 session.execute(stmt)
                 stmt = update(
                     Heartbeat
