@@ -1,0 +1,145 @@
+name: Simple Autotest
+
+on:
+  pull_request:
+  push:
+  schedule:
+    - cron: '0 3 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: "3.11"
+      - name: Install lint dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - name: Check headers
+        run: python3 tools/add_header --dry-run --disable-progress-bar
+      - name: Run Ruff
+        run: ruff check --output-format=github .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10"]
+        test-suite: 
+          - name: "syntax"
+            env:
+              SYNTAX_REPORT: "1"
+              RUN_HTTPD: "false"
+            services: []
+          - name: "client_syntax"
+            env:
+              RUN_HTTPD: "false"
+            services: []
+          - name: "sqlite"
+            env:
+              RDBMS: "sqlite"
+            services: []
+          - name: "client"
+            env:
+              RDBMS: "postgres14"
+            services: ["postgres"]
+          - name: "multi_vo"
+            env:
+              RDBMS: "postgres14"
+              RUCIO_HOME: "/opt/rucio/etc/multi_vo/tst"
+            services: ["postgres"]
+        exclude:
+          # Limit some test suites to specific Python versions to reduce matrix size
+          - python-version: "3.9"
+            test-suite:
+              name: "client_syntax"
+          - python-version: "3.10"
+            test-suite:
+              name: "syntax"
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: rucio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libxmlsec1-dev git
+          
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/requirements.server.txt
+          pip install -r requirements/requirements.dev.txt
+          
+      - name: Set test environment variables
+        run: |
+          echo "RUCIO_HOME=${{ matrix.test-suite.env.RUCIO_HOME || '/opt/rucio' }}" >> $GITHUB_ENV
+          echo "RDBMS=${{ matrix.test-suite.env.RDBMS || 'sqlite' }}" >> $GITHUB_ENV
+          echo "SYNTAX_REPORT=${{ matrix.test-suite.env.SYNTAX_REPORT || '0' }}" >> $GITHUB_ENV
+          echo "RUN_HTTPD=${{ matrix.test-suite.env.RUN_HTTPD || 'true' }}" >> $GITHUB_ENV
+          
+      - name: Configure PostgreSQL
+        if: contains(matrix.test-suite.services, 'postgres')
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:secret@localhost:5432/rucio" >> $GITHUB_ENV
+          
+      - name: Setup test database
+        if: matrix.test-suite.name != 'syntax' && matrix.test-suite.name != 'client_syntax'
+        run: |
+          # Initialize database if needed
+          if [ "$RDBMS" = "postgres14" ]; then
+            PGPASSWORD=secret psql -h localhost -U postgres -d rucio -c "SELECT 1;" || true
+          fi
+          
+      - name: Run tests for ${{ matrix.test-suite.name }}
+        run: |
+          case "${{ matrix.test-suite.name }}" in
+            "syntax")
+              python -m pytest -v tests/test_syntax.py --tb=short
+              ;;
+            "client_syntax")
+              python -m pytest -v tests/test_client_syntax.py --tb=short
+              ;;
+            "sqlite")
+              python -m pytest -v tests/ -k "not test_syntax and not test_client_syntax" --tb=short -x
+              ;;
+            "client")
+              python -m pytest -v tests/test_client*.py --tb=short
+              ;;
+            "multi_vo")
+              python -m pytest -v tests/test_multi_vo*.py --tb=short
+              ;;
+            *)
+              python -m pytest -v tests/ --tb=short
+              ;;
+          esac
