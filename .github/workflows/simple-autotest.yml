@@ -63,15 +63,28 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10"]
         test-suite: 
+          - name: "syntax"
+            env:
+              SYNTAX_REPORT: "1"
+              RUN_HTTPD: "false"
+            profile: ""
+          - name: "client_syntax"
+            env:
+              RUN_HTTPD: "false"
+            profile: ""
+          - name: "sqlite"
+            env:
+              RDBMS: "sqlite"
+            profile: ""
           - name: "client"
             env:
               RDBMS: "postgres14"
-            services: ["postgres"]
+            profile: "postgres14"
           - name: "multi_vo"
             env:
               RDBMS: "postgres14"
               RUCIO_HOME: "/opt/rucio/etc/multi_vo/tst"
-            services: ["postgres"]
+            profile: "postgres14"
         exclude:
           # Limit some test suites to specific Python versions to reduce matrix size
           - python-version: "3.9"
@@ -80,20 +93,6 @@ jobs:
           - python-version: "3.10"
             test-suite:
               name: "syntax"
-
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_PASSWORD: secret
-          POSTGRES_DB: rucio
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -104,21 +103,78 @@ jobs:
           echo "RDBMS=${{ matrix.test-suite.env.RDBMS || 'sqlite' }}" >> $GITHUB_ENV
           echo "SYNTAX_REPORT=${{ matrix.test-suite.env.SYNTAX_REPORT || '0' }}" >> $GITHUB_ENV
           echo "RUN_HTTPD=${{ matrix.test-suite.env.RUN_HTTPD || 'true' }}" >> $GITHUB_ENV
+          echo "COMPOSE_PROJECT=rucio-test-${{ matrix.test-suite.name }}-py${{ matrix.python-version }}" >> $GITHUB_ENV
           
-      - name: Configure database connection for container
-        if: contains(matrix.test-suite.services, 'postgres')
+      - name: Create docker-compose override
         run: |
-          echo "DATABASE_URL=postgresql://postgres:secret@host.docker.internal:5432/rucio" >> $GITHUB_ENV
+          cat > docker-compose.override.yml << 'EOF'
+          services:
+            rucio:
+              image: ${{ needs.build.outputs.image-tag }}
+              environment:
+                - RUCIO_HOME=${RUCIO_HOME}
+                - RDBMS=${RDBMS}
+                - SYNTAX_REPORT=${SYNTAX_REPORT}
+                - RUN_HTTPD=${RUN_HTTPD}
+                - DIST=alma9
+                - PYTHON=${{ matrix.python-version }}
+                - SUITE=${{ matrix.test-suite.name }}
+            ruciodb:
+              profiles:
+                - donotstart
+          EOF
           
-      - name: Run tests for ${{ matrix.test-suite.name }} in container
+      - name: Start services with docker-compose (httpd tests)
+        if: env.RUN_HTTPD == 'true'
+        run: |
+          PROFILE_ARG=""
+          if [ -n "${{ matrix.test-suite.profile }}" ]; then
+            PROFILE_ARG="--profile ${{ matrix.test-suite.profile }}"
+          fi
+          
+          docker compose -p ${COMPOSE_PROJECT} \
+            --file etc/docker/dev/docker-compose.yml \
+            --file docker-compose.override.yml \
+            ${PROFILE_ARG} \
+            up -d
+            
+      - name: Wait for services to be ready
+        if: env.RUN_HTTPD == 'true'
+        run: |
+          # Wait for rucio container to be ready
+          timeout 60 bash -c 'until docker compose -p ${COMPOSE_PROJECT} ps rucio | grep -q "Up"; do sleep 2; done'
+          
+      - name: Run tests with docker-compose (httpd tests)
+        if: env.RUN_HTTPD == 'true'
+        run: |
+          docker compose -p ${COMPOSE_PROJECT} exec rucio bash -c "
+            case '${{ matrix.test-suite.name }}' in
+              'client')
+                python -m pytest -v tests/test_client*.py --tb=short
+                ;;
+              'multi_vo')
+                python -m pytest -v tests/test_multi_vo*.py --tb=short
+                ;;
+              'sqlite')
+                python -m pytest -v tests/ -k 'not test_syntax and not test_client_syntax' --tb=short -x
+                ;;
+              *)
+                python -m pytest -v tests/ --tb=short
+                ;;
+            esac
+          "
+          
+      - name: Run tests directly (non-httpd tests)
+        if: env.RUN_HTTPD == 'false'
         run: |
           docker run --rm \
-            --network host \
             -e RUCIO_HOME="${RUCIO_HOME}" \
             -e RDBMS="${RDBMS}" \
             -e SYNTAX_REPORT="${SYNTAX_REPORT}" \
             -e RUN_HTTPD="${RUN_HTTPD}" \
-            -e DATABASE_URL="${DATABASE_URL:-}" \
+            -e DIST=alma9 \
+            -e PYTHON="${{ matrix.python-version }}" \
+            -e SUITE="${{ matrix.test-suite.name }}" \
             -v "${{ github.workspace }}/tools":/opt/rucio/tools \
             -v "${{ github.workspace }}/bin":/opt/rucio/bin \
             -v "${{ github.workspace }}/lib":/opt/rucio/lib \
@@ -137,14 +193,19 @@ jobs:
             ${{ needs.build.outputs.image-tag }} \
             bash -c "
               case '${{ matrix.test-suite.name }}' in
-                'client')
-                  python -m pytest -v tests/test_client*.py --tb=short
+                'syntax')
+                  python -m pytest -v tests/test_syntax.py --tb=short
                   ;;
-                'multi_vo')
-                  python -m pytest -v tests/test_multi_vo*.py --tb=short
+                'client_syntax')
+                  python -m pytest -v tests/test_client_syntax.py --tb=short
                   ;;
                 *)
                   python -m pytest -v tests/ --tb=short
                   ;;
               esac
             "
+            
+      - name: Cleanup docker-compose services
+        if: always() && env.RUN_HTTPD == 'true'
+        run: |
+          docker compose -p ${COMPOSE_PROJECT} down -t 30 || true
