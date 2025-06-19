@@ -59,8 +59,8 @@ from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import OBSOLETE, DIDType, LockState, RuleState
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.constants import OBSOLETE, DatabaseOperationType, DIDType, LockState, RuleState
+from rucio.db.sqla.session import db_session
 from rucio.gateway.account import add_account
 from rucio.tests.common import account_name_generator, did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
@@ -104,8 +104,7 @@ def tag_generator(size=8, chars=string.ascii_uppercase):
     return ''.join(random.choice(chars) for x in range(size))
 
 
-@transactional_session
-def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, *, session=None):
+def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id):
     message = {'scope': scope.external,
                'name': name,
                'rse': rse,
@@ -121,11 +120,12 @@ def check_dataset_ok_callback(scope, name, rse, rse_id, rule_id, *, session=None
     ).where(
         models.Message.payload == json.dumps(message)
     )
-    return session.execute(stmt).scalar() > 0
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return session.execute(stmt).scalar() > 0
 
 
-@transactional_session
-def check_rule_progress_callback(scope, name, progress, rule_id, *, session=None):
+def check_rule_progress_callback(scope, name, progress, rule_id):
     message = {'scope': scope.external,
                'name': name,
                'rule_id': rule_id,
@@ -138,7 +138,9 @@ def check_rule_progress_callback(scope, name, progress, rule_id, *, session=None
     ).where(
         models.Message.payload == json.dumps(message)
     )
-    return session.execute(stmt).scalar_one_or_none() is not None
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return session.execute(stmt).scalar_one_or_none() is not None
 
 
 @pytest.fixture

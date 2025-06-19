@@ -29,9 +29,9 @@ from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, get_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge.evaluator import re_evaluator
-from rucio.db.sqla.constants import DIDType, LockState
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, LockState
 from rucio.db.sqla.models import UpdatedDID
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import db_session
 from rucio.tests.common import RSE_namedtuple
 from rucio.tests.common_server import get_vo
 
@@ -57,10 +57,10 @@ class TestJudgeEvaluator:
         else:
             cls.vo = {}
 
-        @transactional_session
-        def __cleanup_updated_dids(*, session=None):
+        def __cleanup_updated_dids():
             stmt = delete(UpdatedDID)
-            session.execute(stmt)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                session.execute(stmt)
 
         __cleanup_updated_dids()
 

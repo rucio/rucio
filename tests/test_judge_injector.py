@@ -27,9 +27,9 @@ from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, approve_rule, deny_rule, get_rule, list_rules
 from rucio.daemons.judge.injector import rule_injector
-from rucio.db.sqla.constants import DIDType, RuleState
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, RuleState
 from rucio.db.sqla.models import ReplicationRule
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.session import db_session
 from rucio.tests.common_server import get_vo
 
 from .test_rule import create_files, tag_generator
@@ -127,14 +127,15 @@ class TestJudgeEvaluator:
         assert not get_replica_locks(scope=file['scope'], name=file['name'])
 
         # simulate that time to inject the rule has arrived
-        @transactional_session
-        def __update_created_at(*, session=None):
+        def __update_created_at():
             stmt = select(
                 ReplicationRule
             ).where(
                 ReplicationRule.id == rule_id
             )
-            session.execute(stmt).scalar_one().created_at = datetime.utcnow()
+
+            with db_session(DatabaseOperationType.WRITE) as session:
+                session.execute(stmt).scalar_one().created_at = datetime.utcnow()
         __update_created_at()
 
         # The injector must create the locks now
