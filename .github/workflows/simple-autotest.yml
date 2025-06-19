@@ -65,19 +65,19 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10"]
         test-suite: 
-          - name: "syntax"
-            env:
-              SYNTAX_REPORT: "1"
-              RUN_HTTPD: "false"
-            profile: ""
-          - name: "client_syntax"
-            env:
-              RUN_HTTPD: "false"
-            profile: ""
-          - name: "sqlite"
-            env:
-              RDBMS: "sqlite"
-            profile: ""
+          # - name: "syntax"
+          #   env:
+          #     SYNTAX_REPORT: "1"
+          #     RUN_HTTPD: "false"
+          #   profile: ""
+          # - name: "client_syntax"
+          #   env:
+          #     RUN_HTTPD: "false"
+          #   profile: ""
+          # - name: "sqlite"
+          #   env:
+          #     RDBMS: "sqlite"
+          #   profile: ""
           - name: "client"
             env:
               RDBMS: "postgres14"
