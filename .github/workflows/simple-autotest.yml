@@ -48,24 +48,14 @@ jobs:
           build-args: |
             PYTHON=3.9
           load: true
-          push: ${{ github.event_name != 'pull_request' && !env.ACT }}
-          tags: ${{ steps.meta.outputs.tags }}
+          push: false
+          tags: rucio-test:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: |
-            type=registry,ref=ghcr.io/${{ github.repository }}/rucio-test:buildcache
-            type=gha
-          cache-to: |
-            type=registry,ref=ghcr.io/${{ github.repository }}/rucio-test:buildcache,mode=max
-            type=gha,mode=max
           
       - name: Set image tag output
         id: set-tag
         run: |
-          if [ "${{ env.ACT }}" = "true" ]; then
-            echo "tag=rucio-test:latest" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
-          fi
+          echo "tag=rucio-test:latest" >> $GITHUB_OUTPUT
 
   test:
     needs: build
