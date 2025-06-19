@@ -1,0 +1,130 @@
+name: Code Quality
+
+on:
+  workflow_dispatch:
+    # pull_request:
+  # push:
+  # schedule:
+    # - cron: "0 3 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: "3.11"
+      - name: Install lint dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - name: Check headers
+        run: python3 tools/add_header --dry-run --disable-progress-bar
+      - name: Run Ruff
+        run: ruff check --output-format=github .
+
+  python_annotations:
+    if: |
+      !startsWith(github.ref_name, 'release')
+      && !startsWith(github.base_ref, 'release')
+      && github.event_name != 'schedule'
+      && github.ref_type != 'tag'
+    name: Check Python Type Annotations
+    runs-on: ubuntu-latest
+    env:
+      UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../updated_type_annotation_report.txt
+      INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../initial_type_annotation_report.txt
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Count current number of missing type annotations
+        id: count_updated
+        shell: bash
+        run: |
+          pip install flake8 flake8-annotations
+          source tools/count_missing_type_annotations_utils.sh
+          create_missing_python_type_annotations_report ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }}
+          echo "The current number of missing python type annotations: $(wc -l < ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})"
+      - name: Checkout ancestor commit with rucio/master
+        uses: ./.github/actions/checkout_ancestor_commit
+        with:
+          paths_to_copy: |
+            tools/count_missing_type_annotations.sh
+            tools/count_missing_type_annotations_utils.sh
+      - name: Count initial number of missing type annotations
+        id: count_initial
+        shell: bash
+        run: |
+          source tools/count_missing_type_annotations_utils.sh
+          create_missing_python_type_annotations_report ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }}
+          echo "The initial number of missing python type annotations: $(wc -l < ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})"
+      - name: Diff of missing annotations
+        shell: bash
+        run: |
+          diff ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }} ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }} || true
+      - name: Compare numbers of missing type annotations
+        shell: bash
+        run: |
+          INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS=$(wc -l < ${{ env.INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})
+          UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS=$(wc -l < ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})
+
+          echo "The initial number of missing type annotations is: $INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS"
+          echo "The updated number of missing type annotations is: $UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS"
+          if [ $UPDATED_NUMBER_OF_MISSING_TYPE_ANNOTATIONS -gt $INITIAL_NUMBER_OF_MISSING_TYPE_ANNOTATIONS ]; then
+            echo "The number of missing python type annotations should never increase! This way we ensure that new functions are type annotated."
+            echo "Look into the first lines of 'Diff of missing type annotations' to get a reference point what function might be missing type annotations."
+            echo "**TL;DR** New code has to be type annotated, old code should be migrated. Look into Best Practices[1] for specific instructions on how to use it in our repository."
+            echo "Look into the Rucio Type Annotations Guide[2] to get some help on why, what and how to add type annotations."
+            echo
+            echo "[1] https://codimd.web.cern.ch/6-SU3cTpQSWRK6FHkM7mAA#Best-Practices"
+            echo "[2] https://codimd.web.cern.ch/6-SU3cTpQSWRK6FHkM7mAA#"
+            exit 1
+          fi
+  python_pyright:
+    if: |
+      !startsWith(github.ref_name, 'release')
+      && !startsWith(github.base_ref, 'release')
+      && github.event_name != 'schedule'
+      && github.ref_type != 'tag'
+    name: Python type check (Pyright)
+    runs-on: ubuntu-latest
+    env:
+      PYRIGHT_CURRENT_REPORT: ../pyright_current_report.json
+      PYRIGHT_ANCESTOR_REPORT: ../pyright_ancestor_report.json
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev git
+          npm install --global pyright
+          python -m pip --no-cache-dir install --upgrade pip
+          python -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
+      - name: Make pyright report of current commit
+        run: |
+          tools/run_pyright.sh generate ${{ env.PYRIGHT_CURRENT_REPORT }}
+      - name: Show the current Pyright report
+        run: cat ${{ env.PYRIGHT_CURRENT_REPORT }}
+      - name: Checkout ancestor commit with rucio/master
+        uses: ./.github/actions/checkout_ancestor_commit
+        with:
+          paths_to_copy: |
+            pyrightconfig.json
+            tools/run_pyright.sh
+            tools/run_pyright/
+      - name: Make pyright report of ancestor commit
+        run: |
+          tools/run_pyright.sh generate ${{ env.PYRIGHT_ANCESTOR_REPORT }}
+      - name: Show the ancestor Pyright report
+        run: cat ${{ env.PYRIGHT_ANCESTOR_REPORT }}
+      - name: Compare reports
+        run: |
+          tools/run_pyright.sh compare --Werror \
+            ${{ env.PYRIGHT_ANCESTOR_REPORT }} \
+            ${{ env.PYRIGHT_CURRENT_REPORT }}
