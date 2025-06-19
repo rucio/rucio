@@ -1,44 +1,36 @@
-name: Run all the autotests
+name: Code Quality
 
 on:
-  # pull_request:
+  workflow_dispatch:
+    # pull_request:
   # push:
   # schedule:
-  #   - cron: '0 3 * * *'
-  workflow_dispatch:
+    # - cron: "0 3 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  add_header:
-    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
-    name: Add header lint
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
-          # We need the history to determine the file creation date.
           fetch-depth: 0
-      - name: Check headers
-        shell: bash
-        run: |
-          python3 tools/add_header --dry-run --disable-progress-bar
-  python_ruff:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Install Python
+      - name: Setup Python
         uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: "3.11"
-      - name: Install dependencies
+      - name: Install lint dependencies
         run: |
           python -m pip install --upgrade pip
           pip install ruff
+      - name: Check headers
+        run: python3 tools/add_header --dry-run --disable-progress-bar
       - name: Run Ruff
         run: ruff check --output-format=github .
+
   python_annotations:
     if: |
       !startsWith(github.ref_name, 'release')
@@ -136,82 +128,3 @@ jobs:
           tools/run_pyright.sh compare --Werror \
             ${{ env.PYRIGHT_ANCESTOR_REPORT }} \
             ${{ env.PYRIGHT_CURRENT_REPORT }}
-  setup:
-    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Update pip
-        run: python3 -m pip install -U pip setuptools
-      - name: Install python requirements for matrix_parser.py
-        run: python3 -m pip install -U PyYAML
-      - name: Identify branch
-        id: branch
-        run: python3 tools/github/workflow/set_branch_output_env.py
-      - name: Identify Matrix
-        id: matrix
-        run: |
-          EVENT="${{ github.event_name }}"
-          if [ $EVENT != 'schedule' ]; then
-            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)" >> $GITHUB_OUTPUT
-          else
-            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_nightly.yml)" >> $GITHUB_OUTPUT
-          fi
-    outputs:
-      branch: ${{ steps.branch.outputs.branch }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
-  test:
-    needs: setup
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-        with:
-          driver-opts: network=host
-      - name: Cache Docker layers
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-
-            ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-
-            ${{ runner.os }}-buildx-autotest-
-      - name: Build images
-        id: images
-        shell: bash
-        run: |
-          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          
-          # BuildKit cache configuration
-          export DOCKER_BUILDKIT=1
-          export BUILDX_CACHE_FROM="type=local,src=/tmp/.buildx-cache"
-          export BUILDX_CACHE_TO="type=local,dest=/tmp/.buildx-cache-new,mode=max"
-          
-          i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo ghcr.io/${{ github.repository }} \
-                --branch "${{ needs.setup.outputs.branch }}" ./etc/docker/test || echo "")
-            if [[ -n $IMAGES ]]; then break;
-            else
-              i=$((i+1)); sleep 5;
-              echo "::warning::Building images failed, retrying…"
-            fi
-          done
-          
-          # Move cache to preserve it for next run
-          if [ -d "/tmp/.buildx-cache-new" ]; then
-            rm -rf /tmp/.buildx-cache
-            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-          fi
-          
-          docker logout https://ghcr.io
-          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "images=$IMAGES" >> $GITHUB_OUTPUT
-      - name: Run test with cfg
-        run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
