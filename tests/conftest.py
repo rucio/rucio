@@ -312,7 +312,7 @@ def random_account(vo: str) -> "Iterator[InternalAccount]":
 
 
 @pytest.fixture
-def random_account_factory(vo: str):
+def random_account_factory(vo: str) -> "Iterator[InternalAccount]":
     import random
     import string
 
@@ -325,7 +325,7 @@ def random_account_factory(vo: str):
 
     made_accounts = []
 
-    def make_account():
+    def make_account() -> InternalAccount:
         account = InternalAccount(''.join(random.choice(string.ascii_lowercase) for _ in range(10)), vo=vo)
         made_accounts.append(account)
         if os.environ.get('SUITE') == 'client':

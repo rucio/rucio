@@ -317,11 +317,18 @@ class TemporaryDidFactory:
                 scope = scope.external
             # Remove rules associated with the dids
             for rule in self.client.list_associated_rules_for_file(scope=scope, name=name):
-                try:
-                    self.client.delete_replication_rule(rule_id=rule['id'], purge_replicas=True)
-                except UnsupportedOperation:
-                    # The rule has a child rule so we cannot delete it
-                    pass
+
+                def remove_rules(rule_id: str) -> None:
+                    try:
+                        self.client.delete_replication_rule(rule_id=rule_id, purge_replicas=True)
+                    except UnsupportedOperation:
+                        # The rule has a child rule so we cannot delete it
+                        rule_info = self.client.get_replication_rule(rule['id'])
+                        child_rule = rule_info['child_rule_id']
+                        # Try to remove the child rules recursively
+                        remove_rules(child_rule)
+
+                remove_rules(rule['id'])
 
         # Then run the undertaker
         execute('rucio-undertaker --run-once')
