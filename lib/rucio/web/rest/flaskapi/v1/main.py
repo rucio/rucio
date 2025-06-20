@@ -50,8 +50,9 @@ DEFAULT_ENDPOINTS = {
     'rules',
     'scopes',
     'subscriptions',
+    'opendata_private',
+    'opendata_public',  # TODO: Remove `opendata_public` from here but enable it somehow in the tests (this should not be enabled by default in production)
 }
-
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
