@@ -95,7 +95,9 @@ DEFAULT_RSE_ATTRIBUTE = {"description": "Default RSE attribute",
 
 REPLICA_STATE = {"description": "Replica state",
                  "type": "string",
-                 "enum": ["AVAILABLE", "UNAVAILABLE", "COPYING", "BEING_DELETED", "BAD", "SOURCE", "A", "U", "C", "B", "D", "S"]}
+                 "enum": [
+                     "AVAILABLE", "UNAVAILABLE", "COPYING", "BEING_DELETED", "BAD", "SOURCE", "TEMPORARY_UNAVAILABLE",
+                     "A", "U", "C", "B", "D", "S", "T"]}
 
 DATE = {"description": "Date",
         "type": "string",
