@@ -72,7 +72,7 @@ class LocalAccountLimit(ErrorHandlingMethodView):
         parameters = json_parameters()
         bytes_param = param_get(parameters, 'bytes')
         try:
-            set_local_account_limit(account=account, rse=rse, bytes_=bytes_param, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            set_local_account_limit(account=account, rse=rse, bytes_=bytes_param, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (RSENotFound, AccountNotFound) as error:
@@ -108,7 +108,7 @@ class LocalAccountLimit(ErrorHandlingMethodView):
             description: "No RSE or account found for the given id."
         """
         try:
-            delete_local_account_limit(account=account, rse=rse, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            delete_local_account_limit(account=account, rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (AccountNotFound, RSENotFound) as error:
@@ -168,8 +168,8 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
                 account=account,
                 rse_expression=rse_expression,
                 bytes_=bytes_param,
-                issuer=request.environ.get('issuer'),
-                vo=request.environ.get('vo'),
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -206,7 +206,7 @@ class GlobalAccountLimit(ErrorHandlingMethodView):
             description: "No RSE or account found for the given id."
         """
         try:
-            delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=request.environ.get('issuer'), vo=request.environ.get('vo'))
+            delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except (AccountNotFound, RSENotFound) as error:
