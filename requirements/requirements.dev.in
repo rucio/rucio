@@ -13,6 +13,6 @@ sh==2.0.7                                                   # Convenience librar
 apispec==6.6.1                                              # Generate OpenApi definition out of pydoc comments
 apispec-webframeworks                                       # Integration of apispec in Flask
 pip-tools==7.4.1                                            # Generate requirements files with pinned dependencies
-atlas-rucio-policy-package==0.4.0
+atlas-rucio-policy-package==0.5.0
 belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.1.1
 ruff==0.9.10                                                # Linter
