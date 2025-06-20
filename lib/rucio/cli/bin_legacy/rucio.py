@@ -74,6 +74,7 @@ DEFAULT_PORT = 80
 
 tablefmt = 'psql'
 cli_config = get_cli_config()
+CSV_SEPARATOR = '\t'
 
 
 def get_scope(did, client):
@@ -498,7 +499,7 @@ def list_dids(args, client, logger, console, spinner):
         logger.error(e)
         return FAILURE
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching DIDs')
         spinner.start()
 
@@ -508,7 +509,13 @@ def list_dids(args, client, logger, console, spinner):
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
-    if cli_config == 'rich':
+    if args.csv:
+        if args.short:
+            print(*[did for did, _ in table_data], sep='\n')
+        else:
+            print(*[f"{did}{CSV_SEPARATOR}{type_}" for did, type_ in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         if args.short:
             table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
         else:
@@ -670,19 +677,25 @@ def list_content(args, client, logger, console, spinner):
     """
 
     table_data = []
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching dataset contents')
         spinner.start()
 
     for did in args.dids:
         scope, name = get_scope(did, client)
         for content in client.list_content(scope=scope, name=name):
-            if cli_config == 'rich':
+            if (cli_config == 'rich') and (not args.csv):
                 table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
-    if cli_config == 'rich':
+    if args.csv:
+        if args.short:
+            print(*[did for did, _ in table_data], sep='\n')
+        else:
+            print(*[f"{did}{CSV_SEPARATOR}{type_}" for did, type_ in table_data], sep='\n')
+
+    elif cli_config == 'rich':
         if args.short:
             table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
         else:
@@ -707,19 +720,21 @@ def list_content_history(args, client, logger, console, spinner):
     """
 
     table_data = []
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching content history')
         spinner.start()
 
     for did in args.dids:
         scope, name = get_scope(did, client)
         for content in client.list_content_history(scope=scope, name=name):
-            if cli_config == 'rich':
+            if (cli_config == 'rich') and (not args.csv):
                 table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
-    if cli_config == 'rich':
+    if args.csv:
+        print(*[f"{did}{CSV_SEPARATOR}{type_}" for did, type_ in table_data], sep='\n')
+    elif cli_config == 'rich':
         table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
@@ -736,11 +751,11 @@ def list_parent_dids(args, client, logger, console, spinner):
     List parent data identifier.
     """
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching parent DIDs')
         spinner.start()
 
-    if args.pfns:
+    if args.pfns:  # See issue #7230 - pfns are nonfunctional
         dict_datasets = {}
         output = []
         for res in client.get_did_from_pfns(args.pfns):
@@ -765,7 +780,7 @@ def list_parent_dids(args, client, logger, console, spinner):
         if cli_config == 'rich':
             spinner.stop()
             print_output(*output, console=console, no_pager=args.no_pager)
-    elif args.guids:
+    elif args.guids:  # See issue #7230 - guids are nonfunctional
         output = []
         guids = []
         for input_ in args.guids:
@@ -801,12 +816,14 @@ def list_parent_dids(args, client, logger, console, spinner):
         table_data = []
         scope, name = get_scope(args.did, client)
         for dataset in client.list_parent_dids(scope=scope, name=name):
-            if cli_config == 'rich':
+            if (cli_config == 'rich') and (not args.csv):
                 table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=CLITheme.DID_TYPE.get(dataset['type'], 'default'))])
             else:
                 table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
 
-        if cli_config == 'rich':
+        if args.csv:
+            print(*[f"{did}{CSV_SEPARATOR}{type_}" for did, type_ in table_data], sep='\n')
+        elif cli_config == 'rich':
             table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
@@ -856,7 +873,7 @@ def stat(args, client, logger, console, spinner):
     List attributes and statuses about data identifiers..
     """
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         spinner.update(status='Fetching DID stats')
         spinner.start()
         keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE}
@@ -865,7 +882,9 @@ def stat(args, client, logger, console, spinner):
     for i, did in enumerate(args.dids):
         scope, name = get_scope(did, client)
         info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
-        if cli_config == 'rich':
+        if args.csv:
+            print(*[f"{k}{CSV_SEPARATOR}{v}" for (k, v) in sorted(info.items())], sep='\n')
+        elif cli_config == 'rich':
             if i > 0:
                 output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
             elif len(args.dids) > 1:
@@ -879,7 +898,7 @@ def stat(args, client, logger, console, spinner):
             table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
             print(tabulate(table, tablefmt='plain', disable_numparse=True))
 
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and not args.csv:
         spinner.stop()
         print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
@@ -2360,6 +2379,8 @@ You can filter by key/value, e.g.::
     ls_parser.add_argument('-r', '--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     ls_parser.add_argument('--filter', dest='filter', action='store', help='Filter arguments in form `key=value,another_key=next_value`. Valid keys are name, type.')
     ls_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    ls_parser.add_argument('--csv', action='store_true', help='Comma Separated Value output')
+
     ls_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern.')
 
     list_parser = subparsers.add_parser('list-dids',
@@ -2403,6 +2424,8 @@ You can filter by key/value, e.g.::
     list_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='List data identifiers recursively.')
     list_parser.add_argument('--filter', dest='filter', action='store', help='Single or logically combined filtering expression(s) either in the form <key><operator><value> or <value1><operator1><key><operator2><value2> (compound inequality). Keys are equivalent to columns in the DID table. Operators must belong to the set of (<=, >=, ==, !=, >, <). The following conventions for combining expressions are used: ";" represents the logical OR operator; "," represents the logical AND operator.')  # noqa: E501
     list_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    list_parser.add_argument('--csv', action='store_true', help='Comma Separated Value output')
+
     list_parser.add_argument(dest='did', nargs=1, action='store', default=None, help='Data IDentifier pattern')
 
     # The extended version of list_dids that goes through the plugin mechanism
@@ -2463,6 +2486,7 @@ You can filter by key/value, e.g.::
     list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
     list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
     list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
+    list_parent_parser.add_argument('--csv', action='store_true', default=False, help='Comma Separated Value output.')
 
     # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
@@ -2535,11 +2559,13 @@ You can filter by key/value, e.g.::
     list_content_parser.set_defaults(function=list_content)
     list_content_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
     list_content_parser.add_argument('--short', dest='short', action='store_true', help='Just dump the list of DIDs.')
+    list_content_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output')
 
     # The list_content_history command
     list_content_history_parser = subparsers.add_parser('list-content-history', help='List the content history of a collection.')
     list_content_history_parser.set_defaults(function=list_content_history)
     list_content_history_parser.add_argument(dest='dids', nargs='+', action='store', help='List of space separated data identifiers.')
+    list_content_history_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output')
 
 # The upload subparser
     upload_parser = subparsers.add_parser('upload', help='Upload method.')
