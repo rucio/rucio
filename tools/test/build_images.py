@@ -93,13 +93,13 @@ def build_images(matrix, script_args):
 
             args = ()
             env = {"DOCKER_BUILDKIT": "1"}
-            
+
             # Use docker buildx build (or podman build if USE_PODMAN is set)
             if use_podman:
                 docker_cmd = ['podman', 'build']
             else:
                 docker_cmd = ['docker', 'buildx', 'build']
-            
+
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / 'alma9.Dockerfile'
                 args = (
