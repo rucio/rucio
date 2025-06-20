@@ -756,7 +756,6 @@ def test_download_traceless(rucio_client):
     assert client.tracing is True
 
 
-# Adapted from tests/test_bin_rucio download tests
 @pytest.mark.noparallel(reason='fails when run in parallel')
 def test_download_no_subdir(download_client, did_factory, rse_factory):
     """CLIENT(USER): Rucio download files with the 'no_subdir' argument, ensure the scope dir is not created, and check that files already found locally are not replaced"""
