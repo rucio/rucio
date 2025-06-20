@@ -157,6 +157,22 @@ class TestDatasetReplicaClient:
         assert res[1]['state'] == 'AVAILABLE'
         assert res[2]['state'] == 'AVAILABLE'
 
+        # Update replica state of the archive to TEMPORARY_UNAVAILABLE
+        replica_client.update_replicas_states(
+            rse=rse,
+            files=[{'scope': archive['scope'], 'name': archive['name'], 'state': 'T'}]
+        )
+
+        # Running list_dataset_replicas with deep=True should now show no replicas
+        # from RSE since the archive is TEMPORARY_UNAVAILABLE
+        res = [r for r in replica_client.list_dataset_replicas(scope=scope,
+                                                               name=dataset_name,
+                                                               deep=True)]
+
+        # All replicas from RSE should be gone. The number of remaining replicas should be 2.
+        assert len(res) == 2
+        assert rse not in [r['rse'] for r in res]
+
         del_rse(rse_id)
 
 
