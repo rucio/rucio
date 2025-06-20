@@ -1,8 +1,4 @@
 dists:
-  - id: fedora35
-    allow:
-      python:
-        - "3.10"
   - id: alma9
     allow:
       python:
