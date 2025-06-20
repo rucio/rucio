@@ -157,6 +157,24 @@ class TestDatasetReplicaClient:
         assert res[1]['state'] == 'AVAILABLE'
         assert res[2]['state'] == 'AVAILABLE'
 
+        # Update replica state of one file to TEMPORARY_UNAVAILABLE
+        temp_unavailable_file = res[0]['name']
+
+        replica_client.update_replicas_states(
+            rse=rse,
+            files=[{'scope': res[0]['scope'], 'name': temp_unavailable_file, 'state': 'T'}]
+        )
+
+        # Running list_dataset_replicas with deep=True should now show fewer replicas
+        # since the TEMPORARY_UNAVAILABLE replica should be excluded
+        res = [r for r in replica_client.list_dataset_replicas(scope=scope,
+                                                               name=dataset_name,
+                                                               deep=True)]
+
+        # Assert that the TEMPORARY_UNAVAILABLE replica is not present in the result
+        assert len(res) == 2
+        assert temp_unavailable_file not in [r['name'] for r in res]
+
         del_rse(rse_id)
 
 
