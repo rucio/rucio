@@ -454,7 +454,6 @@ def test_upload_registration_fail(rse, scope, upload_client_registration_fail, f
         upload_client_registration_fail.upload(items=[item])
 
 
-# The following tests are adapted from tests in tests/test_bin_rucio
 @pytest.mark.skipif('SUITE' in os.environ and os.environ['SUITE'] == 'client', reason="Requires DB access")
 def test_upload_file_register_after_upload(rse, scope, upload_client, rucio_client, file_factory, vo):
     """CLIENT(USER): Rucio upload files with registration after upload"""
