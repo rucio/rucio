@@ -227,6 +227,38 @@ class TestBinRucio:
         print(out, err)
         assert f'Added new scope to {tmp_acc}: {tmp_scp}' in out
 
+    @pytest.mark.dirty
+    def test_list_scope(self, rucio_client):
+        """CLIENT/ClIENT(ADMIN): List scopes"""
+        tmp_account = account_name_generator()
+        rucio_client.add_account(tmp_account, type_='USER', email="NotARealEmail@fake.edu")
+        tmp_scope = scope_name_generator().replace("mock", "testing")
+        # rucio-admin scope list filters out 'mock' - makes it impossible to verify a "mock" scope is included
+        rucio_client.add_scope(tmp_account, tmp_scope)
+
+        cmd = "rucio-admin scope list"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert tmp_scope in out
+
+        cmd = f"rucio-admin scope list --csv --account {tmp_account}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert tmp_scope in out.split('\n')
+
+        # Uses the old client
+        cmd = "rucio list-scopes"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scope in out
+
+        cmd = "rucio list-scopes --csv"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_scope in out.split('\n')
+
     def test_add_rse(self):
         """CLIENT(ADMIN): Add RSE"""
         tmp_val = rse_name_generator()
