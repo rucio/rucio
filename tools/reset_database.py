@@ -13,28 +13,75 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Reset, purge and/or (re)create a Rucio test database.
+
+Behavior
+------------------------+-----------------------+---------------------------+
+ Flag(s)                |  What happens         |  Subsequent actions       |
+------------------------+-----------------------+---------------------------+
+ (no flag)              | destroy_database()    | build_database() +        |
+                        | # drop_orm_tables     | create_base_vo() +        |
+                        |                       | create_root_account()     |
+------------------------+-----------------------+---------------------------+
+ -b / --purge-build     | drop_everything()     | build_database() +        |
+                        | # purge_db            | create_base_vo() +        |
+                        |                       | create_root_account()     |
+------------------------+-----------------------+---------------------------+
+ -p / --purge           | drop_everything()     | nothing else..            |
+                        | # purge_db            | the script ends           |
+------------------------+-----------------------+---------------------------+
+"""
+
 import os.path
 import sys
+from argparse import ArgumentParser
 
+# Ensure package imports work when executed from any cwd
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-from argparse import ArgumentParser  # noqa: E402
-
-from rucio.db.sqla.util import build_database, create_base_vo, create_root_account, destroy_database, drop_everything  # noqa: E402
+from rucio.db.sqla.util import (  # noqa: E402
+    build_database,  # noqa: E402
+    create_base_vo,  # noqa: E402
+    create_root_account,  # noqa: E402
+    destroy_database,  # noqa: E402
+    drop_everything,  # noqa: E402
+)
 
 if __name__ == '__main__':
 
-    parser = ArgumentParser()
-    parser.add_argument('-d', '--drop-everything', action="store_true", default=False, help='Drop all tables and constraints')
+    parser = ArgumentParser(
+        prog="reset_database.py",
+        description="Reset the local Rucio database used in tests."
+    )
+    g = parser.add_mutually_exclusive_group()
+    g.add_argument(
+        "-b", "--purge-build",
+        action="store_true",
+        help="Purge EVERYTHING (tables, constraints, schema) "
+             "and then rebuild a fresh schema with base VO + root account.",
+    )
+    g.add_argument(
+        "-p", "--purge",
+        action="store_true",
+        help="Purge EVERYTHING and stop – do NOT recreate schema or accounts.",
+    )
     args = parser.parse_args()
 
-    if args.drop_everything:
+    # ------------------------------------------------------------------
+    # 1. Decide how to reset
+    # ------------------------------------------------------------------
+    if args.purge_build or args.purge:
         drop_everything()
     else:
         destroy_database()
 
-    build_database()
-    create_base_vo()
-    create_root_account()
+    # ------------------------------------------------------------------
+    # 2. Decide what to rebuild
+    # ------------------------------------------------------------------
+    if not args.purge:
+        build_database()
+        create_base_vo()
+        create_root_account()
