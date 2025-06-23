@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import loads
+from typing import Any
 
 from requests.status_codes import codes
 
@@ -21,16 +22,46 @@ from rucio.common.utils import build_url
 
 
 class PingClient(BaseClient):
-
     """Ping client class"""
 
-    def ping(self):
+    def ping(self) -> dict[str, Any]:
         """
-        Sends a ping request to the rucio server.
+        This is a light‑weight “are you alive?” call (*ping* request) to the configured Rucio.
+
+        A quick way to verify (without any required authentication):
+
+        - Network connectivity between the client and the server.
+
+        - Whether the server process is running and able to respond.
+
+        - The server’s build / version.
 
         Returns
+        -------
+        dict[str, Any]
+            A dictionary with a single key: the server version (e.g. {'version': '37.0.0'})
+
+        Raises
+        ------
+        rucio.common.exception.RucioException
+            If the HTTP status code is not *200 OK*.
+
+        Examples
         --------
-            Dictionary with server information
+        ??? Example
+
+            Basic connectivity check:
+
+            ```python
+            from rucio.client.pingclient import PingClient
+            ping_client = PingClient()
+
+            try:
+                info = ping_client.ping()
+                print(f"Connected to Rucio {info['version']}")
+            except Exception as err:
+                print(f"Ping failed: {err}")
+            ```
         """
 
         headers = None
