@@ -43,6 +43,7 @@ from rucio.db.sqla.constants import (
     KeyType,
     LifetimeExceptionsState,
     LockState,
+    OpenDataDIDState,
     ReplicaState,
     RequestState,
     RequestType,
@@ -467,6 +468,72 @@ class DataIdentifier(BASE, ModelBase):
                    Index('DIDS_IS_NEW_IDX', 'is_new'),
                    Index('DIDS_EXPIRED_AT_IDX', 'expired_at'))
 
+
+class OpenDataDid(BASE, ModelBase):
+    """DIDs which are part of OpenData"""
+    __tablename__ = 'dids_opendata'
+
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    state: Mapped[Optional[OpenDataDIDState]] = mapped_column(Enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK',
+                                                                   create_constraint=True,
+                                                                   values_callable=lambda obj: [e.value for e in obj]),
+                                                              default=OpenDataDIDState.DRAFT)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),
+        ForeignKeyConstraint(
+            ['scope', 'name'],
+            ['dids.scope', 'dids.name'],
+            name='OPENDATA_DID_FK',
+            ondelete='CASCADE',
+        ),
+        Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
+        Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
+        Index('OPENDATA_DID_STATE_IDX', 'state'),
+        Index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'state', 'updated_at'),
+    )
+
+
+class OpenDataDOI(BASE, ModelBase):
+    """Mapping between OpenData DIDs and DOIs"""
+    __tablename__ = 'dids_opendata_doi'
+
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    doi: Mapped[str] = mapped_column(String(255), unique=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DOI_PK'),
+        ForeignKeyConstraint(
+            ['scope', 'name'],
+            ['dids_opendata.scope', 'dids_opendata.name'],
+            name='OPENDATA_DOI_FK',
+            ondelete='CASCADE',
+        ),
+        # Not working on all DB, we add the constraint on insert
+        # CheckConstraint("doi ~* '^10\\.[0-9]{4,9}/[-._;()/:A-Z0-9]+$'", name='OPENDATA_DOI_FORMAT_CHK'),
+        Index('OPENDATA_DOI_UPDATED_AT_IDX', 'updated_at'),
+        Index('OPENDATA_DOI_CREATED_AT_IDX', 'created_at'),
+    )
+
+class OpenDataMeta(BASE, ModelBase):
+    """Mapping between OpenData DIDs and DOIs"""
+    __tablename__ = 'dids_opendata_meta'
+
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    meta = mapped_column(JSON(), nullable=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('scope', 'name', name='OPENDATA_META_PK'),
+        ForeignKeyConstraint(
+            ['scope', 'name'],
+            ['dids_opendata.scope', 'dids_opendata.name'],
+            name='OPENDATA_META_FK',
+            ondelete='CASCADE',
+        ),
+    )
 
 class VirtualPlacements(BASE, ModelBase):
     """Represents virtual placements"""
