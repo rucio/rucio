@@ -16,7 +16,7 @@ import operator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import inspect, update
+from sqlalchemy import case, inspect, update
 from sqlalchemy.exc import CompileError, InvalidRequestError, NoResultFound
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import true
@@ -55,9 +55,40 @@ class DidColumnMeta(DidMetaPlugin):
         :param session: The database session in use.
         """
         try:
-            row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
-                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            return row.to_dict()
+            # We check for the existence of the OpenDataDid table to improve backwards compatibility with older database schemas.
+            # At some point this check can be removed, and the code can be simplified (only running the else branch).
+            opendata_table_exists = session.get_bind() is not None and inspect(session.get_bind()).has_table(models.OpenDataDid.__tablename__)
+            if not opendata_table_exists:
+                row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name). \
+                    with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
+                return row.to_dict()
+            else:
+                opendata_subquery = session.query(models.OpenDataDid.scope, models.OpenDataDid.name).subquery()
+                query = session.query(
+                    models.DataIdentifier,
+                    case(
+                        (opendata_subquery.c.scope.isnot(None), True),
+                        else_=False
+                    ).label("is_opendata")
+                ).outerjoin(
+                    opendata_subquery,
+                    (models.DataIdentifier.scope == opendata_subquery.c.scope) &
+                    (models.DataIdentifier.name == opendata_subquery.c.name)
+                ).filter(
+                    models.DataIdentifier.scope == scope,
+                    models.DataIdentifier.name == name
+                )
+                row = query.first()
+                if row is None:
+                    # Otherwise a 'TypeError: cannot unpack non-iterable NoneType object' is raised
+                    # This will be converted to a 'DataIdentifierNotFound' by the except block
+                    raise NoResultFound
+
+                data_identifier, is_opendata = row
+                result = data_identifier.to_dict()
+                result["is_opendata"] = is_opendata
+                return result
+
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
