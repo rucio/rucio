@@ -1414,7 +1414,7 @@ class Meta(ErrorHandlingMethodView):
             type: string
         - name: key
           in: path
-          description |
+          description: |
             The key parameter applies only to the `/meta/<key>` endpoint (**Single-key mode**)
             and defines which metadata key to set/update. If omitted (by calling just `/meta`
             without the extra path segment), it defaults to `None` and **Multi-key mode** is used.
