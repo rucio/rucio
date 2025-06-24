@@ -84,6 +84,12 @@ class DIDType(Enum):
     DELETED_CONTAINER = 'Z'
 
 
+class OpenDataDIDState(Enum):
+    PUBLIC = 'P'
+    DRAFT = 'D'
+    SUSPENDED = 'S'
+
+
 class IdentityType(Enum):
     X509 = 'X509'
     GSS = 'GSS'
