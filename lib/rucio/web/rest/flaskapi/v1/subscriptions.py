@@ -169,6 +169,10 @@ class Subscription(ErrorHandlingMethodView):
                       priority:
                         description: "The priority/policyid for the subscription. Stored as policyid."
                         type: integer
+                      state:
+                        description: "The state of the subscription. If not supplied, the state will be set to 'U' (updated)."
+                        type: string
+                        enum: ["A", "I", "N", "U", "B"]
         responses:
           201:
             description: "OK"
@@ -188,6 +192,7 @@ class Subscription(ErrorHandlingMethodView):
             'lifetime': None,
             'retroactive': None,
             'priority': None,
+            'state': None,
         }
         for keyword in list(metadata):
             metadata[keyword] = param_get(options, keyword, default=metadata[keyword])

@@ -246,7 +246,18 @@ def test_create_and_update_and_list_subscription(rse_factory, rest_client, auth_
 
     response = rest_client.get('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)))
     assert response.status_code == 200
-    assert loads(loads(response.get_data(as_text=True))['filter'])['project'][0] == 'toto'
+    response_data = loads(response.get_data(as_text=True))
+    assert loads(response_data['filter'])['project'][0] == 'toto'
+    assert response_data['state'] != 'INACTIVE'  # Verify the subscription can be updated to inactive after creation
+
+    # Set the subscription as inactive
+    data = {'options': {'state': 'I'}}
+    response = rest_client.put('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 201
+
+    response = rest_client.get('/subscriptions/root/' + subscription_name, headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    assert loads(response.get_data(as_text=True))['state'] == 'INACTIVE'
 
 
 def test_create_and_list_subscription_by_id(rse_factory, rest_client, auth_token):
@@ -477,6 +488,24 @@ class TestSubscriptionClient:
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
+
+    def test_deactivate_subscription(self, rse_factory, rucio_client, vo):
+        """SUBSCRIPTION (CLIENT): Verify a subscription can be marked as inactive"""
+        subscription_name = uuid()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse_expression = '%s|%s' % (rse1, rse2)
+        account_name = uuid()[:10]
+        add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com')
+        rucio_client.add_subscription(
+            name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+            replication_rules=[{'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        states = [r['state'] for r in rucio_client.list_subscriptions(name=subscription_name, account=account_name)]
+        assert states[0] != 'INACTIVE'
+
+        rucio_client.deactivate_subscription(name=subscription_name, account=account_name)
+        states = [r['state'] for r in rucio_client.list_subscriptions(name=subscription_name, account=account_name)]
+        assert states[0] == 'INACTIVE'
 
 
 @pytest.mark.noparallel(reason='uses daemon')
