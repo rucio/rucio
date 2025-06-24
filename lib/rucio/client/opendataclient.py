@@ -24,8 +24,8 @@ from rucio.common.utils import build_url, render_json
 
 
 class OpenDataClient(BaseClient):
-    opendata_public_base_url = "opendata"
-    opendata_private_base_url = "opendata-private"
+    opendata_public_base_url = "public/opendata"
+    opendata_private_base_url = "opendata"
 
     opendata_host_from_config = config_get('client', 'opendata_host', raise_exception=False, default=None)
 
@@ -35,7 +35,6 @@ class OpenDataClient(BaseClient):
 
         return choice(self.list_hosts)
 
-    # self.auth_host
     def list_opendata_dids(
             self,
             *,
@@ -55,10 +54,9 @@ class OpenDataClient(BaseClient):
             raise ValueError('state and public cannot be provided at the same time.')
 
         url = build_url(self.get_opendata_host(public=public), path=path)
-
         r = self._send_request(url, type_='GET', params=params)
         if r.status_code == codes.ok:
-            return json.loads(next(self._load_json_data(r)))
+            return json.loads(r.content.decode('utf-8'))
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
@@ -155,7 +153,7 @@ class OpenDataClient(BaseClient):
         })
 
         if r.status_code == codes.ok:
-            return json.loads(next(self._load_json_data(r)))
+            return json.loads(r.content.decode('utf-8'))
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
