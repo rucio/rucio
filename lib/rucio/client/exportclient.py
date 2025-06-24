@@ -27,16 +27,57 @@ class ExportClient(BaseClient):
 
     def export_data(self, distance: bool = True) -> dict[str, Any]:
         """
-        Export RSE data (RSE, settings, attributes and distance).
+        Retrieve a detailed snapshot of the current RSE configuration.
+
+        The exported information includes all registered RSEs with their settings and
+        attributes. When `distance` is `True`, the RSE distance matrix is included as well.
+        The snapshot is intended for use cases such as configuration back‑ups, migrations
+        between instances, and monitoring (e.g. generating monitoring dashboards).
+
         Parameters
         ----------
-        distance :
-            To include the distance. Default is True.
+        distance
+            If *True* (default), the server also returns the inter‑RSE distance matrix in
+            the payload.
+
+            _**Note:**_ Omitting the distance information can significantly reduce the
+            response size and improve transfer times.
 
         Returns
         -------
+        dict[str, Any]
+            A nested dictionary that mirrors the server‑side JSON structure.
+            The top‑level keys are:
 
-            A dict containing data
+            **`rses`**:
+                Per‑RSE settings (name, deterministic flag, QoS class, supported protocol, etc.).
+
+            **`distances`**:
+                Pairwise RSE‑to‑RSE distance values (only present when `distance=True`).
+
+        Raises
+        ------
+        RucioException
+            Raised if the HTTP status code is not *200 OK*.
+
+        Examples
+        --------
+        ??? Example
+
+            Retrieve a full export of all configured RSEs, including their attributes and
+            inter-RSE distances:
+
+            ```python
+            from rucio.client.exportclient import ExportClient
+
+            export_client = ExportClient()
+
+            try:
+                rse_data = export_client.export_data()  # distance=True by default
+                print(f"Full RSE properties: {rse_data}")
+            except Exception as err:
+                print(f"Action failed: {err}")
+            ```
         """
         payload = {'distance': distance}
         path = '/'.join([self.EXPORT_BASEURL])
