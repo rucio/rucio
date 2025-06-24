@@ -21,7 +21,7 @@ from rucio.common.exception import AccessDenied, InvalidObject
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core import subscription
-from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.constants import DatabaseOperationType, SubscriptionState
 from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
 
@@ -110,7 +110,7 @@ def update_subscription(
 
     :param name: Name of the subscription
     :param account: Account identifier
-    :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed
+    :param metadata: Dictionary of metadata to update. Supported keys : filter, replication_rules, comments, lifetime, retroactive, dry_run, priority, last_processed, state
     :param issuer: The account issuing this operation.
     :param vo: The VO to act on.
     :raises: SubscriptionNotFound if subscription is not found
@@ -132,6 +132,9 @@ def update_subscription(
                 else:
                     for rule in metadata['replication_rules']:
                         validate_schema(name='activity', obj=rule.get('activity', 'default'), vo=vo)
+            if 'state' in metadata and metadata['state'] is not None:
+                metadata['state'] = SubscriptionState(metadata['state'])
+
         except ValueError as error:
             raise TypeError(error)
 
@@ -148,7 +151,6 @@ def update_subscription(
                         filter_[_key] = [_type(val, vo=vo).internal for val in filter_[_key]]
                     else:
                         filter_[_key] = _type(filter_[_key], vo=vo).internal
-
         return subscription.update_subscription(name=name, account=internal_account, metadata=metadata, session=session)
 
 

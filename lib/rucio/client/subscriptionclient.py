@@ -180,6 +180,36 @@ class SubscriptionClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
 
+    def deactivate_subscription(
+            self,
+            name: str,
+            account: Optional[str] = None
+    ) -> Literal[True]:
+        """
+        Mark a subscription as inactive
+
+        Parameters
+        ----------
+        name : Name of the subscription
+        account : Account identifier
+
+        Raises
+        ------
+        NotFound
+            If subscription is not found
+        """
+        if not account:
+            account = self.account
+        path = self.SUB_BASEURL + '/' + account + '/' + name  # type: ignore
+        url = build_url(choice(self.list_hosts), path=path)
+        data = dumps({'options': {'state': 'I'}})
+        result = self._send_request(url, type_='PUT', data=data)
+        if result.status_code == codes.created:   # pylint: disable=no-member
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
+            raise exc_cls(exc_msg)
+
     def list_subscription_rules(
             self,
             account: str,
