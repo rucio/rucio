@@ -19,7 +19,7 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
 from rucio.core.opendata import check_valid_opendata_did_state, opendata_state_str_to_enum
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -39,7 +39,6 @@ def list_opendata_dids(
     return result
 
 
-@read_session
 def get_opendata_did(
         *,
         scope: str,
@@ -49,7 +48,6 @@ def get_opendata_did(
         meta: bool = False,
         doi: bool = True,
         vo: str = "def",
-        session: "Session"
 ) -> dict[str, Any]:
     internal_scope = InternalScope(scope, vo=vo)
     state_enum = None
@@ -58,8 +56,8 @@ def get_opendata_did(
         state_enum = opendata_state_str_to_enum(state)
     result = opendata.get_opendata_did(scope=internal_scope, name=name,
                                        state=state_enum, files=files, meta=meta, doi=doi,
-                                       session=session)
-    return gateway_update_return_dict(result, session=session)
+                                       )
+    return gateway_update_return_dict(result)
 
 
 @transactional_session
@@ -114,16 +112,3 @@ def update_opendata_did(
                                         meta=meta,
                                         doi=doi,
                                         session=session)
-
-
-@read_session
-def get_opendata_did_files(
-        *,
-        scope: str,
-        name: str,
-        vo: str = "def",
-        session: "Session"
-) -> dict[str, Any]:
-    internal_scope = InternalScope(scope, vo=vo)
-    result = opendata.get_opendata_did_files(scope=internal_scope, name=name, session=session)
-    return gateway_update_return_dict(result, session=session)
