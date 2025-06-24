@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import InternalScope
+
 
 class DidColumnMeta(DidMetaPlugin):
     """
@@ -44,7 +46,7 @@ class DidColumnMeta(DidMetaPlugin):
         self.plugin_name = "DID_COLUMN"
 
     @read_session
-    def get_metadata(self, scope, name, *, session: "Session"):
+    def get_metadata(self, scope: "InternalScope", name: str, *, session: "Session"):
         """
         Get data identifier metadata.
 
