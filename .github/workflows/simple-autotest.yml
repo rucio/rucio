@@ -40,7 +40,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/rucio-test
+          images: ghcr.io/${{ github.repository }}/rucio-test-${{ matrix.cfg.DIST }}-py${{ matrix.cfg.PYTHON }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -72,7 +72,7 @@ jobs:
       - name: Set image tag output
         id: set-tag
         run: |
-          echo "tag=rucio-test:latest" >> $GITHUB_OUTPUT
+          echo  "tag=$(echo '${{ steps.meta.outputs.tags }}' >> $GITHUB_OUTPUT
 
   # test:
   #   needs: build
