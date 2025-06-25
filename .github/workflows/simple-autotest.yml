@@ -18,7 +18,6 @@ jobs:
       PROFILE: ${{ matrix.rdbms }}
       RUCIO_HOME: /opt/rucio
       RDBMS: ${{ matrix.rdbms }}
-      SUITE: "${{ matrix.suites }}"
     strategy:
       fail-fast: false
       matrix:
@@ -29,8 +28,6 @@ jobs:
           - "3.10"
         rdbms:
           - postgres14
-        suites:
-          - remote_dbs
           - sqlite
 
     steps:
