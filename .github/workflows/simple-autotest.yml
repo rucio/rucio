@@ -1,4 +1,4 @@
-name: Autotest Remote DBs 
+name: Database Tests
 
 on:
   pull_request:
@@ -18,17 +18,20 @@ jobs:
       PROFILE: ${{ matrix.rdbms }}
       RUCIO_HOME: /opt/rucio
       RDBMS: ${{ matrix.rdbms }}
-      SUITE: "remote_dbs"
+      SUITE: "${{ matrix.suites }}"
     strategy:
       fail-fast: false
       matrix:
         dist:
-          - "alma9"
+          - alma9
         python-version:
           - "3.9"
           - "3.10"
         rdbms:
-          - "postgres14"
+          - postgres14
+        suites:
+          - remote_dbs
+          - sqlite
 
     steps:
       - name: Prepare image tag
@@ -114,7 +117,7 @@ jobs:
             wait_for_database
             wait_for_httpd
           "
-      - name: Bootstrap tests
+      - name: Run Tests
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
             tools/run_tests.sh
