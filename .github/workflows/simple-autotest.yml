@@ -77,7 +77,7 @@ jobs:
       - name: Start services with docker-compose (httpd tests)
         env:
           PROFILE: ${{ matrix.rdbms }}
-          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py$(echo '${{ matrix.python-version }}' | tr '.' '-')"
+          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py$'${{ matrix.python-version }}'"
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} \
             --file etc/docker/dev/docker-compose.yml \
@@ -87,7 +87,7 @@ jobs:
       - name: Wait for services to be ready
         env:
           PROFILE: ${{ matrix.rdbms }}
-          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py$(echo '${{ matrix.python-version }}' | tr '.' '-')"
+          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py$'${{ matrix.python-version }}'"
         run: |
           # Wait for rucio container to be ready
           timeout 60 bash -c 'until docker compose -p ${COMPOSE_PROJECT} --profile ${PROFILE} ps rucio --status running; do sleep 2; done'
