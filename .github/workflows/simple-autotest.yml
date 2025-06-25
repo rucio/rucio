@@ -1,4 +1,4 @@
-name: Simple Autotest
+name: Autotest Remote DBs 
 
 on:
   pull_request:
@@ -18,6 +18,7 @@ jobs:
       PROFILE: ${{ matrix.rdbms }}
       RUCIO_HOME: /opt/rucio
       RDBMS: ${{ matrix.rdbms }}
+      SUITE: "remote_dbs"
     strategy:
       fail-fast: false
       matrix:
