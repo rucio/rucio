@@ -118,6 +118,7 @@ jobs:
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
             tools/run_tests.sh
+          "
 
       - name: Cleanup docker-compose services
         if: always()
