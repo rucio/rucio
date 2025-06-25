@@ -113,7 +113,11 @@ jobs:
             wait_for_database
             wait_for_httpd
           "
-      
+      - name: Bootstrap tests
+        run: |
+          docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
+            tools/run_tests.sh
+
       - name: Cleanup docker-compose services
         if: always()
         run: |
