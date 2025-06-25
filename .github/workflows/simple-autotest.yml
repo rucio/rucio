@@ -89,25 +89,29 @@ jobs:
         run: |
           # Wait for rucio container to be ready
           timeout 60 bash -c 'until docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} ps rucio --status running; do sleep 2; done'
-          function wait_for_httpd() {
-              echo 'Waiting for httpd'
-              curl --retry 15 --retry-all-errors --retry-delay 1 -k https://localhost/ping
-          }
+          
+          # Wait for database and httpd inside the container
+          docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
+            function wait_for_httpd() {
+                echo 'Waiting for httpd'
+                curl --retry 15 --retry-all-errors --retry-delay 1 -k https://localhost/ping
+            }
 
-          function wait_for_database() {
-              echo 'Waiting for database to be ready'
-              while ! python3 -c "from rucio.db.sqla.session import wait_for_database; wait_for_database()"
-              do
-                  if (( SECONDS > 60 ))
-                  then
-                     echo 'Cannot access database'
-                     exit 1
-                  fi
-                  sleep 1
-              done
-          }
-          wait_for_database
-          wait_for_httpd
+            function wait_for_database() {
+                echo 'Waiting for database to be ready'
+                while ! python3 -c 'from rucio.db.sqla.session import wait_for_database; wait_for_database()'
+                do
+                    if (( SECONDS > 60 ))
+                    then
+                       echo 'Cannot access database'
+                       exit 1
+                    fi
+                    sleep 1
+                done
+            }
+            wait_for_database
+            wait_for_httpd
+          "
       
       - name: Cleanup docker-compose services
         if: always()
