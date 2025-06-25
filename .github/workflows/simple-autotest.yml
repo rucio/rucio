@@ -11,52 +11,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Set matrix
-        id: set-matrix
-        run: |
-          echo 'matrix={"cfg":[{"DIST":"alma9","PYTHON":"3.9"},{"DIST":"alma9","PYTHON":"3.10"}]}' >> $GITHUB_OUTPUT
-
-  build:
-    needs: matrix
+  tests:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
-    outputs:
-      image-tag: ${{ steps.set-tag.outputs.tag }}
+      matrix:
+        dist:
+          - "alma9"
+        python-version:
+          - "3.9"
+          - "3.10"
+        rdbms:
+          - "postgres14"
+
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-          
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/rucio-test-${{ matrix.cfg.DIST }}-py${{ matrix.cfg.PYTHON }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}},format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Cache Docker layers
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
+          key: ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.python-version }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-
             ${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-
@@ -78,7 +63,7 @@ jobs:
       - name: Set image tag output
         id: set-tag
         run: |
-          echo "tag=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)" >> $GITHUB_OUTPUT
+          echo "${{ runner.os }}-buildx-autotest-${{ matrix.cfg.DIST }}-${{ matrix.cfg.PYTHON }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}" >> $GITHUB_OUTPUT
 
   # test:
   #   needs: build
@@ -87,7 +72,7 @@ jobs:
   #     fail-fast: false
   #     matrix:
   #       python-version: ["3.9", "3.10"]
-  #       test-suite: 
+  #       test-suite:
   #         # - name: "syntax"
   #         #   env:
   #         #     SYNTAX_REPORT: "1"
@@ -121,7 +106,7 @@ jobs:
 
   #   steps:
   #     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-          
+
   #     - name: Set test environment variables
   #       run: |
   #         echo "RUCIO_HOME=${{ matrix.test-suite.env.RUCIO_HOME || '/opt/rucio' }}" >> $GITHUB_ENV
@@ -129,7 +114,7 @@ jobs:
   #         echo "SYNTAX_REPORT=${{ matrix.test-suite.env.SYNTAX_REPORT || '0' }}" >> $GITHUB_ENV
   #         echo "RUN_HTTPD=${{ matrix.test-suite.env.RUN_HTTPD || 'true' }}" >> $GITHUB_ENV
   #         echo "COMPOSE_PROJECT=rucio-test-${{ matrix.test-suite.name }}-py$(echo '${{ matrix.python-version }}' | tr '.' '-')" >> $GITHUB_ENV
-          
+
   #     - name: Create docker-compose override
   #       run: |
   #         cat > docker-compose.override.yml << 'EOF'
@@ -148,7 +133,7 @@ jobs:
   #             profiles:
   #               - donotstart
   #         EOF
-          
+
   #     - name: Start services with docker-compose (httpd tests)
   #       if: env.RUN_HTTPD == 'true'
   #       run: |
@@ -156,19 +141,19 @@ jobs:
   #         if [ -n "${{ matrix.test-suite.profile }}" ]; then
   #           PROFILE_ARG="--profile ${{ matrix.test-suite.profile }}"
   #         fi
-          
+
   #         docker compose -p ${COMPOSE_PROJECT} \
   #           --file etc/docker/dev/docker-compose.yml \
   #           --file docker-compose.override.yml \
   #           ${PROFILE_ARG} \
   #           up -d
-            
+
   #     - name: Wait for services to be ready
   #       if: env.RUN_HTTPD == 'true'
   #       run: |
   #         # Wait for rucio container to be ready
   #         timeout 60 bash -c 'until docker compose -p ${COMPOSE_PROJECT} ps rucio | grep -q "Up"; do sleep 2; done'
-          
+
   #     - name: Run tests with docker-compose (httpd tests)
   #       if: env.RUN_HTTPD == 'true'
   #       run: |
@@ -188,7 +173,7 @@ jobs:
   #               ;;
   #           esac
   #         "
-          
+
   #     - name: Run tests directly (non-httpd tests)
   #       if: env.RUN_HTTPD == 'false'
   #       run: |
@@ -232,7 +217,7 @@ jobs:
   #                 ;;
   #             esac
   #           "
-            
+
   #     - name: Cleanup docker-compose services
   #       if: always() && env.RUN_HTTPD == 'true'
   #       run: |
