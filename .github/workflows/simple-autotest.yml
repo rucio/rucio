@@ -17,6 +17,7 @@ jobs:
       COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}"
       PROFILE: ${{ matrix.rdbms }}
       RUCIO_HOME: /opt/rucio
+      RDBMS: ${{ matrix.rdbms }}
     strategy:
       fail-fast: false
       matrix:
