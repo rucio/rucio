@@ -136,6 +136,7 @@ class UploadClient:
         Uploads one or more files to an RSE (Rucio Storage Element) and optionally registers them.
 
         An overview of this method's performed actions:
+
         1. Collects and validates file info from the passed `items` (directories may be
             also included), ensuring valid paths exist on the local filesystem. If an RSE
             expression is provided, a single RSE is picked at random from it.
