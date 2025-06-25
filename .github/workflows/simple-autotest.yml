@@ -80,12 +80,12 @@ jobs:
       - name: Start services with docker-compose (httpd tests)
         env:
           PROFILE: ${{ matrix.rdbms }}
-          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py$'${{ matrix.python-version }}'"
+          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py${{ matrix.python-version }}"
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} \
             --file etc/docker/dev/docker-compose.yml \
             --file docker-compose.override.yml \
-            ${{ env.PROFILE }} \
+            --profile ${{ env.PROFILE }} \
             up -d
       - name: Wait for services to be ready
         env:
