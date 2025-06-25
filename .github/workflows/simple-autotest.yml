@@ -2,25 +2,31 @@ name: Simple Autotest
 
 on:
   pull_request:
-  push:
-  schedule:
-    - cron: '0 3 * * *'
+  # push:
+  # schedule:
+  #   - cron: '0 3 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set matrix
+        id: set-matrix
+        run: |
+          echo 'matrix={"cfg":[{"DIST":"alma9","PYTHON":"3.9"},{"DIST":"alma9","PYTHON":"3.10"}]}' >> $GITHUB_OUTPUT
+
   build:
+    needs: matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        cfg:
-          - DIST: "alma9"
-            PYTHON: "3.9"
-          - DIST: "alma9"
-            PYTHON: "3.10"
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
     outputs:
       image-tag: ${{ steps.set-tag.outputs.tag }}
     steps:
@@ -61,18 +67,18 @@ jobs:
           context: .
           file: etc/docker/test/alma9.Dockerfile
           build-args: |
-            PYTHON=3.9
+            PYTHON=${{ matrix.cfg.PYTHON }}
           load: true
           push: false
           tags: rucio-test:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
-          
+
       - name: Set image tag output
         id: set-tag
         run: |
-          echo  "tag=$(echo '${{ steps.meta.outputs.tags }}' >> $GITHUB_OUTPUT
+          echo "tag=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)" >> $GITHUB_OUTPUT
 
   # test:
   #   needs: build
