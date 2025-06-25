@@ -25,6 +25,10 @@ jobs:
           - "postgres14"
 
     steps:
+      - name: Prepare image tag
+        id: image-tag
+        run: |
+          echo "tag=rucio-test:${{ matrix.dist }}-py${{ matrix.python-version }}-${{ hashFiles('etc/docker/test/alma9.Dockerfile', '**/requirements*.txt') }}" >> $GITHUB_OUTPUT
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Set up Docker Buildx
@@ -55,7 +59,7 @@ jobs:
             PYTHON=${{ matrix.python-version }}
           load: true
           push: false
-          tags: rucio-test:${{ matrix.dist }}-py${{ matrix.python-version }}-${{ hashFiles('etc/docker/test/alma9.Dockerfile', '**/requirements*.txt') }}
+          tags: ${{ steps.image-tag.outputs.tag }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
