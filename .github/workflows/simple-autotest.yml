@@ -14,7 +14,7 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     env:
-      COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py${{ matrix.python-version }}"
+      COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}"
       PROFILE: ${{ matrix.rdbms }}
     strategy:
       fail-fast: false
@@ -22,8 +22,8 @@ jobs:
         dist:
           - "alma9"
         python-version:
-          - 3.9
-          - 3.10
+          - "3.9"
+          - "3.10"
         rdbms:
           - "postgres14"
 
@@ -78,9 +78,6 @@ jobs:
           EOF
 
       - name: Start services with docker-compose (httpd tests)
-        env:
-          PROFILE: ${{ matrix.rdbms }}
-          COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}-py${{ matrix.python-version }}"
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} \
             --file etc/docker/dev/docker-compose.yml \
@@ -88,9 +85,6 @@ jobs:
             --profile ${{ env.PROFILE }} \
             up -d
       - name: Wait for services to be ready
-        env:
-          PROFILE: ${{ matrix.rdbms }}
-          
         run: |
           # Wait for rucio container to be ready
           timeout 60 bash -c 'until docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} ps rucio --status running; do sleep 2; done'
