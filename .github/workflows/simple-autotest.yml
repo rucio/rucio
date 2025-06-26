@@ -1,0 +1,126 @@
+name: Database Tests
+
+on:
+  pull_request:
+  # push:
+  # schedule:
+  #   - cron: '0 3 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT: "rucio-test-${{ matrix.dist }}"
+      PROFILE: ${{ matrix.rdbms }}
+      RUCIO_HOME: /opt/rucio
+      RDBMS: ${{ matrix.rdbms }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dist:
+          - alma9
+        python-version:
+          - "3.9"
+          - "3.10"
+        rdbms:
+          - postgres14
+          - sqlite
+
+    steps:
+      - name: Prepare image tag
+        id: image-tag
+        run: |
+          echo "tag=rucio-test:${{ matrix.dist }}-py${{ matrix.python-version }}-${{ hashFiles('etc/docker/test/alma9.Dockerfile', '**/requirements*.txt') }}" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Docker layers
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-autotest-${{ matrix.dist }}-${{ matrix.python-version }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-autotest-${{ matrix.dist }}-${{ matrix.python-version }}-
+            ${{ runner.os }}-buildx-autotest-${{ matrix.dist }}-
+            ${{ runner.os }}-buildx-autotest-
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: etc/docker/test/alma9.Dockerfile
+          build-args: |
+            PYTHON=${{ matrix.python-version }}
+          load: true
+          push: false
+          tags: ${{ steps.image-tag.outputs.tag }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+
+      - name: Create docker-compose override
+        run: |
+          cat > docker-compose.override.yml << 'EOF'
+          services:
+            rucio:
+              image: ${{ steps.image-tag.outputs.tag  }}
+            ruciodb:
+              profiles:
+                - donotstart
+          EOF
+
+      - name: Start services with docker-compose (httpd tests)
+        run: |
+          docker compose -p ${{ env.COMPOSE_PROJECT }} \
+            --file etc/docker/dev/docker-compose.yml \
+            --file docker-compose.override.yml \
+            --profile ${{ env.PROFILE }} \
+            up -d
+      - name: Wait for services to be ready
+        run: |
+          # Wait for rucio container to be ready
+          timeout 60 bash -c 'until docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} ps rucio --status running; do sleep 2; done'
+
+          # Wait for database and httpd inside the container
+          docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
+            function wait_for_httpd() {
+                echo 'Waiting for httpd'
+                curl --retry 15 --retry-all-errors --retry-delay 1 -k https://localhost/ping
+            }
+
+            function wait_for_database() {
+                echo 'Waiting for database to be ready'
+                while ! python3 -c 'from rucio.db.sqla.session import wait_for_database; wait_for_database()'
+                do
+                    if (( SECONDS > 60 ))
+                    then
+                       echo 'Cannot access database'
+                       exit 1
+                    fi
+                    sleep 1
+                done
+            }
+            wait_for_database
+            wait_for_httpd
+          "
+      - name: Run Tests
+        run: |
+          docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
+            tools/run_tests.sh
+          "
+
+      - name: Cleanup docker-compose services
+        if: always()
+        run: |
+          docker compose -p ${{ env.COMPOSE_PROJECT }} down -t 30 || true
