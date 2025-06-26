@@ -73,17 +73,6 @@ def build_images(matrix, script_args):
                 print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=False)
 
-            # BuildKit cache arguments
-            buildkit_cache_args = ()
-            if os.environ.get('BUILDX_CACHE_FROM'):
-                buildkit_cache_args += ('--cache-from', os.environ['BUILDX_CACHE_FROM'])
-            if os.environ.get('BUILDX_CACHE_TO'):
-                buildkit_cache_args += ('--cache-to', os.environ['BUILDX_CACHE_TO'])
-            if script_args.cache_repo and not script_args.build_no_cache:
-                # Add registry cache as secondary cache source (Optional)
-                cache_from_registry = f'type=registry,ref={imagetag}'
-                buildkit_cache_args += ('--cache-from', cache_from_registry)
-
             # add image to output
             images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
 
@@ -93,19 +82,12 @@ def build_images(matrix, script_args):
 
             args = ()
             env = {"DOCKER_BUILDKIT": "1"}
-            
-            # Use docker buildx build (or podman build if USE_PODMAN is set)
-            if use_podman:
-                docker_cmd = ['podman', 'build']
-            else:
-                docker_cmd = ['docker', 'buildx', 'build']
-            
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / 'alma9.Dockerfile'
                 args = (
-                    *docker_cmd,
+                    'docker',
+                    'build',
                     *cache_args,
-                    *buildkit_cache_args,
                     '--file',
                     str(buildfile),
                     '--tag',
@@ -117,9 +99,9 @@ def build_images(matrix, script_args):
                 # build images for autotest or votest
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / f'{dist}.Dockerfile'
                 args = (
-                    *docker_cmd,
+                    'docker',
+                    'build',
                     *cache_args,
-                    *buildkit_cache_args,
                     '--file',
                     str(buildfile),
                     '--tag',
