@@ -11,11 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import TYPE_CHECKING, Optional
+
 import click
 
-from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_file_replicas, list_suspicious_replicas
+from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_datasets_rse, list_file_replicas, list_suspicious_replicas
 from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, quarantine_replicas, set_tombstone
 from rucio.cli.utils import Arguments
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @click.group()
@@ -60,13 +65,18 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 
 @replica_list.command("dataset")
 @click.argument("dids", nargs=-1)
+@click.option("--rse", default=None, help="RSE name to use a filter")
 @click.option("--deep", default=False, is_flag=True, help="Make a deep check, checking the contents of datasets in datasets")
 @click.option("--csv", help="Write output to comma separated values", is_flag=True, default=False)
 @click.pass_context
-def list_dataset(ctx, dids, deep, csv):
-    """List dataset replicas"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "deep": deep, "csv": csv})
-    list_dataset_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep: bool, csv: bool):
+    """List dataset replicas, or view all datasets at a RSE"""
+    if rse is None:
+        args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "deep": deep, "csv": csv})
+        list_dataset_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    else:
+        args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse})
+        list_datasets_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @replica.command("remove")

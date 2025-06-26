@@ -437,9 +437,9 @@ def test_lifetime_exception(rucio_client, mock_scope):
 
 
 @pytest.mark.dirty
-def test_replica(mock_scope, rucio_client):
+def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
     mock_did = tempfile.NamedTemporaryFile()
-    mock_rse = "MOCK-POSIX"
+    mock_rse, _ = rse_factory.make_posix_rse()
 
     scope = mock_scope.external
     name = mock_did.name.split("/")[-1]
@@ -470,6 +470,23 @@ def test_replica(mock_scope, rucio_client):
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
+
+    # Check the dataset commands
+
+    dids = did_factory.upload_test_dataset(rse_name=mock_rse, scope=scope, size=1, nb_files=1)
+    dataset_name = dids[0]['dataset_name']
+
+    cmd = f"rucio replica list dataset {scope}:{dataset_name} --deep"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert dataset_name in out
+
+    cmd = f"rucio replica list dataset --rse {mock_rse}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert all([dataset in out for dataset in rucio_client.list_datasets_per_rse(mock_rse)])
 
 
 @pytest.mark.dirty
