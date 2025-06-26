@@ -52,10 +52,6 @@ jobs:
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-autotest-${{ matrix.dist }}-${{ matrix.python-version }}-${{ hashFiles('etc/docker/test/*.Dockerfile', '**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-autotest-${{ matrix.dist }}-${{ matrix.python-version }}-
-            ${{ runner.os }}-buildx-autotest-${{ matrix.dist }}-
-            ${{ runner.os }}-buildx-autotest-
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
