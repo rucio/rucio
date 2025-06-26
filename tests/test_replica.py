@@ -37,8 +37,8 @@ from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import OBSOLETE, BadPFNStatus, DIDType, ReplicaState
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.constants import OBSOLETE, BadPFNStatus, DatabaseOperationType, DIDType, ReplicaState
+from rucio.db.sqla.session import db_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import Mime, accept, auth, did_name_generator, execute, headers
 
@@ -826,9 +826,9 @@ def test_client_list_replicas_on_did_without_replicas(rse_factory, did_factory, 
     dataset = did_factory.make_dataset()
     container = did_factory.make_container()
 
-    @transactional_session
-    def __add_file_did_without_replica(*, session=None):
-        models.DataIdentifier(scope=file['scope'], name=file['name'], did_type=DIDType.FILE, bytes=1, adler32='0cc737eb', account=root_account).save(session=session, flush=False)
+    def __add_file_did_without_replica():
+        with db_session(DatabaseOperationType.WRITE) as session:
+            models.DataIdentifier(scope=file['scope'], name=file['name'], did_type=DIDType.FILE, bytes=1, adler32='0cc737eb', account=root_account).save(session=session, flush=False)
 
     __add_file_did_without_replica()
 
