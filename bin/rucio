@@ -54,6 +54,7 @@ def map_legacy_command() -> Optional[list[str]]:
         command_map = {
             "list-file-replicas": ["replica", "list", "file"],
             "list-dataset-replicas": ["replica", "list", "dataset"],
+            "list-datasets-rse": ["replica", "list", "dataset", "--rse"],
             "add-dataset": ["did", "add", "--type dataset"],
             "add-container": ["did", "add", "--type container"],
             "attach": ["did", "content", "add"],
