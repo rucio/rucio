@@ -1261,6 +1261,7 @@ def repair_rule(
     #     created.
     # (C) Transfers fail and mark locks (and the rule) as STUCK. All STUCK locks have to be repaired.
     # (D) Files are declared as BAD.
+    # (E) Stuck locks are found on RSEs that do not belong to the target RSEs.
 
     # start_time = time.time()
     try:
@@ -1314,6 +1315,43 @@ def repair_rule(
             logger(logging.DEBUG, '%s while repairing rule %s', str(error), rule_id)
             return
 
+        # Get all stuck locks for this rule ID
+        stmt = select(
+            models.ReplicaLock.rse_id,
+            func.count().label('lock_count')
+        ).where(
+            and_(models.ReplicaLock.rule_id == rule.id,
+                 models.ReplicaLock.state == LockState.STUCK)
+        ).group_by(
+            models.ReplicaLock.rse_id
+        )
+        stuck_locks_by_rse = session.execute(stmt).all()
+
+        stuck_locks_on_nontarget_rses = []
+
+        # Check if any of the locks found are not on our target RSEs
+        target_rse_ids = {rse['id'] for rse in target_rses}
+        for stuck_lock in stuck_locks_by_rse:
+            if stuck_lock.rse_id not in target_rse_ids:
+                rse_name = get_rse_name(rse_id=stuck_lock.rse_id, session=session)
+                stuck_locks_on_nontarget_rses.append({
+                    'rse_id': stuck_lock.rse_id,
+                    'rse_name': rse_name,
+                    'lock_count': stuck_lock.lock_count
+                })
+
+        # Add to rule error if found
+        if stuck_locks_on_nontarget_rses:
+            error_msg = "Found stuck locks on RSEs not matching target expression: "
+            error_msg += ", ".join([f"{rse['rse_name']} ({rse['lock_count']})" for rse in stuck_locks_on_nontarget_rses])
+
+            if rule.error:
+                error_msg = rule.error + '|' + error_msg
+
+            rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
+
+            logger(logging.WARNING, "Rule %s: %s", str(rule.id), error_msg)
+
         # Create the RSESelector
         try:
             rseselector = RSESelector(account=rule.account,
@@ -1324,7 +1362,12 @@ def repair_rule(
                                       session=session)
         except (InvalidRuleWeight, InsufficientTargetRSEs, InsufficientAccountLimit) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
+
+            error_msg = str(error)
+            if rule.error:
+                error_msg = rule.error + '|' + error_msg
+            rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
+
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -1410,7 +1453,10 @@ def repair_rule(
                                                      session=session)
             except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
                 rule.state = RuleState.STUCK
-                rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
+                error_msg = str(error)
+                if rule.error:
+                    error_msg = rule.error + '|' + error_msg
+                rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
                 rule.save(session=session)
                 # Insert rule history
                 insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -1450,7 +1496,10 @@ def repair_rule(
                                                session=session)
         except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
             rule.state = RuleState.STUCK
-            rule.error = (str(error)[:245] + '...') if len(str(error)) > 245 else str(error)
+            error_msg = str(error)
+            if rule.error:
+                error_msg = rule.error + '|' + error_msg
+            rule.error = (error_msg[:245] + '...') if len(error_msg) > 245 else error_msg
             rule.save(session=session)
             # Insert rule history
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
