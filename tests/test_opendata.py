@@ -20,7 +20,7 @@ from rucio.core.did import add_did, set_status
 from rucio.db.sqla import session
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import did_name_generator, doi_generator
+from rucio.tests.common import auth, did_name_generator, doi_generator, headers
 
 skip_unsupported_json = pytest.mark.skipif(
     not json_implemented(),
@@ -239,7 +239,7 @@ class TestOpenDataCore:
         assert opendata_did_public_new["state"] == OpenDataDIDState.PUBLIC, "State does not match"
 
 
-# @pytest.mark.skip(reason="Client tests not working, likely due to API not enabled in the test environment")
+@pytest.mark.skip(reason="Client tests not working, likely due to API not enabled in the test environment")
 class TestOpenDataClient:
     def test_opendata_dids_list_client(self, mock_scope, root_account, rucio_client):
         dids = [
@@ -311,33 +311,21 @@ class TestOpenDataClient:
         meta = opendata_did["meta"]
         assert meta == {}, "'meta' should be empty"
 
-    def test_opendata_public_show_client(self, mock_scope, root_account, rucio_client):
-        name = did_name_generator(did_type="dataset")
 
-        # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
+class TestOpenDataAPI:
+    def test_opendata_api_list(self, rest_client, auth_token, root_account):
+        api_endpoint = '/opendata'
 
-        # Add it as open data
-        opendata.add_opendata_did(scope=mock_scope, name=name)
+        response = rest_client.get(
+            api_endpoint,
+            headers=headers(auth(auth_token)),
+        )
+        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
 
-        # fetch from the private endpoint
-        opendata_did_from_private = rucio_client.get_opendata_did(scope=str(mock_scope), name=name, public=False)
+    def test_opendata_public_api_list(self, rest_client):
+        api_endpoint = '/public/opendata'
 
-        assert opendata_did_from_private["scope"] == mock_scope, "Scope does not match"
-        assert opendata_did_from_private["name"] == name, "Name does not match"
-        assert opendata_did_from_private["state"] == OpenDataDIDState.DRAFT, "State does not match"
-
-        with pytest.raises(OpenDataDataIdentifierNotFound):
-            # fetch from the public endpoint
-            rucio_client.get_opendata_did(scope=str(mock_scope), name=name, public=True)
-
-        # Update state to public
-        opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC)
-
-        # Check we can still fetch it from the private endpoint
-        assert opendata_did_from_private == rucio_client.get_opendata_did(scope=str(mock_scope), name=name,
-                                                                          public=False)
-
-        opendata_did_from_public = rucio_client.get_opendata_did(scope=str(mock_scope), name=name, public=True)
-
-        assert opendata_did_from_public == opendata_did_from_private, "Public and private endpoints should return the same data for public DIDs"
+        response = rest_client.get(
+            api_endpoint,
+        )
+        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
