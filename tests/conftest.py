@@ -17,8 +17,8 @@ import os
 import re
 import traceback
 from os import environ
-from random import choice
-from string import ascii_uppercase
+from random import choice, choices
+from string import ascii_letters, ascii_uppercase, digits
 from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
@@ -45,16 +45,16 @@ if TYPE_CHECKING:
 
     from .temp_factories import TemporaryDidFactory, TemporaryFileFactory, TemporaryRSEFactory
 
-
 _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
-pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
+pytest_plugins = ('tests.ruciopytest.artifacts_plugin',)
 
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
-    config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
+    config.addinivalue_line('markers',
+                            'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
@@ -92,8 +92,8 @@ def session_scope_prefix() -> str:
 
 @pytest.fixture(scope='module')
 def module_scope_prefix(
-    request: pytest.FixtureRequest,
-    session_scope_prefix: str
+        request: pytest.FixtureRequest,
+        session_scope_prefix: str
 ) -> str:
     """
     Generate a name prefix to be shared by objects created during this pytest module
@@ -105,8 +105,8 @@ def module_scope_prefix(
 
 @pytest.fixture(scope='class')
 def class_scope_prefix(
-    request: pytest.FixtureRequest,
-    module_scope_prefix: str
+        request: pytest.FixtureRequest,
+        module_scope_prefix: str
 ) -> str:
     if not request.cls:
         return module_scope_prefix
@@ -115,8 +115,8 @@ def class_scope_prefix(
 
 @pytest.fixture(scope='function')
 def function_scope_prefix(
-    request: pytest.FixtureRequest,
-    class_scope_prefix: str
+        request: pytest.FixtureRequest,
+        class_scope_prefix: str
 ) -> str:
     return class_scope_prefix + _del_test_prefix(request.node.originalname) + '-'
 
@@ -244,12 +244,13 @@ def rest_client() -> "Iterator[FlaskClient]":
 
 @pytest.fixture
 def auth_token(
-    rest_client: "FlaskClient",
-    long_vo: str
+        rest_client: "FlaskClient",
+        long_vo: str
 ) -> str:
     from rucio.tests.common import headers, loginhdr, vohdr
 
-    auth_response = rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(long_vo)))
+    auth_response = rest_client.get('/auth/userpass',
+                                    headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(long_vo)))
     assert auth_response.status_code == 200
     token = auth_response.headers.get('X-Rucio-Auth-Token')
     assert token
@@ -358,12 +359,14 @@ def containerized_rses(rucio_client: "Client") -> list[tuple[str, str]]:
     try:
         xrd_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_xrd=True')]
         xrd_rses = [rucio_client.get_rse(rse) for rse in xrd_rses]
-        xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if "xrd" in rse_obj['rse'].lower()]
+        xrd_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in xrd_rses if
+                                  "xrd" in rse_obj['rse'].lower()]
         xrd_containerized_rses.sort()
         rses.extend(xrd_containerized_rses)
         ssh_rses = [x['rse'] for x in rucio_client.list_rses(rse_expression='test_container_ssh=True')]
         ssh_rses = [rucio_client.get_rse(rse) for rse in ssh_rses]
-        ssh_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in ssh_rses if "ssh" in rse_obj['rse'].lower()]
+        ssh_containerized_rses = [(rse_obj['rse'], rse_obj['id']) for rse_obj in ssh_rses if
+                                  "ssh" in rse_obj['rse'].lower()]
         ssh_containerized_rses.sort()
         rses.extend(ssh_containerized_rses)
     except InvalidRSEExpression as invalid_rse_expression:
@@ -375,9 +378,9 @@ def containerized_rses(rucio_client: "Client") -> list[tuple[str, str]]:
 
 @pytest.fixture
 def rse_factory(
-    request: pytest.FixtureRequest,
-    vo: str,
-    function_scope_prefix: str
+        request: pytest.FixtureRequest,
+        vo: str,
+        function_scope_prefix: str
 ) -> "Iterator[TemporaryRSEFactory]":
     from .temp_factories import TemporaryRSEFactory
 
@@ -391,9 +394,9 @@ def rse_factory(
 
 @pytest.fixture(scope="class")
 def rse_factory_unittest(
-    request: pytest.FixtureRequest,
-    vo: str,
-    class_scope_prefix: str
+        request: pytest.FixtureRequest,
+        vo: str,
+        class_scope_prefix: str
 ) -> "Iterator[TemporaryRSEFactory]":
     """
     unittest classes can get access to rse_factory fixture via this fixture
@@ -407,12 +410,12 @@ def rse_factory_unittest(
 
 @pytest.fixture
 def did_factory(
-    request: pytest.FixtureRequest,
-    vo: str,
-    mock_scope: "InternalScope",
-    function_scope_prefix: str,
-    file_factory: "TemporaryFileFactory",
-    root_account: "InternalAccount"
+        request: pytest.FixtureRequest,
+        vo: str,
+        mock_scope: "InternalScope",
+        function_scope_prefix: str,
+        file_factory: "TemporaryFileFactory",
+        root_account: "InternalAccount"
 ) -> "Iterator[TemporaryDidFactory]":
     from .temp_factories import TemporaryDidFactory
 
@@ -420,7 +423,8 @@ def did_factory(
     if 'db_session' in request.fixturenames:
         session = request.getfixturevalue('db_session')
 
-    with TemporaryDidFactory(vo=vo, default_scope=mock_scope, name_prefix=function_scope_prefix, file_factory=file_factory,
+    with TemporaryDidFactory(vo=vo, default_scope=mock_scope, name_prefix=function_scope_prefix,
+                             file_factory=file_factory,
                              default_account=root_account, db_session=session) as factory:
         yield factory
 
@@ -467,12 +471,14 @@ class _TagFactory:
 
 @pytest.fixture
 def tag_factory(function_scope_prefix: str) -> _TagFactory:
-    return _TagFactory(prefix=f'{function_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
+    return _TagFactory(
+        prefix=f'{function_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
 
 
 @pytest.fixture(scope='class')
 def tag_factory_class(class_scope_prefix: str) -> _TagFactory:
-    return _TagFactory(prefix=f'{class_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
+    return _TagFactory(
+        prefix=f'{class_scope_prefix}{"".join(choice(ascii_uppercase) for _ in range(6))}'.replace('_', '-'))
 
 
 @pytest.fixture
@@ -758,3 +764,13 @@ def rse_protocol() -> "Iterator[dict[str, Any]]":
             }
         },
     }
+
+
+@pytest.fixture
+def doi_factory() -> "Callable[[], str]":
+    """Fixture that returns a function to generate random DOIs."""
+
+    def generate_doi() -> str:
+        return '10.1234/' + ''.join(choices(ascii_letters + digits, k=10))  # noqa: S311
+
+    return generate_doi
