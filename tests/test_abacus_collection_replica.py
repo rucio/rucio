@@ -16,7 +16,6 @@
 import pytest
 
 from rucio.common.exception import DataIdentifierNotFound
-from rucio.common.schema import get_schema_value
 from rucio.core.did import add_did, get_did
 from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_replicas
 from rucio.daemons.abacus import collection_replica
@@ -71,7 +70,7 @@ class TestAbacusCollectionReplica:
         dids = did_factory.upload_test_dataset(rse_name=rse, scope=mock_scope.external, size=file_sizes, nb_files=nfiles)
         files = [{'scope': did['did_scope'], 'name': did['did_name']} for did in dids]
         dataset = dids[0]['dataset_name']
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
 
         # Check dataset replica after rule creation - initial data
@@ -96,7 +95,7 @@ class TestAbacusCollectionReplica:
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
         delete_replicas(rse_id=rse_id, files=[{'name': files[0]['name'], 'scope': mock_scope}])
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)][0]
@@ -114,7 +113,7 @@ class TestAbacusCollectionReplica:
             reaper.run(once=True, include_rses='vo=%s&(%s)' % (str(vo), rse), greedy=True)
         else:
             reaper.run(once=True, include_rses=rse, greedy=True)
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)]
@@ -137,7 +136,7 @@ class TestAbacusCollectionReplica:
         files = [{'scope': did['did_scope'], 'name': did['did_name']} for did in dids]
         dataset = dids[0]['dataset_name']
         rucio_client.set_metadata(mock_scope.external, dataset, 'lifetime', -1)
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
 
         # Check dataset replica after rule creation - initial data
@@ -162,7 +161,7 @@ class TestAbacusCollectionReplica:
         # Delete one file -> collection replica should be unavailable
         cleaner.run(once=True)
         delete_replicas(rse_id=rse_id, files=[{'name': files[0]['name'], 'scope': mock_scope}])
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         collection_replica.run(once=True)
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)][0]

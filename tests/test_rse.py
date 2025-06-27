@@ -20,7 +20,6 @@ from rucio.common import exception
 from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
 from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
-from rucio.common.schema import get_schema_value
 from rucio.core.account_limit import get_rse_account_usage, set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.request import delete_transfer_limit, set_transfer_limit
@@ -1391,7 +1390,7 @@ class TestRSEClient:
         nfiles = 3
         rse, rse_id = rse_factory.make_posix_rse()
         set_local_account_limit(account=jdoe_account, rse_id=rse_id, bytes_=10000)
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         files = create_files(nfiles, mock_scope, rse_id, bytes_=file_sizes)
         dataset = did_name_generator('dataset')
         add_did(mock_scope, dataset, DIDType.DATASET, jdoe_account)

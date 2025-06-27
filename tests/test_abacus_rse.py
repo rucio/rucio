@@ -15,7 +15,6 @@
 import pytest
 from sqlalchemy import delete
 
-from rucio.common.schema import get_schema_value
 from rucio.core.rse import get_rse_usage
 from rucio.daemons.abacus.rse import rse_update
 from rucio.daemons.judge import cleaner
@@ -54,7 +53,7 @@ class TestAbacusRSE:
         # Delete files -> rse usage should decrease
         from rucio.daemons.reaper.reaper import REGION
         REGION.invalidate()
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         cleaner.run(once=True)
         if vo:
