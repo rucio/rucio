@@ -24,7 +24,6 @@ from sqlalchemy import and_, delete, or_
 from rucio.client.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common.exception import UnsupportedOperation
-from rucio.common.schema import get_schema_value
 from rucio.common.types import DIDDict, FileToUploadDict, InternalAccount, InternalScope, PathTypeAlias
 from rucio.common.utils import execute, generate_uuid
 from rucio.core import did as did_core
@@ -597,7 +596,7 @@ class TemporaryDidFactory:
             'did_name': name,
             'guid': generate_uuid(),
         }
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         self.upload_client.upload(items=[item], activity=activity)
         did: DIDDict = {'scope': scope, 'name': name}
         self.created_dids.add((scope, name))

@@ -28,7 +28,6 @@ from werkzeug.datastructures import Headers, MultiDict
 from rucio.client.ruleclient import RuleClient
 from rucio.common.constants import RseAttr
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
-from rucio.common.schema import get_schema_value
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
@@ -518,7 +517,7 @@ class TestReplicaCore:
         # Set tombstone on one replica
         rse, rse_id = rse_factory.make_mock_rse()
         name = did_name_generator('file')
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         add_replica(rse_id, mock_scope, name, 4, root_account)
         assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
         set_tombstone(rse_id, mock_scope, name)
@@ -542,7 +541,7 @@ class TestReplicaCore:
         # One RSE has an attribute set, the other uses the default value of "None" for tombstone
         rse1, rse1_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         tombstone_delay = 3600
         add_rse_attribute(rse_id=rse2_id, key=RseAttr.TOMBSTONE_DELAY, value=tombstone_delay)
 
@@ -1007,7 +1006,7 @@ def test_client_set_tombstone(rse_factory, mock_scope, root_account, replica_cli
     # Set tombstone on one replica
     rse, rse_id = rse_factory.make_mock_rse()
     name = did_name_generator('file')
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
     add_replica(rse_id, mock_scope, name, 4, root_account)
     assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
     replica_client.set_tombstone([{'rse': rse, 'scope': mock_scope.external, 'name': name}])
