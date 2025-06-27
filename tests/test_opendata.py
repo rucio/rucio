@@ -239,7 +239,7 @@ class TestOpenDataCore:
         assert opendata_did_public_new["state"] == OpenDataDIDState.PUBLIC, "State does not match"
 
 
-@pytest.mark.skip(reason="Client tests not working, likely due to API not enabled in the test environment")
+# @pytest.mark.skip(reason="Client tests not working, likely due to API not enabled in the test environment")
 class TestOpenDataClient:
     def test_opendata_dids_list_client(self, mock_scope, root_account, rucio_client):
         dids = [
