@@ -2336,49 +2336,91 @@ def blueprint():
     bp = AuthenticatedBlueprint('dids', __name__, url_prefix='/dids')
 
     scope_view = Scope.as_view('scope')
-    bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])
+    bp.add_url_rule('/<scope>/',
+                    view_func=scope_view, methods=['get', ])
+
     guid_lookup_view = GUIDLookup.as_view('guid_lookup')
-    bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
+    bp.add_url_rule('/<guid>/guid',
+                    view_func=guid_lookup_view, methods=['get', ])
+
     search_view = Search.as_view('search')
-    bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
+    bp.add_url_rule('/<scope>/dids/search',
+                    view_func=search_view, methods=['get', ])
+
     dids_view = DIDs.as_view('dids')
-    bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', 'get'])
+    bp.add_url_rule('/<path:scope_name>/status',
+                    view_func=dids_view, methods=['put', 'get'])
+
     files_view = Files.as_view('files')
-    bp.add_url_rule('/<path:scope_name>/files', view_func=files_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/files',
+                    view_func=files_view, methods=['get', ])
+
     attachment_history_view = AttachmentHistory.as_view('attachment_history')
-    bp.add_url_rule('/<path:scope_name>/dids/history', view_func=attachment_history_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/dids/history',
+                    view_func=attachment_history_view, methods=['get', ])
+
     attachment_view = Attachment.as_view('attachment')
-    bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<path:scope_name>/dids',
+                    view_func=attachment_view, methods=['get', 'post', 'delete'])
+
     meta_view = Meta.as_view('meta')
-    bp.add_url_rule('/<path:scope_name>/meta', defaults={'key': None}, view_func=meta_view, methods=['get', 'post', 'delete'])
-    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
+    bp.add_url_rule('/<path:scope_name>/meta',
+                    defaults={'key': None}, view_func=meta_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<path:scope_name>/meta/<key>',
+                    view_func=meta_view, methods=['post', ])
+
     bulkdidsmeta_view = BulkDIDsMeta.as_view('bulkdidsmeta')
-    bp.add_url_rule('/bulkdidsmeta', view_func=bulkdidsmeta_view, methods=['post', ])
+    bp.add_url_rule('/bulkdidsmeta',
+                    view_func=bulkdidsmeta_view, methods=['post', ])
+
     rules_view = Rules.as_view('rules')
-    bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/rules',
+                    view_func=rules_view, methods=['get', ])
+
     parents_view = Parents.as_view('parents')
-    bp.add_url_rule('/<path:scope_name>/parents', view_func=parents_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/parents',
+                    view_func=parents_view, methods=['get', ])
+
     associated_rules_view = AssociatedRules.as_view('associated_rules')
-    bp.add_url_rule('/<path:scope_name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/associated_rules',
+                    view_func=associated_rules_view, methods=['get', ])
+
     follow_view = Follow.as_view('follow')
-    bp.add_url_rule('/<path:scope_name>/follow', view_func=follow_view, methods=['get', 'post', 'delete'])
-    bp.add_url_rule('/<path:scope_name>', view_func=dids_view, methods=['get', 'post'])
+    bp.add_url_rule('/<path:scope_name>/follow',
+                    view_func=follow_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<path:scope_name>',
+                    view_func=dids_view, methods=['get', 'post'])
+
     bulkdids_view = BulkDIDS.as_view('bulkdids')
-    bp.add_url_rule('', view_func=bulkdids_view, methods=['post', ])
+    bp.add_url_rule('',
+                    view_func=bulkdids_view, methods=['post', ])
+
     sample_view_legacy = SampleLegacy.as_view('sample')
-    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view_legacy, methods=['post', ])
+    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample',
+                    view_func=sample_view_legacy, methods=['post', ])
+
     sample_view = Sample.as_view('sample_new')
-    bp.add_url_rule('/sample', view_func=sample_view, methods=['post', ])
+    bp.add_url_rule('/sample',
+                    view_func=sample_view, methods=['post', ])
     attachments_view = Attachments.as_view('attachments')
-    bp.add_url_rule('/attachments', view_func=attachments_view, methods=['post', ])
+    bp.add_url_rule('/attachments',
+                    view_func=attachments_view, methods=['post', ])
+
     new_dids_view = NewDIDs.as_view('new_dids')
-    bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
+    bp.add_url_rule('/new',
+                    view_func=new_dids_view, methods=['get', ])
+
     resurrect_view = Resurrect.as_view('resurrect')
-    bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
+    bp.add_url_rule('/resurrect',
+                    view_func=resurrect_view, methods=['post', ])
+
     bulkmeta_view = BulkMeta.as_view('bulkmeta')
-    bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
+    bp.add_url_rule('/bulkmeta',
+                    view_func=bulkmeta_view, methods=['post', ])
+
     files_view = BulkFiles.as_view('bulkfiles')
-    bp.add_url_rule('/bulkfiles', view_func=files_view, methods=['post', ])
+    bp.add_url_rule('/bulkfiles',
+                    view_func=files_view, methods=['post', ])
 
     bp.after_request(response_headers)
     return bp
