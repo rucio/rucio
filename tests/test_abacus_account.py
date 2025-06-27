@@ -16,7 +16,6 @@
 import pytest
 from sqlalchemy import delete
 
-from rucio.common.schema import get_schema_value
 from rucio.core.account import get_usage_history
 from rucio.core.account_counter import update_account_counter_history
 from rucio.core.account_limit import get_local_account_usage, set_local_account_limit
@@ -44,7 +43,7 @@ class TestAbacusAccount2:
         rse, rse_id = rse_factory.make_posix_rse()
         dids = did_factory.upload_test_dataset(rse_name=rse, scope=mock_scope.external, size=file_sizes, nb_files=nfiles)
         dataset = dids[0]['dataset_name']
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         account_update(once=True)
         account_usage = get_local_account_usage(account=root_account, rse_id=rse_id)[0]

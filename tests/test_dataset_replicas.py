@@ -20,7 +20,6 @@ from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import InvalidObject
-from rucio.common.schema import get_schema_value
 from rucio.core.did import add_dids, attach_dids
 from rucio.core.replica import add_replicas, delete_replicas, get_cleaned_updated_collection_replicas, list_datasets_per_rse, update_collection_replica
 from rucio.core.rse import add_protocol, add_rse, del_rse, get_rse_id
@@ -34,7 +33,7 @@ class TestDatasetReplicaClient:
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dataset_replicas(self):
         """ REPLICA (CLIENT): List dataset replicas."""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         replica_client = ReplicaClient()
         rule_client = RuleClient()
         did_client = DIDClient()
@@ -51,7 +50,7 @@ class TestDatasetReplicaClient:
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_dataset_replicas_bulk(self):
         """ REPLICA (CLIENT): List dataset replicas bulk."""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         replica_client = ReplicaClient()
         rule_client = RuleClient()
         did_client = DIDClient()
@@ -79,7 +78,7 @@ class TestDatasetReplicaClient:
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_list_datasets_per_rse(self, vo, mock_scope):
         """ REPLICA (CLIENT): List datasets in RSE."""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rule_client = RuleClient()
         did_client = DIDClient()
         dataset = did_name_generator('dataset')
@@ -96,7 +95,7 @@ class TestDatasetReplicaClient:
     def test_list_dataset_replicas_archive(self, vo, did_client):
         """ REPLICA (CLIENT): List dataset replicas with archives. """
 
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         replica_client = ReplicaClient()
         did_client = DIDClient()
         rule_client = RuleClient()

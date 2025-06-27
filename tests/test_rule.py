@@ -42,7 +42,6 @@ from rucio.common.exception import (
     RuleReplaceFailed,
     UnsupportedOperation,
 )
-from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, get_account, get_usage
@@ -1351,7 +1350,7 @@ class TestClient:
 
     def test_add_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CLIENT): Add a replication rule and list full history """
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
@@ -1412,7 +1411,7 @@ class TestClient:
 
     def test_get_rule(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CLIENT): Get Replication Rule by id """
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
@@ -1424,7 +1423,7 @@ class TestClient:
 
     def test_get_rule_by_account(self, mock_scope, did_factory, jdoe_account, rucio_client):
         """ ACCOUNT (CLIENT): Get Replication Rule by account """
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
