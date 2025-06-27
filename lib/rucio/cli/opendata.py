@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import click
 
@@ -31,8 +31,10 @@ def is_valid_json(s: str) -> bool:
     except json.JSONDecodeError:
         return False
 
+
 # TODO: import this from somewhere else
 valid_opendata_states = ['draft', 'public', 'suspended']
+
 
 @click.group()
 def opendata() -> None:
@@ -41,7 +43,8 @@ def opendata() -> None:
 
 @opendata.command("list")
 # TODO instead of state, maybe use a flag for each valid state?
-@click.option("--state", type=click.Choice(valid_opendata_states, case_sensitive=False), required=False, help="Filter on opendata state")
+@click.option("--state", type=click.Choice(valid_opendata_states, case_sensitive=False), required=False,
+              help="Filter on opendata state")
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
 @click.pass_context
@@ -92,7 +95,8 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
 @click.option("--state", type=click.Choice(valid_opendata_states, case_sensitive=False), required=False, help="State")
 @click.option("--doi", required=False, help="DOI")
 @click.pass_context
-def update_opendata_did(ctx: "Context", did: str, meta: str | None, state: str | None, doi: str | None) -> None:
+def update_opendata_did(ctx: "Context", did: str, meta: Optional[str], state: Optional[str],
+                        doi: Optional[str]) -> None:
     client = ctx.obj.client
     if not any([meta, state, doi]):
         raise click.UsageError("At least one of --meta, --state, or --doi must be provided.")
