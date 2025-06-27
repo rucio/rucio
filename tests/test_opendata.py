@@ -20,7 +20,7 @@ from rucio.core.did import add_did, set_status
 from rucio.db.sqla import session
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import auth, did_name_generator, doi_generator, headers
+from rucio.tests.common import auth, did_name_generator, headers
 
 skip_unsupported_json = pytest.mark.skipif(
     not json_implemented(),
@@ -171,12 +171,12 @@ class TestOpenDataCore:
         meta = opendata.get_opendata_meta(scope=mock_scope, name=name)
         assert meta == meta_new, "'meta' should be updated"
 
-    def test_opendata_doi_update(self, mock_scope, root_account):
+    def test_opendata_doi_update(self, mock_scope, root_account, doi_factory):
         name = did_name_generator(did_type="dataset")
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
         opendata.add_opendata_did(scope=mock_scope, name=name)
 
-        doi = doi_generator()
+        doi = doi_factory()
         # generic update method
         opendata.update_opendata_did(scope=mock_scope, name=name, doi=doi)
         doi_after = opendata.get_opendata_did(scope=mock_scope, name=name)["doi"]
@@ -186,7 +186,7 @@ class TestOpenDataCore:
         doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
         assert doi_after == doi, "DOI should be updated"
 
-        doi = doi_generator()
+        doi = doi_factory()
         opendata.update_opendata_doi(scope=mock_scope, name=name, doi=doi)
         doi_after = opendata.get_opendata_doi(scope=mock_scope, name=name)
         assert doi_after == doi, "DOI should be updated"
