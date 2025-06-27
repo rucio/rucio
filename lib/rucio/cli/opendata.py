@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from rucio.cli.utils import JSONType
 from rucio.common.exception import RucioException
 
 if TYPE_CHECKING:
@@ -83,7 +84,8 @@ def remove_opendata_did(ctx: "Context", did: str) -> None:
 @opendata.command("show")
 @click.argument("did")
 @click.option("--meta", required=False, is_flag=True, default=False, help="Print only the opendata metadata")
-@click.option("--files", required=False, is_flag=True, default=False, help="Print the files associated with the opendata DID")
+@click.option("--files", required=False, is_flag=True, default=False,
+              help="Print the files associated with the opendata DID")
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
 @click.pass_context
@@ -97,22 +99,17 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
 
 @opendata.command("update")
 @click.argument("did")
-@click.option("--meta", required=False, help="OpenData JSON")
-# TODO: once the list of states is defined, restrict choices to those states
-@click.option("--state", required=False, help="State")
+@click.option("--meta", type=JSONType(), required=False, help="OpenData JSON")
+# TODO: do not hardcode the list of valid states but import them
+@click.option("--state", type=click.Choice(['draft', 'public', 'suspended'], case_sensitive=False), required=False,
+              help="State")
 @click.option("--doi", required=False, help="DOI")
 @click.pass_context
-def update_opendata_did(ctx: "Context", did: str, meta: str, state: str, doi: str) -> None:
+def update_opendata_did(ctx: "Context", did: str, meta: str | None, state: str | None, doi: str | None) -> None:
     client = ctx.obj.client
-    if not meta and not state and not doi:
-        raise ValueError("At least one of --json, --state, or --doi must be provided.")
+    if not any([meta, state, doi]):
+        raise click.UsageError("At least one of --meta, --state, or --doi must be provided.")
 
     scope, name = extract_scope_name(did)
-
-    if meta is not None:
-        if not is_valid_json(meta):
-            raise ValueError("Invalid JSON provided.")
-
-        meta = json.loads(meta)
 
     client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
