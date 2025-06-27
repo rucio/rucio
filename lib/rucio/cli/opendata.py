@@ -31,6 +31,8 @@ def is_valid_json(s: str) -> bool:
     except json.JSONDecodeError:
         return False
 
+# TODO: import this from somewhere else
+valid_opendata_states = {'draft', 'public', 'suspended'}
 
 @click.group()
 def opendata() -> None:
@@ -39,7 +41,7 @@ def opendata() -> None:
 
 @opendata.command("list")
 # TODO instead of state, maybe use a flag for each valid state?
-@click.option("--state", required=False, help="Filter on opendata state")
+@click.option("--state", type=click.Choice(valid_opendata_states, case_sensitive=False), required=False, help="Filter on opendata state")
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
 @click.pass_context
@@ -87,8 +89,7 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
 @click.argument("did")
 @click.option("--meta", type=JSONType(), required=False, help="OpenData JSON")
 # TODO: do not hardcode the list of valid states but import them
-@click.option("--state", type=click.Choice(['draft', 'public', 'suspended'], case_sensitive=False), required=False,
-              help="State")
+@click.option("--state", type=click.Choice(valid_opendata_states, case_sensitive=False), required=False, help="State")
 @click.option("--doi", required=False, help="DOI")
 @click.pass_context
 def update_opendata_did(ctx: "Context", did: str, meta: str | None, state: str | None, doi: str | None) -> None:
