@@ -32,7 +32,7 @@ def is_valid_json(s: str) -> bool:
         return False
 
 # TODO: import this from somewhere else
-valid_opendata_states = {'draft', 'public', 'suspended'}
+valid_opendata_states = ['draft', 'public', 'suspended']
 
 @click.group()
 def opendata() -> None:
