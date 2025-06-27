@@ -338,7 +338,6 @@ def update_opendata_did(
         update_opendata_state(scope=scope, name=name, state=state, session=session)
 
     if meta is not None:
-        print(f"Updating OpenData meta for {scope}:{name} with meta={meta}")
         update_opendata_meta(scope=scope, name=name, meta=meta, session=session)
 
     if doi is not None:
@@ -443,7 +442,6 @@ def update_opendata_state(
             if did_is_open:
                 raise OpenDataInvalidStateUpdate(
                     "Cannot set state to PUBLIC. The DID must be closed first.")
-
     elif state == OpenDataDIDState.SUSPENDED:
         if state_before == OpenDataDIDState.DRAFT:
             raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
