@@ -18,24 +18,10 @@ from typing import TYPE_CHECKING
 import click
 
 from rucio.cli.utils import JSONType
-from rucio.common.exception import RucioException
+from rucio.common.utils import extract_scope
 
 if TYPE_CHECKING:
     from click import Context
-
-
-def extract_scope_name(did: str) -> tuple[str, str]:
-    # TODO: move this somewhere else
-
-    parts = did.split(':')
-    if len(parts) != 2:
-        msg = f"Cannot extract scope and name from DID {did}. The DID should have exactly one colon but found {len(parts)} colons."
-        raise RucioException(msg)
-    scope, name = parts
-    if not scope or not name:
-        msg = f"Cannot extract scope and name from DID {did}. Found empty scope or name."
-        raise RucioException(msg)
-    return scope, name
 
 
 def is_valid_json(s: str) -> bool:
@@ -68,7 +54,7 @@ def list_opendata_dids(ctx: "Context", state: str, public: bool) -> None:
 @click.pass_context
 def add_opendata_did(ctx: "Context", did: str) -> None:
     client = ctx.obj.client
-    scope, name = extract_scope_name(did)
+    scope, name = extract_scope(did)
     client.add_opendata_did(scope=scope, name=name)
 
 
@@ -77,7 +63,7 @@ def add_opendata_did(ctx: "Context", did: str) -> None:
 @click.pass_context
 def remove_opendata_did(ctx: "Context", did: str) -> None:
     client = ctx.obj.client
-    scope, name = extract_scope_name(did)
+    scope, name = extract_scope(did)
     client.remove_opendata_did(scope=scope, name=name)
 
 
@@ -91,7 +77,7 @@ def remove_opendata_did(ctx: "Context", did: str) -> None:
 @click.pass_context
 def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: bool) -> None:
     client = ctx.obj.client
-    scope, name = extract_scope_name(did)
+    scope, name = extract_scope(did)
     result = client.get_opendata_did(scope=scope, name=name, public=public, files=files, meta=meta, doi=True)
     # TODO: pretty print using tables, etc
     print(json.dumps(result, indent=4, sort_keys=True, ensure_ascii=False))
@@ -110,6 +96,5 @@ def update_opendata_did(ctx: "Context", did: str, meta: str | None, state: str |
     if not any([meta, state, doi]):
         raise click.UsageError("At least one of --meta, --state, or --doi must be provided.")
 
-    scope, name = extract_scope_name(did)
-
+    scope, name = extract_scope(did)
     client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
