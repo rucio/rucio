@@ -2418,9 +2418,9 @@ def blueprint():
     bp.add_url_rule('/bulkmeta',
                     view_func=bulkmeta_view, methods=['post', ])
 
-    files_view = BulkFiles.as_view('bulkfiles')
+    bulkfiles_view = BulkFiles.as_view('bulkfiles')
     bp.add_url_rule('/bulkfiles',
-                    view_func=files_view, methods=['post', ])
+                    view_func=bulkfiles_view, methods=['post', ])
 
     bp.after_request(response_headers)
     return bp
