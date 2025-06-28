@@ -483,7 +483,7 @@ class DIDs(ErrorHandlingMethodView):
         summary: Get DID
         description: "Get a single data identifier."
         tags:
-          - Data identifiers
+          - Data Identifiers
         parameters:
         - name: scope_name
           in: path
