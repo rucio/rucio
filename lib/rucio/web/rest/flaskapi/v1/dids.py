@@ -2350,6 +2350,8 @@ def blueprint():
     dids_view = DIDs.as_view('dids')
     bp.add_url_rule('/<path:scope_name>/status',
                     view_func=dids_view, methods=['put', 'get'])
+    bp.add_url_rule('/<path:scope_name>',
+                    view_func=dids_view, methods=['get', 'post'])
 
     files_view = Files.as_view('files')
     bp.add_url_rule('/<path:scope_name>/files',
@@ -2388,8 +2390,6 @@ def blueprint():
     follow_view = Follow.as_view('follow')
     bp.add_url_rule('/<path:scope_name>/follow',
                     view_func=follow_view, methods=['get', 'post', 'delete'])
-    bp.add_url_rule('/<path:scope_name>',
-                    view_func=dids_view, methods=['get', 'post'])
 
     bulkdids_view = BulkDIDS.as_view('bulkdids')
     bp.add_url_rule('',
