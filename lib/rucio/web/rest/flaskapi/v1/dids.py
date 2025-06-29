@@ -2482,6 +2482,18 @@ def blueprint() -> AuthenticatedBlueprint:
     )
 
     bp.add_url_rule(
+        "/bulkdidsmeta",
+        view_func=BulkDIDsMeta.as_view("bulkdidsmeta", mode=BulkDIDsMeta.MODE_SET),
+        methods=["post"],
+    )
+
+    bp.add_url_rule(
+        "/bulkmeta",
+        view_func=BulkDIDsMeta.as_view("bulkmeta", mode=BulkDIDsMeta.MODE_GET),
+        methods=["post"],
+    )
+
+    bp.add_url_rule(
         '/<path:scope_name>/dids',
         view_func=Attachment.as_view('attachment'),
         methods=['get', 'post', 'delete'],
@@ -2538,18 +2550,6 @@ def blueprint() -> AuthenticatedBlueprint:
     bp.add_url_rule(
         '/bulkfiles',
         view_func=BulkFiles.as_view('bulkfiles'),
-        methods=['post'],
-    )
-
-    bp.add_url_rule(
-        '/bulkdidsmeta',
-        view_func=BulkDIDsMeta.as_view('bulkdidsmeta'),
-        methods=['post'],
-    )
-
-    bp.add_url_rule(
-        '/bulkmeta',
-        view_func=BulkMeta.as_view('bulkmeta'),
         methods=['post'],
     )
 
