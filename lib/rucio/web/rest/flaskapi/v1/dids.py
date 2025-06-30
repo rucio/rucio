@@ -193,7 +193,7 @@ class Search(ErrorHandlingMethodView):
             default: false
         - name: recursive
           in: query
-          description: "Recursively list chilred."
+          description: "Recursively list children."
           schema:
             type: boolean
         - name: created_before
@@ -246,7 +246,7 @@ class Search(ErrorHandlingMethodView):
                   type: array
                   items:
                     type: object
-                    description: "The name of a DID or a dictionarie of a DID for long option."
+                    description: "The name of a DID or a dictionary of a DID for long option."
           401:
             description: "Invalid Auth Token"
           404:
@@ -273,8 +273,15 @@ class Search(ErrorHandlingMethodView):
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
             def generate(vo):
-                for did in list_dids(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids(scope=scope,
+                                     filters=filters,
+                                     did_type=did_type,
+                                     limit=limit,
+                                     long=long,
+                                     recursive=recursive,
+                                     vo=vo):
                     yield dumps(did) + '\n'
+
             return try_stream(generate(vo=request.environ['vo']))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
@@ -417,7 +424,7 @@ class Attachments(ErrorHandlingMethodView):
                             description: "The name of the DID."
                             type: string
                           dids:
-                            description: "The DIDs associated to the DID."
+                            description: "The DIDs associated with the DID."
                             type: array
                             items:
                               type: object
@@ -461,7 +468,10 @@ class Attachments(ErrorHandlingMethodView):
             return generate_http_error_flask(406, exc="Invalid attachment format.")
 
         try:
-            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            attach_dids_to_dids(attachments=attachments,
+                                ignore_duplicate=ignore_duplicate,
+                                issuer=request.environ['issuer'],
+                                vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation, FileAlreadyExists) as error:
@@ -899,7 +909,11 @@ class Attachment(ErrorHandlingMethodView):
         attachments = json_parameters()
 
         try:
-            attach_dids(scope=scope, name=name, attachment=attachments, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            attach_dids(scope=scope,
+                        name=name,
+                        attachment=attachments,
+                        issuer=request.environ['issuer'],
+                        vo=request.environ['vo'])
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
         except (DataIdentifierNotFound, RSENotFound) as error:
@@ -996,7 +1010,9 @@ class AttachmentHistory(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: "The DIDs with their information and history. Elements are separated by new line characters."
+                  description: |
+                    The DIDs with their information and history.
+                    Elements are separated by new line characters.
                   type: array
                   items:
                     type: object
@@ -1440,7 +1456,7 @@ class Meta(ErrorHandlingMethodView):
                         type: boolean
                         default: false
                   - type: object
-                    description: "Schema for **Multi-key mode** (`key` not included in path)."
+                    description: "Schema for **Multi-key mode** (`key` not included in the path)."
                     required:
                       - meta
                     properties:
@@ -1886,7 +1902,9 @@ class GUIDLookup(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: "A list of all datasets associated with the guid. Items are separated by new line character."
+                  description: |
+                    A list of all datasets associated with the guid.
+                    Items are separated by new line character.
                   type: array
                   items:
                     description: "A dataset associated with a guid."
@@ -2324,7 +2342,11 @@ class Follow(ErrorHandlingMethodView):
         account = param_get(parameters, 'account')
 
         try:
-            remove_did_from_followed(scope=scope, name=name, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            remove_did_from_followed(scope=scope,
+                                     name=name,
+                                     account=account,
+                                     issuer=request.environ['issuer'],
+                                     vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
