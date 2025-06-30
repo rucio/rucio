@@ -15,23 +15,27 @@
 import datetime
 import logging
 import os
+import types
+from typing import cast, get_type_hints
 
 import pytest
 
 from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.common.exception import InvalidType
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import Availability, parse_did_filter_from_string, retrying
+from rucio.common.utils import Availability, clone_function, parse_did_filter_from_string, retrying
 
 
 class TestUtils:
-    """UTILS (COMMON): test utilisty functions"""
+    """UTILS (COMMON): test utility functions"""
 
     def test_parse_did_filter_string(self):
         """(COMMON/UTILS): test parsing of DID filter string"""
         test_cases = [{
             'input': 'type=all,length=3,length>4,length>=6,length<=7,  test=b, created_after=1900-01-01T00:00:00.000Z',
-            'expected_filter': {'length': 3, 'length.gt': 4, 'length.gte': 6, 'length.lte': 7, 'test': 'b', 'created_after': datetime.datetime.strptime('1900-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')},
+            'expected_filter': {'length': 3, 'length.gt': 4, 'length.gte': 6, 'length.lte': 7, 'test': 'b',
+                                'created_after': datetime.datetime.strptime('1900-01-01T00:00:00.000Z',
+                                                                            '%Y-%m-%dT%H:%M:%S.%fZ')},
             'expected_type': 'all'
         }, {
             'input': 'type=FILE',
@@ -135,7 +139,6 @@ def test_formatted_logger():
 
 
 def test_retrying():
-
     attempts = []
     start_time = datetime.datetime.now()
 
@@ -162,7 +165,6 @@ def test_retrying():
 
 
 def test_bittorrent_sa256_merkle(file_factory):
-
     def _sha256_merkle_via_libtorrent(file, piece_size=0):
         import libtorrent as lt
         file = str(file)
@@ -178,7 +180,81 @@ def test_bittorrent_sa256_merkle(file_factory):
 
         return pieces_root, pieces_layers, piece_size
 
-    for size in (1, 333, 1024, 16384, 16390, 32768, 32769, 49152, 65530, 65536, 81920, 2**20 - 2**17, 2**20, 2**20 + 2):
+    for size in (1, 333, 1024, 16384, 16390, 32768, 32769, 49152, 65530, 65536, 81920, 2 ** 20 - 2 ** 17, 2 ** 20,
+                 2 ** 20 + 2):
         file = file_factory.file_generator(size=size)
         root, layers, piece_size = bittorrent_v2_merkle_sha256(file)
         assert (root, layers, piece_size) == _sha256_merkle_via_libtorrent(file, piece_size=piece_size)
+
+
+# A sample callable that deliberately includes:
+#   * positional parameter with a default (b)
+#   * keyword‑only parameter with a default (k)
+#   * return‑type annotation
+# so that the tests can verify preservation of defaults and annotations.
+def _sample(a: int, b: int = 3, *, k: str = "x") -> str:
+    """Example for clone_function tests."""
+    return f"{a + b}-{k}"
+
+
+@pytest.mark.parametrize(
+    "args, kwargs, expected",
+    [
+        #  (args)   (kwargs)   expected‑return‑value
+        ((1,),      {},        "4-x"),   # uses all defaults
+        ((2, 5),    {"k": "y"}, "7-y"),  # overrides both defaults
+    ],
+)
+def test_clone_function_behaves_like_original(args, kwargs, expected):
+    """
+    An *independent* clone must:
+    • be a **different** object instance (otherwise attribute mutations would leak),
+    • yield the **same result** for every valid call signature.
+    """
+    clone = clone_function(_sample)
+
+    assert clone is not _sample
+    assert isinstance(clone, types.FunctionType)
+    assert clone(*args, **kwargs) == _sample(*args, **kwargs) == expected
+
+
+def test_clone_function_attribute_independence():
+    """
+    After cloning we tweak *only* the clone’s attributes; the original must
+    stay intact, demonstrating that the helper made a *shallow copy* of metadata
+    instead of aliasing it.
+    """
+    clone = clone_function(_sample)
+
+    # mutate some attrs + inject a custom attr
+    clone.__doc__ = "mutated"
+    clone.__name__ = "mutated_name"
+    clone.flag = True
+
+    assert _sample.__doc__ == "Example for clone_function tests."
+    assert _sample.__name__ == "_sample"
+    assert not hasattr(_sample, "flag")
+
+
+def test_clone_function_metadata_copied():
+    """
+    Core metadata and annotations are faithfully copied.
+    """
+    clone_ft = cast('types.FunctionType', clone_function(_sample))
+    sample_ft = cast('types.FunctionType', _sample)
+
+    # Positional‑arg defaults and kw‑only defaults must match by value
+    assert clone_ft.__defaults__ == sample_ft.__defaults__
+    assert clone_ft.__kwdefaults__ == sample_ft.__kwdefaults__
+
+    # update_wrapper keeps the qualified name
+    # Check the suffix since the module path may differ
+    assert clone_ft.__qualname__.endswith("_sample")
+
+    # Typing information should also match exactly
+    assert get_type_hints(clone_ft) == get_type_hints(sample_ft)
+
+    # functools.update_wrapper() (called inside clone_function) normally leaves a __wrapped__
+    # attribute that points back to the *original* function. That is great for decorators,
+    # but since clone_function aims to build a true *copy*, it deletes __wrapped__.
+    assert not hasattr(clone_ft, "__wrapped__"), "clone must not keep __wrapped__"
