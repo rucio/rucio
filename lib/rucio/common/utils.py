@@ -14,6 +14,7 @@
 
 import argparse
 import base64
+import copy
 import datetime
 import errno
 import getpass
@@ -30,17 +31,19 @@ import subprocess
 import tempfile
 import threading
 import time
+import types
 from collections import OrderedDict
 from enum import Enum
-from functools import cache, wraps
+from functools import cache, update_wrapper, wraps
 from io import StringIO
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 from uuid import uuid4 as uuid
 from xml.etree import ElementTree
 
 import requests
+from typing_extensions import ParamSpec
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import BASE_SCHEME_MAP
@@ -59,6 +62,7 @@ if EXTRA_MODULES['paramiko']:
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+
     T = TypeVar('T')
     HashableKT = TypeVar('HashableKT')
     HashableVT = TypeVar('HashableVT')
@@ -1766,3 +1770,89 @@ def wlcg_token_discovery() -> Optional[str]:
 
     # No valid token found
     return None
+
+
+P = ParamSpec('P')
+R = TypeVar('R')
+
+
+def clone_function(
+        func: 'Callable[P, R]',
+        *,
+        keep_wrapped: bool = False
+) -> 'Callable[P, R]':
+    """
+    Create and return an **independent** copy of *func*.
+
+    The copy shares the original code object and global namespace but has
+    its **own** identity, making it safe to mutate attributes such as
+    ``__doc__``, ``__name__`` or custom flags without affecting the source
+    function.  Closure cells, default arguments and keyword‑only defaults
+    are preserved.
+
+    Parameters
+    ----------
+    func
+        The function to duplicate.
+    keep_wrapped
+        If *True* retains the ``__wrapped__`` pointer that ``update_wrapper`` adds
+        (useful when we *do* want wrapper semantics).  The default *False* removes
+        it so that introspection treats the clone as a stand‑alone function.
+
+    Returns
+    -------
+    Callable[P, R]
+        A new callable that behaves exactly like *func*.  At runtime the
+        object is a concrete ``types.FunctionType`` instance, but its static
+        type mirrors the original callable’s *parameter list* and *return type*.
+
+    Examples
+    --------
+    >>> def greet(name: str) -> str:
+    ...     \"\"\"Return a greeting.\"\"\"
+    ...     return f"Hello {name}"
+    ...
+    >>> new_greet = clone_function(greet)
+    >>> new_greet.__doc__ = "An altered docstring."
+    >>> greet.__doc__
+    'Return a greeting.'
+    >>> new_greet("world")
+    'Hello world'
+    """
+    orig = cast('types.FunctionType', func)
+
+    # 1. Re‑create the bare function object.
+    new = types.FunctionType(
+        orig.__code__,
+        orig.__globals__,
+        name=orig.__name__,
+        argdefs=orig.__defaults__,
+        closure=orig.__closure__,
+    )
+
+    # 2. Copy metadata such as ``__name__``, ``__qualname__``, ``__module__`` and ``__doc__``.
+    update_wrapper(
+        new,
+        orig,
+        assigned=(
+            "__module__",
+            "__name__",
+            "__qualname__",
+            "__doc__",
+            "__annotations__",
+        ),
+        updated=(),
+    )
+
+    # 3. Shallow‑copy the attribute dict so later mutations are independent.
+    new.__dict__.update(copy.copy(orig.__dict__))
+
+    # 4. Copy the (kw‑only) default values if present.
+    if orig.__kwdefaults__:
+        new.__kwdefaults__ = orig.__kwdefaults__.copy()
+
+    # 5. Detach from the original wrapper chain unless explicitly requested.
+    if not keep_wrapped and hasattr(new, "__wrapped__"):
+        delattr(new, "__wrapped__")
+
+    return cast('Callable[P, R]', new)
