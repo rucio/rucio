@@ -14,6 +14,7 @@
 
 import ast
 from json import dumps
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from flask import Flask, Response, request
 
@@ -37,7 +38,7 @@ from rucio.common.exception import (
     UnsupportedOperation,
     UnsupportedStatus,
 )
-from rucio.common.utils import APIEncoder, parse_response, render_json
+from rucio.common.utils import APIEncoder, clone_function, parse_response, render_json
 from rucio.db.sqla.constants import DIDType
 from rucio.gateway.did import (
     add_did,
@@ -71,6 +72,10 @@ from rucio.gateway.did import (
 from rucio.gateway.rule import list_associated_replication_rules_for_file, list_replication_rules
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
+
+if TYPE_CHECKING:
+
+    from flask.typing import ResponseReturnValue, RouteCallable
 
 
 class Scope(ErrorHandlingMethodView):
@@ -1616,8 +1621,12 @@ class Meta(ErrorHandlingMethodView):
 
 
 class BulkDIDsMeta(ErrorHandlingMethodView):
+    # Public modes
+    MODE_SET = "set"  # POST /bulkdidsmeta
+    MODE_GET = "get"  # POST /bulkmeta
 
-    def post(self):
+    # Endpoint‑specific configuration
+    MODE_SET_DOC = \
         """
         ---
         summary: Add metadata bulk
@@ -1665,77 +1674,8 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
           409:
             description: "Unsupported Operation"
         """
-        parameters = json_parameters()
-        dids = param_get(parameters, 'dids')
 
-        try:
-            set_dids_metadata_bulk(dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
-        except UnsupportedOperation as error:
-            return generate_http_error_flask(409, error)
-        except AccessDenied as error:
-            return generate_http_error_flask(401, error)
-
-        return 'Created', 201
-
-
-class Rules(ErrorHandlingMethodView):
-
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, scope_name):
-        """
-        ---
-        summary: Get rules
-        description: "Lists all rules of a given DID."
-        tags:
-          - Data Identifiers
-        parameters:
-        - name: scope_name
-          in: path
-          description: "The scope and the name of the DID."
-          schema:
-            type: string
-          style: simple
-        responses:
-          200:
-            description: "The rules associated with a DID."
-            content:
-              application/x-json-stream:
-                schema:
-                  description: "The rules associated with a DID."
-                  type: array
-                  items:
-                    description: "A rule."
-                    type: object
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "DID or rule not found"
-          406:
-            description: "Not acceptable"
-        """
-        try:
-            scope, name = parse_scope_name(scope_name, request.environ['vo'])
-
-            def generate(vo):
-                get_did(scope=scope, name=name, vo=vo)
-                for rule in list_replication_rules({'scope': scope, 'name': name}, vo=vo):
-                    yield dumps(rule, cls=APIEncoder) + '\n'
-
-            return try_stream(generate(vo=request.environ['vo']))
-        except ValueError as error:
-            return generate_http_error_flask(400, error)
-        except RuleNotFound as error:
-            return generate_http_error_flask(404, error)
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
-
-
-class BulkMeta(ErrorHandlingMethodView):
-
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def post(self):
+    MODE_GET_DOC = \
         """
         ---
         summary: Get metadata bulk
@@ -1791,19 +1731,175 @@ class BulkMeta(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
-        parameters = json_parameters()
-        dids = param_get(parameters, 'dids')
-        inherit = param_get(parameters, 'inherit', default=False)
-        plugin = param_get(parameters, 'plugin', default='JSON')
+
+    _MODE_DOC: dict[str, str] = {
+        MODE_SET: MODE_SET_DOC,
+        MODE_GET: MODE_GET_DOC
+    }
+    _MODE_ACCEPT: dict[str, Optional[list[str]]] = {
+        MODE_SET: None,
+        MODE_GET: ["application/x-json-stream"],
+    }
+
+    # cache for the on‑the‑fly subclasses
+    _SUBCLASSES: dict[str, type["BulkDIDsMeta"]] = {}
+
+    def __init__(self, mode: str, *args: Any, **kwargs: Any) -> None:
+        if mode not in (self.MODE_SET, self.MODE_GET):
+            raise ValueError(f"Unsupported mode {mode!r}")
+        self.mode = mode
+        super().__init__(*args, **kwargs)
+
+    # Main factory
+    @classmethod
+    def as_view(
+            cls,
+            name: str,
+            *class_args: Any,
+            **class_kwargs: Any
+    ) -> 'RouteCallable':
+        """
+        Create the Flask view function for *mode* with the correct
+        docstring and (if required) an Accept‑header wrapper.
+        """
+
+        # 0. Extract & validate the mode argument
+        mode_opt = class_kwargs.pop("mode", None)
+        if mode_opt not in (cls.MODE_SET, cls.MODE_GET):
+            raise ValueError("BulkDIDsMeta.as_view() needs mode='set' or mode='get'")
+
+        # Tell the type checker that `mode_opt` is definitely str here
+        mode = cast('str', mode_opt)
+
+        # 1.  Build / fetch the dedicated subclass for this mode
+        if mode not in cls._SUBCLASSES:
+            sub_name = f"{cls.__name__}_{mode}"
+            sub: type["BulkDIDsMeta"] = cast(
+                'type[BulkDIDsMeta]',
+                type(sub_name, (cls,), {}),
+            )
+            new_post = clone_function(cls.post)  # independent copy
+            new_post.__doc__ = cls._MODE_DOC[mode]  # mode‑specific spec
+            setattr(sub, "post", new_post)
+            cls._SUBCLASSES[mode] = sub
+        sub = cls._SUBCLASSES[mode]
+
+        # 2.  Let MethodView build the dispatch function
+        class_kwargs["mode"] = mode  # forward to __init__
+
+        raw_view = super(BulkDIDsMeta, sub).as_view(
+            name, *class_args, **class_kwargs
+        )
+
+        # 3.  Add Accept‑header checker when needed
+        accept = cls._MODE_ACCEPT[mode]
+        if accept:
+            raw_view = check_accept_header_wrapper_flask(accept)(raw_view)
+
+        view_func = cast('RouteCallable', raw_view)
+        return view_func
+
+    # ------------------------------------------------------------------
+    # Single entry‑point for both logical endpoints
+    # ------------------------------------------------------------------
+    def post(self) -> 'ResponseReturnValue':
+        if self.mode == self.MODE_SET:
+            return self._handle_set()
+        return self._handle_get()
+
+    # ------------------------------------------------------------------
+    # Implementation of the SET variant  (/bulkdidsmeta)
+    # ------------------------------------------------------------------
+    def _handle_set(self) -> 'ResponseReturnValue':
+        params = json_parameters()
+        dids = param_get(params, "dids")
+
+        try:
+            set_dids_metadata_bulk(
+                dids=dids,
+                issuer=request.environ["issuer"],
+                vo=request.environ["vo"],
+            )
+        except DataIdentifierNotFound as err:
+            return generate_http_error_flask(404, err)
+        except UnsupportedOperation as err:
+            return generate_http_error_flask(409, err)
+        except AccessDenied as err:
+            return generate_http_error_flask(401, err)
+
+        return "Created", 201
+
+    # ------------------------------------------------------------------
+    # Implementation of the GET variant  (/bulkmeta)
+    # ------------------------------------------------------------------
+    def _handle_get(self) -> 'ResponseReturnValue':
+        params = json_parameters()
+        dids = param_get(params, "dids")
+        inherit = param_get(params, "inherit", default=False)
+        plugin = param_get(params, "plugin", default="JSON")
 
         try:
             def generate(vo):
                 for meta in get_metadata_bulk(dids, inherit=inherit, plugin=plugin, vo=vo):
-                    yield render_json(**meta) + '\n'
+                    yield render_json(**meta) + "\n"
+
+            return try_stream(generate(vo=request.environ["vo"]))
+        except ValueError as err:
+            return generate_http_error_flask(
+                400, err, "Cannot decode json parameter list"
+            )
+        except DataIdentifierNotFound as err:
+            return generate_http_error_flask(404, err)
+
+
+class Rules(ErrorHandlingMethodView):
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope_name):
+        """
+        ---
+        summary: Get rules
+        description: "Lists all rules of a given DID."
+        tags:
+          - Data Identifiers
+        parameters:
+        - name: scope_name
+          in: path
+          description: "The scope and the name of the DID."
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: "The rules associated with a DID."
+            content:
+              application/x-json-stream:
+                schema:
+                  description: "The rules associated with a DID."
+                  type: array
+                  items:
+                    description: "A rule."
+                    type: object
+          401:
+            description: "Invalid Auth Token"
+          404:
+            description: "DID or rule not found"
+          406:
+            description: "Not acceptable"
+        """
+        try:
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
+
+            def generate(vo):
+                get_did(scope=scope, name=name, vo=vo)
+                for rule in list_replication_rules({'scope': scope, 'name': name}, vo=vo):
+                    yield dumps(rule, cls=APIEncoder) + '\n'
 
             return try_stream(generate(vo=request.environ['vo']))
         except ValueError as error:
-            return generate_http_error_flask(400, error, 'Cannot decode json parameter list')
+            return generate_http_error_flask(400, error)
+        except RuleNotFound as error:
+            return generate_http_error_flask(404, error)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
