@@ -1229,7 +1229,6 @@ class BulkFiles(ErrorHandlingMethodView):
             return try_stream(generate(vo=request.environ['vo']))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
-        return 'Created', 201
 
 
 class Parents(ErrorHandlingMethodView):
