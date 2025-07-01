@@ -293,7 +293,7 @@ class LifetimeExceptionId(ErrorHandlingMethodView):
         return 'Created', 201
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('lifetime_exceptions', __name__, url_prefix='/lifetime_exceptions')
 
     lifetime_exception_view = LifetimeException.as_view('lifetime_exception')

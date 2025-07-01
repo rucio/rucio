@@ -1166,7 +1166,7 @@ class TransferLimits(ErrorHandlingMethodView):
         return '', 200
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('requests', __name__, url_prefix='/requests')
 
     request_get_view = RequestGet.as_view('request_get')

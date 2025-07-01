@@ -2207,7 +2207,7 @@ class QoSPolicy(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('rses', __name__, url_prefix='/rses')
 
     attributes_view = Attributes.as_view('attributes')

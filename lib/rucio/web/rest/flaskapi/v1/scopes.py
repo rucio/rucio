@@ -139,7 +139,7 @@ class AccountScopeList(ErrorHandlingMethodView):
         return jsonify(scopes)
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('scopes', __name__, url_prefix='/scopes')
 
     scope_view = Scope.as_view('scope')
