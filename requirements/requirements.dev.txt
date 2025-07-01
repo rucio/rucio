@@ -481,7 +481,7 @@ tomli-w==1.2.0
     # via pydoc-markdown
 typeapi==2.2.4
     # via databind
-typing-extensions==4.12.2
+typing-extensions==4.14.0
     # via
     #   -r requirements.server.txt
     #   alembic
