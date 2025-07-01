@@ -1629,107 +1629,179 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
     MODE_SET_DOC = \
         """
         ---
-        summary: Add metadata bulk
-        description: "Adds metadata in a bulk."
+        summary: Bulk set metadata
+        description: |
+          Add or update metadata for **multiple** data identifiers (DIDs) in a single request.
+
+          * Every array element **must** contain the DID (`scope` + `name`) and a `meta`
+            dictionary holding the key–value pairs to insert / update for that DID.
+          * If a key already exists the exact action (overwrite, merge, reject)
+            depends on the metadata plug‑in configured on the server.
+          * The operation is atomic across the whole list: the request succeeds only if
+            all DIDs are updated successfully; otherwise no metadata is written.
         tags:
           - Data Identifiers
         requestBody:
+          required: true
           content:
-            'application/json':
+            application/json:
               schema:
                 type: object
                 required:
-                - dids
+                  - dids
                 properties:
                   dids:
-                    description: "A list with all the DIDs and the metadata."
+                    description: "List of DIDs with the metadata to apply."
                     type: array
                     items:
-                      description: "The DID and associated metadata."
                       type: object
+                      required:
+                        - scope
+                        - name
+                        - meta
                       properties:
                         scope:
-                          description: "The scope of the DID."
+                          description: "Scope of the DID."
                           type: string
                         name:
-                          description: "The name of the DID."
+                          description: "Name of the DID."
                           type: string
                         meta:
-                          description: "The metadata to add. A dictionary with the meta key as key and the value as value."
+                          description: >
+                            Dictionary of metadata key–value pairs to set for this DID.
+                            Values may be strings, numbers, booleans, etc. – consult
+                            the plug‑in documentation for supported types.
                           type: object
+              examples:
+                minimal:
+                  summary: "Two DIDs, simple values"
+                  value:
+                    dids:
+                      - scope: "user"
+                        name: "dataset_001"
+                        meta:
+                          experiment: "CMS"
+                          year: 2024
+                      - scope: "user"
+                        name: "dataset_002"
+                        meta:
+                          experiment: "ATLAS"
+                          is_open: true
+
         responses:
-          200:
-            description: "Created"
+          201:
+            description: "Created – all metadata updates were accepted."
             content:
-              application/json:
+              text/plain:
                 schema:
                   type: string
                   enum: ["Created"]
+          400:
+            description: |
+              Bad Request – malformed JSON or missing/invalid `dids` structure.
+              (Raised by the generic JSON‑parameter parser before reaching the
+              business logic.)
           401:
-            description: "Invalid Auth Token"
+            description: |
+              Unauthorized – invalid Auth Token or insufficient privileges to
+              modify at least one DID.
           404:
-            description: "DID not found"
-          406:
-            description: "Not acceptable"
+            description: "Not found – at least one DID in the request does not exist."
           409:
-            description: "Unsupported Operation"
+            description: "Conflict – the operation is not supported for at least one DID."
         """
 
     MODE_GET_DOC = \
         """
         ---
-        summary: Get metadata bulk
-        description: "List all metadata of a list of data identifiers."
+        summary: Bulk get metadata
+        description: |
+          Retrieve the metadata of **multiple** data identifiers (DIDs) with one request.
+
+          * The request body is ordinary JSON (`Content‑Type: application/json`).
+          * The **response** is a *newline‑delimited JSON* stream
+            (`Content‑Type: application/x-json-stream`).
+            Each line is a complete JSON object containing the metadata of a single
+            DID.  The client **must** send `Accept: application/x-json-stream`; any
+            other `Accept` value is rejected with **406 Not Acceptable**.
+          * If `inherit=true`, metadata from parent containers is concatenated
+            (plug‑in permitting).
+          * `plugin` chooses the metadata plug‑in; `"ALL"` returns the union of every
+            available plug‑in.
+
         tags:
           - Data Identifiers
         requestBody:
+          required: true
           content:
-            'application/x-json-stream':
+            application/json:
               schema:
                 type: object
                 required:
-                - dids
+                  - dids
                 properties:
                   dids:
-                    description: "The DIDs."
+                    description: "List of DIDs to query."
                     type: array
                     items:
-                      description: "A DID."
                       type: object
+                      required:
+                        - scope
+                        - name
                       properties:
-                        name:
-                          description: "The name of the DID."
-                          type: string
                         scope:
-                          description: "The scope of the DID."
+                          description: "Scope of the DID."
+                          type: string
+                        name:
+                          description: "Name of the DID."
                           type: string
                   inherit:
-                    description: "Concatenated the metadata of the parent if set to true."
+                    description: >
+                      If **true**, the server will also return metadata inherited
+                      from parent DIDs (default: `false`).
                     type: boolean
                     default: false
                   plugin:
-                    description: "The DID meta plugin to query or 'ALL' for all available plugins"
+                    description: >
+                      Which metadata plug‑in to query
+                      (`"JSON"`, `"DID_COLUMN"`, `"ALL"`, etc.; default: `"JSON"`).
                     type: string
                     default: "JSON"
+              examples:
+                defaultQuery:
+                  summary: "Query two DIDs with inheritance"
+                  value:
+                    dids:
+                      - scope: "user"
+                        name: "dataset_001"
+                      - scope: "user"
+                        name: "dataset_002"
+                    inherit: true
+                    plugin: "JSON"
+
         responses:
           200:
-            description: "OK"
+            description: "OK – stream of newline‑delimited JSON objects, one per DID."
             content:
-              application/json:
+              application/x-json-stream:
                 schema:
-                  description: "A list of metadata identifiers for the DIDs. Separated by new lines."
-                  type: array
-                  items:
-                    description: "The metadata for one DID."
-                    type: object
+                  type: string
+                  example: |
+                    {"scope":"user","name":"dataset_001","experiment":"CMS", ...}\n
+                    {"scope":"user","name":"dataset_002","experiment":"ATLAS", ...}\n
+
           400:
-            description: "Cannot decode json parameter list"
+            description: >
+              Bad Request – cannot decode JSON parameter list (malformed body or
+              missing `dids` array).
           401:
-            description: "Invalid Auth Token"
+            description: "Unauthorized – invalid Auth Token."
           404:
-            description: "DID not found"
+            description: "Not found – none of the requested DIDs exist."
           406:
-            description: "Not acceptable"
+            description: |
+              Not Acceptable – an `Accept` header was sent, but it does not
+              include `application/x-json-stream`.
         """
 
     _MODE_DOC: dict[str, str] = {
