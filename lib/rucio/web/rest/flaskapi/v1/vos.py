@@ -255,7 +255,7 @@ class RecoverVO(ErrorHandlingMethodView):
         return 'Created', 201
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('vos', __name__, url_prefix='/vos')
 
     recover_view = RecoverVO.as_view('recover')

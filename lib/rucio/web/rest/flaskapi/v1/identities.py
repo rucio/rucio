@@ -262,7 +262,7 @@ class Accounts(ErrorHandlingMethodView):
         return jsonify(accounts)
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('identities', __name__, url_prefix='/identities')
 
     userpass_view = UserPass.as_view('userpass')

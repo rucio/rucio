@@ -80,7 +80,7 @@ class XAODTrace(ErrorHandlingMethodView):
         return 'Created', 201, headers
 
 
-def blueprint():
+def blueprint() -> Blueprint:
     bp = Blueprint('nongrid_traces', __name__, url_prefix='/nongrid_traces')
 
     xaod_trace_view = XAODTrace.as_view('xaod_trace')

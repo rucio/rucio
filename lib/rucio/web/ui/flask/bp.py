@@ -143,7 +143,7 @@ def view_maker(template, title):
     return lambda: authenticate(template=template, title=title)
 
 
-def blueprint():
+def blueprint() -> Blueprint:
     bp = Blueprint('webui', __name__)
 
     for rule, endpoint, title in COMMON_URLS:
