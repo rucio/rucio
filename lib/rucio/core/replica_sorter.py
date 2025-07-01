@@ -301,7 +301,7 @@ def sort_replicas(
 
     # all sorts must be stable to preserve the priority (the Python standard sorting functions always are stable)
     if selection == 'geoip':
-        replicas = sort_geoip(dictreplica, client_location, ignore_error=config_get_bool('core', 'geoip_ignore_error', raise_exception=False, default=False))
+        replicas = sort_geoip(dictreplica, client_location, ignore_error=config_get_bool('core', 'geoip_ignore_error', raise_exception=False, default=True))
     elif selection == 'custom_table':
         replicas = sort_custom(dictreplica, client_location)
     elif selection == 'random':
