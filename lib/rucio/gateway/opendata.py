@@ -25,19 +25,17 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@read_session
 def list_opendata_dids(
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         state: Optional[str] = None,
-        session: "Session"
 ) -> dict[str, list[dict[str, Any]]]:
     state_enum = None
     if state:
         check_valid_opendata_did_state(state)
         state_enum = opendata_state_str_to_enum(state)
-    result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state_enum, session=session)
+    result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state_enum)
     return result
 
 

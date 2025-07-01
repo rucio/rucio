@@ -26,8 +26,8 @@ from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_replicas
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, OpenDataDIDState
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, OpenDataDIDState
+from rucio.db.sqla.session import db_session, read_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -62,43 +62,42 @@ def opendata_state_str_to_enum(state: str) -> OpenDataDIDState:
             f"Invalid state '{state}'. Valid opendata states are: {', '.join([s.name for s in OpenDataDIDState])}")
 
 
-@read_session
 def list_opendata_dids(
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         state: Optional[OpenDataDIDState] = None,
-        session: "Session"
 ) -> dict[str, list[dict[str, Any]]]:
-    query = select(
-        models.OpenDataDid.scope,
-        models.OpenDataDid.name,
-        models.OpenDataDid.state,
-        models.OpenDataDid.created_at,
-        models.OpenDataDid.updated_at,
-    ).order_by(
-        models.OpenDataDid.updated_at
-    )
+    with db_session(DatabaseOperationType.READ) as session:
+        query = select(
+            models.OpenDataDid.scope,
+            models.OpenDataDid.name,
+            models.OpenDataDid.state,
+            models.OpenDataDid.created_at,
+            models.OpenDataDid.updated_at,
+        ).order_by(
+            models.OpenDataDid.updated_at
+        )
 
-    if limit is not None:
-        query = query.limit(limit)
+        if limit is not None:
+            query = query.limit(limit)
 
-    if offset is not None:
-        query = query.offset(offset)
+        if offset is not None:
+            query = query.offset(offset)
 
-    if state is not None:
-        query = query.where(models.OpenDataDid.state == state)
+        if state is not None:
+            query = query.where(models.OpenDataDid.state == state)
 
-    dids = [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
-            scope, name, state, created_at, updated_at in session.execute(query)]
+        dids = [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
+                scope, name, state, created_at, updated_at in session.execute(query)]
 
-    response = {
-        "total": len(dids),
-        "offset": offset if offset is not None else 0,
-        "dids": dids,
-    }
+        response = {
+            "total": len(dids),
+            "offset": offset if offset is not None else 0,
+            "dids": dids,
+        }
 
-    return response
+        return response
 
 
 @read_session
