@@ -204,7 +204,7 @@ class Values(ErrorHandlingMethodView):
         return 'Created', 201
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('meta_conventions', __name__, url_prefix='/meta_conventions')
 
     meta_view = MetaConventions.as_view('meta_conventions')

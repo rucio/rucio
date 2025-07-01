@@ -281,7 +281,7 @@ class OptionSet(ErrorHandlingMethodView):
             return generate_http_error_flask(500, error, f"Could not set value '{value}' for section '{section}' option '{option}'")
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('config', __name__, url_prefix='/config')
 
     option_set_view = OptionSet.as_view('option_set')

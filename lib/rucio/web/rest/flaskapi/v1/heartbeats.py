@@ -110,7 +110,7 @@ class Heartbeat(ErrorHandlingMethodView):
         return 'OK', 200
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('heartbeats', __name__, url_prefix='/heartbeats')
 
     heartbeat_view = Heartbeat.as_view('heartbeat')

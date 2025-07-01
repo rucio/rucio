@@ -614,7 +614,7 @@ class SubscriptionId(ErrorHandlingMethodView):
         return Response(render_json(**subscription), content_type="application/json")
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('subscriptions', __name__, url_prefix='/subscriptions')
 
     subscription_id_view = SubscriptionId.as_view('subscription_id')

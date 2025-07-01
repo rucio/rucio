@@ -2353,7 +2353,7 @@ class Follow(ErrorHandlingMethodView):
         return '', 200
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     """
     Creates and configures an authenticated Flask Blueprint for handling various routes
     related to Data Identifiers (DIDs) and their associated functionalities.

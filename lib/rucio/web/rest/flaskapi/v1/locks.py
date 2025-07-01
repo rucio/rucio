@@ -335,7 +335,7 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('locks', __name__, url_prefix='/locks')
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
