@@ -643,9 +643,9 @@ def test_rse_qos_policy(rucio_client):
 
 
 @pytest.mark.dirty
-def test_rule(rucio_client, mock_scope):
-    mock_rse = "MOCK-POSIX"
-    rule_rse = "MOCK"
+def test_rule(rucio_client, mock_scope, rse_factory):
+    mock_rse, _ = rse_factory.make_rse()
+    rule_rse, _ = rse_factory.make_rse()
 
     scope = mock_scope.external
     name = generate_uuid()
@@ -663,7 +663,15 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
     assert rule_id in out
 
-    move_rse = "MOCK2"
+    # Below functionality is questionable - listing by ID works _sometimes_ if the database has been updated with the new rule
+
+    # cmd = f"rucio -v rule list --rule-id {rule_id}"
+    # exitcode, out, err = execute(cmd)
+    # assert exitcode == 0
+    # assert "ERROR" not in err
+    # assert rule_id in out
+
+    move_rse, _ = rse_factory.make_rse()
     cmd = f"rucio rule move {rule_id} --rses {move_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
@@ -681,7 +689,7 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
     assert not rucio_client.get_replication_rule(rule_id)['locked']
 
-    cmd = f"rucio -v rule update {rule_id} --locked True"
+    cmd = f"rucio rule update {rule_id} --locked True"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert rucio_client.get_replication_rule(rule_id)['locked']
@@ -689,7 +697,6 @@ def test_rule(rucio_client, mock_scope):
     # Testing the two different lifetime type options
     cmd = f"rucio rule update {rule_id} --lifetime 10"
     exitcode, out, err = execute(cmd)
-    print(out, err)
     assert exitcode == 0
     assert "ERROR" not in err
     rule_info = rucio_client.get_replication_rule(rule_id)
