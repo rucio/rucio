@@ -30,7 +30,7 @@ from rucio.common.exception import (
     DataIdentifierNotFound,
     Duplicate,
     DuplicateContent,
-    InvalidObject,
+    InputValidationError,
     InvalidRSEExpression,
     MissingDependency,
     RSENotFound,
@@ -52,12 +52,13 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
+        except InputValidationError as error:
+            logger.error(error)
+            logger.debug("This means that one you provided an invalid combination of parameters, or incorrect types. Please check the command help (-h/--help).")
+            return FAILURE
         except NotImplementedError as error:
             logger.error(f"Cannot run that operation/command combination {error}")
             return FAILURE
-        except InvalidObject as error:
-            logger.error(error)
-            return error.error_code
         except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug("This means that the Data IDentifier you provided is not known by Rucio.")
