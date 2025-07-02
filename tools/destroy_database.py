@@ -22,14 +22,14 @@ os.chdir(base_path)
 
 import argparse  # noqa: E402
 
-from rucio.db.sqla.util import destroy_database, drop_everything  # noqa: E402
+from rucio.db.sqla.util import drop_orm_tables, purge_db  # noqa: E402
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--drop-everything", action="store_true", default=False, help='Drop all tables+constraints')
+    parser.add_argument("--purge-db", action="store_true", default=False, help='Drop all tables+constraints')
     args = parser.parse_args()
-    if args.drop_everything:
-        drop_everything()
+    if args.purge_db:
+        purge_db()
     else:
-        destroy_database()
+        drop_orm_tables()

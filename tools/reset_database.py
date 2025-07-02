@@ -22,18 +22,18 @@ os.chdir(base_path)
 
 from argparse import ArgumentParser  # noqa: E402
 
-from rucio.db.sqla.util import build_database, create_base_vo, create_root_account, destroy_database, drop_everything  # noqa: E402
+from rucio.db.sqla.util import build_database, create_base_vo, create_root_account, drop_orm_tables, purge_db  # noqa: E402
 
 if __name__ == '__main__':
 
     parser = ArgumentParser()
-    parser.add_argument('-d', '--drop-everything', action="store_true", default=False, help='Drop all tables and constraints')
+    parser.add_argument('-d', '--purge-db', action="store_true", default=False, help='Drop all tables and constraints')
     args = parser.parse_args()
 
-    if args.drop_everything:
-        drop_everything()
+    if args.purge_db:
+        purge_db()
     else:
-        destroy_database()
+        drop_orm_tables()
 
     build_database()
     create_base_vo()
