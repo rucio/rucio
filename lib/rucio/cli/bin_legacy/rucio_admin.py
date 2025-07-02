@@ -37,8 +37,11 @@ from rucio.cli.utils import exception_handler, get_client, setup_gfal2_logger, s
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
+    InputValidationError,
+    InvalidObject,
     ReplicaNotFound,
     RSEOperationNotSupported,
+    RucioException,
 )
 from rucio.common.extra import import_extras
 from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
@@ -222,8 +225,10 @@ def set_limits(args, client, logger, console, spinner):
             try:
                 byte_limit = int(limit_input)
             except ValueError:
-                logger.error('The limit could not be set. Either you misspelled infinity or your input could not be converted to integer or you used a wrong pattern. Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensitive)')
-                return FAILURE
+                msg = f'\
+                    The limit could not be set. Either you misspelled infinity or your input ({args.bytes}) could not be converted to integer or you used a wrong pattern. \
+                    Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensitive)'
+                raise InputValidationError(msg)
 
     client.set_account_limit(account=args.account, rse=args.rse, bytes_=byte_limit, locality=locality)
     print('Set account limit for account %s on RSE %s: %s' % (args.account, args.rse, sizefmt(byte_limit, True)))
@@ -266,12 +271,10 @@ def identity_add(args, client, logger, console, spinner):
 
     """
     if args.email == "":
-        logger.error('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
-        return FAILURE
+        raise InputValidationError('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
 
     if args.authtype == 'USERPASS' and not args.password:
-        logger.error('missing --password argument')
-        return FAILURE
+        raise InputValidationError('Missing --password argument')
 
     client.add_identity(account=args.account, identity=args.identity, authtype=args.authtype, email=args.email, password=args.password)
     print('Added new identity to account: %s-%s' % (args.identity, args.account))
@@ -634,8 +637,7 @@ def add_protocol_rse(args, client, logger, console, spinner):
     if args.ext_attr_json:
         proto['extended_attributes'] = args.ext_attr_json
     if proto['scheme'] == 'srm' and not args.web_service_path:
-        print('Error: space-token and web-service-path must be provided for SRM endpoints.')
-        return FAILURE
+        raise InputValidationError('Error: space-token and web-service-path must be provided for SRM endpoints.')
     if args.space_token:
         proto['extended_attributes']['space_token'] = args.space_token
     if args.web_service_path:
@@ -1042,8 +1044,7 @@ def __declare_bad_file_replicas_by_lfns(args: object, client) -> object:
     Declare a list of bad replicas using RSE name, scope and list of LFNs.
     """
     if not args.scope or not args.rse:
-        print("--lfns requires using --rse and --scope")
-        return FAILURE
+        raise InputValidationError("--lfns requires using --rse and --scope")
     reason = args.reason
     scope = args.scope
     rse = args.rse
@@ -1094,8 +1095,8 @@ def declare_bad_file_replicas(args, client, logger, console, spinner):
             scope, name = get_scope(bad_file, client)
             did_info = client.get_did(scope, name)
             if did_info['type'].upper() != 'FILE' and not args.allow_collection:
-                print('DID %s:%s is a collection and --allow-collection was not specified.' % (scope, name))
-                return FAILURE
+                msg = f'DID {scope}:{name} is a collection and --allow-collection was not specified.'
+                raise InputValidationError(msg)
             replicas = [replica for rep in client.list_replicas([{'scope': scope, 'name': name}])
                         for replica in list(rep['pfns'].keys())]
             bad_files_pfns.extend(replicas)
@@ -1173,15 +1174,15 @@ def declare_temporary_unavailable_replicas(args, client, logger, console, spinne
             for line in infile:
                 bad_file = line.rstrip('\n')
                 if '://' not in bad_file:
-                    print('%s is not a valid PFN. Aborting', bad_file)
-                    return FAILURE
+                    msg = f'{bad_file} is not a valid PFN. Aborting'
+                    raise InvalidObject(msg)
                 if bad_file != '':
                     bad_files.append(bad_file)
     else:
         bad_files = args.listbadfiles
 
     if args.duration is None:
-        raise ValueError("Duration should have been set, something went wrong!")
+        raise InputValidationError("Duration should have been set, something went wrong!")
 
     expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(seconds=args.duration)).isoformat()
 
@@ -1246,8 +1247,7 @@ def list_pfns(args, client, logger, console, spinner):
                                            path if not path.startswith('/') else path[1:]])
                             print(pfn)
                 else:
-                    logger.error('Unexpected error')
-                    return FAILURE
+                    raise RucioException
             else:
                 print(result)
     return SUCCESS
@@ -1279,7 +1279,7 @@ def import_data(args, client, logger, console, spinner):
         else:
             print('There was problem with decoding your file.')
             print(error)
-        return FAILURE
+        raise ValueError from error
     except OSError as error:
         if cli_config == 'rich':
             spinner.stop()
@@ -1288,7 +1288,7 @@ def import_data(args, client, logger, console, spinner):
         else:
             print('There was a problem with reading your file.')
             print(error)
-        return FAILURE
+        raise OSError from error
 
     if data:
         client.import_data(data)
@@ -1304,7 +1304,7 @@ def import_data(args, client, logger, console, spinner):
             print_output('Nothing to import.', console=console, no_pager=True)
         else:
             print('Nothing to import.')
-        return FAILURE
+        raise ValueError
 
 
 @exception_handler
@@ -1342,7 +1342,7 @@ def export_data(args, client, logger, console, spinner):
         else:
             print('There was a problem with reading your file.')
             print(error)
-        return FAILURE
+        raise OSError from error
 
 
 @exception_handler

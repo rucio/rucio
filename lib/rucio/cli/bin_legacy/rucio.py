@@ -20,12 +20,10 @@ import os
 import signal
 import sys
 import time
-import traceback
 import unittest
 import uuid
 from copy import deepcopy
 from datetime import datetime
-from logging import DEBUG
 from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
@@ -45,13 +43,13 @@ from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_float
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import (
-    DIDFilterSyntaxError,
-    DuplicateCriteriaInDIDFilter,
     DuplicateRule,
     InputValidationError,
     InvalidObject,
     InvalidType,
+    RSENotFound,
     RucioException,
+    ScopeNotFound,
     UnsupportedOperation,
 )
 from rucio.common.extra import import_extras
@@ -109,8 +107,7 @@ def ping(args, client, logger, console, spinner):
     if server_info:
         print(server_info['version'])
         return SUCCESS
-    logger.error('Ping failed')
-    return FAILURE
+    raise RucioException('Ping failed')
 
 
 @exception_handler
@@ -232,11 +229,9 @@ def list_file_replicas(args, client, logger, console, spinner):
     table_data = []
     dids = []
     if args.missing and not args.rses:
-        print('Cannot use --missing without specifying a RSE')
-        return FAILURE
+        raise InputValidationError('Cannot use --missing without specifying a RSE')
     if args.link and ':' not in args.link:
-        print('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
-        return FAILURE
+        raise ValueError('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
 
     if cli_config == 'rich':
         spinner.update(status='Fetching file replicas')
@@ -398,14 +393,13 @@ def attach(args, client, logger, console, spinner):
 
     if args.fromfile:
         if len(dids) > 1:
-            logger.error("If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.")
-            return FAILURE
+            raise ValueError('If --fromfile option is active, only one file is supported. The file should contain a list of dids, one per line.')
         try:
             f = open(dids[0], 'r')
             dids = [did.rstrip() for did in f.readlines()]
-        except OSError:
+        except OSError as error:
             logger.error("Can't open file '" + dids[0] + "'.")
-            return FAILURE
+            raise OSError from error
 
     dids = [{'scope': get_scope(did, client)[0], 'name': get_scope(did, client)[1]} for did in dids]
     if len(dids) <= limit:
@@ -468,35 +462,16 @@ def list_dids(args, client, logger, console, spinner):
         name = '*'
 
     if scope not in client.list_scopes():
-        logger.error('Scope not found.')
-        return FAILURE
+        raise ScopeNotFound
 
     if args.recursive and '*' in name:
-        logger.error('Option recursive cannot be used with wildcards.')
-        return FAILURE
+        raise InputValidationError('Option recursive cannot be used with wildcards.')
     else:
         if filters:
             if ('name' in filters) and (name != '*'):
-                logger.error('Must have a wildcard in did name if filtering by name.')
-                return FAILURE
+                raise ValueError('Must have a wildcard in did name if filtering by name.')
 
-    try:
-        filters, type_ = parse_did_filter_from_string_fe(args.filter, name)
-    except InvalidType as error:
-        logger.error(error)
-        return FAILURE
-    except DuplicateCriteriaInDIDFilter as error:
-        logger.error(error)
-        return FAILURE
-    except DIDFilterSyntaxError as error:
-        logger.error(error)
-        return FAILURE
-    except ValueError as error:
-        logger.error(error)
-        return FAILURE
-    except Exception as e:
-        logger.error(e)
-        return FAILURE
+    filters, type_ = parse_did_filter_from_string_fe(args.filter, name)
 
     if cli_config == 'rich':
         spinner.update(status='Fetching DIDs')
@@ -531,8 +506,7 @@ def list_dids_extended(args, client, logger, console, spinner):
 
     List the data identifiers for a given scope (DEPRECATED).
     """
-    logger.error("This command has been deprecated. Please use list_dids instead.")
-    return FAILURE
+    raise UnsupportedOperation('This command has been deprecated. Please use list_dids instead.')
 
 
 @exception_handler
@@ -813,8 +787,7 @@ def list_parent_dids(args, client, logger, console, spinner):
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     else:
-        print('At least one option has to be given. Use -h to list the options.')
-        return FAILURE
+        raise InputValidationError('At least one option has to be given. Use -h to list the options.')
     return SUCCESS
 
 
@@ -931,13 +904,11 @@ def upload(args, client, logger, console, spinner):
     Upload files into Rucio
     """
     if args.lifetime and args.expiration_date:
-        logger.error("--lifetime and --expiration-date cannot be specified at the same time.")
-        return FAILURE
+        raise InputValidationError("--lifetime and --expiration-date cannot be specified at the same time.")
     elif args.expiration_date:
         expiration_date = datetime.strptime(args.expiration_date, "%Y-%m-%d-%H:%M:%S")
         if expiration_date < datetime.utcnow():
-            logger.error("The specified expiration date should be in the future!")
-            return FAILURE
+            raise ValueError("The specified expiration date should be in the future!")
         args.lifetime = (expiration_date - datetime.utcnow()).total_seconds()
 
     dsscope = None
@@ -1023,23 +994,18 @@ def download(args, client, logger, console, spinner):
     """
     # Input validation
     if not args.dids and not args.filter and not args.metalink_file:
-        logger.error('At least one did is mandatory')
-        return FAILURE
+        raise InputValidationError('At least one did is mandatory')
     elif not args.dids and args.filter and not args.scope:
-        logger.error('The argument scope is mandatory')
-        return FAILURE
+        raise InputValidationError('The argument scope is mandatory')
 
     if args.filter and args.metalink_file:
-        logger.error('Arguments filter and metalink cannot be used together.')
-        return FAILURE
+        raise InputValidationError('Arguments filter and metalink cannot be used together.')
 
     if args.dids and args.metalink_file:
-        logger.error('Arguments dids and metalink cannot be used together.')
-        return FAILURE
+        raise InputValidationError('Arguments dids and metalink cannot be used together.')
 
     if args.ignore_checksum and args.check_local_with_filesize_only:
-        logger.error('Arguments ignore-checksum and check-local-with-filesize-only cannot be used together.')
-        return FAILURE
+        raise InputValidationError('Arguments ignore-checksum and check-local-with-filesize-only cannot be used together.')
 
     trace_pattern = {}
 
@@ -1083,16 +1049,12 @@ def download(args, client, logger, console, spinner):
             filters, type_ = parse_did_filter_from_string(args.filter)
             if args.scope:
                 filters['scope'] = args.scope
-        except InvalidType as error:
+        except (InvalidType, ValueError) as error:
             logger.error(error)
-            return FAILURE
-        except ValueError as error:
-            logger.error(error)
-            return FAILURE
+            raise error
         except Exception as error:
-            logger.error(error)
             logger.error("Invalid Filter. Filter must be 'key=value', 'key>=value', 'key>value', 'key<=value', 'key<value'")
-            return FAILURE
+            raise error
         item_defaults['filters'] = filters
 
     if not args.pfn:
@@ -1148,8 +1110,7 @@ def download(args, client, logger, console, spinner):
 
             download_rse = _get_rse_for_pfn(replicas, args.pfn)
             if download_rse is None:
-                logger.error("Could not find RSE for pfn %s", args.pfn)
-                return FAILURE
+                raise RSENotFound("Could not find RSE for pfn %s" % args.pfn)
             else:
                 item_defaults['rse'] = download_rse
 
@@ -1354,8 +1315,7 @@ def delete_rule(args, client, logger, console, spinner):
     except ValueError:
         # Otherwise, trying to extract the scope, name from args.rule_id
         if not args.rses:
-            logger.error('A RSE expression must be specified if you do not provide a rule_id but a DID')
-            return FAILURE
+            raise InputValidationError('A RSE expression must be specified if you do not provide a rule_id but a DID')
         scope, name = get_scope(args.rule_id, client)
         rules = client.list_did_rules(scope=scope, name=name)
         if args.rule_account is None:
@@ -1372,8 +1332,7 @@ def delete_rule(args, client, logger, console, spinner):
                 client.delete_replication_rule(rule_id=rule['id'], purge_replicas=args.purge_replicas)
                 deletion_success = True
         if not deletion_success:
-            logger.error('No replication rule was deleted from the DID')
-            return FAILURE
+            raise RucioException('No replication rule was deleted from the DID')
     return SUCCESS
 
 
@@ -1394,8 +1353,8 @@ def update_rule(args, client, logger, console, spinner):
         elif args.locked.title() == "False":
             options['locked'] = False
         else:
-            logger.error('Locked must be True or False')
-            return FAILURE
+            raise InputValidationError('Locked must be True or False')
+
     if args.comment:
         options['comment'] = args.comment
     if args.rule_account:
@@ -1410,8 +1369,7 @@ def update_rule(args, client, logger, console, spinner):
         options['source_replica_expression'] = None if args.source_replica_expression.lower() == 'none' else args.source_replica_expression
     if args.cancel_requests:
         if 'state' not in options:
-            logger.error('--stuck or --suspend must be specified when running --cancel-requests')
-            return FAILURE
+            raise InputValidationError('--stuck or --suspend must be specified when running --cancel-requests')
         options['cancel_requests'] = True
     if args.priority:
         options['priority'] = int(args.priority)
@@ -1582,8 +1540,7 @@ def list_rules(args, client, logger, console, spinner):
         name = args.subscription[1]
         rules = client.list_subscription_rules(account=account, name=name)
     else:
-        print('At least one option has to be given. Use -h to list the options.')
-        return FAILURE
+        raise InputValidationError('At least one option has to be given. Use -h to list the options.')
     if args.csv:
         for rule in rules:
             print(rule['id'],
@@ -1990,21 +1947,18 @@ def add_lifetime_exception(args, client, logger, console, spinner):
     """
 
     if not args.reason:
-        logger.error('reason for the extension is mandatory')
-        return FAILURE
+        raise InputValidationError('reason for the extension is mandatory')
     reason = args.reason
     if not args.expiration:
-        logger.error('expiration is mandatory')
-        return FAILURE
+        raise InputValidationError('expiration is mandatory')
     try:
         expiration = datetime.strptime(args.expiration, "%Y-%m-%d")
     except Exception as err:
-        logger.error(err)
-        return FAILURE
+        msg = f'Cannot parse expiration date: {err}'
+        raise ValueError(msg)
 
     if not args.inputfile:
-        logger.error('inputfile is mandatory')
-        return FAILURE
+        raise InputValidationError('inputfile is mandatory')
     with open(args.inputfile) as infile:
         # Deduplicate the content of the input file and ignore empty lines.
         dids = set(did for line in infile if (did := line.strip()))
@@ -2067,22 +2021,8 @@ def add_lifetime_exception(args, client, logger, console, spinner):
     if not datasets:
         logger.error('Nothing to submit')
         return SUCCESS
-    try:
-        client.add_exception(dids=datasets, account=client.account, pattern='', comments=reason, expires_at=expiration)
-    except UnsupportedOperation as err:
-        logger.error(err)
-        return FAILURE
-    except Exception:
-        error_message = 'Failure to submit exception. Please retry.'
-        if cli_config == 'rich':
-            if logger.level == DEBUG:
-                logger.exception(error_message)
-            else:
-                logger.error(error_message)
-        else:
-            logger.error(error_message)
-            logger.debug(traceback.format_exc())
-        return FAILURE
+
+    client.add_exception(dids=datasets, account=client.account, pattern='', comments=reason, expires_at=expiration)
 
     logger.info('Exception successfully submitted. Summary below:')
     for key, data in error_summary.items():
