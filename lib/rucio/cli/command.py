@@ -14,6 +14,7 @@
 import importlib
 import signal
 import time
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -135,6 +136,7 @@ class LazyGroup(click.Group):
         and there must be no active access token saved on the side of the currently used Rucio Client,
     """,
 )
+@click.option("-R", "--robot", is_flag=True, default=True, help="All size output are in bytes and without the units")
 @click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
 @click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
 # userpass/gss/saml auth
@@ -149,30 +151,33 @@ class LazyGroup(click.Group):
 @click.pass_context
 def main(
     ctx,
-    config,
-    verbose,
-    host,
-    auth_host,
-    issuer,
-    auth_strategy,
-    timeout,
-    user_agent,
-    vo,
-    no_pager,
-    user,
-    password,
-    oidc_user,
-    oidc_password,
-    oidc_scope,
-    oidc_audience,
-    oidc_auto,
-    oidc_polling,
-    oidc_refresh_lifetime,
-    oidc_issuer,
-    certificate,
-    client_key,
-    ca_certificate,
+    config: Optional[str],
+    verbose: bool,
+    host: Optional[str],
+    auth_host: Optional[str],
+    issuer: Optional[str],
+    auth_strategy: Optional[str],
+    timeout: Optional[str],
+    user_agent: Optional[str],
+    robot: bool,
+    vo: Optional[str],
+    no_pager: bool,
+    user: Optional[str],
+    password: Optional[str],
+    oidc_user: Optional[str],
+    oidc_password: Optional[str],
+    oidc_scope: Optional[str],
+    oidc_audience: Optional[str],
+    oidc_auto: bool,
+    oidc_polling: bool,
+    oidc_refresh_lifetime: Optional[str],
+    oidc_issuer: Optional[str],
+    certificate: Optional[str],
+    client_key: Optional[str],
+    ca_certificate: Optional[str],
 ):
+    # All optional args default to None via the passed arguments from click.
+    # They do not need to explicitly set as [option] = None
     ctx.ensure_object(Arguments)
     ctx.obj.start_time = time.time()
     ctx.obj.verbose = verbose
@@ -188,6 +193,7 @@ def main(
     ctx.obj.console = console
     ctx.obj.no_pager = no_pager
     ctx.obj.pager = get_pager()
+    ctx.obj.human = robot
 
     if use_rich:
         install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
