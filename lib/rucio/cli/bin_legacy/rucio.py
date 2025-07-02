@@ -542,15 +542,17 @@ def list_scopes(args, client, logger, console, spinner):
 
     List scopes.
     """
-    # For the moment..
-
     if cli_config == 'rich':
         spinner.update(status='Fetching scopes')
         spinner.start()
 
-    scopes = client.list_scopes()
+    if args.account:
+        scopes = client.list_scopes_for_account(args.account)
+    else:
+        scopes = client.list_scopes()
     if cli_config == 'rich':
-        table = generate_table([[scope] for scope in sorted(scopes)], headers=['SCOPE'], col_alignments=['left'])
+        scopes = [[scope] for scope in sorted(scopes) if 'mock' not in scope]
+        table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
     else:
@@ -2499,6 +2501,7 @@ You can filter by key/value, e.g.::
     ''')
 
     scope_list_parser.set_defaults(function=list_scopes)
+    scope_list_parser.add_argument('--account', help='Filter scopes by account')
 
     # The close command
     close_parser = subparsers.add_parser('close', help='Close a dataset or container.')
