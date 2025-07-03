@@ -22,7 +22,6 @@ from sqlalchemy import select
 
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidObject, SubscriptionDuplicate, SubscriptionNotFound
-from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core import subscription as subscription_core
@@ -49,7 +48,7 @@ class TestSubscriptionCoreGateway:
     projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
     pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                 \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
 
     def test_create_and_update_and_list_subscription(self, vo, rse_factory):
         """ SUBSCRIPTION (Gateway): Test the creation of a new subscription, update it, list it """
@@ -227,7 +226,7 @@ class TestSubscriptionCoreGateway:
 def test_create_and_update_and_list_subscription(rse_factory, rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a new subscription, update it, list it """
     subscription_name = uuid()
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
     rse1, _ = rse_factory.make_mock_rse()
     rse2, _ = rse_factory.make_mock_rse()
     rse_expression = '%s|%s' % (rse1, rse2)
@@ -252,7 +251,7 @@ def test_create_and_update_and_list_subscription(rse_factory, rest_client, auth_
 def test_create_and_list_subscription_by_id(rse_factory, rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a new subscription and get by subscription id """
     subscription_name = uuid()
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
     rse1, _ = rse_factory.make_mock_rse()
     rse2, _ = rse_factory.make_mock_rse()
     rse_expression = '%s|%s' % (rse1, rse2)
@@ -274,7 +273,7 @@ def test_create_and_list_subscription_by_id(rse_factory, rest_client, auth_token
 def test_create_existing_subscription(rse_factory, rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a existing subscription """
     subscription_name = uuid()
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
     rse1, _ = rse_factory.make_mock_rse()
     rse2, _ = rse_factory.make_mock_rse()
     rse_expression = '%s|%s' % (rse1, rse2)
@@ -306,7 +305,7 @@ def test_list_rules_states(vo, rse_factory, rest_client, auth_token, root_accoun
     """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
     tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
     add_scope(tmp_scope, root_account)
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
     rse1, _ = rse_factory.make_mock_rse()
     rse2, _ = rse_factory.make_mock_rse()
     rse_expression = '%s|%s' % (rse1, rse2)
@@ -353,7 +352,7 @@ class TestSubscriptionClient:
     projects = ['data12_900GeV', 'data12_8TeV', 'data13_900GeV', 'data13_8TeV']
     pattern1 = r'(_tid|physics_(Muons|JetTauEtmiss|Egamma)\..*\.ESD|express_express(?!.*NTUP|.*\.ESD|.*RAW)|(physics|express)(?!.*NTUP).* \
                  \.x|physics_WarmStart|calibration(?!_PixelBeam.merge.(NTUP_IDVTXLUMI|AOD))|merge.HIST|NTUP_MUONCALIB|NTUP_TRIG)'
-    activity = get_schema_value('ACTIVITY')['enum'][0]
+    activity = "Staging"
 
     @pytest.mark.noparallel(reason='uses pre-defined RSE')
     def test_create_and_update_and_list_subscription(self, vo, rse_factory, rucio_client):
@@ -483,7 +482,7 @@ class TestSubscriptionClient:
 class TestDaemon:
     def test_run_transmogrifier_chained_subscription_associated_sites_algo(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions and associated_sites algorithm"""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rse1, rse1_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
         rse3, _ = rse_factory.make_mock_rse()
@@ -538,7 +537,7 @@ class TestDaemon:
 
     def test_skip_subscription_bad_rse_expression(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Check that the subscriptions with bad RSE expression are skipped"""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         _, _ = rse_factory.make_mock_rse()
         rse_expression = rse_name_generator()
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
@@ -567,7 +566,7 @@ class TestDaemon:
 
     def test_run_transmogrifier_wildcard_copies(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with wildcard copies """
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rse_attribute = uuid()[:8]
         rses = {'no_tag': [], rse_attribute: []}
         nb_rses = 5
@@ -631,7 +630,7 @@ class TestDaemon:
 
     def test_run_transmogrifier_delayed_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with delayed subscription """
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         nbfiles = 3
         rse1, _ = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
@@ -667,7 +666,7 @@ class TestDaemon:
 
     def test_run_transmogrifier_invalid_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with invalid subscription """
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         nbfiles = 3
         rse1, _ = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
@@ -716,7 +715,7 @@ class TestDaemon:
     ], indirect=True)
     def test_avg_file_size_filtering(self, rse_factory, vo, rucio_client, root_account, mock_scope, file_config_mock):
         """ SUBSCRIPTION (DAEMON): Test that the transmogrifier can handle min_avg_file_size and max_avg_file_size"""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         nbfiles = 3
         file_size_threshold = 500
         min_file_size = 100
@@ -782,7 +781,7 @@ class TestDaemon:
 
     def test_run_transmogrifier_chained_subscription_exclude_site_algo(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with chained subscriptions and exclude_site algorithm"""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         tag_test = uuid()[:8]
         dict_rse = {}
         sites = [uuid() for _ in range(3)]
@@ -846,7 +845,7 @@ class TestDaemon:
 
     def test_run_transmogrifier_wildcard_copies_blocklisted_rse(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with wildcard copies and blocklisted RSE"""
-        activity = get_schema_value('ACTIVITY')['enum'][0]
+        activity = "Staging"
         rse_attribute = uuid()[:8]
         rses = {'no_tag': [], rse_attribute: []}
         nb_rses = 5
