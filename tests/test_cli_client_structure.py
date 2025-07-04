@@ -256,6 +256,12 @@ def test_did(rucio_client, root_account):
     assert exitcode == 0
     assert "ERROR" not in err
 
+    cmd = f"rucio did list {scope}:* --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert f"{scope}:{dataset}" in [item for row in [o.rstrip('\n').split('\t') for o in out.split('\n')] for item in row]
+
     cmd = f"rucio did update --touch {scope}:{dataset}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
@@ -272,6 +278,12 @@ def test_did(rucio_client, root_account):
     assert exitcode == 0
     assert "ERROR" not in err
     assert dataset in out  # At least list the name properly
+
+    cmd = f"rucio did show {scope}:{dataset} --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert dataset in [item for row in [o.split('\t') for o in out.split('\n')] for item in row]  # line split and tab split works properly
 
     # Add the collection DIDs
     scope = scope_name_generator()
@@ -347,6 +359,12 @@ def test_did_content(root_account, rucio_client):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert container in out
+
+    cmd = f"rucio did list --parent {scope}:{dataset} --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert f"{scope}:{container}" in [o.rstrip('\n') for o in out.split('\t')]
 
     cmd = f"rucio did content remove {scope}:{dataset} --from-did {scope}:{container}"
     exitcode, _, err = execute(cmd)
