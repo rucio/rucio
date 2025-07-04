@@ -3031,3 +3031,53 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
             is_archive=did.is_archive,
             constituent=did.constituent
         ).save(session=session, flush=False)
+
+@transactional_session
+def add_files_with_structure(
+        files: "Iterable[dict[str, Any]]",
+        account: "InternalAccount",
+        *,
+        session: "Session"
+):
+    """
+    Add files with structure
+
+    :param files: An iterable of files to add. It should be a list of dictionaries with the following keys:
+        - scope: The scope name.
+        - name: The data identifier name.
+        - rse: The RSE name.
+        - pfn: The physical file name.
+        - bytes: The file size in bytes.
+        - adler32: The adler32 checksum.
+    :param account: The account to use.
+    :param session: The database session in use.
+    """
+
+    for file in files:
+        if "scope" not in file:
+            raise exception.InputValidationError("Missing 'scope' in file")
+        if "name" not in file:
+            raise exception.InputValidationError("Missing 'name' in file")
+        scope = file["scope"]
+        name = file["name"]
+        parts = name.split("/")
+        directories = [
+            "/".join(parts[:i + 1]) for i in range(len(parts) - 1)
+        ]
+        if directories and directories[0] == "":
+            directories[0] = "/"
+        print(f"Directories: {directories}")
+        for directory in directories:
+            try:
+                add_did(
+                    scope=scope,
+                    name=directory,
+                    did_type="CONTAINER",
+                    account=account,
+                    did=directory,
+                    rse=file["rse"],
+                    session=session
+                )
+            # if container already exists, skip
+            except exception as e:
+                print("Error adding container: ", e)
