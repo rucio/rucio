@@ -35,6 +35,11 @@ def skip_if_vo_is_not_def(vo):
 @pytest.mark.usefixtures("skip_if_vo_is_not_def")
 class TestPolicyPackageGeneric:
 
+    @pytest.fixture(autouse=True)
+    def remove_rucio_policy_package(self, monkeypatch):
+        # Automatically remove the env variable for every test in this class
+        monkeypatch.delenv('RUCIO_POLICY_PACKAGE', raising=False)
+
     @pytest.mark.parametrize("name", [
         'name_with_underscore',
         'name-with-dash',
