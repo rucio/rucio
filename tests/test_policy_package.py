@@ -16,9 +16,55 @@ import importlib
 
 import pytest
 
+import rucio.common.exception
 import rucio.common.schema
 import rucio.core.permission
 from rucio.common.types import InternalAccount
+
+
+@pytest.fixture(autouse=True)
+def skip_if_vo_is_not_def(vo):
+    if vo != 'def':
+        pytest.skip("Skipping tests for VO other than 'def'.")
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('policy', 'schema', 'generic')]},
+    {"overrides": [('policy', 'schema', 'generic_multi_vo')]},
+], indirect=True)
+@pytest.mark.usefixtures("skip_if_vo_is_not_def")
+class TestPolicyPackageGeneric:
+
+    @pytest.fixture(autouse=True)
+    def remove_rucio_policy_package(self, monkeypatch):
+        # Automatically remove the env variable for every test in this class
+        monkeypatch.delenv('RUCIO_POLICY_PACKAGE', raising=False)
+
+    @pytest.mark.parametrize("name", [
+        'name_with_underscore',
+        'name-with-dash',
+        'name.with.dot',
+        'name/with/slash',
+        '/name/starting/with/slash',
+        'name/ending/with/slash/',
+    ])
+    def test_default_schema_did_name_valid(self, name, file_config_mock):
+        rucio.common.schema.validate_schema('name', name, vo='def')
+
+    @pytest.mark.parametrize("name", [
+        '.startingWithDot',
+        '-startingWithDash',
+        '_startingWithUnderscore',
+        '#hash',
+        'name with spaces',
+        'name*with*asterisk',
+        'name\\with\\backslash',
+        'name:with:colon',
+        'name,with,comma',
+    ])
+    def test_default_schema_did_name_invalid(self, name, file_config_mock):
+        with pytest.raises(rucio.common.exception.InvalidObject):
+            rucio.common.schema.validate_schema('name', name, vo='def')
 
 
 class TestPolicyPackage:
