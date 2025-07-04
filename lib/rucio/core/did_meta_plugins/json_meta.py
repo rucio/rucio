@@ -61,7 +61,7 @@ class JSONDidMeta(DidMetaPlugin):
             )
             row = session.execute(stmt).scalar_one()
             meta = getattr(row, 'meta')
-            return json_lib.loads(meta) if session.bind.dialect.name in ['oracle', 'sqlite'] else meta
+            return meta
         except NoResultFound:
             return {}
 
@@ -96,13 +96,8 @@ class JSONDidMeta(DidMetaPlugin):
             row_did_meta.save(session=session, flush=False)
 
         existing_meta = {}
-        if hasattr(row_did_meta, 'meta'):
-            if row_did_meta.meta:
-                if session.bind.dialect.name in ['oracle', 'sqlite']:
-                    # Oracle and sqlite returns a string instead of a dict
-                    existing_meta = json_lib.loads(cast("str", row_did_meta.meta))
-                else:
-                    existing_meta = cast("dict[str, Any]", row_did_meta.meta)
+        if hasattr(row_did_meta, "meta") and row_did_meta.meta:
+            existing_meta = cast("dict[str, Any]", row_did_meta.meta)
 
         for key, value in metadata.items():
             existing_meta[key] = value
@@ -139,9 +134,6 @@ class JSONDidMeta(DidMetaPlugin):
             )
             row = session.execute(stmt).scalar_one()
             existing_meta = getattr(row, 'meta')
-            # Oracle returns a string instead of a dict
-            if session.bind.dialect.name in ['oracle', 'sqlite'] and existing_meta is not None:
-                existing_meta = json_lib.loads(existing_meta)
 
             if key not in existing_meta:
                 raise exception.KeyNotFound(key)
@@ -150,10 +142,6 @@ class JSONDidMeta(DidMetaPlugin):
 
             row.meta = None
             session.flush()
-
-            # Oracle insert takes a string as input
-            if session.bind.dialect.name in ['oracle', 'sqlite']:
-                existing_meta = json_lib.dumps(existing_meta)
 
             row.meta = existing_meta
         except NoResultFound:
