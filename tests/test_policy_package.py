@@ -44,7 +44,7 @@ class TestPolicyPackageGeneric:
         'name/ending/with/slash/',
     ])
     def test_default_schema_did_name_valid(self, name, file_config_mock):
-        rucio.common.schema.validate_schema('name', name)
+        rucio.common.schema.validate_schema('name', name, vo='def')
 
     @pytest.mark.parametrize("name", [
         '.startingWithDot',
@@ -59,7 +59,7 @@ class TestPolicyPackageGeneric:
     ])
     def test_default_schema_did_name_invalid(self, name, file_config_mock):
         with pytest.raises(rucio.common.exception.InvalidObject):
-            rucio.common.schema.validate_schema('name', name)
+            rucio.common.schema.validate_schema('name', name, vo='def')
 
 
 class TestPolicyPackage:
