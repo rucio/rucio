@@ -14,6 +14,7 @@
 
 import ast
 from json import dumps
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from flask import Flask, Response, request
 
@@ -37,7 +38,7 @@ from rucio.common.exception import (
     UnsupportedOperation,
     UnsupportedStatus,
 )
-from rucio.common.utils import APIEncoder, parse_response, render_json
+from rucio.common.utils import APIEncoder, clone_function, parse_response, render_json
 from rucio.db.sqla.constants import DIDType
 from rucio.gateway.did import (
     add_did,
@@ -71,6 +72,10 @@ from rucio.gateway.did import (
 from rucio.gateway.rule import list_associated_replication_rules_for_file, list_replication_rules
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
+
+if TYPE_CHECKING:
+
+    from flask.typing import ResponseReturnValue, RouteCallable
 
 
 class Scope(ErrorHandlingMethodView):
@@ -193,7 +198,7 @@ class Search(ErrorHandlingMethodView):
             default: false
         - name: recursive
           in: query
-          description: "Recursively list chilred."
+          description: "Recursively list children."
           schema:
             type: boolean
         - name: created_before
@@ -246,7 +251,7 @@ class Search(ErrorHandlingMethodView):
                   type: array
                   items:
                     type: object
-                    description: "The name of a DID or a dictionarie of a DID for long option."
+                    description: "The name of a DID or a dictionary of a DID for long option."
           401:
             description: "Invalid Auth Token"
           404:
@@ -273,8 +278,15 @@ class Search(ErrorHandlingMethodView):
         recursive = request.args.get('recursive', type='True'.__eq__, default=False)
         try:
             def generate(vo):
-                for did in list_dids(scope=scope, filters=filters, did_type=did_type, limit=limit, long=long, recursive=recursive, vo=vo):
+                for did in list_dids(scope=scope,
+                                     filters=filters,
+                                     did_type=did_type,
+                                     limit=limit,
+                                     long=long,
+                                     recursive=recursive,
+                                     vo=vo):
                     yield dumps(did) + '\n'
+
             return try_stream(generate(vo=request.environ['vo']))
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
@@ -417,7 +429,7 @@ class Attachments(ErrorHandlingMethodView):
                             description: "The name of the DID."
                             type: string
                           dids:
-                            description: "The DIDs associated to the DID."
+                            description: "The DIDs associated with the DID."
                             type: array
                             items:
                               type: object
@@ -461,7 +473,10 @@ class Attachments(ErrorHandlingMethodView):
             return generate_http_error_flask(406, exc="Invalid attachment format.")
 
         try:
-            attach_dids_to_dids(attachments=attachments, ignore_duplicate=ignore_duplicate, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            attach_dids_to_dids(attachments=attachments,
+                                ignore_duplicate=ignore_duplicate,
+                                issuer=request.environ['issuer'],
+                                vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation, FileAlreadyExists) as error:
@@ -483,7 +498,7 @@ class DIDs(ErrorHandlingMethodView):
         summary: Get DID
         description: "Get a single data identifier."
         tags:
-          - Data identifiers
+          - Data Identifiers
         parameters:
         - name: scope_name
           in: path
@@ -899,7 +914,11 @@ class Attachment(ErrorHandlingMethodView):
         attachments = json_parameters()
 
         try:
-            attach_dids(scope=scope, name=name, attachment=attachments, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            attach_dids(scope=scope,
+                        name=name,
+                        attachment=attachments,
+                        issuer=request.environ['issuer'],
+                        vo=request.environ['vo'])
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
         except (DataIdentifierNotFound, RSENotFound) as error:
@@ -996,7 +1015,9 @@ class AttachmentHistory(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: "The DIDs with their information and history. Elements are separated by new line characters."
+                  description: |
+                    The DIDs with their information and history.
+                    Elements are separated by new line characters.
                   type: array
                   items:
                     type: object
@@ -1229,7 +1250,6 @@ class BulkFiles(ErrorHandlingMethodView):
             return try_stream(generate(vo=request.environ['vo']))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
-        return 'Created', 201
 
 
 class Parents(ErrorHandlingMethodView):
@@ -1441,7 +1461,7 @@ class Meta(ErrorHandlingMethodView):
                         type: boolean
                         default: false
                   - type: object
-                    description: "Schema for **Multi-key mode** (`key` not included in path)."
+                    description: "Schema for **Multi-key mode** (`key` not included in the path)."
                     required:
                       - meta
                     properties:
@@ -1601,68 +1621,307 @@ class Meta(ErrorHandlingMethodView):
 
 
 class BulkDIDsMeta(ErrorHandlingMethodView):
+    # Public modes
+    MODE_SET = "set"  # POST /bulkdidsmeta
+    MODE_GET = "get"  # POST /bulkmeta
 
-    def post(self):
+    # Endpoint‑specific configuration
+    MODE_SET_DOC = \
         """
         ---
-        summary: Add metadata bulk
-        description: "Adds metadata in a bulk."
+        summary: Bulk set metadata
+        description: |
+          Add or update metadata for **multiple** data identifiers (DIDs) in a single request.
+
+          * Every array element **must** contain the DID (`scope` + `name`) and a `meta`
+            dictionary holding the key–value pairs to insert / update for that DID.
+          * If a key already exists the exact action (overwrite, merge, reject)
+            depends on the metadata plug‑in configured on the server.
+          * The operation is atomic across the whole list: the request succeeds only if
+            all DIDs are updated successfully; otherwise no metadata is written.
         tags:
           - Data Identifiers
         requestBody:
+          required: true
           content:
-            'application/json':
+            application/json:
               schema:
                 type: object
                 required:
-                - dids
+                  - dids
                 properties:
                   dids:
-                    description: "A list with all the DIDs and the metadata."
+                    description: "List of DIDs with the metadata to apply."
                     type: array
                     items:
-                      description: "The DID and associated metadata."
                       type: object
+                      required:
+                        - scope
+                        - name
+                        - meta
                       properties:
                         scope:
-                          description: "The scope of the DID."
+                          description: "Scope of the DID."
                           type: string
                         name:
-                          description: "The name of the DID."
+                          description: "Name of the DID."
                           type: string
                         meta:
-                          description: "The metadata to add. A dictionary with the meta key as key and the value as value."
+                          description: >
+                            Dictionary of metadata key–value pairs to set for this DID.
+                            Values may be strings, numbers, booleans, etc. – consult
+                            the plug‑in documentation for supported types.
                           type: object
+              examples:
+                minimal:
+                  summary: "Two DIDs, simple values"
+                  value:
+                    dids:
+                      - scope: "user"
+                        name: "dataset_001"
+                        meta:
+                          experiment: "CMS"
+                          year: 2024
+                      - scope: "user"
+                        name: "dataset_002"
+                        meta:
+                          experiment: "ATLAS"
+                          is_open: true
+
         responses:
-          200:
-            description: "Created"
+          201:
+            description: "Created – all metadata updates were accepted."
             content:
-              application/json:
+              text/plain:
                 schema:
                   type: string
                   enum: ["Created"]
+          400:
+            description: |
+              Bad Request – malformed JSON or missing/invalid `dids` structure.
+              (Raised by the generic JSON‑parameter parser before reaching the
+              business logic.)
           401:
-            description: "Invalid Auth Token"
+            description: |
+              Unauthorized – invalid Auth Token or insufficient privileges to
+              modify at least one DID.
           404:
-            description: "DID not found"
-          406:
-            description: "Not acceptable"
+            description: "Not found – at least one DID in the request does not exist."
           409:
-            description: "Unsupported Operation"
+            description: "Conflict – the operation is not supported for at least one DID."
         """
-        parameters = json_parameters()
-        dids = param_get(parameters, 'dids')
+
+    MODE_GET_DOC = \
+        """
+        ---
+        summary: Bulk get metadata
+        description: |
+          Retrieve the metadata of **multiple** data identifiers (DIDs) with one request.
+
+          * The request body is ordinary JSON (`Content‑Type: application/json`).
+          * The **response** is a *newline‑delimited JSON* stream
+            (`Content‑Type: application/x-json-stream`).
+            Each line is a complete JSON object containing the metadata of a single
+            DID.  The client **must** send `Accept: application/x-json-stream`; any
+            other `Accept` value is rejected with **406 Not Acceptable**.
+          * If `inherit=true`, metadata from parent containers is concatenated
+            (plug‑in permitting).
+          * `plugin` chooses the metadata plug‑in; `"ALL"` returns the union of every
+            available plug‑in.
+
+        tags:
+          - Data Identifiers
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dids
+                properties:
+                  dids:
+                    description: "List of DIDs to query."
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - scope
+                        - name
+                      properties:
+                        scope:
+                          description: "Scope of the DID."
+                          type: string
+                        name:
+                          description: "Name of the DID."
+                          type: string
+                  inherit:
+                    description: >
+                      If **true**, the server will also return metadata inherited
+                      from parent DIDs (default: `false`).
+                    type: boolean
+                    default: false
+                  plugin:
+                    description: >
+                      Which metadata plug‑in to query
+                      (`"JSON"`, `"DID_COLUMN"`, `"ALL"`, etc.; default: `"JSON"`).
+                    type: string
+                    default: "JSON"
+              examples:
+                defaultQuery:
+                  summary: "Query two DIDs with inheritance"
+                  value:
+                    dids:
+                      - scope: "user"
+                        name: "dataset_001"
+                      - scope: "user"
+                        name: "dataset_002"
+                    inherit: true
+                    plugin: "JSON"
+
+        responses:
+          200:
+            description: "OK – stream of newline‑delimited JSON objects, one per DID."
+            content:
+              application/x-json-stream:
+                schema:
+                  type: string
+                  example: |
+                    {"scope":"user","name":"dataset_001","experiment":"CMS", ...}\n
+                    {"scope":"user","name":"dataset_002","experiment":"ATLAS", ...}\n
+
+          400:
+            description: >
+              Bad Request – cannot decode JSON parameter list (malformed body or
+              missing `dids` array).
+          401:
+            description: "Unauthorized – invalid Auth Token."
+          404:
+            description: "Not found – none of the requested DIDs exist."
+          406:
+            description: |
+              Not Acceptable – an `Accept` header was sent, but it does not
+              include `application/x-json-stream`.
+        """
+
+    _MODE_DOC: dict[str, str] = {
+        MODE_SET: MODE_SET_DOC,
+        MODE_GET: MODE_GET_DOC
+    }
+    _MODE_ACCEPT: dict[str, Optional[list[str]]] = {
+        MODE_SET: None,
+        MODE_GET: ["application/x-json-stream"],
+    }
+
+    # cache for the on‑the‑fly subclasses
+    _SUBCLASSES: dict[str, type["BulkDIDsMeta"]] = {}
+
+    def __init__(self, mode: str, *args: Any, **kwargs: Any) -> None:
+        if mode not in (self.MODE_SET, self.MODE_GET):
+            raise ValueError(f"Unsupported mode {mode!r}")
+        self.mode = mode
+        super().__init__(*args, **kwargs)
+
+    # Main factory
+    @classmethod
+    def as_view(
+            cls,
+            name: str,
+            *class_args: Any,
+            **class_kwargs: Any
+    ) -> 'RouteCallable':
+        """
+        Create the Flask view function for *mode* with the correct
+        docstring and (if required) an Accept‑header wrapper.
+        """
+
+        # 0. Extract & validate the mode argument
+        mode_opt = class_kwargs.pop("mode", None)
+        if mode_opt not in (cls.MODE_SET, cls.MODE_GET):
+            raise ValueError("BulkDIDsMeta.as_view() needs mode='set' or mode='get'")
+
+        # Tell the type checker that `mode_opt` is definitely str here
+        mode = cast('str', mode_opt)
+
+        # 1.  Build / fetch the dedicated subclass for this mode
+        if mode not in cls._SUBCLASSES:
+            sub_name = f"{cls.__name__}_{mode}"
+            sub: type["BulkDIDsMeta"] = cast(
+                'type[BulkDIDsMeta]',
+                type(sub_name, (cls,), {}),
+            )
+            new_post = clone_function(cls.post)  # independent copy
+            new_post.__doc__ = cls._MODE_DOC[mode]  # mode‑specific spec
+            setattr(sub, "post", new_post)
+            cls._SUBCLASSES[mode] = sub
+        sub = cls._SUBCLASSES[mode]
+
+        # 2.  Let MethodView build the dispatch function
+        class_kwargs["mode"] = mode  # forward to __init__
+
+        raw_view = super(BulkDIDsMeta, sub).as_view(
+            name, *class_args, **class_kwargs
+        )
+
+        # 3.  Add Accept‑header checker when needed
+        accept = cls._MODE_ACCEPT[mode]
+        if accept:
+            raw_view = check_accept_header_wrapper_flask(accept)(raw_view)
+
+        view_func = cast('RouteCallable', raw_view)
+        return view_func
+
+    # ------------------------------------------------------------------
+    # Single entry‑point for both logical endpoints
+    # ------------------------------------------------------------------
+    def post(self) -> 'ResponseReturnValue':
+        if self.mode == self.MODE_SET:
+            return self._handle_set()
+        return self._handle_get()
+
+    # ------------------------------------------------------------------
+    # Implementation of the SET variant  (/bulkdidsmeta)
+    # ------------------------------------------------------------------
+    def _handle_set(self) -> 'ResponseReturnValue':
+        params = json_parameters()
+        dids = param_get(params, "dids")
 
         try:
-            set_dids_metadata_bulk(dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
-        except UnsupportedOperation as error:
-            return generate_http_error_flask(409, error)
-        except AccessDenied as error:
-            return generate_http_error_flask(401, error)
+            set_dids_metadata_bulk(
+                dids=dids,
+                issuer=request.environ["issuer"],
+                vo=request.environ["vo"],
+            )
+        except DataIdentifierNotFound as err:
+            return generate_http_error_flask(404, err)
+        except UnsupportedOperation as err:
+            return generate_http_error_flask(409, err)
+        except AccessDenied as err:
+            return generate_http_error_flask(401, err)
 
-        return 'Created', 201
+        return "Created", 201
+
+    # ------------------------------------------------------------------
+    # Implementation of the GET variant  (/bulkmeta)
+    # ------------------------------------------------------------------
+    def _handle_get(self) -> 'ResponseReturnValue':
+        params = json_parameters()
+        dids = param_get(params, "dids")
+        inherit = param_get(params, "inherit", default=False)
+        plugin = param_get(params, "plugin", default="JSON")
+
+        try:
+            def generate(vo):
+                for meta in get_metadata_bulk(dids, inherit=inherit, plugin=plugin, vo=vo):
+                    yield render_json(**meta) + "\n"
+
+            return try_stream(generate(vo=request.environ["vo"]))
+        except ValueError as err:
+            return generate_http_error_flask(
+                400, err, "Cannot decode json parameter list"
+            )
+        except DataIdentifierNotFound as err:
+            return generate_http_error_flask(404, err)
 
 
 class Rules(ErrorHandlingMethodView):
@@ -1713,82 +1972,6 @@ class Rules(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
         except RuleNotFound as error:
             return generate_http_error_flask(404, error)
-        except DataIdentifierNotFound as error:
-            return generate_http_error_flask(404, error)
-
-
-class BulkMeta(ErrorHandlingMethodView):
-
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def post(self):
-        """
-        ---
-        summary: Get metadata bulk
-        description: "List all metadata of a list of data identifiers."
-        tags:
-          - Data Identifiers
-        requestBody:
-          content:
-            'application/x-json-stream':
-              schema:
-                type: object
-                required:
-                - dids
-                properties:
-                  dids:
-                    description: "The DIDs."
-                    type: array
-                    items:
-                      description: "A DID."
-                      type: object
-                      properties:
-                        name:
-                          description: "The name of the DID."
-                          type: string
-                        scope:
-                          description: "The scope of the DID."
-                          type: string
-                  inherit:
-                    description: "Concatenated the metadata of the parent if set to true."
-                    type: boolean
-                    default: false
-                  plugin:
-                    description: "The DID meta plugin to query or 'ALL' for all available plugins"
-                    type: string
-                    default: "JSON"
-        responses:
-          200:
-            description: "OK"
-            content:
-              application/json:
-                schema:
-                  description: "A list of metadata identifiers for the DIDs. Separated by new lines."
-                  type: array
-                  items:
-                    description: "The metadata for one DID."
-                    type: object
-          400:
-            description: "Cannot decode json parameter list"
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "DID not found"
-          406:
-            description: "Not acceptable"
-        """
-        parameters = json_parameters()
-        dids = param_get(parameters, 'dids')
-        inherit = param_get(parameters, 'inherit', default=False)
-        plugin = param_get(parameters, 'plugin', default='JSON')
-
-        try:
-            def generate(vo):
-                for meta in get_metadata_bulk(dids, inherit=inherit, plugin=plugin, vo=vo):
-                    yield render_json(**meta) + '\n'
-
-            return try_stream(generate(vo=request.environ['vo']))
-        except ValueError as error:
-            return generate_http_error_flask(400, error, 'Cannot decode json parameter list')
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
@@ -1887,7 +2070,9 @@ class GUIDLookup(ErrorHandlingMethodView):
             content:
               application/x-json-stream:
                 schema:
-                  description: "A list of all datasets associated with the guid. Items are separated by new line character."
+                  description: |
+                    A list of all datasets associated with the guid.
+                    Items are separated by new line character.
                   type: array
                   items:
                     description: "A dataset associated with a guid."
@@ -2325,60 +2510,162 @@ class Follow(ErrorHandlingMethodView):
         account = param_get(parameters, 'account')
 
         try:
-            remove_did_from_followed(scope=scope, name=name, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            remove_did_from_followed(scope=scope,
+                                     name=name,
+                                     account=account,
+                                     issuer=request.environ['issuer'],
+                                     vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 
         return '', 200
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
+    """
+    Creates and configures an authenticated Flask Blueprint for handling various routes
+    related to Data Identifiers (DIDs) and their associated functionalities.
+    """
     bp = AuthenticatedBlueprint('dids', __name__, url_prefix='/dids')
 
-    scope_view = Scope.as_view('scope')
-    bp.add_url_rule('/<scope>/', view_func=scope_view, methods=['get', ])
-    guid_lookup_view = GUIDLookup.as_view('guid_lookup')
-    bp.add_url_rule('/<guid>/guid', view_func=guid_lookup_view, methods=['get', ])
-    search_view = Search.as_view('search')
-    bp.add_url_rule('/<scope>/dids/search', view_func=search_view, methods=['get', ])
     dids_view = DIDs.as_view('dids')
-    bp.add_url_rule('/<path:scope_name>/status', view_func=dids_view, methods=['put', 'get'])
-    files_view = Files.as_view('files')
-    bp.add_url_rule('/<path:scope_name>/files', view_func=files_view, methods=['get', ])
-    attachment_history_view = AttachmentHistory.as_view('attachment_history')
-    bp.add_url_rule('/<path:scope_name>/dids/history', view_func=attachment_history_view, methods=['get', ])
-    attachment_view = Attachment.as_view('attachment')
-    bp.add_url_rule('/<path:scope_name>/dids', view_func=attachment_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule(
+        '/<path:scope_name>/status',
+        view_func=dids_view,
+        methods=['put', 'get'],
+    )
+    bp.add_url_rule(
+        '/<path:scope_name>',
+        view_func=dids_view,
+        methods=['get', 'post'],
+    )
+
     meta_view = Meta.as_view('meta')
-    bp.add_url_rule('/<path:scope_name>/meta', defaults={'key': None}, view_func=meta_view, methods=['get', 'post', 'delete'])
-    bp.add_url_rule('/<path:scope_name>/meta/<key>', view_func=meta_view, methods=['post', ])
-    bulkdidsmeta_view = BulkDIDsMeta.as_view('bulkdidsmeta')
-    bp.add_url_rule('/bulkdidsmeta', view_func=bulkdidsmeta_view, methods=['post', ])
-    rules_view = Rules.as_view('rules')
-    bp.add_url_rule('/<path:scope_name>/rules', view_func=rules_view, methods=['get', ])
-    parents_view = Parents.as_view('parents')
-    bp.add_url_rule('/<path:scope_name>/parents', view_func=parents_view, methods=['get', ])
-    associated_rules_view = AssociatedRules.as_view('associated_rules')
-    bp.add_url_rule('/<path:scope_name>/associated_rules', view_func=associated_rules_view, methods=['get', ])
-    follow_view = Follow.as_view('follow')
-    bp.add_url_rule('/<path:scope_name>/follow', view_func=follow_view, methods=['get', 'post', 'delete'])
-    bp.add_url_rule('/<path:scope_name>', view_func=dids_view, methods=['get', 'post'])
-    bulkdids_view = BulkDIDS.as_view('bulkdids')
-    bp.add_url_rule('', view_func=bulkdids_view, methods=['post', ])
-    sample_view_legacy = SampleLegacy.as_view('sample')
-    bp.add_url_rule('/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample', view_func=sample_view_legacy, methods=['post', ])
-    sample_view = Sample.as_view('sample_new')
-    bp.add_url_rule('/sample', view_func=sample_view, methods=['post', ])
-    attachements_view = Attachments.as_view('attachments')
-    bp.add_url_rule('/attachments', view_func=attachements_view, methods=['post', ])
-    new_dids_view = NewDIDs.as_view('new_dids')
-    bp.add_url_rule('/new', view_func=new_dids_view, methods=['get', ])
-    resurrect_view = Resurrect.as_view('resurrect')
-    bp.add_url_rule('/resurrect', view_func=resurrect_view, methods=['post', ])
-    bulkmeta_view = BulkMeta.as_view('bulkmeta')
-    bp.add_url_rule('/bulkmeta', view_func=bulkmeta_view, methods=['post', ])
-    files_view = BulkFiles.as_view('bulkfiles')
-    bp.add_url_rule('/bulkfiles', view_func=files_view, methods=['post', ])
+    bp.add_url_rule(
+        '/<path:scope_name>/meta',
+        defaults={'key': None},
+        view_func=meta_view,
+        methods=['get', 'post', 'delete'],
+    )
+    bp.add_url_rule(
+        '/<path:scope_name>/meta/<key>',
+        view_func=meta_view,
+        methods=['post'],
+    )
+
+    bp.add_url_rule(
+        "/bulkdidsmeta",
+        view_func=BulkDIDsMeta.as_view("bulkdidsmeta", mode=BulkDIDsMeta.MODE_SET),
+        methods=["post"],
+    )
+
+    bp.add_url_rule(
+        "/bulkmeta",
+        view_func=BulkDIDsMeta.as_view("bulkmeta", mode=BulkDIDsMeta.MODE_GET),
+        methods=["post"],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/dids',
+        view_func=Attachment.as_view('attachment'),
+        methods=['get', 'post', 'delete'],
+    )
+
+    bp.add_url_rule(
+        '/new',
+        view_func=NewDIDs.as_view('new_dids'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '',
+        view_func=BulkDIDS.as_view('bulkdids'),
+        methods=['post'],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/dids/history',
+        view_func=AttachmentHistory.as_view('attachment_history'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/attachments',
+        view_func=Attachments.as_view('attachments'),
+        methods=['post'],
+    )
+
+    bp.add_url_rule(
+        '/<scope>/dids/search',
+        view_func=Search.as_view('search'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/<scope>/',
+        view_func=Scope.as_view('scope'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/<guid>/guid',
+        view_func=GUIDLookup.as_view('guid_lookup'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/files',
+        view_func=Files.as_view('files'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/bulkfiles',
+        view_func=BulkFiles.as_view('bulkfiles'),
+        methods=['post'],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/rules',
+        view_func=Rules.as_view('rules'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/parents',
+        view_func=Parents.as_view('parents'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/associated_rules',
+        view_func=AssociatedRules.as_view('associated_rules'),
+        methods=['get'],
+    )
+
+    bp.add_url_rule(
+        '/<path:scope_name>/follow',
+        view_func=Follow.as_view('follow'),
+        methods=['get', 'post', 'delete'],
+    )
+
+    bp.add_url_rule(
+        '/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample',
+        view_func=SampleLegacy.as_view('sample'),
+        methods=['post'],
+    )
+
+    bp.add_url_rule(
+        '/sample',
+        view_func=Sample.as_view('sample_new'),
+        methods=['post'],
+    )
+
+    bp.add_url_rule(
+        '/resurrect',
+        view_func=Resurrect.as_view('resurrect'),
+        methods=['post'],
+    )
 
     bp.after_request(response_headers)
     return bp

@@ -118,7 +118,7 @@ class Trace(ErrorHandlingMethodView):
             return generate_http_error_flask(400, err)
 
 
-def blueprint():
+def blueprint() -> Blueprint:
     bp = Blueprint('traces', __name__, url_prefix='/traces')
 
     trace_view = Trace.as_view('trace')

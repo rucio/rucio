@@ -823,7 +823,7 @@ class RuleAnalysis(ErrorHandlingMethodView):
         return Response(render_json(**analysis), content_type='application/json')
 
 
-def blueprint():
+def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('rules', __name__, url_prefix='/rules')
 
     rule_view = Rule.as_view('rule')

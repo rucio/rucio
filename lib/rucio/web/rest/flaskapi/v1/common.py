@@ -20,11 +20,12 @@ import re
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union, cast
 from urllib.parse import unquote_plus
 
 import flask
 from flask.views import MethodView
+from typing_extensions import ParamSpec
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
@@ -183,25 +184,44 @@ def response_headers(response: ResponseTypeVar) -> ResponseTypeVar:
     return response
 
 
-def check_accept_header_wrapper_flask(supported_content_types: 'Iterable[str]'):
-    """ Decorator to check if an endpoint supports the requested content type. """
+P = ParamSpec('P')
+R = TypeVar('R')
 
-    def wrapper(f):
+
+def check_accept_header_wrapper_flask(
+        supported_content_types: 'Iterable[str]'
+) -> 'Callable[[Callable[P, R]], Callable[P, R]]':
+    """Decorator that refuses requests with an unsupported *Accept* header."""
+
+    def wrapper(
+            f: 'Callable[P, R]'
+    ) -> 'Callable[P, R]':
+        """Decorate *f* with an *Accept*-header check and return the new callable."""
+
         @wraps(f)
-        def decorated(*args, **kwargs):
+        def decorated(*args: 'P.args', **kwargs: 'P.kwargs') -> 'R':
+            """Run the header check, then delegate to *f* (or return 406)."""
+
+            # 1. no Accept header → accept everything
             if not flask.request.accept_mimetypes.provided:
-                # accept anything, if Accept header is not provided
                 return f(*args, **kwargs)
 
-            for supported in supported_content_types:
-                if supported in flask.request.accept_mimetypes:
-                    return f(*args, **kwargs)
+            # 2. at least one acceptable media‑type → call the view
+            if any(s in flask.request.accept_mimetypes for s in supported_content_types):
+                return f(*args, **kwargs)
 
-            # none matched..
-            return generate_http_error_flask(
-                status_code=406,
-                exc=UnsupportedRequestedContentType.__name__,
-                exc_msg=f'The requested content type {flask.request.environ.get("HTTP_ACCEPT")} is not supported. Use {supported_content_types}.'
+            # 3. none matched → 406 response
+            return cast(
+                'R',
+                generate_http_error_flask(
+                    status_code=406,
+                    exc=UnsupportedRequestedContentType.__name__,
+                    exc_msg=(
+                        f'The requested content type '
+                        f'{flask.request.environ.get("HTTP_ACCEPT")} is not supported. '
+                        f'Use {supported_content_types}.'
+                    ),
+                ),
             )
 
         return decorated
