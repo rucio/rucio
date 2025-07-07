@@ -572,12 +572,11 @@ class TestRSEClient:
             rucio_client.add_protocol(protocol_rse, p)
         resp = mgr.get_rse_info(rse=protocol_rse, vo=vo)
         for p in resp['protocols']:
-            if ((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or \
-                    ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or \
-                    ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or \
-                    ((p['port'] == 17) and (p['domains']['lan']['read'] != 4)):
-                print(resp)
-                assert False
+            assert not (((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or 
+                    ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or 
+                    ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or 
+                    ((p['port'] == 17) and (p['domains']['lan']['read'] != 4))), f"Protocol {p['port']} has wrong read value {p['domains']['lan']['read']}. Response: {resp}"
+
 
         rucio_client.delete_protocols(protocol_rse, scheme='MOCK')
         rucio_client.delete_rse(protocol_rse)
@@ -1280,15 +1279,9 @@ class TestRSEClient:
         prots = rucio_client.get_protocols(protocol_rse)
         for p in prots:
             if p['scheme'] == 'MOCKA':
-                if p['domains']['lan']['read'] != 3:
-                    print('MOCKA with unexpected priority')
-                    print(prots)
-                    assert False
+                assert p['domains']['lan']['read'] == 3, f"MOCKA with unexpected priority: {p['domains']['lan']['read']}. Protocols: {prots}"
             if p['scheme'] == 'MOCKC':
-                if p['domains']['lan']['read'] != 1:
-                    print('MOCKC with unexpected priority')
-                    print(prots)
-                    assert False
+                assert p['domains']['lan']['read'] == 1, f"MOCKC with unexpected priority: {p['domains']['lan']['read']}. Protocols: {prots}"
         assert True
 
     def test_update_protocols_rse_not_found(self, rucio_client):
@@ -1494,8 +1487,7 @@ class TestRSEClient:
                                      parameters={'distance': 0})
 
         for distance in rucio_client.get_distance(source=source, destination=destination):
-            print(distance)
-            assert distance['distance'] == 0
+            assert distance['distance'] == 0, f"Distance should be 0, but is {distance['distance']}. {distance}"
 
     def test_get_rse_protocols_includes_verify_checksum(self, vo):
         """ RSE (CORE): Test validate_checksum in RSEs info"""

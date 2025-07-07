@@ -210,8 +210,7 @@ class TestRucioClients:
         """
 
         exitcode, _, err = execute("python -c 'from rucio.client import Client'")
-        print(exitcode, err)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to import Client without config file: {err}"
         assert "Could not load Rucio configuration file." not in err
 
     @pytest.mark.noparallel(reason='We temporarily remove the config file.')

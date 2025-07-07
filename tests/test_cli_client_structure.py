@@ -135,8 +135,7 @@ def test_account_attribute(jdoe_account):
 
     cmd = f"rucio account attribute list {jdoe_account}"
     exitcode, out, err = execute(cmd)
-    print(err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to list account attributes: {err}"
     assert "ERROR" not in err
     assert f"test_{fake_key}_key" in out
 
@@ -419,8 +418,7 @@ def test_lifetime_exception(rucio_client, mock_scope):
 
     cmd = f"rucio lifetime-exception add -f {input_file.name} --reason mock_test -x 2100-12-30"
     exitcode, _, err = execute(cmd)
-    print(err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to add lifetime exception: {err}"
     if "ERROR" not in err:
         assert "not affected by the lifetime model" in err
     else:
@@ -473,8 +471,7 @@ def test_replica_state(mock_scope, rucio_client):
 
     cmd = f"rucio replica state update bad {scope}:{name1} --rse {mock_rse} --reason testing"
     exitcode, _, err = execute(cmd)
-    print(err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to update replica state: {err}"
     if "ERROR" in err:
         assert "Details: ERROR, multiple matches" in err  # The test rses are strange. I don't know why this happens.
 
@@ -549,8 +546,7 @@ def test_rse_protocol():
     domain_json = """{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}}"""
     cmd = f"rucio rse protocol add {rse_name} --host-name blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default --domain-json '{domain_json}'"
     exitcode, _, err = execute(cmd)
-    print(err)
-    assert "ERROR" not in err
+    assert "ERROR" not in err, f"Failed to add protocol: {err}"
     assert exitcode == 0
 
     cmd = f"rucio rse protocol remove {rse_name} --host-name blocklistreplica --scheme file"
@@ -689,8 +685,7 @@ def test_rule(rucio_client, mock_scope):
     # Testing the two different lifetime type options
     cmd = f"rucio rule update {rule_id} --lifetime 10"
     exitcode, out, err = execute(cmd)
-    print(out, err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to update rule lifetime: {err} {out}"
     assert "ERROR" not in err
     rule_info = rucio_client.get_replication_rule(rule_id)
     assert abs(rule_info["updated_at"] - rule_info["expires_at"]).seconds == 10
@@ -771,6 +766,5 @@ def test_subscription(rucio_client, mock_scope):
     rule = json.dumps({})
     cmd = f"rucio subscription update {subscription_name} --filter '{filter_}' --rule {rule}"
     exitcode, _, err = execute(cmd)
-    print(err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to update subscription: {err}"
     assert "ERROR" not in err

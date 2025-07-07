@@ -519,8 +519,7 @@ def test_disable_no_files_download_error(vo, rse_factory, did_factory, download_
     rse, _ = rse_factory.make_posix_rse()
     with TemporaryDirectory() as tmp_dir:
         res = download_client.download_dids([{'did': 'some:randomNonExistingDid', 'base_dir': tmp_dir}], deactivate_file_download_exceptions=True)
-        print('Downloaded object', res)
-        assert res[0]['clientState'] == 'FILE_NOT_FOUND'
+        assert res[0]['clientState'] == 'FILE_NOT_FOUND', 'Expected FILE_NOT_FOUND state, got %s' % res[0]['clientState']
 
 
 def test_nrandom_respected(rse_factory, did_factory, download_client, root_account):
