@@ -572,11 +572,10 @@ class TestRSEClient:
             rucio_client.add_protocol(protocol_rse, p)
         resp = mgr.get_rse_info(rse=protocol_rse, vo=vo)
         for p in resp['protocols']:
-            assert not (((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or 
-                    ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or 
-                    ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or 
-                    ((p['port'] == 17) and (p['domains']['lan']['read'] != 4))), f"Protocol {p['port']} has wrong read value {p['domains']['lan']['read']}. Response: {resp}"
-
+            assert not (((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or
+                        ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or
+                        ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or
+                        ((p['port'] == 17) and (p['domains']['lan']['read'] != 4))), f"Protocol {p['port']} has wrong read value {p['domains']['lan']['read']}. Response: {resp}"
 
         rucio_client.delete_protocols(protocol_rse, scheme='MOCK')
         rucio_client.delete_rse(protocol_rse)

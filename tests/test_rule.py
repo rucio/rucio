@@ -1296,7 +1296,7 @@ class TestCore:
         mktree(scope, account)
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse2}|{self.rse3}|{self.rse4}',
                             grouping='NONE', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
-        rule = get_rule(rule_ids[0]
+        rule = get_rule(rule_ids[0])
         assert (rule['locks_ok_cnt'] == 25), f"Expected 25 locks_ok, got {rule['locks_ok_cnt']}"
         assert (rule['locks_replicating_cnt'] == 0), f"Expected 0 locks_replicating, got {rule['locks_replicating_cnt']}"
         dsl1 = list(get_dataset_locks(scope, 'ds1'))
