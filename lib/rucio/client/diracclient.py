@@ -37,12 +37,12 @@ class DiracClient(BaseClient):
             parents_metadata: Optional["Mapping[str, Mapping[str, Any]]"] = None
     ) -> Literal[True]:
         """
-        Bulk add files :
-            * Create the file and replica.
+        Bulk add files:
 
-            * If doesn't exist create the dataset containing the file as well as a rule on the dataset on ANY sites.
-
-            * Create all the ascendants of the dataset if they do not exist
+        * Create the file and replica.
+        * If doesn't exist, create the dataset containing the file as well as a rule on the dataset on ANY sites.
+        * Create all the ascendants of the dataset if they do not exist
+        * Attach metadata defined in ``parents_metadata``
 
         Parameters
         ----------
