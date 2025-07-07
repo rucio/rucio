@@ -81,7 +81,7 @@ def dump_schema() -> None:
     models.register_models(engine)
 
 
-def destroy_database() -> None:
+def drop_orm_tables() -> None:
     """ Removes the schema from the database. Only useful for test cases or malicious intents. """
     engine = get_engine()
 
@@ -91,7 +91,7 @@ def destroy_database() -> None:
         print('Cannot destroy schema -- assuming already gone, continuing:', e)
 
 
-def drop_everything() -> None:
+def purge_db() -> None:
     """
     Pre-gather all named constraints and table names, and drop everything.
     This is better than using metadata.reflect(); metadata.drop_all()
