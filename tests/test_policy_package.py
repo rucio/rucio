@@ -16,9 +16,51 @@ import importlib
 
 import pytest
 
+import rucio.common.exception
 import rucio.common.schema
 import rucio.core.permission
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount
+
+
+class TestPolicyPackageGeneric:
+
+    @classmethod
+    def setup_class(cls):
+        # TODO: remove this after the generic schema becomes the default one used in tests (https://github.com/rucio/rucio/issues/7819)
+        cls._rucio_default_vo_module = rucio.common.schema.schema_modules[DEFAULT_VO]
+        rucio.common.schema.schema_modules[DEFAULT_VO] = importlib.import_module('rucio.common.schema.generic')
+
+    @classmethod
+    def teardown_class(cls):
+        # TODO: remove this after the generic schema becomes the default one used in tests (https://github.com/rucio/rucio/issues/7819)
+        rucio.common.schema.schema_modules[DEFAULT_VO] = cls._rucio_default_vo_module
+
+    @pytest.mark.parametrize("name", [
+        'name_with_underscore',
+        'name-with-dash',
+        'name.with.dot',
+        'name/with/slash',
+        '/name/starting/with/slash',
+        'name/ending/with/slash/',
+    ])
+    def test_default_schema_did_name_valid(self, name, file_config_mock):
+        rucio.common.schema.validate_schema('name', name, vo=DEFAULT_VO)
+
+    @pytest.mark.parametrize("name", [
+        '.startingWithDot',
+        '-startingWithDash',
+        '_startingWithUnderscore',
+        '#hash',
+        'name with spaces',
+        'name*with*asterisk',
+        'name\\with\\backslash',
+        'name:with:colon',
+        'name,with,comma',
+    ])
+    def test_default_schema_did_name_invalid(self, name, file_config_mock):
+        with pytest.raises(rucio.common.exception.InvalidObject):
+            rucio.common.schema.validate_schema('name', name, vo=DEFAULT_VO)
 
 
 class TestPolicyPackage:
