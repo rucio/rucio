@@ -20,16 +20,16 @@ Behavior
 ------------------------+-----------------------+---------------------------+
  Flag(s)                |  What happens         |  Subsequent actions       |
 ------------------------+-----------------------+---------------------------+
- (no flag)              | destroy_database()    | build_database() +        |
-                        | # drop_orm_tables     | create_base_vo() +        |
+ (no flag)              | drop_orm_tables()     | build_database() +        |
+                        |                       | create_base_vo() +        |
                         |                       | create_root_account()     |
 ------------------------+-----------------------+---------------------------+
- -b / --purge-build     | drop_everything()     | build_database() +        |
-                        | # purge_db            | create_base_vo() +        |
+ -b / --purge-build     | purge_db()            | build_database() +        |
+                        |                       | create_base_vo() +        |
                         |                       | create_root_account()     |
 ------------------------+-----------------------+---------------------------+
- -p / --purge           | drop_everything()     | nothing else..            |
-                        | # purge_db            | the script ends           |
+ -p / --purge           | purge_db()            | nothing else..            |
+                        |                       | the script ends           |
 ------------------------+-----------------------+---------------------------+
 """
 
