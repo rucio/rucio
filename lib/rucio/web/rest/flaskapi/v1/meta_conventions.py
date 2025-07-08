@@ -217,25 +217,10 @@ def blueprint() -> AuthenticatedBlueprint:
     return bp
 
 
-def blueprint_legacy():
-    # TODO: Remove in 38.0
-    bp = AuthenticatedBlueprint('meta', __name__, url_prefix='/meta')
-
-    meta_view = MetaConventions.as_view('meta')
-    bp.add_url_rule('/', view_func=meta_view, methods=['get', ])
-    bp.add_url_rule('/<key>', view_func=meta_view, methods=['post', ])
-    values_view = Values.as_view('values')
-    bp.add_url_rule('/<key>/', view_func=values_view, methods=['get', 'post'])
-
-    bp.after_request(response_headers)
-    return bp
-
-
 def make_doc():
     """ Only used for sphinx documentation """
     doc_app = Flask(__name__)
 
     doc_app.register_blueprint(blueprint())
-    doc_app.register_blueprint(blueprint_legacy())
 
     return doc_app
