@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import importlib
-import logging
 from typing import TYPE_CHECKING
 
 from flask import Flask
@@ -55,14 +54,9 @@ DEFAULT_ENDPOINTS = {
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
-        # Legacy patch - TODO Remove in 38.0.0
-        if blueprint_module == "meta":
-            logging.log(logging.WARNING, "Endpoint `meta` is depreciated and will be removed in future releases")
-            blueprint_module = "meta_conventions"
         try:
             # searches for module names locally
-            blueprint_module = importlib.import_module('.' + blueprint_module,
-                                                       package='rucio.web.rest.flaskapi.v1')
+            blueprint_module = importlib.import_module('.' + blueprint_module, package='rucio.web.rest.flaskapi.v1')
         except ImportError:
             raise ConfigurationError(f'Could not load "{blueprint_module}" provided in the endpoints configuration value')
 
