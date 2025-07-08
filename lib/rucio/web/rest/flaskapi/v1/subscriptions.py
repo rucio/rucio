@@ -636,14 +636,6 @@ def blueprint() -> AuthenticatedBlueprint:
     subscription_name_view = SubscriptionName.as_view('subscription_name')
     bp.add_url_rule('/name/<name>', view_func=subscription_name_view, methods=['get', ])
 
-    # Legacy url support
-    # TODO: Take out with Rucio 38
-    bp.add_url_rule('/Id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
-    bp.add_url_rule('/<account>/<name>/Rules/States', view_func=states_view, methods=['get', ])
-    bp.add_url_rule('/<account>/Rules/States', view_func=states_view, methods=['get', ])
-    bp.add_url_rule('/<account>/<name>/Rules', view_func=rules_view, methods=['get', ])
-    bp.add_url_rule('/Name/<name>', view_func=subscription_name_view, methods=['get', ])
-
     bp.after_request(response_headers)
     return bp
 
