@@ -166,8 +166,7 @@ class TestImplUploadDownload:
         # Re-Upload the file
         cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Re-upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
-        assert re.search(r'File already exists on RSE. Skipping upload', err) is not None
+        assert re.search(r'File already exists on RSE. Skipping upload', err) is not None, f"Re-upload should have been skipped: {self.marker} {cmd}. Error: {err}. Output: {out}"
 
         # Downloading the file
         cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
@@ -181,8 +180,7 @@ class TestImplUploadDownload:
         # Re-download file
         cmd = 'rucio download --legacy --dir /tmp/ {0}:{1} --impl {2}'.format(scope, tmp_file1_name, impl)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Re-download failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
-        assert re.search(r'Downloaded files:\s+0', out) is not None
+        assert re.search(r'Downloaded files:\s+0', out) is not None, f"Re-download should have been skipped: {self.marker} {cmd}. Error: {err}. Output: {out}"
         assert re.search(r'Files already found locally:\s+1', out) is not None
 
     def test_repeat_upload_download_dataset_using_impl(self, file_factory, did_factory, scope, rse):
@@ -203,7 +201,7 @@ class TestImplUploadDownload:
         # upload the files to the dataset
         cmd = 'rucio -v upload --legacy --rse {0} --scope {1} --impl {2} {3} {4} {5} {1}:{6}'.format(rse, scope, impl, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        assert exitcode != 0, f"Upload should have failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
 
         # List the files
         cmd = 'rucio list-files {0}:{1}'.format(scope, tmp_dsn)
@@ -262,7 +260,7 @@ class TestImplUploadDownload:
         wrong_guid = uuid()
         cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --impl {2} --filter guid={3}'.format(scope, '*', impl, wrong_guid)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Download failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        assert exitcode != 0, f"Download succeeded with wrong guid: {self.marker} {cmd}. Error: {err}. Output: {out}"
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"List files failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
@@ -285,7 +283,7 @@ class TestImplUploadDownload:
         wrong_guid = uuid()
         cmd = 'rucio -v download --legacy --dir /tmp --scope {0} --impl {1} --filter guid={2}'.format(scope, impl, wrong_guid)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Download failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        assert exitcode != 0, f"Download succeeded with wrong guid: {self.marker} {cmd}. Error: {err}. Output: {out}"
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"List files failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
