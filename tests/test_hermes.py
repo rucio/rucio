@@ -248,9 +248,8 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
     response = requests.post(
         "http://localhost:9200/_search?size=1000", data=data, headers=headers
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Response status code should be 200, got {response.status_code}"
     res = response.json()
-    print(res)
     elastic_messages = []
     for entry in res["hits"]["hits"]:
         message = entry["_source"]
@@ -265,7 +264,7 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
             }
         )
     for message in list_messages:
-        assert message in elastic_messages
+        assert message in elastic_messages, f"Message {message} not found in elastic messages, res = {res}"
 
     # Checking ActiveMQ
     assert service_dict["activemq"] == 0

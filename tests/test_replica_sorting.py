@@ -235,7 +235,6 @@ def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_s
             replicas = list(map(json.loads, filter(bool, map(str.strip, replicas_response.splitlines(keepends=False)))))
             pfns = list(replicas[0]['pfns'])
 
-        print(client_location, pfns)
         assert len(replicas) == 1
         if test_with_cache:
             cache_prefix = f'root://{CLIENT_SITE_CACHE}//'
@@ -243,9 +242,9 @@ def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_s
                 if pfn.startswith('root'):
                     assert pfn.startswith(cache_prefix)
                     pfn = pfn[len(cache_prefix):]
-                assert urlparse(pfn).hostname == expected_order[i]
+                assert urlparse(pfn).hostname == expected_order[i], f'Expected {expected_order[i]} for {pfn} at index {i}. Check the client location {client_location}. pfns: {pfns}'
         else:
-            assert [urlparse(pfn).hostname for pfn in pfns] == expected_order
+            assert [urlparse(pfn).hostname for pfn in pfns] == expected_order, f"Expected {expected_order} for pfns {pfns} with client location {client_location}"
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel, lists replicas and checks for length of returned list')
@@ -258,7 +257,6 @@ def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_ty
     def fake_get_distance(se1, se2, *args, **kwargs):
         nonlocal n, nmap
         n = n - 1
-        print("fake_get_distance", {'se1': se1, 'se2': se2, 'n': n})
         assert se1, 'pfn host must be se1 for this test'
         nmap[se1] = n
         return n
@@ -285,11 +283,9 @@ def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_ty
 
     if content_type == Mime.METALINK:
         replicas = parse_replicas_from_string(replicas_response)
-        print(replicas)
-        assert len(replicas) == 1
+        assert len(replicas) == 1, f"Expected 1 replica, replicas = {replicas}"
         sources_list = replicas[0]['sources']
-        print(sources_list)
-        assert len(sources_list) == 6
+        assert len(sources_list) == 6, f"Expected 6 sources, source_list = {sources_list}"
 
         sorted_replica_hosts = list(sorted(sources_list, key=lambda source: source['priority']))
         sorted_replica_hosts = list(map(lambda source: urlparse(source['pfn']).hostname, sorted_replica_hosts))
@@ -297,10 +293,9 @@ def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_ty
 
     elif content_type == Mime.JSON_STREAM:
         replicas = list(map(json.loads, filter(bool, map(str.strip, replicas_response.splitlines(keepends=False)))))
-        print(replicas)
-        assert len(replicas) == 1
+        assert len(replicas) == 1, f"Expected 1 replica, replicas = {replicas}"
         sources_dict = replicas[0]['pfns']
-        assert len(sources_dict) == 6
+        assert len(sources_dict) == 6, f"Expected 6 sources, sources_dict = {sources_dict}"
 
         sorted_replica_hosts = list(sorted(sources_dict, key=lambda pfn: sources_dict[pfn]['priority']))
         sorted_replica_hosts = list(map(lambda source: urlparse(source).hostname, sorted_replica_hosts))
@@ -329,7 +324,6 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
     def fake_get_distance(se1, se2, *args, **kwargs):
         nonlocal n, nmap
         n = n - 1
-        print("fake_get_distance", {'se1': se1, 'se2': se2, 'n': n})
         assert se1, 'pfn host must be se1 for this test'
         nmap[se1] = n
         return n
@@ -360,15 +354,12 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
 
     if content_type == Mime.METALINK:
         replicas = parse_replicas_from_string(replicas_response)
-        print(replicas)
-        assert len(replicas) == 1
+        assert len(replicas) == 1, f"Expected 1 replica, replicas = {replicas}"
         sources_list = replicas[0]['sources']
-        print(sources_list)
         # 3 for wan and 2 for lan, since one is blocked for lan for each site
-        assert len(sources_list) == 5
+        assert len(sources_list) == 5, f"Expected 5 sources, sources_list = {sources_list}"
 
         sorted_replica_hosts = list(sorted(sources_list, key=lambda source: source['priority']))
-        print(sorted_replica_hosts)
         lan_pfns = list(filter(lambda source: source['domain'] == 'lan', sorted_replica_hosts))
         assert len(lan_pfns) == 2
         for lanpfn in lan_pfns:
@@ -380,8 +371,7 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
 
     elif content_type == Mime.JSON_STREAM:
         replicas = list(map(json.loads, filter(bool, map(str.strip, replicas_response.splitlines(keepends=False)))))
-        print(replicas)
-        assert len(replicas) == 1
+        assert len(replicas) == 1, f"Expected 1 replica, replicas = {replicas}"
         sources_dict = replicas[0]['pfns']
         # 3 for wan and 2 for lan, since one is blocked for lan for each site
         assert len(sources_dict) == 5
@@ -430,17 +420,14 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
 
     if content_type == Mime.METALINK:
         replicas = parse_replicas_from_string(replicas_response)
-        print(replicas)
-        assert len(replicas) == 1
+        assert len(replicas) == 1, f"Expected 1 replica, replicas = {replicas}"
         sources_list = replicas[0]['sources']
-        print(sources_list)
         # 4 for lan, since one is blocked for lan for each site
-        assert len(sources_list) == 4
+        assert len(sources_list) == 4, f"Expected 4 sources, sources_list = {sources_list}"
 
     elif content_type == Mime.JSON_STREAM:
         replicas = list(map(json.loads, filter(bool, map(str.strip, replicas_response.splitlines(keepends=False)))))
-        print(replicas)
-        assert len(replicas) == 1
+        assert len(replicas) == 1, f"Expected 1 replica, replicas = {replicas}"
         sources_dict = replicas[0]['pfns']
         # 4 for lan, since one is blocked for lan for each site
         assert len(sources_dict) == 4
