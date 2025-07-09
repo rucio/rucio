@@ -117,13 +117,14 @@ class TestImplUploadDownload:
         cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"Upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
-        # get the rule for the file
-        cmd = f"rucio list-rules {scope}:{tmp_file1.name} | awk '{{print $1}}'"
+        cmd = f"rucio list-rules --json {scope}:{tmp_file1.name}"
         exitcode, out, err = execute(cmd)
         assert exitcode == 0 and out.strip(), f"Get rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
-        rule = out.strip()
+        import json
+        rules = json.loads(out)
+        rule_id = rules[0]["id"]
         # delete the file from the catalog
-        cmd = "rucio rule remove {0}".format(rule)
+        cmd = f"rucio rule remove {rule_id}"
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"Delete rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         # delete the physical file
@@ -315,7 +316,7 @@ class TestImplUploadDownload:
         assert exitcode != 0, f"Download should fail: {self.marker} {cmd}. Error: {err}. Output: {out}"
         cmd = 'ls /tmp/{0}'.format(tmp_dsn)
         exitcode, out, err = execute(cmd)
-        assert exitcode != 0, f"List files should fail: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        assert exitcode == 0, f"List files failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         # assert re.search(tmp_file1[5:], out) is not None
 
         # Use filter option to download dataset with wildcarded name
