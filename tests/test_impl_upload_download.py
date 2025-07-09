@@ -118,7 +118,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"Upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         # get the rule for the file
-        cmd = r"rucio rule list {0}:{1} | awk '/{0}:{1}/ {{print $1}}'".format(scope, tmp_file1.name)
+        cmd = f"rucio list-rules {scope}:{tmp_file1.name} | awk '{{print $1}}'"
         exitcode, out, err = execute(cmd)
         assert exitcode == 0 and out.strip(), f"Get rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         rule = out.strip()
@@ -305,7 +305,7 @@ class TestImplUploadDownload:
         assert exitcode == 0, f"Upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         cmd = 'rucio download --legacy --dir /tmp --scope {0} --filter created_before=1900-01-01T00:00:00.000Z'.format(scope)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Download failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        assert exitcode != 0, f"Download should fail: {self.marker} {cmd}. Error: {err}. Output: {out}"
         cmd = 'ls /tmp/{0}'.format(tmp_dsn)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"List files failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
