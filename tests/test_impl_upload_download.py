@@ -118,12 +118,12 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"Upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         # get the rule for the file
-        cmd = r"rucio rule list {0}:{1} | grep {0}:{1} | cut -f1 -d\ ".format(scope, tmp_file1.name)
+        cmd = r"rucio rule list {0}:{1} | awk '/{0}:{1}/ {{print $1}}'".format(scope, tmp_file1.name)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"Get rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
-        rule = out
+        assert exitcode == 0 and out.strip(), f"Get rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        rule = out.strip()
         # delete the file from the catalog
-        cmd = "rucio delete-rule {0}".format(rule)
+        cmd = "rucio rule remove {0}".format(rule)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"Delete rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
         # delete the physical file
@@ -263,7 +263,7 @@ class TestImplUploadDownload:
         assert exitcode != 0, f"Download succeeded with wrong guid: {self.marker} {cmd}. Error: {err}. Output: {out}"
         cmd = 'ls /tmp/{0}'.format(scope)
         exitcode, out, err = execute(cmd)
-        assert exitcode == 0, f"List files failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+        assert exitcode != 0, f"List files should fail: {self.marker} {cmd}. Error: {err}. Output: {out}"
         assert re.search(tmp_file1.name, out) is None
         cmd = 'rucio -v download --legacy --dir /tmp {0}:{1} --impl {2} --filter guid={3}'.format(scope, '*', impl, tmp_guid)
         exitcode, out, err = execute(cmd)
