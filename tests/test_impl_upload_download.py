@@ -117,11 +117,14 @@ class TestImplUploadDownload:
         cmd = 'rucio upload --legacy --rse {0} --scope {1} --impl {2} {3}'.format(rse, scope, impl, tmp_file1)
         exitcode, out, err = execute(cmd)
         assert exitcode == 0, f"Upload failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
-        cmd = f"rucio list-rules --json {scope}:{tmp_file1.name}"
+        # get the rule for the file
+        cmd = f"rucio rule list --json {scope}:{tmp_file1.name}"
         exitcode, out, err = execute(cmd)
         assert exitcode == 0 and out.strip(), f"Get rule failed: {self.marker} {cmd}. Error: {err}. Output: {out}"
+
         import json
         rules = json.loads(out)
+        assert rules, f"No rule found for {scope}:{tmp_file1.name}"
         rule_id = rules[0]["id"]
         # delete the file from the catalog
         cmd = f"rucio rule remove {rule_id}"
