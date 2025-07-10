@@ -23,6 +23,7 @@ from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from sqlalchemy.engine.row import Row
     from sqlalchemy.orm import Session
 
 
@@ -188,10 +189,10 @@ def fill_rse_counter_history_table(*, session: "Session"):
 
 
 @read_session
-def check_obsolete_replicas(*, session: "Session"):
+def check_obsolete_replicas(*, session: "Session") -> list:
     """
     Get replicas with a tombstone set to the begining of epoch.
-    based on Oraccle specific probe code: probes/common/check_obsolete_replicas
+    based on Oracle specific probe code: probes/common/check_obsolete_replicas
 
     :param session: Database session in use.
     """
@@ -203,10 +204,34 @@ def check_obsolete_replicas(*, session: "Session"):
                   ).group_by(models.RSEFileAssociation.rse_id).subquery())
 
     # Full query with outer_join()
-    stmt2 = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes"), func.now()).outerjoin(
+    stmt = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes"), func.now()).outerjoin(
         repl_subq,
         rse_subq.c.rse_id == repl_subq.c.rse_id
     )
-    res = session.execute(stmt2).all()  # noqa: F841
+    return session.execute(stmt).all()
 
-    # TODO update RES_USAGE and RSE_USAGE_HISTORY
+
+@transactional_session
+def update_rse_obsolete_replicas(rse: "Row", *, session: "Session") -> None:
+    """
+    Update RSEUsage table with obsolete replicas. Regular (source='rucio') counters are not affected.
+
+    :param rse:      An rse Row from the result returned by check_obsolete_replicas.
+    :param session:  Database session in use.
+    """
+
+    try:
+        stmt = select(
+            models.RSEUsage
+        ).where(
+            and_(models.RSEUsage.rse_id == rse.rse_id,
+                 models.RSEUsage.source == 'obsolete')
+        )
+        rse_counter = session.execute(stmt).scalar_one()
+        rse_counter.used = rse.bytes
+        rse_counter.files = rse.files
+    except NoResultFound:
+        models.RSEUsage(rse_id=rse.rse_id,
+                        used=rse.bytes,
+                        files=rse.files,
+                        source='obsolete').save(session=session)
