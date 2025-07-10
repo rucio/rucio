@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import NoResultFound
@@ -23,6 +23,9 @@ from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    import datetime
+    from collections.abc import Sequence
+
     from sqlalchemy.engine.row import Row
     from sqlalchemy.orm import Session
 
@@ -189,7 +192,7 @@ def fill_rse_counter_history_table(*, session: "Session"):
 
 
 @read_session
-def check_obsolete_replicas(*, session: "Session") -> list:
+def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, Any, Any, datetime.datetime]]]":
     """
     Get replicas with a tombstone set to the begining of epoch.
     based on Oracle specific probe code: probes/common/check_obsolete_replicas
