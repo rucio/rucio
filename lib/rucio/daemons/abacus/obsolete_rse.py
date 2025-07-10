@@ -19,7 +19,7 @@ Abacus-RSE is a daemon to update RSE counters.
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import rucio.db.sqla.util
 from rucio.common import exception
@@ -55,7 +55,7 @@ def rse_update(
 
 def run_once(
         heartbeat_handler: HeartbeatHandler,
-        **_kwargs: Any
+        **_kwargs: object
 ) -> None:
     _, _, logger = heartbeat_handler.live()
 
