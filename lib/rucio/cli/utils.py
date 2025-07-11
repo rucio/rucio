@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import errno
+import json
 import logging
 import os
 import signal
@@ -20,6 +22,9 @@ import sys
 import traceback
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
+from typing import Any, Optional, Union
+
+import click
 
 from rucio.client.client import Client
 from rucio.common.config import config_get
@@ -120,7 +125,9 @@ def exception_handler(function):
                 logger.debug(traceback.format_exc())
                 contact = config_get("policy", "support", raise_exception=False)
                 support = ("Please follow up with all relevant information at: " + contact) if contact else ""
-                logger.error("\nThe object is missing this property: %s\n" 'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n' "%s" % (str(error), support))
+                logger.error(
+                    "\nThe object is missing this property: %s\n" 'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n' "%s" % (
+                        str(error), support))
             return FAILURE
         except RucioException as error:
             logger.error(error)
@@ -138,10 +145,12 @@ def exception_handler(function):
             logger.debug(traceback.format_exc())
             logger.error(error)
             contact = config_get("policy", "support", raise_exception=False)
-            support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ""
+            support = (
+                    "If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ""
             contact = config_get("policy", "support_rucio", default="https://github.com/rucio/rucio/issues")
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
-            logger.error("\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s" % support)
+            logger.error(
+                "\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s" % support)
             return FAILURE
 
     return new_funct
@@ -190,7 +199,9 @@ def get_client(args, logger):
         creds = None
 
     try:
-        client = Client(rucio_host=args.host, auth_host=args.auth_host, account=args.issuer, auth_type=auth_type, creds=creds, ca_cert=args.ca_certificate, timeout=args.timeout, user_agent=args.user_agent, vo=args.vo, logger=logger)
+        client = Client(rucio_host=args.host, auth_host=args.auth_host, account=args.issuer, auth_type=auth_type,
+                        creds=creds, ca_cert=args.ca_certificate, timeout=args.timeout, user_agent=args.user_agent,
+                        vo=args.vo, logger=logger)
     except CannotAuthenticate as error:
         logger.error(error)
         if "alert certificate expired" in str(error):
@@ -203,7 +214,8 @@ def get_client(args, logger):
 
 def signal_handler(sig, frame, logger):
     logger.warning("You pressed Ctrl+C! Exiting gracefully")
-    child_processes = subprocess.Popen("ps -o pid --ppid %s --noheaders" % os.getpid(), shell=True, stdout=subprocess.PIPE)
+    child_processes = subprocess.Popen("ps -o pid --ppid %s --noheaders" % os.getpid(), shell=True,
+                                       stdout=subprocess.PIPE)
     child_processes = child_processes.stdout.read()  # type: ignore
     for pid in child_processes.split("\n")[:-1]:  # type: ignore
         try:
@@ -225,3 +237,21 @@ class Arguments(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+
+class JSONType(click.ParamType):
+    name = "json"
+
+    def convert(
+            self,
+            value: Union[str, None],
+            param: "Optional[click.Parameter]",
+            ctx: "Optional[click.Context]",
+    ) -> Any:
+        if value is None:
+            return None
+
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            self.fail(f"Invalid JSON: {e}", param, ctx)
