@@ -85,7 +85,11 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         """
         return {"collocation_hints": collocation_func(**hints)}
 
-    def _default(self, *hints: dict) -> dict:
+    def _default(self, hint_dict: dict[str, Any]) -> dict:
+        vo = hint_dict['vo'] if 'vo' in hint_dict else 'def'
+        default_algorithm = self._get_default_algorithm(self.ALGORITHM_NAME, vo=vo)
+        if default_algorithm is not None:
+            return default_algorithm(hint_dict)
         return {}
 
     def _verify_in_format(self, hint_dict: dict[str, Any]) -> None:

@@ -390,17 +390,24 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
 
     _algorithm_type = 'non_deterministic_pfn'
 
-    def __init__(self) -> None:
+    def __init__(self, vo: str = 'def') -> None:
         """
         Initialises a non-deterministic PFN construction object
         """
         super().__init__()
+        
+        self.vo = vo
 
     def construct_non_deterministic_pfn(self, dsn: str, scope: Optional[str], filename: str, naming_convention: str) -> str:
         """
         Calls the correct algorithm to generate a non-deterministic PFN
         """
-        return self.get_algorithm(naming_convention)(dsn, scope, filename)
+        fn = None
+        if naming_convention == 'def':
+            fn = super()._get_default_algorithm(NonDeterministicPFNAlgorithms._algorithm_type, self.vo)
+        if fn is None:
+            fn = self.get_algorithm(naming_convention)
+        return fn(dsn, scope, filename)
 
     @classmethod
     def supports(cls: type[NonDeterministicPFNAlgorithmsT], naming_convention: str) -> bool:
@@ -510,7 +517,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
 NonDeterministicPFNAlgorithms._module_init_()
 
 
-def construct_non_deterministic_pfn(dsn: str, scope: Optional[str], filename: str, naming_convention: Optional[str] = None) -> str:
+def construct_non_deterministic_pfn(dsn: str, scope: Optional[str], filename: str, naming_convention: Optional[str] = None, vo: str = 'def') -> str:
     """
     Applies non-deterministic PFN convention to the given replica.
     use the naming_convention to call the actual function which will do the job.
@@ -518,7 +525,7 @@ def construct_non_deterministic_pfn(dsn: str, scope: Optional[str], filename: st
     which are not implemented inside this main rucio repository, so changing the
     argument list must be done with caution.
     """
-    pfn_algorithms = NonDeterministicPFNAlgorithms()
+    pfn_algorithms = NonDeterministicPFNAlgorithms(vo)
     if naming_convention is None or not NonDeterministicPFNAlgorithms.supports(naming_convention):
         naming_convention = 'def'
     return pfn_algorithms.construct_non_deterministic_pfn(dsn, scope, filename, naming_convention)
@@ -551,17 +558,24 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
 
     _algorithm_type = 'scope'
 
-    def __init__(self) -> None:
+    def __init__(self, vo: str = 'def') -> None:
         """
         Initialises scope extraction algorithms object
         """
         super().__init__()
 
+        self.vo = vo
+
     def extract_scope(self, did: str, scopes: Optional['Sequence[str]'], extract_scope_convention: str) -> 'Sequence[str]':
         """
         Calls the correct algorithm for scope extraction
         """
-        return self.get_algorithm(extract_scope_convention)(did, scopes)
+        fn = None
+        if extract_scope_convention == 'def':
+            fn = super()._get_default_algorithm(ScopeExtractionAlgorithms._algorithm_type, self.vo)
+        if fn is None:
+            fn = self.get_algorithm(extract_scope_convention)
+        return fn(did, scopes)
 
     @classmethod
     def supports(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> bool:
@@ -642,9 +656,10 @@ ScopeExtractionAlgorithms._module_init_()
 def extract_scope(
         did: str,
         scopes: Optional['Sequence[str]'] = None,
-        default_extract: str = 'def'
+        default_extract: str = 'def',
+        vo: str = 'def'
 ) -> 'Sequence[str]':
-    scope_extraction_algorithms = ScopeExtractionAlgorithms()
+    scope_extraction_algorithms = ScopeExtractionAlgorithms(vo)
     extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
     if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
         extract_scope_convention = default_extract
