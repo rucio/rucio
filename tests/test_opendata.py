@@ -42,31 +42,35 @@ class TestOpenDataCore:
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(6)
         ]
 
-        with db_session(DatabaseOperationType.WRITE) as session:
-            for did in dids[0:5]:
+        for did in dids[0:5]:
+            with db_session(DatabaseOperationType.WRITE) as session:
                 add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET, session=session)
 
-            # Add to open data in bulk
+        # Add to open data in bulk
+        with db_session(DatabaseOperationType.WRITE) as session:
             opendata.add_opendata_dids(dids=dids[0:4], session=session)
 
-            # Add one by one
+        # Add one by one
+        with db_session(DatabaseOperationType.WRITE) as session:
             opendata.add_opendata_did(scope=dids[4]["scope"], name=dids[4]["name"], session=session)
 
-            # # Add one not added yet as a DID
-            # with pytest.raises(DataIdentifierNotFound):
-            #     opendata.add_opendata_did(scope=dids[5]["scope"], name=dids[5]["name"], session=session)
-            #
-            # # Add one already added
-            # with pytest.raises(OpenDataDataIdentifierAlreadyExists):
-            #     opendata.add_opendata_did(scope=dids[0]["scope"], name=dids[0]["name"], session=session)
+        # Add one not added yet as a DID
+        with pytest.raises(DataIdentifierNotFound):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                opendata.add_opendata_did(scope=dids[5]["scope"], name=dids[5]["name"], session=session)
 
-            # Test defaults
+        # Add one already added
+        with pytest.raises(OpenDataDataIdentifierAlreadyExists):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                opendata.add_opendata_did(scope=dids[0]["scope"], name=dids[0]["name"], session=session)
+
+        # Test defaults
+        with db_session(DatabaseOperationType.READ) as session:
             opendata_did = opendata.get_opendata_did(scope=dids[0]["scope"], name=dids[0]["name"], session=session)
-            assert opendata_did["scope"] == dids[0]["scope"], "Scope does not match"
-            assert opendata_did["name"] == dids[0]["name"], "Name does not match"
-            # The initial state should be DRAFT
-            state = opendata_did["state"]
-            assert state == OpenDataDIDState.DRAFT
+
+        assert opendata_did["scope"] == dids[0]["scope"], "Scope does not match"
+        assert opendata_did["name"] == dids[0]["name"], "Name does not match"
+        assert opendata_did["state"] == OpenDataDIDState.DRAFT
 
     def test_opendata_dids_defaults(self, mock_scope, root_account):
         name = did_name_generator(did_type="dataset")
