@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalScope
@@ -21,10 +21,7 @@ from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
 from rucio.core.opendata import check_valid_opendata_did_state, opendata_state_str_to_enum
 from rucio.db.sqla.constants import DatabaseOperationType
-from rucio.db.sqla.session import db_session, transactional_session
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+from rucio.db.sqla.session import db_session
 
 
 def list_opendata_dids(
@@ -37,8 +34,9 @@ def list_opendata_dids(
     if state:
         check_valid_opendata_did_state(state)
         state_enum = opendata_state_str_to_enum(state)
-    result = opendata.list_opendata_dids(limit=limit, offset=offset, state=state_enum)
-    return result
+
+    with db_session(DatabaseOperationType.READ) as session:
+        return opendata.list_opendata_dids(limit=limit, offset=offset, state=state_enum, session=session)
 
 
 def get_opendata_did(
@@ -56,10 +54,13 @@ def get_opendata_did(
     if state:
         check_valid_opendata_did_state(state)
         state_enum = opendata_state_str_to_enum(state)
-    result = opendata.get_opendata_did(scope=internal_scope, name=name,
-                                       state=state_enum, files=files, meta=meta, doi=doi,
-                                       )
-    return gateway_update_return_dict(result)
+
+    with db_session(DatabaseOperationType.READ) as session:
+        result = opendata.get_opendata_did(scope=internal_scope, name=name,
+                                           state=state_enum, files=files, meta=meta, doi=doi,
+                                           session=session,
+                                           )
+        return gateway_update_return_dict(result)
 
 
 def add_opendata_did(
@@ -73,19 +74,17 @@ def add_opendata_did(
         return opendata.add_opendata_did(scope=internal_scope, name=name, session=session)
 
 
-@transactional_session
 def delete_opendata_did(
         *,
         scope: str,
         name: str,
         vo: str = "def",
-        session: "Session"
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
-    return opendata.delete_opendata_did(scope=internal_scope, name=name, session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return opendata.delete_opendata_did(scope=internal_scope, name=name, session=session)
 
 
-@transactional_session
 def update_opendata_did(
         *,
         scope: str,
@@ -94,7 +93,6 @@ def update_opendata_did(
         meta: Optional[dict] = None,
         doi: Optional[str] = None,
         vo: str = "def",
-        session: "Session"
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
     state_enum = None
@@ -107,9 +105,10 @@ def update_opendata_did(
         except ValueError as error:
             raise ValueError(f"Invalid JSON: {error}")
 
-    return opendata.update_opendata_did(scope=internal_scope,
-                                        name=name,
-                                        state=state_enum,
-                                        meta=meta,
-                                        doi=doi,
-                                        session=session)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return opendata.update_opendata_did(scope=internal_scope,
+                                            name=name,
+                                            state=state_enum,
+                                            meta=meta,
+                                            doi=doi,
+                                            session=session)
