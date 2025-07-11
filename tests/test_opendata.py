@@ -20,9 +20,8 @@ from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifie
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
-from rucio.db.sqla import session
 from rucio.db.sqla.constants import DatabaseOperationType, DIDType, OpenDataDIDState
-from rucio.db.sqla.session import db_session
+from rucio.db.sqla.session import db_session, get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import auth, did_name_generator, headers
 
@@ -32,8 +31,8 @@ skip_unsupported_json = pytest.mark.skipif(
 )
 
 skip_unsupported_dialect = pytest.mark.skipif(
-    session.get_session().bind.dialect.name in ['oracle', 'sqlite'],
-    reason=f"Unsupported dialect: {session.get_session().bind.dialect.name}"
+    get_session().bind.dialect.name in ['oracle', 'sqlite'],
+    reason=f"Unsupported dialect: {get_session().bind.dialect.name}"
 )
 
 
@@ -53,7 +52,7 @@ class TestOpenDataCore:
             # Add one by one
             opendata.add_opendata_did(scope=dids[4]["scope"], name=dids[4]["name"], session=session)
 
-            # Add one not added yet as a did
+            # Add one not added yet as a DID
             with pytest.raises(DataIdentifierNotFound):
                 opendata.add_opendata_did(scope=dids[5]["scope"], name=dids[5]["name"], session=session)
 
@@ -267,7 +266,7 @@ class TestOpenDataClient:
 
         for did in dids:
             add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET)
-            opendata.add_opendata_did(scope=did["scope"], name=did["name"])
+            rucio_client.add_opendata_did(scope=did["scope"], name=did["name"])
 
         opendata_dids = rucio_client.list_opendata_dids()["dids"]
         opendata_dids = [d for d in opendata_dids if d not in opendata_dids_before]
@@ -288,20 +287,20 @@ class TestOpenDataClient:
 
         for did in dids:
             add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET)
-            opendata.add_opendata_did(scope=did["scope"], name=did["name"])
+            rucio_client.add_opendata_did(scope=did["scope"], name=did["name"])
 
         # set number 2 and 3 to public
         set_status(scope=dids[1]["scope"], name=dids[1]["name"], open=False)
-        opendata.update_opendata_did(scope=dids[1]["scope"], name=dids[1]["name"], state=OpenDataDIDState.PUBLIC)
+        rucio_client.update_opendata_did(scope=dids[1]["scope"], name=dids[1]["name"], state="PUBLIC")
 
         set_status(scope=dids[2]["scope"], name=dids[2]["name"], open=False)
-        opendata.update_opendata_did(scope=dids[2]["scope"], name=dids[2]["name"], state=OpenDataDIDState.PUBLIC)
+        rucio_client.update_opendata_did(scope=dids[2]["scope"], name=dids[2]["name"], state="PUBLIC")
 
         # set number 4 to public
         set_status(scope=dids[3]["scope"], name=dids[3]["name"], open=False)
-        opendata.update_opendata_did(scope=dids[3]["scope"], name=dids[3]["name"], state=OpenDataDIDState.PUBLIC)
+        rucio_client.update_opendata_did(scope=dids[3]["scope"], name=dids[3]["name"], state="PUBLIC")
         # then suspend it
-        opendata.update_opendata_did(scope=dids[3]["scope"], name=dids[3]["name"], state=OpenDataDIDState.SUSPENDED)
+        rucio_client.update_opendata_did(scope=dids[3]["scope"], name=dids[3]["name"], state="SUSPENDED")
 
         opendata_dids = rucio_client.list_opendata_dids(public=True)["dids"]
         opendata_dids = [d for d in opendata_dids if d not in opendata_dids_before]
@@ -321,7 +320,7 @@ class TestOpenDataClient:
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
 
         # Add it as open data
-        opendata.add_opendata_did(scope=mock_scope, name=name)
+        rucio_client.add_opendata_did(scope=str(mock_scope), name=name)
         opendata_did = rucio_client.get_opendata_did(scope=str(mock_scope), name=name)
 
         assert opendata_did["scope"] == str(mock_scope), "Scope does not match"
