@@ -209,42 +209,37 @@ def get_opendata_did(
     return result
 
 
-@transactional_session
 def add_opendata_did(
         *,
         scope: "InternalScope",
         name: str,
-        session: "Session",
 ) -> None:
     try:
-        return add_opendata_dids([{"scope": scope, "name": name}], session=session)
+        return add_opendata_dids([{"scope": scope, "name": name}])
     except exception.DataIdentifierNotFound:
         raise exception.DataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
     except exception.OpenDataDataIdentifierAlreadyExists:
         raise exception.OpenDataDataIdentifierAlreadyExists(f"OpenData DID {scope}:{name} already exists.")
 
 
-@transactional_session
 def add_opendata_dids(
         dids: "Sequence[dict[str, Any]]",
-        *,
-        session: "Session",
 ) -> None:
     for did in dids:
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
     try:
-        # The default state is DRAFT, set in the model
-        session.execute(
-            insert(models.OpenDataDid),
-            [
-                {
-                    "scope": did["scope"],
-                    "name": did["name"],
-                }
-                for did in dids]
-        )
+        with db_session(DatabaseOperationType.WRITE) as session:
+            session.execute(
+                insert(models.OpenDataDid),
+                [
+                    {
+                        "scope": did["scope"],
+                        "name": did["name"],
+                    }
+                    for did in dids]
+            )
     except IntegrityError as error:
         msg = str(error)
 
