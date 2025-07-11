@@ -15,6 +15,7 @@
 import json
 from typing import TYPE_CHECKING, Any, Optional
 
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
@@ -60,16 +61,14 @@ def get_opendata_did(
     return gateway_update_return_dict(result)
 
 
-@transactional_session
 def add_opendata_did(
         *,
         scope: str,
         name: str,
-        vo: str = "def",
-        session: "Session"
+        vo: str = DEFAULT_VO,
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
-    return opendata.add_opendata_did(scope=internal_scope, name=name, session=session)
+    return opendata.add_opendata_did(scope=internal_scope, name=name)
 
 
 @transactional_session
