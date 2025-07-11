@@ -325,7 +325,7 @@ def update_opendata_did(
     if state is None and meta is None and doi is None:
         raise exception.InputValidationError(
             "Either 'state', 'meta', or 'doi' must be provided to update the OpenData DID.")
-    if not _check_opendata_did_exists(scope=scope, name=name):
+    if not _check_opendata_did_exists(scope=scope, name=name, session=session):
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
     if state is not None:
@@ -455,7 +455,7 @@ def update_opendata_doi(
         doi: str,
         session: "Session",
 ) -> None:
-    if not _check_opendata_did_exists(scope=scope, name=name):
+    if not _check_opendata_did_exists(scope=scope, name=name, session=session):
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
     if not isinstance(doi, str):
