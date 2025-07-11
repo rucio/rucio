@@ -20,7 +20,8 @@ from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
 from rucio.core.opendata import check_valid_opendata_did_state, opendata_state_str_to_enum
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -68,7 +69,8 @@ def add_opendata_did(
         vo: str = DEFAULT_VO,
 ) -> None:
     internal_scope = InternalScope(scope, vo=vo)
-    return opendata.add_opendata_did(scope=internal_scope, name=name)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        return opendata.add_opendata_did(scope=internal_scope, name=name, session=session)
 
 
 @transactional_session
