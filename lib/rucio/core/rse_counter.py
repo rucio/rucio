@@ -207,7 +207,7 @@ def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, A
                   ).group_by(models.RSEFileAssociation.rse_id).subquery())
 
     # Full query with outer_join()
-    stmt = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes"), func.now()).outerjoin(
+    stmt = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes"), func.now().label("updated_at")).outerjoin(
         repl_subq,
         rse_subq.c.rse_id == repl_subq.c.rse_id
     )
@@ -233,8 +233,10 @@ def update_rse_obsolete_replicas(rse: "Row", *, session: "Session") -> None:
         rse_counter = session.execute(stmt).scalar_one()
         rse_counter.used = rse.bytes
         rse_counter.files = rse.files
+        rse_counter.updated_at = rse.updated_at
     except NoResultFound:
         models.RSEUsage(rse_id=rse.rse_id,
                         used=rse.bytes,
                         files=rse.files,
+                        updated_at=rse.updated_at,
                         source='obsolete').save(session=session)
