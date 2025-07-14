@@ -19,7 +19,15 @@ from rucio.common.utils import build_url
 
 
 class CredentialClient(BaseClient):
-    """Credential client class for working with URL signing"""
+    """
+    Client helper to request signed URLs from a Rucio server.
+
+    A ``CredentialClient`` used to obtain temporary signed URLs from the server.
+    Those URLs allow direct access to objects on a storage service (currently
+    Google Cloud Storage, Amazon S3 or OpenStack Swift) without further authentication.
+    The signature embeds the permitted operation and its validity period, after which
+    the link becomes unusable.
+    """
 
     CREDENTIAL_BASEURL = 'credentials'
 
@@ -32,33 +40,65 @@ class CredentialClient(BaseClient):
             lifetime: int = 3600
     ) -> str:
         """
-        Return a signed version of the given URL for the given operation.
+        Request a pre-signed URL for a storage object operation.
+
+        This method contacts the Rucio server and asks it to cryptographically
+        sign ``url`` so that it can be used for a single operation on the
+        specified RSE. The signed link can then be handed to external tools or
+        services to perform the action without additional authentication.
 
         Parameters
         ----------
-        rse :
-            The name of the RSE the URL points to.
-        service :
-            The service the URL points to (gcs, s3, swift)
-        operation :
-            The desired operation (read, write, delete)
-        url :
-            The URL to sign
-        lifetime :
-            The desired lifetime of the URL in seconds, by default 3600
+        rse
+            The name of the RSE to which the URL refers.
+        service
+            Storage service identifier. Must be one of ``"gcs"``, ``"s3"`` or ``"swift"``.
+        operation
+            Allowed operation for the signed URL: ``"read"``, ``"write"`` or ``"delete"``.
+        url
+            The full URL that should be authorised.
+        lifetime
+            Time in seconds for which the signature remains valid.  Defaults to ``3600`` (one hour).
 
         Returns
         -------
+        str
+            The signed URL that can be used until the lifetime expires.
 
-            The signed URL string
+        Raises
+        ------
+        RucioException
+            If the server returns a status code other than ``200 OK``.
+
+        Examples
+        --------
+        ??? Example
+
+            Request a download link from the *MOCK* RSE for a file stored
+            on Google Cloud Storage valid for ten minutes:
+
+            ```python
+            >>> from rucio.client.credentialclient import CredentialClient
+
+            >>> cc = CredentialClient()
+            >>> cc.get_signed_url(
+            ...     rse="MOCK",
+            ...     service="s3",
+            ...     operation="read",
+            ...     url="https://storage.googleapis.com/mybucket/data/file1.txt",
+            ...     lifetime=600,
+            ... )
+            "https://storage.googleapis.com/mybucket/data/file1.txt?GoogleAccessId=rucio-test@rucio-test.iam.gserviceaccount.com&Expires=1752535247&Signature=oevpuzk4icQhjw3mk2wq..."
+            ```
         """
         path = '/'.join([self.CREDENTIAL_BASEURL, 'signurl'])
-        params = {}
-        params['lifetime'] = lifetime
-        params['rse'] = rse
-        params['svc'] = service
-        params['op'] = operation
-        params['url'] = url
+        params = {
+            'lifetime': lifetime,
+            'rse': rse,
+            'svc': service,
+            'op': operation,
+            'url': url
+        }
         rurl = build_url(choice(self.list_hosts), path=path, params=params)
         r = self._send_request(rurl, type_='GET')
 
