@@ -23,25 +23,62 @@ from rucio.common.utils import build_url
 
 
 class FileClient(BaseClient):
-    """Dataset client class for working with dataset"""
+    """
+    Client for retrieving replica information for file DIDs.
+
+    This lightweight client exposes a single helper to query the Rucio
+    catalogue for all physical replicas of a given file.  It is typically
+    used by command line tools and scripts which need to inspect where a file
+    is currently stored.
+    """
 
     BASEURL = 'files'
 
     def list_file_replicas(self, scope: str, lfn: str) -> list[dict[str, Any]]:
         """
-        List file replicas.
+        Return all known replica locations of a file DID.
+
+        The method issues a GET request to the ``/files/<scope>/<name>/rses``
+        endpoint of the Rucio REST API. The server replies with a JSON list
+        describing each RSE where the file is currently present. Each entry in
+        the returned list contains the RSE name and may include additional
+        attributes such as the physical file name (PFN), file size, checksum
+        and replica state.
+
+        _**Note:**_ This method is currently not available.
 
         Parameters
         ----------
-        scope :
-            The scope of the file.
-        lfn :
-            The LFN
+        scope
+            The scope part of the file DID (e.g. ``"user.alice"``).
+        lfn
+            The logical file name of the DID.
 
         Returns
         -------
+        list[dict[str, Any]]
+            A list of dictionaries describing each replica. Each entry at least
+            contains the ``rse`` key and may include additional replica attributes
+            provided by the server.
 
-            List of replicas.
+        Raises
+        ------
+        RucioException
+            If the HTTP response status is not ``200 OK``.
+
+        Examples
+        --------
+        ??? Example
+
+            Print all replica locations for ``mock:file_b6222d9fe8e5434e84bfc002845348acanother.zip``:
+
+            ```python
+            >>> from rucio.client.fileclient import FileClient
+
+            >>> fc = FileClient()
+            >>> fc.list_file_replicas('mock', 'file_b6222d9fe8e5434e84bfc002845348acanother.zip')
+            [{'rse': 'CERN-PROD', ..}, {'rse': 'BNL-OSG2', ..}, ...]
+            ```
         """
         path = '/'.join([self.BASEURL, quote_plus(scope), quote_plus(lfn), 'rses'])
         url = build_url(choice(self.list_hosts), path=path)
