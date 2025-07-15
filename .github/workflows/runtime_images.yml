@@ -9,14 +9,30 @@ on:
       py310_image:
         description: "Python 3.10 runtime image tag"
         value: ${{ jobs.build_runtime_images.outputs.py310_image }}
+      build_locally:
+        description: "Whether images should be built locally in autotests"
+        value: ${{ jobs.build_runtime_images.outputs.build_locally }}
+  schedule:
+    - cron: '0 3 * * *'
+  push:
+    branches:
+      - master
+    paths:
+      - 'etc/docker/test/runtime.Dockerfile'
+      - 'requirements/requirements.server.txt'
+      - 'requirements/requirements.dev.txt'
+  workflow_dispatch:
 
 jobs:
   build_runtime_images:
     name: Build Runtime Images
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     outputs:
       py39_image: ${{ steps.image_tags.outputs.py39_image }}
       py310_image: ${{ steps.image_tags.outputs.py310_image }}
+      build_locally: ${{ steps.final_strategy.outputs.build_locally }}
 
     steps:
       - name: Checkout code
@@ -31,6 +47,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Try to pull existing images for caching
+        run: |
+          echo "Attempting to pull existing images for cache optimization..."
+          docker pull ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache || echo "Could not pull py39 build cache"
+          docker pull ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache || echo "Could not pull py310 build cache"
+        continue-on-error: true
 
       - name: Calculate image tags based on file hashes
         id: image_tags
@@ -63,20 +87,27 @@ jobs:
           COMMIT_REF="${{ github.ref }}"
           echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
           echo "commit_ref=${COMMIT_REF}" >> $GITHUB_OUTPUT
-      
-      - name: Check if Python 3.9 image exists
+
+      - name: Check if Python 3.9 image exists and set build strategy
         id: check_py39_image
         run: |
           if docker manifest inspect ${{ steps.image_tags.outputs.py39_image }} > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Image already exists, skipping build"
+            echo "Python 3.9 image already exists, skipping build"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Image does not exist, will build"
+            echo "Python 3.9 image does not exist or cannot access registry"
+            
+            # If image doesn't exist AND this is a PR targeting master, build locally
+            if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "master" ]]; then
+              echo "build_locally=true" >> $GITHUB_OUTPUT
+              echo "PR targets master and Python 3.9 image missing - will build locally to avoid permission issues"
+            fi
           fi
-      
-      - name: Build and push Python 3.9 image
-        if: steps.check_py39_image.outputs.exists != 'true'
+
+      - name: Build Python 3.9 image (push if permissions allow)
+        if: steps.check_py39_image.outputs.exists != 'true' && steps.check_py39_image.outputs.build_locally != 'true'
+        id: build_py39
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
@@ -100,20 +131,28 @@ jobs:
             rucio.image.build.run_id=${{ github.run_id }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache,mode=max
+        continue-on-error: true
 
-      - name: Check if Python 3.10 image exists
+      - name: Check if Python 3.10 image exists and set build strategy
         id: check_py310_image
         run: |
           if docker manifest inspect ${{ steps.image_tags.outputs.py310_image }} > /dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Image already exists, skipping build"
+            echo "Python 3.10 image already exists, skipping build"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Image does not exist, will build"
+            echo "Python 3.10 image does not exist or cannot access registry"
+            
+            # If image doesn't exist AND this is a PR targeting master, build locally
+            if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "master" ]]; then
+              echo "build_locally=true" >> $GITHUB_OUTPUT
+              echo "PR targets master and Python 3.10 image missing - will build locally to avoid permission issues"
+            fi
           fi
-      
-      - name: Build and push Python 3.10 image
-        if: steps.check_py310_image.outputs.exists != 'true'
+
+      - name: Build Python 3.10 image (push if permissions allow)
+        if: steps.check_py310_image.outputs.exists != 'true' && steps.check_py310_image.outputs.build_locally != 'true'
+        id: build_py310
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
@@ -137,3 +176,13 @@ jobs:
             rucio.image.build.run_id=${{ github.run_id }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache,mode=max
+        continue-on-error: true
+
+      - name: Determine final build strategy
+        id: final_strategy  
+        run: |
+          if [[ "${{ steps.check_py39_image.outputs.build_locally }}" == "true" || "${{ steps.check_py310_image.outputs.build_locally }}" == "true" ]]; then
+            echo "build_locally=true" >> $GITHUB_OUTPUT
+          else
+            echo "build_locally=false" >> $GITHUB_OUTPUT
+          fi
