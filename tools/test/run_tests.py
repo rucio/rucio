@@ -346,7 +346,7 @@ def run_with_httpd(
             # Install Rucio directly from the mounted source
             run('docker', *namespace_args, 'exec', rucio_container, 'pip', 'install', '--no-cache-dir', '-e', '/rucio_source')
 
-            # Running test.sh from the source directory
+            # Running test.sh
             if tests:
                 tests_env = ('--env', 'TESTS=' + ' '.join(tests))
                 tests_arg = ('-p', )
