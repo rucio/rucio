@@ -49,20 +49,16 @@ if not multivo:
     if fallback_policy == 'def':
         fallback_policy = generic_fallback
 
-    if config.config_has_section('policy'):
-        try:
-            if 'RUCIO_POLICY_PACKAGE' in environ:
-                policy = environ['RUCIO_POLICY_PACKAGE']
-            else:
-                policy = config.config_get('policy', 'package', check_config_table=False)
-            package_module = importlib.import_module(policy)
-            check_policy_module_version(package_module)
-            policy = policy + ".permission"
-        except (NoOptionError, NoSectionError, ModuleNotFoundError):
-            # fall back to old system for now
-            policy = 'rucio.core.permission.' + fallback_policy.lower()
-    else:
-        policy = 'rucio.core.permission.' + generic_fallback.lower()
+    try:
+        if 'RUCIO_POLICY_PACKAGE' in environ:
+            policy = environ['RUCIO_POLICY_PACKAGE']
+        else:
+            policy = config.config_get('policy', 'package', check_config_table=False, raise_exception=True)
+        package_module = importlib.import_module(policy)
+        check_policy_module_version(package_module)
+        policy = policy + ".permission"
+    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+        policy = 'rucio.core.permission.' + fallback_policy.lower()
 
     try:
         module = importlib.import_module(policy)
@@ -86,24 +82,16 @@ if not multivo:
 
 def load_permission_for_vo(vo: str) -> None:
     generic_fallback = 'generic_multi_vo'
-    if config.config_has_section('policy'):
-        try:
-            env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
-            if env_name in environ:
-                policy = environ[env_name]
-            else:
-                policy = config.config_get('policy', 'package-' + vo)
-            package_module = importlib.import_module(policy)
-            check_policy_module_version(package_module)
-            policy = policy + ".permission"
-        except (NoOptionError, NoSectionError, ModuleNotFoundError):
-            # fall back to old system for now
-            try:
-                policy = config.config_get('policy', 'permission')
-            except (NoOptionError, NoSectionError):
-                policy = generic_fallback
-            policy = 'rucio.core.permission.' + policy.lower()
-    else:
+    try:
+        env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
+        if env_name in environ:
+            policy = environ[env_name]
+        else:
+            policy = config.config_get('policy', 'package-' + vo, raise_exception=True)
+        package_module = importlib.import_module(policy)
+        check_policy_module_version(package_module)
+        policy = policy + ".permission"
+    except (NoOptionError, NoSectionError, ModuleNotFoundError):
         policy = 'rucio.core.permission.' + generic_fallback.lower()
 
     try:
