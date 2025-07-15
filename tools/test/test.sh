@@ -18,8 +18,8 @@ set -eo pipefail
 
 echo "* Using $(command -v python) $(python --version 2>&1) and $(command -v pip) $(pip --version 2>&1)"
 
-SOURCE_PATH=/usr/local/src/rucio
-CFG_PATH=/usr/local/src/rucio/etc/docker/test/extra/
+SOURCE_PATH=${RUCIO_SOURCE_DIR:-/usr/local/src/rucio}
+CFG_PATH=${RUCIO_SOURCE_DIR:-/usr/local/src/rucio}/etc/docker/test/extra/
 if [ -z "$RUCIO_HOME" ]; then
     RUCIO_HOME=/opt/rucio
 fi
@@ -50,7 +50,7 @@ function wait_for_database() {
 if [ "$SUITE" == "client" ]; then
     tools/run_tests.sh -i
 
-    cp "$SOURCE_PATH"/etc/docker/test/extra/rucio_client.cfg "$SOURCE_PATH"/etc/rucio.cfg
+    cp "$SOURCE_PATH"/etc/docker/test/extra/rucio_client.cfg "$RUCIO_HOME"/etc/rucio.cfg    
     srchome
     tools/pytest.sh -v --tb=short tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py
 
