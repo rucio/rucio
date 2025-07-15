@@ -1,0 +1,139 @@
+name: Build Runtime Images
+
+on:
+  workflow_call:
+    outputs:
+      py39_image:
+        description: "Python 3.9 runtime image tag"
+        value: ${{ jobs.build_runtime_images.outputs.py39_image }}
+      py310_image:
+        description: "Python 3.10 runtime image tag"
+        value: ${{ jobs.build_runtime_images.outputs.py310_image }}
+
+jobs:
+  build_runtime_images:
+    name: Build Runtime Images
+    runs-on: ubuntu-latest
+    outputs:
+      py39_image: ${{ steps.image_tags.outputs.py39_image }}
+      py310_image: ${{ steps.image_tags.outputs.py310_image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate image tags based on file hashes
+        id: image_tags
+        run: |
+          # Files that affect the build
+          FILES_TO_HASH="etc/docker/test/runtime.Dockerfile requirements/requirements.server.txt requirements/requirements.dev.txt"
+          
+          # Calculate hash for Python 3.9
+          PY39_HASH=$(echo "PYTHON=3.9" | cat - $FILES_TO_HASH | sha256sum | cut -d' ' -f1 | head -c 12)
+          PY39_IMAGE="ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-${PY39_HASH}"
+          echo "py39_image=${PY39_IMAGE}" >> $GITHUB_OUTPUT
+          echo "Python 3.9 image tag: ${PY39_IMAGE}"
+          
+          # Calculate hash for Python 3.10
+          PY310_HASH=$(echo "PYTHON=3.10" | cat - $FILES_TO_HASH | sha256sum | cut -d' ' -f1 | head -c 12)
+          PY310_IMAGE="ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-${PY310_HASH}"
+          echo "py310_image=${PY310_IMAGE}" >> $GITHUB_OUTPUT
+          echo "Python 3.10 image tag: ${PY310_IMAGE}"
+
+      - name: Generate build metadata
+        id: build_metadata
+        run: |
+          # Get build timestamp
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "Build date: ${BUILD_DATE}"
+          
+          # Get commit info for metadata
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_REF="${{ github.ref }}"
+          echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "commit_ref=${COMMIT_REF}" >> $GITHUB_OUTPUT
+      
+      - name: Check if Python 3.9 image exists
+        id: check_py39_image
+        run: |
+          if docker manifest inspect ${{ steps.image_tags.outputs.py39_image }} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Image already exists, skipping build"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Image does not exist, will build"
+          fi
+      
+      - name: Build and push Python 3.9 image
+        if: steps.check_py39_image.outputs.exists != 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: etc/docker/test/runtime.Dockerfile
+          target: final
+          build-args: |
+            PYTHON=3.9
+          push: true
+          tags: ${{ steps.image_tags.outputs.py39_image }}
+          labels: |
+            org.opencontainers.image.title=Rucio Runtime Image Python 3.9
+            org.opencontainers.image.description=Runtime image for Rucio autotests with Python 3.9
+            org.opencontainers.image.version=py39-${{ steps.image_tags.outputs.py39_image }}
+            org.opencontainers.image.created=${{ steps.build_metadata.outputs.build_date }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.build_metadata.outputs.commit_sha }}
+            org.opencontainers.image.ref.name=${{ steps.build_metadata.outputs.commit_ref }}
+            rucio.image.python.version=3.9
+            rucio.image.build.date=${{ steps.build_metadata.outputs.build_date }}
+            rucio.image.build.workflow=${{ github.workflow }}
+            rucio.image.build.run_id=${{ github.run_id }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache,mode=max
+
+      - name: Check if Python 3.10 image exists
+        id: check_py310_image
+        run: |
+          if docker manifest inspect ${{ steps.image_tags.outputs.py310_image }} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Image already exists, skipping build"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Image does not exist, will build"
+          fi
+      
+      - name: Build and push Python 3.10 image
+        if: steps.check_py310_image.outputs.exists != 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: etc/docker/test/runtime.Dockerfile
+          target: final
+          build-args: |
+            PYTHON=3.10
+          push: true
+          tags: ${{ steps.image_tags.outputs.py310_image }}
+          labels: |
+            org.opencontainers.image.title=Rucio Runtime Image Python 3.10
+            org.opencontainers.image.description=Runtime image for Rucio autotests with Python 3.10
+            org.opencontainers.image.version=py310-${{ steps.image_tags.outputs.py310_image }}
+            org.opencontainers.image.created=${{ steps.build_metadata.outputs.build_date }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.build_metadata.outputs.commit_sha }}
+            org.opencontainers.image.ref.name=${{ steps.build_metadata.outputs.commit_ref }}
+            rucio.image.python.version=3.10
+            rucio.image.build.date=${{ steps.build_metadata.outputs.build_date }}
+            rucio.image.build.workflow=${{ github.workflow }}
+            rucio.image.build.run_id=${{ github.run_id }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache,mode=max
