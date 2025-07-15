@@ -6,21 +6,21 @@
 #
 aiohappyeyeballs==2.5.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
-aiohttp==3.11.13
+aiohttp==3.12.14
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   geoip2
-aiosignal==1.3.2
+aiosignal==1.4.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
 alembic==1.14.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 annotated-types==0.7.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pydantic
 apispec==6.6.1
     # via
@@ -29,25 +29,25 @@ apispec==6.6.1
 apispec-webframeworks==1.2.0
     # via -r requirements.dev.in
 argcomplete==3.5.3
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 astroid==3.0.1
     # via -r requirements.dev.in
 async-timeout==5.0.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
     #   redis
 atlas-rucio-policy-package==0.4.0
     # via -r requirements.dev.in
 attrs==25.1.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
     #   jsonschema
     #   referencing
 bcrypt==4.3.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   paramiko
 belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.1.0
     # via -r requirements.dev.in
@@ -55,38 +55,38 @@ black==23.12.1
     # via docspec-python
 blinker==1.9.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   flask
 boto3==1.37.5
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 botocore==1.37.7
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   boto3
     #   s3transfer
 build==1.2.2.post1
     # via pip-tools
 cachetools==5.5.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   google-auth
 certifi==2025.1.31
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   elastic-transport
     #   requests
 cffi==1.17.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   cryptography
     #   pynacl
 charset-normalizer==3.4.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   requests
 click==8.1.8
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   black
     #   flask
     #   pip-tools
@@ -95,7 +95,7 @@ coverage==7.6.12
     # via pytest-cov
 cryptography==44.0.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   globus-sdk
     #   oic
     #   paramiko
@@ -103,7 +103,7 @@ cryptography==44.0.2
     #   pyspnego
     #   requests-kerberos
 cx-oracle==8.3.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 databind==4.5.2
     # via
     #   databind-core
@@ -118,12 +118,12 @@ databind-json==4.5.2
     #   pydoc-markdown
 decorator==5.2.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   dogpile-cache
     #   gssapi
 defusedxml==0.7.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   oic
 deprecated==1.2.18
     # via
@@ -132,11 +132,11 @@ deprecated==1.2.18
     #   nr-util
 dnspython==2.7.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pymongo
 docopt==0.6.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   stomp-py
 docspec==2.2.1
     # via
@@ -147,118 +147,118 @@ docspec-python==2.2.1
 docstring-parser==0.11
     # via pydoc-markdown
 dogpile-cache==1.2.2
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 elastic-transport==8.17.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   elasticsearch
 elasticsearch==8.15.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 exceptiongroup==1.2.2
     # via pytest
 execnet==2.1.1
     # via pytest-xdist
 flask==3.1.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 frozenlist==1.5.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
     #   aiosignal
 future==1.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pyjwkest
 geoip2==5.0.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 globus-sdk==3.41.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 google-auth==2.38.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 greenlet==3.2.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   sqlalchemy
 gssapi==1.9.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pyspnego
 idna==3.10
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   requests
     #   yarl
 importlib-metadata==8.6.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   build
     #   flask
 iniconfig==2.0.0
     # via pytest
 isodate==0.7.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   python3-saml
 itsdangerous==2.2.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   flask
 jinja2==3.1.6
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   flask
     #   pydoc-markdown
 jmespath==1.0.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   boto3
     #   botocore
 jsonschema==4.23.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 jsonschema-specifications==2024.10.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   jsonschema
 kerberos==1.3.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 krb5==0.7.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pyspnego
 libtorrent==2.0.11
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 lxml==5.3.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   python3-saml
     #   xmlsec
 mako==1.3.9
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   alembic
     #   oic
 markdown-it-py==3.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   rich
 markupsafe==3.0.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   flask
     #   jinja2
     #   mako
     #   werkzeug
 maxminddb==2.6.3
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   geoip2
 mdurl==0.1.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   markdown-it-py
 multidict==6.1.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
     #   yarl
 mypy-extensions==1.0.0
@@ -272,22 +272,22 @@ nr-util==0.8.12
     #   docspec-python
     #   pydoc-markdown
 oic==1.7.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 packaging==24.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   apispec
     #   black
     #   build
     #   pytest
     #   qbittorrent-api
 paramiko==3.5.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pathspec==0.12.1
     # via black
 pbr==6.1.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   stevedore
 pip-tools==7.4.1
     # via -r requirements.dev.in
@@ -298,49 +298,49 @@ platformdirs==4.3.6
 pluggy==1.5.0
     # via pytest
 prometheus-client==0.21.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 propcache==0.3.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
     #   yarl
 psycopg==3.2.3 ; implementation_name == "cpython"
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 psycopg-binary==3.2.3
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 psycopg-pool==3.2.4
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pyasn1==0.6.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pyasn1-modules
     #   rsa
 pyasn1-modules==0.4.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   google-auth
 pycodestyle==2.11.0
     # via -r requirements.dev.in
 pycparser==2.22
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   cffi
 pycryptodomex==3.21.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   oic
     #   pyjwkest
 pydantic==2.10.6
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pydantic-settings
 pydantic-core==2.27.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pydantic
 pydantic-settings==2.8.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   oic
 pydoc-markdown==4.8.2
     # via -r requirements.dev.in
@@ -348,27 +348,27 @@ pyflakes==3.1.0
     # via -r requirements.dev.in
 pygments==2.19.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   rich
 pyjwkest==1.4.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   oic
 pyjwt==2.10.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   globus-sdk
 pykerberos==1.2.4
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pymemcache==4.0.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pymongo==4.11.2
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pymysql==1.1.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pynacl==1.5.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   paramiko
 pyproject-hooks==1.2.0
     # via
@@ -376,7 +376,7 @@ pyproject-hooks==1.2.0
     #   pip-tools
 pyspnego==0.11.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   requests-kerberos
 pytest==7.4.3
     # via
@@ -389,37 +389,37 @@ pytest-xdist==3.5.0
     # via -r requirements.dev.in
 python-dateutil==2.9.0.post0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   botocore
 python-dotenv==1.0.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pydantic-settings
 python-magic==0.4.27
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 python-swiftclient==4.7.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 python3-saml==1.16.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 pytz==2023.3.post1
     # via -r requirements.dev.in
 pyyaml==6.0.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   apispec
     #   pydoc-markdown
 qbittorrent-api==2025.2.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 redis==5.2.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 referencing==0.36.2
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   jsonschema
     #   jsonschema-specifications
 requests==2.32.4
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   geoip2
     #   globus-sdk
     #   oic
@@ -429,45 +429,45 @@ requests==2.32.4
     #   qbittorrent-api
     #   requests-kerberos
 requests-kerberos==0.15.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 rich==13.9.4
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 rpds-py==0.23.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   jsonschema
     #   referencing
 rsa==4.9
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   google-auth
 ruff==0.9.10
     # via -r requirements.dev.in
 s3transfer==0.11.4
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   boto3
 sh==2.0.7
     # via -r requirements.dev.in
 six==1.17.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   pyjwkest
     #   python-dateutil
 sqlalchemy==2.0.38
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   alembic
 statsd==4.0.1
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 stevedore==5.4.1
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   dogpile-cache
 stomp-py==8.2.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 tabulate==0.9.0
-    # via -r requirements.server.txt
+    # via -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
 tomli==2.2.1
     # via
     #   black
@@ -483,7 +483,8 @@ typeapi==2.2.4
     # via databind
 typing-extensions==4.14.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
+    #   aiosignal
     #   alembic
     #   astroid
     #   black
@@ -502,7 +503,7 @@ typing-extensions==4.14.0
     #   typeapi
 urllib3==1.26.19
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   botocore
     #   elastic-transport
     #   qbittorrent-api
@@ -511,11 +512,11 @@ watchdog==6.0.0
     # via pydoc-markdown
 websocket-client==1.8.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   stomp-py
 werkzeug==3.1.3
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   flask
 wheel==0.45.1
     # via pip-tools
@@ -523,7 +524,7 @@ wrapt==1.17.2
     # via deprecated
 xmlsec==1.3.13
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   python3-saml
 xmltodict==0.13.0
     # via -r requirements.dev.in
@@ -531,11 +532,11 @@ yapf==0.43.0
     # via pydoc-markdown
 yarl==1.18.3
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   aiohttp
 zipp==3.21.0
     # via
-    #   -r requirements.server.txt
+    #   -r /home/dependabot/dependabot-updater/tmp/20250714-1355-3xg0k7/dependabot_20250714-1355-b3d3mg/requirements.server.txt
     #   importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
