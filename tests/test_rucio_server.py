@@ -25,16 +25,12 @@ MARKER = '$ > '
 
 def delete_rules(did):
     # get the rules for the file
-    print('Deleting rules')
     cmd = "rucio rule list {0} | grep {0} | cut -f1 -d\\ ".format(did)
-    print(cmd)
     exitcode, out, err = execute(cmd)
-    print(out, err)
     rules = out.split()
     # delete the rules for the file
     for rule in rules:
         cmd = "rucio rule remove {0}".format(rule)
-        print(cmd)
         exitcode, out, err = execute(cmd)
 
 
@@ -44,18 +40,14 @@ class TestRucioServer:
     def test_ping(self):
         """CLIENT (USER): rucio ping"""
         cmd = 'rucio ping'
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to ping Rucio server with command {cmd}. Error: {err}, output: {out}"
 
     def test_whoami(self):
         """CLIENT (USER): rucio whoami"""
         cmd = 'rucio whoami'
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to execute whoami with command {cmd}. Error: {err}, output: {out}"
 
     def test_upload_download(self, file_factory, scope_and_rse):
         """CLIENT(USER): rucio upload files to dataset/download dataset"""
@@ -72,43 +64,30 @@ class TestRucioServer:
 
         # Adding files to a new dataset
         cmd = 'rucio upload --rse {0} --scope {1} {2} {3} {4} {1}:{5}'.format(rse, scope, tmp_file1, tmp_file2, tmp_file3, tmp_dsn)
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
         remove(tmp_file1)
         remove(tmp_file2)
         remove(tmp_file3)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to upload files with command {cmd}. Error: {err}, output: {out}"
 
         # List the files
         cmd = 'rucio did content list {0}:{1}'.format(scope, tmp_dsn)
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to list content with command {cmd}. Error: {err}, output: {out}"
 
         # List the replicas
         cmd = 'rucio replica list file {0}:{1}'.format(scope, tmp_dsn)
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to list replicas with command {cmd}. Error: {err}, output: {out}"
 
         # Downloading dataset
         cmd = 'rucio download --dir /tmp/ {0}:{1}'.format(scope, tmp_dsn)
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(out)
-        print(err)
+        assert exitcode == 0, f"Failed to download dataset with command {cmd}. Error: {err}, output: {out}"
         # The files should be there
         cmd = 'ls /tmp/{0}/*'.format(tmp_dsn)
-        print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
-        print(err, out)
-        assert exitcode == 0
+        assert exitcode == 0, f"Failed to list downloaded files with command {cmd}. Error: {err}, output: {out}"
         assert tmp_file1.name in out
         assert tmp_file2.name in out
         assert tmp_file3.name in out

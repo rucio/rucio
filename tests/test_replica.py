@@ -627,8 +627,7 @@ class TestReplicaCore:
 
         # test empty dataset
         cov = get_rse_coverage_of_dataset(scope=mock_scope, name=dsn)
-        print(cov)
-        assert cov == {}
+        assert cov == {}, f"Expected empty coverage, got {cov}"
         # add files/replicas
         for i in range(1, 8):
             add_replica(rse_id=rse1_id, scope=mock_scope, name=dsn + '_%06d.data' % i, bytes_=100, account=root_account)
@@ -639,10 +638,9 @@ class TestReplicaCore:
 
         attach_dids(scope=mock_scope, name=dsn, dids=[{'scope': mock_scope, 'name': dsn + '_%06d.data' % i} for i in range(1, 16)], account=root_account)
         cov = get_rse_coverage_of_dataset(scope=mock_scope, name=dsn)
-        print(cov)
-        assert cov[rse1_id] == 700
-        assert cov[rse2_id] == 300
-        assert cov[rse3_id] == 500
+        assert cov[rse1_id] == 700, f"Expected 700 bytes on rse1, got {cov[rse1_id]}"
+        assert cov[rse2_id] == 300, f"Expected 300 bytes on rse2, got {cov[rse2_id]}"
+        assert cov[rse3_id] == 500, f"Expected 500 bytes on rse3, got {cov[rse3_id]}"
 
     @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
         'rucio.core.rse_expression_parser.REGION',
@@ -947,8 +945,7 @@ def test_client_add_temporary_unavailable_pfns(rse_factory, mock_scope, replica_
     # Check the state in the replica table
     for did in files:
         rep = get_replicas_state(scope=mock_scope, name=did['name'])
-        print(rep)
-        assert list(rep.keys())[0] == ReplicaState.AVAILABLE
+        assert list(rep.keys())[0] == ReplicaState.AVAILABLE, f"rep {rep} for {did['name']} should be AVAILABLE, but is {list(rep.keys())[0]}"
 
 
 def test_client_declare_bad_pfns(rse_factory, mock_scope, replica_client):
@@ -1189,11 +1186,7 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
             from rucio.web.rest.flaskapi.v1.replicas import ListReplicas
             list_replicas_restapi = ListReplicas()
             list_replicas_restapi.post()
-            # for debugging when this test fails
-            print(f'Response({response_mock.call_args})')
-            print(f'  args = {response_mock.call_args[0]}')
-            print(f'kwargs = {response_mock.call_args[1]}')
-            assert response_mock.call_args[1]['content_type'] == content_type
+            assert response_mock.call_args[1]['content_type'] == content_type, f"unexpected content type {response_mock.call_args[1]['content_type']} Resp: {response_mock.call_args} args: {response_mock.call_args[0]} kwargs: {response_mock.call_args[1]}"
             response_iter = response_mock.call_args[0][0]
             assert response_iter != '', 'unexpected empty response'
             # since we're directly accessing the generator for Flask, there is no error handling
@@ -1218,8 +1211,7 @@ def test_client_list_replicas_streaming_error(content_type, vo, did_client, repl
             if json_doc:
                 replicas.append(parse_response(json_doc))
         assert replicas
-        print(replicas)
-        assert replicas == [mock_api_response]
+        assert replicas == [mock_api_response], f"unexpected replicas {replicas}. Expected: {mock_api_response}"
 
     else:
         pytest.fail('unknown content_type parameter on test: ' + content_type)

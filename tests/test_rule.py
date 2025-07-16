@@ -1265,18 +1265,14 @@ class TestCore:
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse2}|{self.rse3}|{self.rse4}',
                             grouping='ALL', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
         rule = get_rule(rule_ids[0])
-        print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
-        assert (rule['locks_ok_cnt'] == 11)
-        assert (rule['locks_replicating_cnt'] == 14)
+        assert (rule['locks_ok_cnt'] == 11), f"Expected 11 locks_ok, got {rule['locks_ok_cnt']}"
+        assert (rule['locks_replicating_cnt'] == 14), f"Expected 14 locks_replicating, got {rule['locks_replicating_cnt']}"
         dsl1 = list(get_dataset_locks(scope, 'ds1'))
         dsl2 = list(get_dataset_locks(scope, 'ds2'))
         dsl3 = list(get_dataset_locks(scope, 'ds3'))
-        print(dsl1)
-        print(dsl2)
-        print(dsl3)
-        assert (len(dsl1) == 1 and dsl1[0]['rse'] == self.rse1)
-        assert (len(dsl2) == 1 and dsl2[0]['rse'] == self.rse1)
-        assert (len(dsl3) == 1 and dsl3[0]['rse'] == self.rse1)
+        assert (len(dsl1) == 1 and dsl1[0]['rse'] == self.rse1), f"Expected ds1 to have 1 lock at {self.rse1}, got {len(dsl1)} locks: {dsl1}"
+        assert (len(dsl2) == 1 and dsl2[0]['rse'] == self.rse1), f"Expected ds2 to have 1 lock at {self.rse1}, got {len(dsl2)} locks: {dsl2}"
+        assert (len(dsl3) == 1 and dsl3[0]['rse'] == self.rse1), f"Expected ds3 to have 1 lock at {self.rse1}, got {len(dsl3)} locks: {dsl3}"
 
         # test2 : DATASET grouping -> select rse1 for ds1, rse3 for ds2 and rse1 for ds3
         scope = InternalScope(('scope2_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars
@@ -1285,18 +1281,14 @@ class TestCore:
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse2}|{self.rse3}|{self.rse4}',
                             grouping='DATASET', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
         rule = get_rule(rule_ids[0])
-        print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
-        assert (rule['locks_ok_cnt'] == 17)
-        assert (rule['locks_replicating_cnt'] == 8)
+        assert (rule['locks_ok_cnt'] == 17), f"Expected 17 locks_ok, got {rule['locks_ok_cnt']}"
+        assert (rule['locks_replicating_cnt'] == 8), f"Expected 8 locks_replicating, got {rule['locks_replicating_cnt']}"
         dsl1 = list(get_dataset_locks(scope, 'ds1'))
         dsl2 = list(get_dataset_locks(scope, 'ds2'))
         dsl3 = list(get_dataset_locks(scope, 'ds3'))
-        print(dsl1)
-        print(dsl2)
-        print(dsl3)
-        assert (len(dsl1) == 1 and dsl1[0]['rse'] == self.rse1)
-        assert (len(dsl2) == 1 and dsl2[0]['rse'] == self.rse3)
-        assert (len(dsl3) == 1 and dsl3[0]['rse'] == self.rse1)
+        assert (len(dsl1) == 1 and dsl1[0]['rse'] == self.rse1), f"Expected ds1 to have 1 lock at {self.rse1}, got {len(dsl1)} locks: {dsl1}"
+        assert (len(dsl2) == 1 and dsl2[0]['rse'] == self.rse3), f"Expected ds2 to have 1 lock at {self.rse3}, got {len(dsl2)} locks: {dsl2}"
+        assert (len(dsl3) == 1 and dsl3[0]['rse'] == self.rse1), f"Expected ds3 to have 1 lock at {self.rse1}, got {len(dsl3)} locks: {dsl3}"
 
         # test3 : NONE grouping
         scope = InternalScope(('scope3_' + str(uuid()))[:21], vo=vo)  # scope field has max 25 chars
@@ -1305,18 +1297,14 @@ class TestCore:
         rule_ids = add_rule(dids=[{'scope': scope, 'name': 'container1213'}], copies=1, rse_expression=f'{self.rse1}|{self.rse2}|{self.rse3}|{self.rse4}',
                             grouping='NONE', account=account, weight=None, lifetime=None, locked=False, subscription_id=None)
         rule = get_rule(rule_ids[0])
-        print(rule['locks_ok_cnt'], rule['locks_replicating_cnt'])
-        assert (rule['locks_ok_cnt'] == 25)
-        assert (rule['locks_replicating_cnt'] == 0)
+        assert (rule['locks_ok_cnt'] == 25), f"Expected 25 locks_ok, got {rule['locks_ok_cnt']}"
+        assert (rule['locks_replicating_cnt'] == 0), f"Expected 0 locks_replicating, got {rule['locks_replicating_cnt']}"
         dsl1 = list(get_dataset_locks(scope, 'ds1'))
         dsl2 = list(get_dataset_locks(scope, 'ds2'))
         dsl3 = list(get_dataset_locks(scope, 'ds3'))
-        print(dsl1)
-        print(dsl2)
-        print(dsl3)
-        assert (len(dsl1) == 0)
-        assert (len(dsl2) == 0)
-        assert (len(dsl3) == 0)
+        assert (len(dsl1) == 0), f"Expected ds1 to have 0 locks, got {len(dsl1)} locks: {dsl1}"
+        assert (len(dsl2) == 0), f"Expected ds2 to have 0 locks, got {len(dsl2)} locks: {dsl2}"
+        assert (len(dsl3) == 0), f"Expected ds3 to have 0 locks, got {len(dsl3)} locks: {dsl3}"
 
 
 def test_rule_boost(vo, mock_scope, rse_factory, jdoe_account):
@@ -1533,10 +1521,8 @@ def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_
     add_rse_attribute(rse_id=rse2_id, key='fakeweight', value=5)
 
     rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
-    print("Rule id: {0}".format(rule_id))
     dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
-    print("Dataset locks before detach: {0}".format(dataset_locks))
-    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2), f"Expected 2 locks, got {len(dataset_locks)} locks: {dataset_locks}. Rule ID: {rule_id}"
 
     # Detach dataset from container, this should delete all locks on the dataset
     did_client.detach_dids(**container, dids=[dataset_internal])
@@ -1544,8 +1530,7 @@ def test_detach_dataset_lock_removal(did_client, did_factory, root_account, rse_
     re_evaluator(once=True, did_limit=None)
 
     dataset_locks = list(get_dataset_locks(**dataset_internal))
-    print("Dataset locks after detach: {0}".format(dataset_locks))
-    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0), f"Expected 0 locks, got {len(dataset_locks)} locks: {dataset_locks}. Rule ID: {rule_id}"
 
 
 @pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
@@ -1569,10 +1554,8 @@ def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, roo
     add_rse_attribute(rse_id=rse2_id, key='fakeweight', value=5)
 
     rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
-    print("Rule id: {0}".format(rule_id))
     dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
-    print("Dataset locks before detach: {0}".format(dataset_locks))
-    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2), f"Expected 2 locks, got {len(dataset_locks)} locks: {dataset_locks}. Rule ID: {rule_id}"
 
     # Detach dataset from container, this should delete all locks on the dataset
     did_client.detach_dids(**container, dids=[dataset_internal])
@@ -1580,8 +1563,7 @@ def test_detach_dataset_lock_removal_shared_dataset(did_client, did_factory, roo
     re_evaluator(once=True, did_limit=None)
 
     dataset_locks = list(get_dataset_locks(**dataset_internal))
-    print("Dataset locks after detach: {0}".format(dataset_locks))
-    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0), f"Expected 0 locks, got {len(dataset_locks)} locks: {dataset_locks}. Rule ID: {rule_id}"
 
 
 @pytest.mark.noparallel(reason='Asynchronos behavior when loading locks')
@@ -1605,10 +1587,8 @@ def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_a
     add_rse_attribute(rse_id=rse2_id, key='fakeweight', value=5)
 
     rule_id = add_rule(dids=[container_internal], account=root_account, copies=2, rse_expression='fakeweight>0', grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
-    print("Rule id: {0}".format(rule_id))
     dataset_locks = list(get_dataset_locks(scope=dataset_internal['scope'], name=dataset['name']))
-    print("Dataset locks before detach: {0}".format(dataset_locks))
-    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2)
+    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 2), f"Expected 2 locks, got {len(dataset_locks)} locks: {dataset_locks}. Rule ID: {rule_id}"
 
     # Detach dataset from container, this should delete all locks on the dataset
     did_client.detach_dids(**container, dids=[dataset_internal])
@@ -1616,8 +1596,7 @@ def test_detach_dataset_lock_removal_shared_file(did_client, did_factory, root_a
     re_evaluator(once=True, did_limit=None)
 
     dataset_locks = list(get_dataset_locks(**dataset_internal))
-    print("Dataset locks after detach: {0}".format(dataset_locks))
-    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0)
+    assert (len([d for d in dataset_locks if d["rule_id"] == rule_id]) == 0), f"Expected 0 locks, got {len(dataset_locks)} locks: {dataset_locks}. Rule ID: {rule_id}"
 
 
 def test_move_rule_invalid_argument(vo, rse_factory, did_factory, mock_scope, root_account):

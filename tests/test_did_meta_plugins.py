@@ -736,9 +736,8 @@ def test_did_set_metadata_bulk_single(testdid):
 
     set_metadata_bulk(meta=testmeta, recursive=False, **testdid)
     meta = get_metadata(plugin="ALL", **testdid)
-    print('Metadata:', meta)
 
-    assert testkey in meta and meta[testkey] == testmeta[testkey]
+    assert testkey in meta and meta[testkey] == testmeta[testkey], f"Expected {testkey} to be {testmeta[testkey]}, but got {meta[testkey]}"
 
 
 def test_did_set_metadata_bulk_multi(testdid):
@@ -752,10 +751,9 @@ def test_did_set_metadata_bulk_multi(testdid):
 
     set_metadata_bulk(meta=testmeta, recursive=False, **testdid)
     meta = get_metadata(plugin="ALL", **testdid)
-    print('Metadata:', meta)
 
     for testkey in testkeys:
-        assert testkey in meta and meta[testkey] == testmeta[testkey]
+        assert testkey in meta and meta[testkey] == testmeta[testkey], f"Expected {testkey} to be {testmeta[testkey]}, but got {meta[testkey]}"
 
 
 def test_set_dids_metadata_bulk_multi(did_factory):
@@ -773,11 +771,9 @@ def test_set_dids_metadata_bulk_multi(did_factory):
     set_dids_metadata_bulk(dids=dids, recursive=False)
     for did in dids:
         testmeta = did['meta']
-        print('Metadata:', testmeta)
         meta = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
-        print('Metadata:', meta)
         for testkey in testmeta:
-            assert testkey in meta and meta[testkey] == testmeta[testkey]
+            assert testkey in meta and meta[testkey] == testmeta[testkey], f"Expected {testkey} to be {testmeta[testkey]}, but got {meta[testkey]}"
 
 
 def test_did_set_metadata_bulk_multi_client(testdid):
@@ -796,10 +792,9 @@ def test_did_set_metadata_bulk_multi_client(testdid):
     assert result is True
 
     meta = get_metadata(plugin="ALL", **testdid)
-    print('Metadata:', meta)
 
     for testkey in testkeys:
-        assert testkey in meta and meta[testkey] == testmeta[testkey]
+        assert testkey in meta and meta[testkey] == testmeta[testkey], f"Expected {testkey} to be {testmeta[testkey]}, but got {meta[testkey]}"
 
 
 def test_set_dids_metadata_bulk_multi_client(did_factory, rucio_client):
@@ -823,8 +818,6 @@ def test_set_dids_metadata_bulk_multi_client(did_factory, rucio_client):
 
     for did in dids:
         testmeta = did['meta']
-        print('Metadata:', testmeta)
         meta = get_metadata(plugin="ALL", scope=did['scope'], name=did['name'])
-        print('Metadata:', meta)
         for testkey in testmeta:
-            assert testkey in meta and meta[testkey] == testmeta[testkey]
+            assert testkey in meta and meta[testkey] == testmeta[testkey], f"Expected {testkey} to be {testmeta[testkey]}, but got {meta[testkey]}"

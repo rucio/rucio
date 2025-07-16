@@ -33,9 +33,7 @@ class TestRseXROOTD(MgrTestCases):
         """XROOTD (RSE/PROTOCOLS): Creating necessary directories and files """
 
         cmd = "rucio list-rses --rses 'test_container_xrd=True'"
-        print(cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
         rses = out.split()
 
         data = load_test_conf_file('rse_repository.json')

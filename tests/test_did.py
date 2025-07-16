@@ -1260,20 +1260,19 @@ def test_list_by_length(vo, root_account, rse_factory, mock_scope, did_factory, 
     results = []
     for d in dids:
         results.append(d)
-    print(results)
-    assert len(results) != 0
+    assert len(results) != 0, "No DIDs found with length > 0"
 
     dids = did_client.list_dids(tmp_scope, {'length.gt': -1, 'length.lt': 1})
     results = []
     for d in dids:
         results.append(d)
-    assert len(results) == 0
+    assert len(results) == 0, "DIDs found with length > -1 and < 1"
 
     dids = did_client.list_dids(tmp_scope, {'length': 0})
     results = []
     for d in dids:
         results.append(d)
-    assert len(results) == 0
+    assert len(results) == 0, "DIDs found with length = 0"
 
 
 @pytest.mark.dirty

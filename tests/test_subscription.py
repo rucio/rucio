@@ -660,10 +660,9 @@ class TestDaemon:
                                               priority=1)
         run(threads=1, bulk=1000000, once=True)
         rules = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
-        print(rules)
-        assert rules[0]['rse_expression'] == rse_expression
-        assert rules[0]['state'] == RuleState.INJECT.name
-        assert (rules[0]['created_at'] - datetime.now()).days == 1
+        assert rules[0]['rse_expression'] == rse_expression, f"Expected {rse_expression}, got {rules[0]['rse_expression']}. Rules: {rules}"
+        assert rules[0]['state'] == RuleState.INJECT.name, f"Expected state INJECT, got {rules[0]['state']}. Rules: {rules}"
+        assert (rules[0]['created_at'] - datetime.now()).days == 1, f"Expected created_at to be 1 day ago, got {rules[0]['created_at']}. Rules: {rules}"
 
     def test_run_transmogrifier_invalid_subscription(self, rse_factory, vo, rucio_client, root_account, mock_scope):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with invalid subscription """
@@ -831,18 +830,17 @@ class TestDaemon:
             rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
             if rules[0]['source_replica_expression']:
                 rules.reverse()
-            print(rules, dict_rse)
-            assert len(rules) == 2
+            assert len(rules) == 2, f"Expected 2 rules, got {len(rules)}. Rules: {rules}, Dict RSE: {dict_rse}"
             chosen_rse = rules[0]['rse_expression']
             chosen_site = dict_rse[chosen_rse]['site']
             chosen_rse_type = dict_rse[chosen_rse]['rse_type']
-            assert chosen_rse_type == 'disk'
+            assert chosen_rse_type == 'disk', f"Expected disk RSE, got {chosen_rse_type}. Rules: {rules}, Dict RSE: {dict_rse}"
 
             chained_rse = rules[1]['rse_expression']
             chained_site = dict_rse[chained_rse]['site']
             chained_rse_type = dict_rse[chained_rse]['rse_type']
-            assert chained_rse_type == 'tape'
-            assert chained_site != chosen_site
+            assert chained_rse_type == 'tape', f"Expected tape RSE, got {chained_rse_type}. Rules: {rules}, Dict RSE: {dict_rse}"
+            assert chained_site != chosen_site, f"Expected different sites, got {chosen_site} and {chained_site}. Rules: {rules}, Dict RSE: {dict_rse}"
 
     def test_run_transmogrifier_wildcard_copies_blocklisted_rse(self, rse_factory, vo, rucio_client, root_account):
         """ SUBSCRIPTION (DAEMON): Test the transmogrifier with wildcard copies and blocklisted RSE"""
