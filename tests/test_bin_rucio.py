@@ -109,6 +109,19 @@ def test_identity(random_account):
     exitcode, out, _ = execute(cmd)
     assert 'jdoe@CERN.CH' not in out
 
+    # testing OIDC IDs
+
+    id = "CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch"
+    cmd = f'rucio account identity add {random_account} --type OIDC --id "{id}" --email jdoe@CERN.CH'
+    exitcode, out, _ = execute(cmd)
+    assert exitcode == 0
+    assert f'Added new identity to account: {id}-{random_account}\n' in out
+
+    cmd = f'rucio -v account identity remove {random_account} --type OIDC --id "{id}"'
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
 
 def test_attributes(random_account):
     """CLIENT(ADMIN): Add/List/Delete attributes"""
