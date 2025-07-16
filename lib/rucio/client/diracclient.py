@@ -25,8 +25,13 @@ if TYPE_CHECKING:
 
 
 class DiracClient(BaseClient):
+    """
+    Client for the DIRAC integration layer.
 
-    """DataIdentifier client class for working with data identifiers"""
+    This client wraps the REST calls used by the ``RucioFileCatalog`` plugin in DIRAC.
+    Only `add_files` is currently provided and it behaves like any other ``BaseClient``
+    method by handling authentication tokens and host selection automatically.
+    """
 
     DIRAC_BASEURL = 'dirac'
 
@@ -37,25 +42,81 @@ class DiracClient(BaseClient):
             parents_metadata: Optional["Mapping[str, Mapping[str, Any]]"] = None
     ) -> Literal[True]:
         """
-        Bulk add files:
+        Register files and create missing parent structures.
 
-        * Create the file and replica.
-        * If doesn't exist, create the dataset containing the file as well as a rule on the dataset on ANY sites.
-        * Create all the ascendants of the dataset if they do not exist
-        * Attach metadata defined in ``parents_metadata``
+        For each entry in ``lfns`` the method:
+
+        * Creates the file and its replica on the specified RSE.
+        * If the containing dataset does not exist, it is created with a replication
+          rule using the RSE expression ``ANY=true``. This places the dataset on any
+          RSE advertising the ``ANY`` attribute.
+        * Creates all ancestor containers when needed.
+        * Attaches metadata from ``parents_metadata`` to those parents.
 
         Parameters
         ----------
-        lfns :
-            List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
-        ignore_availability :
-            A boolean to ignore blocked sites.
-        parents_metadata :
-            Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}}). Default=None
+        lfns
+            Iterable of dictionaries describing the files. Each dictionary must contain:
+
+            * **``lfn``**  full logical file name with scope
+            * **``rse``**  destination RSE name
+            * **``bytes``**  file size in bytes
+            * **``adler32``**  Adler‑32 checksum
+
+            Optional keys include ``guid`` ``pfn`` and ``meta``.
+
+        ignore_availability
+            When ``True``, the availability status of RSEs is ignored and blocked RSEs are
+            still accepted. Defaults to ``False`` which rejects blocked RSEs.
+        parents_metadata
+            Mapping of parent logical path names to metadata {'lpn': {key : value}}.
+            Entries are only applied when new datasets or containers are created.
+            Defaults to None.
+
+        Returns
+        -------
+        Literal[True]
+            When the server confirms the creation.
+
+        Raises
+        ------
+        RucioException
+            Raised when the HTTP request is not successful.
+
+        Examples
+        --------
+        ??? Example
+
+            Register a file using the DIRAC naming style. Dirac's scope extraction is
+            required to be set for this to work:
+
+            ```python
+            >>> from rucio.client.diracclient import DiracClient
+            >>> from rucio.common.utils import generate_uuid
+
+            >>> dc = DiracClient()
+            >>> lfn = f"/belle/mock/cont_{generate_uuid()}/dataset_{generate_uuid()}/file_{generate_uuid()}"
+            >>> files = [{
+            ...     "lfn": lfn,
+            ...     "rse": "XRD1",
+            ...     "bytes": 1,
+            ...     "adler32": "0cc737eb",
+            ...     'guid': generate_uuid()
+            ... }]
+
+            >>> dc.add_files(files)
+            True
+            ```
         """
         path = '/'.join([self.DIRAC_BASEURL, 'addfiles'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability, 'parents_metadata': parents_metadata}))
+
+        r = self._send_request(
+            url,
+            type_='POST',
+            data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability, 'parents_metadata': parents_metadata})
+        )
+
         if r.status_code == codes.created:
             return True
         else:
