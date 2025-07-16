@@ -1538,8 +1538,8 @@ def list_rules(args, client, logger, console, spinner):
     elif args.rule_account:
         rules = client.list_account_rules(account=args.rule_account)
     elif args.subscription:
-        account = args.subscription[0]
-        name = args.subscription[1]
+        account = args.rule_account if args.rule_account else client.account
+        name = args.subscription
         rules = client.list_subscription_rules(account=account, name=name)
     else:
         raise InputValidationError('At least one option has to be given. Use -h to list the options.')
@@ -2642,7 +2642,7 @@ You can filter by account::
     list_rules_parser.add_argument('--csv', dest='csv', action='store_true', default=False, help='Comma Separated Value output')
     list_rules_parser.add_argument('--file', dest='file', action='store', help='List associated rules of an affected file')
     list_rules_parser.add_argument('--account', dest='rule_account', action='store', help='List by account')
-    list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by account and subscription name', metavar=('ACCOUNT', 'SUBSCRIPTION'), nargs=2)
+    list_rules_parser.add_argument('--subscription', dest='subscription', action='store', help='List by subscription name')
 
     # The list_rules_history command
     list_rules_history_parser = subparsers.add_parser('list-rules-history', help='List replication rules history for a DID.')

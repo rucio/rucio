@@ -159,10 +159,6 @@ def update(
 @click.pass_context
 def list_(ctx, did, traverse, csv, file, account, subscription):
     """List all rules impacting a given DID"""
-    if subscription is not None:
-        subscription_account = account if account is not None else ctx.obj.client.account
-        subscription = subscription_account, subscription
-
     # Done here to raise error==2
     if not (did or file or account or subscription):
         raise InputValidationError("At least one option has to be given. Use -h to list the options.")
