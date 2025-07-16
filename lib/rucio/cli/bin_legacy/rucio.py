@@ -516,7 +516,7 @@ def list_scopes(args, client, logger, console, spinner):
 
     List scopes.
     """
-    if cli_config == 'rich':
+    if (cli_config == 'rich') or (not args.csv):
         spinner.update(status='Fetching scopes')
         spinner.start()
 
@@ -524,7 +524,7 @@ def list_scopes(args, client, logger, console, spinner):
         scopes = client.list_scopes_for_account(args.account)
     else:
         scopes = client.list_scopes()
-    if cli_config == 'rich':
+    if (cli_config == 'rich') and (not args.csv):
         scopes = [[scope] for scope in sorted(scopes) if 'mock' not in scope]
         table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
         spinner.stop()
@@ -2441,6 +2441,7 @@ You can filter by key/value, e.g.::
     ''')
 
     scope_list_parser.set_defaults(function=list_scopes)
+    scope_list_parser.add_argument("--csv", action="store_true", default=False, help="Comma Separated Value output.")
     scope_list_parser.add_argument('--account', help='Filter scopes by account')
 
     # The close command
