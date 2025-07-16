@@ -525,7 +525,7 @@ def list_scopes(args, client, logger, console, spinner):
     else:
         scopes = client.list_scopes()
     if (cli_config == 'rich') and (not args.csv):
-        scopes = [[scope] for scope in sorted(scopes) if 'mock' not in scope]
+        scopes = [[scope] for scope in sorted(scopes)]
         table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
