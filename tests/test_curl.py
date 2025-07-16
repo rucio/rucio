@@ -41,6 +41,7 @@ class TestCurlRucio:
         cmd = 'curl --cacert %s -s -X GET %s/ping' % (self.cacert, self.host)
         exitcode, out, err = execute(cmd)
         ret = json.loads(out)
+        assert exitcode == 0, f"Ping failed: {self.marker} {cmd}"
         assert 'version' in ret, f"Version not found in response : {out} {ret}"
         assert isinstance(ret, dict)
 
@@ -48,6 +49,7 @@ class TestCurlRucio:
         """AUTH (CURL): Test auth token retrieval with via username and password"""
         cmd = 'curl -s -i --cacert %s -X GET -H "X-Rucio-Account: root" -H "X-Rucio-Username: ddmlab" -H "X-Rucio-Password: secret" %s %s/auth/userpass' % (self.cacert, self.vo_header, self.auth_host)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Auth token retrieval failed: {self.marker} {cmd}"
         assert 'X-Rucio-Auth-Token' in out, f"Auth token not found in response: {out}"
 
     @skip_outside_gh_actions
@@ -55,6 +57,7 @@ class TestCurlRucio:
         """AUTH (CURL): Test auth token retrieval with via x509"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s -cert %s --key %s -X GET %s/auth/x509' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Auth token retrieval failed: {self.marker} {cmd}"
         assert 'X-Rucio-Auth-Token' in out, f"Auth token not found in response: {out}"
 
     def test_get_auth_gss(self):
@@ -90,6 +93,7 @@ class TestCurlRucio:
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
         cmd = 'curl -s -i --cacert %s  -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -X GET %s/auth/validate' % (self.cacert, self.auth_host)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Token validation failed: {self.marker} {cmd}"
         assert 'datetime.datetime' in out, f"Token validation failed: {out}"
 
     @skip_outside_gh_actions
@@ -109,6 +113,7 @@ class TestCurlRucio:
                "-X POST %s/accounts/%s"
                ) % (self.cacert, self.host, account_name_generator())
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Account creation failed: {self.marker} {cmd}"
         assert '201 Created'.lower() in out.lower(), f"Account creation failed: {out}"
 
     @skip_outside_gh_actions
@@ -116,10 +121,12 @@ class TestCurlRucio:
         """ACCOUNT (CURL): Test whoami method"""
         cmd = 'curl -s -i --cacert %s -H "X-Rucio-Account: root" %s --cert %s --key %s -X GET %s/auth/x509 | tr -d \'\r\' | grep X-Rucio-Auth-Token:' % (self.cacert, self.vo_header, self.usercert, self.userkey, self.auth_host)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Auth token retrieval failed: {cmd}"
         assert 'X-Rucio-Auth-Token' in out, f"Auth token not found in response: {out}"
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
         cmd = '''curl -s -i -L --cacert %s -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -X GET %s/accounts/whoami''' % (self.cacert, self.host)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Whoami failed: {self.marker} {cmd}"
         assert '303 See Other'.lower() in out.lower(), f"Whoami failed: {out}"
 
     @skip_outside_gh_actions
@@ -132,4 +139,5 @@ class TestCurlRucio:
         os.environ['RUCIO_TOKEN'] = out[len('X-Rucio-Auth-Token: '):].rstrip()
         cmd = '''curl -s -i --cacert %s -H "X-Rucio-Auth-Token: $RUCIO_TOKEN" -X POST %s/rses/%s''' % (self.cacert, self.host, rse_name_generator())
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"RSE creation failed: {self.marker} {cmd}"
         assert '201 Created'.lower() in out.lower(), f"RSE creation failed: {out}"

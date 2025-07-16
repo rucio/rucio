@@ -27,11 +27,13 @@ def delete_rules(did):
     # get the rules for the file
     cmd = "rucio rule list {0} | grep {0} | cut -f1 -d\\ ".format(did)
     exitcode, out, err = execute(cmd)
+    assert exitcode == 0, f"Failed to list rules with command {cmd}. Error: {err}, output: {out}"
     rules = out.split()
     # delete the rules for the file
     for rule in rules:
         cmd = "rucio rule remove {0}".format(rule)
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Failed to remove rule {rule} with command {cmd}. Error: {err}, output: {out}"
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE')

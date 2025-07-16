@@ -34,6 +34,7 @@ class TestRseXROOTD(MgrTestCases):
 
         cmd = "rucio list-rses --rses 'test_container_xrd=True'"
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Failed to execute command: {cmd}. Error: {err}, output: {out}"
         rses = out.split()
 
         data = load_test_conf_file('rse_repository.json')

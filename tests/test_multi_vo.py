@@ -957,20 +957,24 @@ class TestMultiVOBinRucio:
 
         cmd = 'rucio-admin --vo %s rse list' % long_vo
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
         cmd = 'rucio-admin --vo %s rse list' % second_vo
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst not in out
         assert self.rse_new in out
 
         cmd = 'rucio-admin --vo %s rse list' % fake_vo
         exitcode, out, err = execute(cmd)
+        assert exitcode != 0, f"Command should have failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio-admin rse list'
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
@@ -980,20 +984,24 @@ class TestMultiVOBinRucio:
 
         cmd = 'rucio --vo %s list-rses' % long_vo
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
         cmd = 'rucio --vo %s list-rses' % second_vo
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst not in out
         assert self.rse_new in out
 
         cmd = 'rucio --vo %s list-rses' % fake_vo
         exitcode, out, err = execute(cmd)
+        assert exitcode != 0, f"Command should have failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio list-rses'
         exitcode, out, err = execute(cmd)
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
