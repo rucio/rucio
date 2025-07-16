@@ -34,7 +34,8 @@ def add_(ctx, account, scope_name):
 
 @scope.command("list")
 @click.option("-a", "--account", help="Filter by associated account", required=False)
+@click.option("--csv", is_flag=True, help="Output in CSV format", default=False)
 @click.pass_context
-def list_(ctx, account):
+def list_(ctx: click.Context, account: str, csv: bool):
     """List existing scopes"""
-    list_scopes(Arguments({"no_pager": ctx.obj.no_pager, "account": account}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    list_scopes(Arguments({"no_pager": ctx.obj.no_pager, "account": account, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

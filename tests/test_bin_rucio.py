@@ -145,6 +145,12 @@ def test_scope(random_account):
     assert exitcode == 0
     assert tmp_scp in out
 
+    cmd = f"rucio-admin scope list --csv --account {random_account}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert tmp_scp in out.split('\n')
+
     cmd = 'rucio-admin scope list'
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
@@ -160,6 +166,16 @@ def test_scope(random_account):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert tmp_scp in out
+
+    cmd = "rucio list-scopes --csv"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert tmp_scp in out.split('\n')
+
+    cmd = f"rucio list-scopes --csv --account {random_account}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert tmp_scp in out.split('\n')
 
 
 @pytest.mark.dirty(reason="RSEs are not deleted after the test")
