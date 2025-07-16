@@ -23,6 +23,9 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
 
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
     from configparser import ConfigParser
@@ -80,6 +83,18 @@ def pytest_make_parametrize_id(
         return argname + str(cfg)
     # return None to let pytest handle the formatting
     return None
+
+
+@pytest.fixture
+def db_read_session():
+    with db_session(DatabaseOperationType.READ) as session:
+        yield session
+
+
+@pytest.fixture
+def db_write_session():
+    with db_session(DatabaseOperationType.WRITE) as session:
+        yield session
 
 
 @pytest.fixture(scope='session')
