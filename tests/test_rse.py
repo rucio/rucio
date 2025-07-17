@@ -533,8 +533,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 4,
-                                  'write': 1,
+                          'lan': {'read': 2,
+                                  'write': 0,
                                   'delete': None}
                       },
                       'extended_attributes': 'TheOneWithAllTheRest'},
@@ -544,8 +544,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
+                          'lan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
@@ -554,8 +554,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
+                          'lan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
@@ -564,18 +564,18 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 2,
-                                  'write': 1,
+                          'lan': {'read': 1,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             rucio_client.add_protocol(protocol_rse, p)
         resp = mgr.get_rse_info(rse=protocol_rse, vo=vo)
         for p in resp['protocols']:
-            if ((p['port'] == 19) and (p['domains']['lan']['read'] != 1)) or \
-                    ((p['port'] == 20) and (p['domains']['lan']['read'] != 2)) or \
-                    ((p['port'] == 18) and (p['domains']['lan']['read'] != 1)) or \
-                    ((p['port'] == 17) and (p['domains']['lan']['read'] != 4)):
+            if ((p['port'] == 19) and (p['domains']['lan']['read'] != 0)) or \
+                    ((p['port'] == 20) and (p['domains']['lan']['read'] != 1)) or \
+                    ((p['port'] == 18) and (p['domains']['lan']['read'] != 0)) or \
+                    ((p['port'] == 17) and (p['domains']['lan']['read'] != 2)):
                 print(resp)
                 assert False
 
@@ -590,9 +590,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}},
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
         with pytest.raises(RSENotFound):
             rucio_client.add_protocol('The One that shouldn\'t be here', attributes)
@@ -607,9 +607,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}},
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
         try:
             with pytest.raises(exception.InvalidObject):
@@ -627,9 +627,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}},
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
         try:
             rucio_client.add_protocol(protocol_rse, attributes)
@@ -648,9 +648,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'FIRENDS': {'read': 1,
-                                      'write': 1,
-                                      'delete': 1}},
+                          'FIRENDS': {'read': 0,
+                                      'write': 0,
+                                      'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
         try:
             with pytest.raises(exception.RSEProtocolDomainNotSupported):
@@ -670,9 +670,9 @@ class TestRSEClient:
                           'prefix': '/the/one/with/all/the/files',
                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                           'domains': {
-                              'lan': {'read': 1,
-                                      'write': 1,
-                                      'delete': 1}},
+                              'lan': {'read': 0,
+                                      'write': 0,
+                                      'delete': 0}},
                           'extended_attributes': 'TheOneWithAllTheRest'}
             rucio_client.add_protocol(protocol_rse, attributes)
         try:
@@ -711,9 +711,9 @@ class TestRSEClient:
                           'prefix': '/the/one/with/all/the/files',
                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                           'domains': {
-                              'lan': {'read': 1,
-                                      'write': 1,
-                                      'delete': 1}}}
+                              'lan': {'read': 0,
+                                      'write': 0,
+                                      'delete': 0}}}
             rucio_client.add_protocol(protocol_rse, attributes)
 
         try:
@@ -750,9 +750,9 @@ class TestRSEClient:
                           'prefix': '/the/one/with/all/the/files',
                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                           'domains': {
-                              'lan': {'read': 1,
-                                      'write': 1,
-                                      'delete': 1}},
+                              'lan': {'read': 0,
+                                      'write': 0,
+                                      'delete': 0}},
                           'extended_attributes': 'TheOneWithAllTheRest'}
             rucio_client.add_protocol(protocol_rse, attributes)
         rucio_client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost')
@@ -778,9 +778,9 @@ class TestRSEClient:
                           'prefix': '/the/one/with/all/the/files',
                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                           'domains': {
-                              'lan': {'read': 1,
-                                      'write': 1,
-                                      'delete': 1}},
+                              'lan': {'read': 0,
+                                      'write': 0,
+                                      'delete': 0}},
                           'extended_attributes': 'TheOneWithAllTheRest'}
             rucio_client.add_protocol(protocol_rse, attributes)
 
@@ -805,9 +805,9 @@ class TestRSEClient:
                           'prefix': '/the/one/with/all/the/files',
                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                           'domains': {
-                              'lan': {'read': 1,
-                                      'write': 1,
-                                      'delete': 1}},
+                              'lan': {'read': 0,
+                                      'write': 0,
+                                      'delete': 0}},
                           'extended_attributes': 'TheOneWithAllTheRest'}
             rucio_client.add_protocol(protocol_rse, attributes)
         rucio_client.delete_protocols(protocol_rse, scheme=protocol_id, hostname='localhost', port=17)
@@ -832,9 +832,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}},
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
         rucio_client.add_protocol(protocol_rse, attributes)
         try:
@@ -855,12 +855,12 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1},
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0},
                           'wan': {'read': None,
                                   'write': None,
-                                  'delete': 1}},
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE',
                       'hostname': 'localhost',
@@ -869,11 +869,11 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1},
+                                  'write': 0,
+                                  'delete': 0},
                           'wan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
@@ -883,10 +883,10 @@ class TestRSEClient:
                       'domains': {
                           'lan': {'read': None,
                                   'write': None,
-                                  'delete': 1},
-                          'wan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'delete': 0},
+                          'wan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             rucio_client.add_protocol(protocol_rse, p)
@@ -916,9 +916,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
-                                  'delete': 1}},
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
@@ -927,8 +927,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
@@ -938,7 +938,7 @@ class TestRSEClient:
                       'domains': {
                           'lan': {'read': None,
                                   'write': None,
-                                  'delete': 1}},
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol identifier include supported operations
         for p in protocols:
@@ -968,8 +968,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1},
-                          'wan': {'delete': 1}
+                          'lan': {'read': 0},
+                          'wan': {'delete': 0}
                       },
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE',
@@ -978,8 +978,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'write': 1},
-                          'wan': {'read': 1}
+                          'lan': {'write': 0},
+                          'wan': {'read': 0}
                       },
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
@@ -988,8 +988,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'delete': 1},
-                          'wan': {'write': 1}},
+                          'lan': {'delete': 0},
+                          'wan': {'write': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             rucio_client.add_protocol(protocol_rse, p)
@@ -1027,8 +1027,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1},
-                          'wan': {'delete': 1}
+                          'lan': {'read': 0},
+                          'wan': {'delete': 0}
                       },
                       'extended_attributes': {'Some': 'value', 'more': {'value1': 1, 'value2': 0}}}]
         for p in protocols:
@@ -1048,8 +1048,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
@@ -1058,8 +1058,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
@@ -1069,7 +1069,7 @@ class TestRSEClient:
                       'domains': {
                           'lan': {'read': None,
                                   'write': None,
-                                  'delete': 1}},
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
@@ -1094,8 +1094,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
         # Protocol for read is undefined
         rucio_client.add_protocol(protocol_rse, attributes)
@@ -1118,8 +1118,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
@@ -1144,8 +1144,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_WRITE_DELETE',
                       'hostname': 'localhost',
@@ -1154,8 +1154,8 @@ class TestRSEClient:
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
                           'lan': {'read': None,
-                                  'write': 1,
-                                  'delete': 1}},
+                                  'write': 0,
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
                       'hostname': 'localhost',
@@ -1165,7 +1165,7 @@ class TestRSEClient:
                       'domains': {
                           'lan': {'read': None,
                                   'write': None,
-                                  'delete': 1}},
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         # Protocol for read is undefined
         for p in protocols:
@@ -1191,8 +1191,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'wan': {'read': 1,
-                                  'write': 1,
+                          'wan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
@@ -1201,8 +1201,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'wan': {'read': 1,
-                                  'write': 1,
+                          'wan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'}]
         for p in protocols:
@@ -1224,8 +1224,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
+                          'lan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'}]
         for p in protocols:
@@ -1249,8 +1249,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
+                          'lan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCKB',
@@ -1259,8 +1259,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 2,
-                                  'write': 1,
+                          'lan': {'read': 1,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCKC',
@@ -1269,9 +1269,9 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 3,
+                          'lan': {'read': 2,
                                   'write': None,
-                                  'delete': 1}},
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             rucio_client.add_protocol(protocol_rse, p)
@@ -1280,12 +1280,12 @@ class TestRSEClient:
         prots = rucio_client.get_protocols(protocol_rse)
         for p in prots:
             if p['scheme'] == 'MOCKA':
-                if p['domains']['lan']['read'] != 3:
+                if p['domains']['lan']['read'] != 2:
                     print('MOCKA with unexpected priority')
                     print(prots)
                     assert False
             if p['scheme'] == 'MOCKC':
-                if p['domains']['lan']['read'] != 1:
+                if p['domains']['lan']['read'] != 0:
                     print('MOCKC with unexpected priority')
                     print(prots)
                     assert False
@@ -1306,8 +1306,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 1,
-                                  'write': 1,
+                          'lan': {'read': 0,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK',
@@ -1316,8 +1316,8 @@ class TestRSEClient:
                       'prefix': '/the/one/with/all/the/files',
                       'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                       'domains': {
-                          'lan': {'read': 0,
-                                  'write': 1,
+                          'lan': {'read': None,
+                                  'write': 0,
                                   'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'},
                      {'scheme': 'MOCK_DELETE',
@@ -1328,14 +1328,14 @@ class TestRSEClient:
                       'domains': {
                           'lan': {'read': None,
                                   'write': None,
-                                  'delete': 1}},
+                                  'delete': 0}},
                       'extended_attributes': 'TheOneWithAllTheRest'}, ]
         for p in protocols:
             rucio_client.add_protocol(protocol_rse, p)
 
         try:
             with pytest.raises(exception.RSEProtocolNotSupported):
-                rucio_client.update_protocols(protocol_rse, scheme='MOCK_UNDEFINED', hostname='localhost', port=17, data={'delete_lan': 1})
+                rucio_client.update_protocols(protocol_rse, scheme='MOCK_UNDEFINED', hostname='localhost', port=17, data={'delete_lan': 0})
         finally:
             rucio_client.delete_rse(protocol_rse)
 
@@ -1348,8 +1348,8 @@ class TestRSEClient:
                       'port': 17,
                       'prefix': '/the/one/with/all/the/files',
                       # 'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
-                      'domains': {'lan': {'read': 1,
-                                          'write': 1,
+                      'domains': {'lan': {'read': 0,
+                                          'write': 0,
                                           'delete': None}},
                       'extended_attributes': 'TheOneWithAllTheRest'}
 
@@ -1375,9 +1375,9 @@ class TestRSEClient:
                                        'prefix': '/the/one/with/all/the/files',
                                        'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                                        'domains': {
-                                           'lan': {'read': 1,
-                                                   'write': 1,
-                                                   'delete': 1}},
+                                           'lan': {'read': 0,
+                                                   'write': 0,
+                                                   'delete': 0}},
                                        'extended_attributes': 'TheOneWithAllTheRest'})
         try:
             with pytest.raises(exception.RSEProtocolPriorityError):
@@ -1444,15 +1444,15 @@ class TestRSEClient:
                         'credentials': None,
                         'deterministic': True,
                         'domain': ['lan', 'wan'],
-                        'protocols': [{'domains': {'lan': {'delete': 2, 'read': None, 'write': None},
-                                                   'wan': {'delete': 2, 'read': 2, 'write': None}},
+                        'protocols': [{'domains': {'lan': {'delete': 1, 'read': None, 'write': None},
+                                                   'wan': {'delete': 1, 'read': 1, 'write': None}},
                                        'extended_attributes': None,
                                        'hostname': 'atlas-xrd.gridpp.rl.ac.uk',
                                        'impl': 'rucio.rse.protocols.gfal.Default',
                                        'port': 1094,
                                        'prefix': '//castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
                                        'scheme': 'root'},
-                                      {'domains': {'lan': {'delete': None, 'read': 1, 'write': None},
+                                      {'domains': {'lan': {'delete': None, 'read': 0, 'write': None},
                                                    'wan': {'delete': None, 'read': None, 'write': None}},
 
                                        'extended_attributes': None,
@@ -1461,8 +1461,8 @@ class TestRSEClient:
                                        'port': 1094,
                                        'prefix': '//castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
                                        'scheme': 'root'},
-                                      {'domains': {'lan': {'delete': 1, 'read': None, 'write': 1},
-                                                   'wan': {'delete': 1, 'read': 1, 'write': 1}},
+                                      {'domains': {'lan': {'delete': 0, 'read': None, 'write': 0},
+                                                   'wan': {'delete': 0, 'read': 0, 'write': 0}},
                                        'extended_attributes': {'space_token': 'ATLASDATADISK',
                                                                'web_service_path': '/srm/managerv2?SFN='},
                                        'hostname': 'srm-atlas.gridpp.rl.ac.uk',
