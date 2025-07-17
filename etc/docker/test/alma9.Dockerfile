@@ -104,7 +104,6 @@ FROM python as rucio-runtime
         dnf install -y \
         xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel \
         httpd-devel \
-        libnsl libaio \
         memcached \
         gridsite \
         sqlite \
