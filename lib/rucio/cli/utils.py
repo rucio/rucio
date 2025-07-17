@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import errno
+import json
 import logging
 import os
 import signal
@@ -20,6 +22,9 @@ import sys
 import traceback
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
+from typing import Optional, Union
+
+import click
 
 from rucio.client.client import Client
 from rucio.common.config import config_get
@@ -225,3 +230,21 @@ class Arguments(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+
+class JSONType(click.ParamType):
+    name = "json"
+
+    def convert(
+            self,
+            value: Union[str, None],
+            param: "Optional[click.Parameter]",
+            ctx: "Optional[click.Context]",
+    ) -> Optional[dict]:
+        if value is None:
+            return None
+
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            self.fail(f"Invalid JSON: {e}", param, ctx)
