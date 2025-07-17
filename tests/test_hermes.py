@@ -77,10 +77,37 @@ class MyListener:
                 ("messaging-hermes", "password", "supersecret"),
                 ("messaging-hermes", "nonssl_port", 61613),
                 ("messaging-hermes", "send_email", False),
+            ]
+        },
+        {
+            "table_content": [
+                ("hermes", "services_list", "influx,activemq,elastic,email"),
+                (
+                    "hermes",
+                    "elastic_endpoint",
+                    "http://localhost:9200/ddm_events/doc/_bulk",
+                ),
+                (
+                    "hermes",
+                    "influxdb_endpoint",
+                    "http://localhost:8086/api/v2/write?org=rucio&bucket=rucio",
+                ),
+                ("hermes", "influxdb_token", "mytoken"),
+                ("messaging-hermes", "destination", "/queue/events"),
+                ("messaging-hermes", "brokers", "localhost"),
+                ("messaging-hermes", "use_ssl", False),
+                ("messaging-hermes", "username", "hermes"),
+                ("messaging-hermes", "password", "supersecret"),
+                ("messaging-hermes", "nonssl_port", 61613),
+                ("messaging-hermes", "send_email", False),
                 ("messaging-hermes", "smtp-host", "testing.host"),
                 ("messaging-hermes", "smtp-port", 1234),
             ]
         }
+    ],
+    ids=[
+        "unauthenticated",
+        "authenticated"
     ],
     indirect=True,
 )
