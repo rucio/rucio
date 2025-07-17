@@ -695,8 +695,8 @@ class TestRSEClient:
                           'prefix': '/the/one/with/all/the/files',
                           'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                           'domains': {
-                              'lan': {'read': 4,
-                                      'write': 99,
+                              'lan': {'read': 1,
+                                      'write': 1,
                                       'delete': -1}},
                           'extended_attributes': 'TheOneWithAllTheRest'}
             with pytest.raises(exception.RSEProtocolPriorityError):
