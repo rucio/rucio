@@ -171,11 +171,6 @@ class RSESettingsDict(TypedDict):
     staging_area: bool
     rse_type: str
     sign_url: Optional[str]
-    read_protocol: int
-    write_protocol: int
-    delete_protocol: int
-    third_party_copy_read_protocol: int
-    third_party_copy_write_protocol: int
     id: str
     rse: str
     volatile: bool
