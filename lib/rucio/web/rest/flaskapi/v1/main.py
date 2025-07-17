@@ -49,8 +49,8 @@ DEFAULT_ENDPOINTS = {
     'rules',
     'scopes',
     'subscriptions',
+    'opendata', # 'opendata_public' is disabled by default because it does not enforce auth
 }
-
 
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
