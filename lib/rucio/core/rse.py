@@ -1601,9 +1601,6 @@ def _format_get_rse_protocols(
             'verify_checksum': verify_checksum if verify_checksum is not None else True,
             'volatile': _rse['volatile']}
 
-    for op in RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS:
-        info['%s_protocol' % op] = 1  # 1 indicates the default protocol
-
     for row in db_protocols:
         p = {'hostname': row.hostname,
              'scheme': row.scheme,
