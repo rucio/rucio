@@ -1669,7 +1669,7 @@ def update_protocols(
     :raises RSEProtocolNotSupported: If no matching protocol was found for the given RSE.
     :raises RSEOperationNotSupported: If no protocol supported the requested operation for the given RSE.
     :raises RSEProtocolDomainNotSupported: If an undefined domain was provided.
-    :raises RSEProtocolPriorityError: If the provided priority for the protocol is too big or below zero.
+    :raises RSEProtocolPriorityError: If the provided priority for the protocol is below zero.
     :raises KeyNotFound: Invalid data for update provided.
     :raises Duplicate: If protocol with identifier, hostname and port already exists
                        for the given RSE.
