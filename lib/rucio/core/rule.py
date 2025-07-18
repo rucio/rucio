@@ -100,21 +100,22 @@ class AutoApprove(PolicyPackageAlgorithms):
 
     _algorithm_type = 'auto_approve'
 
-    def __init__(self, rule: models.ReplicationRule, did: models.DataIdentifier, session: 'Session') -> None:
+    def __init__(self, rule: models.ReplicationRule, did: models.DataIdentifier, session: 'Session', vo: str = DEFAULT_VO) -> None:
         super().__init__()
         self.rule = rule
         self.did = did
         self.session = session
+        self.vo = vo
         self.register("default", self.default)
 
     def evaluate(self) -> bool:
         """
         Evaluate the auto-approve algorithm
         """
-        return self.get_configured_algorithm()(self.rule, self.did, self.session)
+        return self.get_configured_algorithm(self.vo)(self.rule, self.did, self.session)
 
     @classmethod
-    def get_configured_algorithm(cls: type[AutoApproveT]) -> "Callable[[models.ReplicationRule, models.DataIdentifier, Session], bool]":
+    def get_configured_algorithm(cls: type[AutoApproveT], vo: str) -> "Callable[[models.ReplicationRule, models.DataIdentifier, Session], bool]":
         """
         Get the configured auto-approve algorithm
         """
@@ -123,7 +124,12 @@ class AutoApprove(PolicyPackageAlgorithms):
         except (NoOptionError, NoSectionError, RuntimeError):
             configured_algorithm = 'default'
 
-        return super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
+        result = None
+        if configured_algorithm == 'default':
+            result = super()._get_default_algorithm(cls._algorithm_type, vo)
+        if result is None:
+            result = super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
+        return result
 
     @classmethod
     def register(cls: type[AutoApproveT], name: str, fn_auto_approve: "Callable[[models.ReplicationRule, models.DataIdentifier, Session], bool]") -> None:
@@ -390,7 +396,7 @@ def add_rule(
             if ask_approval:
                 new_rule.state = RuleState.WAITING_APPROVAL
                 # Use the new rule as the argument here
-                auto_approver = AutoApprove(new_rule, did, session=session)
+                auto_approver = AutoApprove(new_rule, did, session=session, vo=account.vo)
                 if auto_approver.evaluate():
                     logger(logging.DEBUG, "Auto approving rule %s", str(new_rule.id))
                     logger(logging.DEBUG, "Created rule %s for injection", str(new_rule.id))

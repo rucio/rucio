@@ -16,12 +16,13 @@ import importlib
 import logging
 import os
 from configparser import NoOptionError, NoSectionError
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from packaging.specifiers import SpecifierSet
 
 from rucio.common import config
 from rucio.common.client import get_client_vo
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
 from rucio.version import current_version
 
@@ -30,6 +31,8 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     from rucio.common.types import LoggerFunction
+
+LOGGER = logging.getLogger('policy')
 
 PolicyPackageAlgorithmsT = TypeVar('PolicyPackageAlgorithmsT', bound='PolicyPackageAlgorithms')
 
@@ -74,11 +77,43 @@ class PolicyPackageAlgorithms:
     """
     _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
+    _default_algorithms: dict[str, 'Callable[..., Any]'] = {}
 
     def __init__(self) -> None:
         if not self._loaded_policy_modules:
             self._register_all_policy_package_algorithms()
             self._loaded_policy_modules = True
+
+    @classmethod
+    def _get_default_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, vo: str = "") -> Optional['Callable[..., Any]']:
+        """
+        Gets the default algorithm of this type, if present in the policy package.
+        The default algorithm is the function named algorithm_type within the module named algorithm_type.
+        Returns None if no default algorithm present.
+        """
+        # check if default algorithm for this VO is already cached
+        type_for_vo = vo + "_" + algorithm_type
+        if type_for_vo in cls._default_algorithms:
+            return cls._default_algorithms[type_for_vo]
+
+        default_algorithm = None
+        try:
+            if vo == DEFAULT_VO:
+                vo = ''
+            package = cls._get_policy_package_name(vo)
+        except (NoOptionError, NoSectionError):
+            return default_algorithm
+
+        module_name = package + "." + algorithm_type
+        try:
+            module = importlib.import_module(module_name)
+
+            if hasattr(module, algorithm_type):
+                default_algorithm = getattr(module, algorithm_type)
+                cls._default_algorithms[type_for_vo] = default_algorithm
+        except ImportError:
+            LOGGER.info('Policy algorithm module %s could not be loaded' % module_name)
+        return default_algorithm
 
     @classmethod
     def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> 'Callable[..., Any]':
@@ -144,15 +179,17 @@ class PolicyPackageAlgorithms:
                     cls._try_importing_policy(vo['vo'])
 
     @classmethod
+    def _get_policy_package_name(cls: type[PolicyPackageAlgorithmsT], vo: str = "") -> str:
+        env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
+        package = os.getenv(env_name, "")
+        if not package:
+            package = str(config.config_get('policy', 'package' + ('' if not vo else '-' + vo)))
+        return package
+
+    @classmethod
     def _try_importing_policy(cls: type[PolicyPackageAlgorithmsT], vo: str = "") -> None:
         try:
-            # import from utils here to avoid circular import
-
-            env_name = 'RUCIO_POLICY_PACKAGE' + ('' if not vo else '_' + vo.upper())
-            package = os.getenv(env_name, "")
-            if not package:
-                package = str(config.config_get('policy', 'package' + ('' if not vo else '-' + vo)))
-
+            package = cls._get_policy_package_name(vo)
             module = importlib.import_module(package)
             check_policy_module_version(module)
 

@@ -69,11 +69,15 @@ class RSEProtocol(ABC):
         self.rse = rse_settings
         self.logger = logger
         if self.rse['deterministic']:
-            self.translator = RSEDeterministicTranslation(self.rse['rse'], rse_settings, self.attributes)
-            if getattr(rsemanager, 'CLIENT_MODE', None) and \
-                    not RSEDeterministicTranslation.supports(self.rse.get('lfn2pfn_algorithm')):
-                # Remote server has an algorithm we don't understand; always make the server do the lookup.
-                setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
+            if getattr(rsemanager, 'SERVER_MODE', None):
+                vo = get_rse_vo(self.rse['id'])
+            if getattr(rsemanager, 'CLIENT_MODE', None):
+                # assume client has only one VO policy package configured
+                vo = ''
+                if not RSEDeterministicTranslation.supports(self.rse.get('lfn2pfn_algorithm')):
+                    # Remote server has an algorithm we don't understand; always make the server do the lookup.
+                    setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
+            self.translator = RSEDeterministicTranslation(self.rse['rse'], rse_settings, self.attributes, vo)
         else:
             if getattr(rsemanager, 'CLIENT_MODE', None):
                 setattr(self, 'lfns2pfns', self.__lfns2pfns_client)
