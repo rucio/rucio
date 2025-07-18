@@ -69,7 +69,7 @@ Individual contributors to the source code
 - Maximilian Linhoff, <maximilian.linhoff@tu-dortmund.de>, 2024
 - Eric Banzuzi, <eric.banzuzi@gmail.com>, 2024
 - Paul Millar, <paul.millar@desy.de>, 2025
-- Vimalan S <vimalan.github@gmail.com>, 202
+- Vimalan S <vimalan.github@gmail.com>, 2025
 
 Organisations employing contributors
 ------------------------------------
