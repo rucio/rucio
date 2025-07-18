@@ -1046,6 +1046,7 @@ class FTS3Transfertool(Transfertool):
                 t_file['scitag'] = self.scitags_exp_id << 6 | activity_id
 
         if t_file['metadata']['dst_type'] == 'TAPE':
+            t_file['metadata']['vo'] = rws.scope.vo
             for plugin in self.tape_metadata_plugins:
                 t_file = deep_merge_dict(source=plugin.hints(t_file['metadata']), destination=t_file)
 

@@ -239,7 +239,7 @@ class DirectTransferImplementation(DirectTransfer):
             # DQ2 path always starts with /, but prefix might not end with /
             naming_convention = dst.rse.attributes.get(RseAttr.NAMING_CONVENTION, None)
             if rws.scope.external is not None:
-                dest_path = construct_non_deterministic_pfn(dsn, rws.scope.external, rws.name, naming_convention)
+                dest_path = construct_non_deterministic_pfn(dsn, rws.scope.external, rws.name, naming_convention, rws.scope.vo)
             if dst.rse.is_tape():
                 if rws.retry_count or rws.activity == 'Recovery':
                     dest_path = '%s_%i' % (dest_path, int(time.time()))

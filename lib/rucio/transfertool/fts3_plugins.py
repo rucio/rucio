@@ -17,6 +17,7 @@ import sys
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from rucio.common.config import config_get_int
+from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
 
@@ -85,7 +86,11 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
         """
         return {"collocation_hints": collocation_func(**hints)}
 
-    def _default(self, *hints: dict) -> dict:
+    def _default(self, hint_dict: dict[str, Any]) -> dict:
+        vo = hint_dict['vo'] if 'vo' in hint_dict else DEFAULT_VO
+        default_algorithm = self._get_default_algorithm(self.ALGORITHM_NAME, vo=vo)
+        if default_algorithm is not None:
+            return default_algorithm(hint_dict)
         return {}
 
     def _verify_in_format(self, hint_dict: dict[str, Any]) -> None:
