@@ -35,6 +35,7 @@ from rucio.common.utils import extract_scope  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
 from rucio.gateway.vo import add_vo  # noqa: E402
+from rucio.tests.common import is_influxdb_available  # noqa: E402
 from rucio.tests.common_server import reset_config_table  # noqa: E402
 
 
@@ -64,16 +65,6 @@ def belleii_bootstrap(client):
                 pass
             except Exception as err:
                 print(err)
-
-
-def is_influxdb_available():
-    try:
-        response = requests.get('http://localhost:8086/ping')
-        if response.status_code == 204:
-            return True
-    except requests.exceptions.ConnectionError:
-        print('InfluxDB is not running at localhost:8086')
-        return False
 
 
 def create_influxdb_database():
