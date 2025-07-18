@@ -60,13 +60,42 @@ def is_influxdb_available() -> bool:
         return False
 
 
-def is_elasticsearch_available() -> bool:
-    """Return True if elasticsearch is available, else return False."""
+def is_elasticsearch_available(
+        url: str = "http://elasticsearch:9200",
+        timeout: float = 2.0,
+        min_status: str = 'green',
+) -> bool:
+    """
+    Return True when the Elasticsearch node is reachable **and**
+    cluster health is at least `min_status` ('red'<'yellow'<'green').
+
+    1. GET /_cluster/health  → 200 + JSON["status"] meets threshold
+    2. Fallback: HEAD /      → 200 (port open but health unknown)
+    """
+    _status_level = {"red": 1, "yellow": 2, "green": 3}
+
+    print(f"Checking Elasticsearch availability at {url}")
     try:
-        response = requests.get('http://localhost:9200/')
-        return response.status_code == 200
-    except requests.exceptions.ConnectionError:
-        print('Elasticsearch is not running at localhost:9200')
+        r = requests.get(f"{url}/_cluster/health", timeout=timeout)
+        print(f"Elasticsearch /_cluster/health responded with {r.status_code} and body: {r.text}")
+        if r.status_code == 200:
+            status = r.json().get("status")
+            if status and _status_level[status] >= _status_level[min_status]:
+                return True
+            print(f"Elasticsearch health is {status!r}, below threshold {min_status!r}.")
+            return False
+    except requests.RequestException as e:
+        # Either not reachable or /_cluster/health not yet available
+        print(f"Failed to query Elasticsearch /_cluster/health at {url}: {e}")
+
+    # Very old nodes or boot‑strapping clusters: fall back to a simple HEAD /
+    try:
+        print(f"Falling back to HEAD request for Elasticsearch at {url}")
+        r = requests.head(url, timeout=timeout)
+        print(f"Elasticsearch HEAD / responded with {r.status_code}")
+        return r.status_code == 200
+    except requests.RequestException as e:
+        print(f"Elasticsearch is not reachable at {url}: {e}")
         return False
 
 
