@@ -59,11 +59,7 @@ class MyListener:
         {
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
-                (
-                    "hermes",
-                    "elastic_endpoint",
-                    "http://localhost:9200/ddm_events/doc/_bulk",
-                ),
+                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/doc/_bulk"),
                 (
                     "hermes",
                     "influxdb_endpoint",
@@ -84,11 +80,7 @@ class MyListener:
         {
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
-                (
-                    "hermes",
-                    "elastic_endpoint",
-                    "http://localhost:9200/ddm_events/doc/_bulk",
-                ),
+                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/doc/_bulk"),
                 (
                     "hermes",
                     "influxdb_endpoint",
@@ -279,7 +271,7 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
     data = ' { "query": { "match_all": {} } }'
     headers = {"Content-Type": "application/json"}
     response = requests.post(
-        "http://localhost:9200/_search?size=1000", data=data, headers=headers
+        "http://elasticsearch:9200/_search?size=1000", data=data, headers=headers
     )
     assert response.status_code == 200
     res = response.json()
