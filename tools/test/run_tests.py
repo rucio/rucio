@@ -238,6 +238,10 @@ def run_test_directly(
     pod_net_arg = ['--pod', pod] if use_podman else []
     scripts_to_run = ' && '.join(
         [
+            # Install Rucio directly from the mounted source
+            'pip install --no-cache-dir -e /rucio_source',
+            # Change to the source directory so that relative paths work
+            'cd /rucio_source',
             './tools/test/test.sh' + (' -p' if tests else ''),
         ]
     )
@@ -254,6 +258,18 @@ def run_test_directly(
             'run',
             '--rm',
             *pod_net_arg,
+            # Mount the source code from the PR as writable
+            '-v', f"{os.path.abspath(os.curdir)}:/rucio_source",
+            '-v', f"{os.path.abspath(os.curdir)}/tools:/opt/rucio/tools:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/bin:/opt/rucio/bin:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/lib:/opt/rucio/lib:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/tests:/opt/rucio/tests:Z",
+            # Mount specific etc subdirectories instead of the entire etc to keep certificates (Copying the entire etc overrides the certificates)
+            '-v', f"{os.path.abspath(os.curdir)}/etc/mail_templates:/opt/rucio/etc/mail_templates:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/etc/automatix.json:/opt/rucio/etc/automatix.json:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/etc/google-cloud-storage-test.json:/opt/rucio/etc/google-cloud-storage-test.json:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/etc/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/etc/rse_repository.json:/opt/rucio/etc/rse_repository.json:Z",
             *(env_args(caseenv)),
             image,
             'sh',
@@ -288,6 +304,22 @@ def run_with_httpd(
                 'rucio': {
                     'image': image,
                     'environment': [f'{k}={v}' for k, v in caseenv.items()],
+                    'working_dir': '/rucio_source',
+                    'entrypoint': ['/rucio_source/etc/docker/dev/rucio/entrypoint.sh'],
+                    'volumes': [
+                        # Mount the current source code from the PR as writable
+                        f"{os.path.abspath(os.curdir)}:/rucio_source",
+                        f"{os.path.abspath(os.curdir)}/tools:/opt/rucio/tools:Z",
+                        f"{os.path.abspath(os.curdir)}/bin:/opt/rucio/bin:Z",
+                        f"{os.path.abspath(os.curdir)}/lib:/opt/rucio/lib:Z",
+                        f"{os.path.abspath(os.curdir)}/tests:/opt/rucio/tests:Z",
+                        # Mount specific etc subdirectories
+                        f"{os.path.abspath(os.curdir)}/etc/mail_templates:/opt/rucio/etc/mail_templates:Z",
+                        f"{os.path.abspath(os.curdir)}/etc/automatix.json:/opt/rucio/etc/automatix.json:Z",
+                        f"{os.path.abspath(os.curdir)}/etc/google-cloud-storage-test.json:/opt/rucio/etc/google-cloud-storage-test.json:Z",
+                        f"{os.path.abspath(os.curdir)}/etc/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:Z",
+                        f"{os.path.abspath(os.curdir)}/etc/rse_repository.json:/opt/rucio/etc/rse_repository.json:Z",
+                    ],
                 },
                 'ruciodb': {
                     'profiles': ['donotstart'],
@@ -311,7 +343,10 @@ def run_with_httpd(
             # Start docker compose
             run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d')
 
-            # Running test.sh
+            # Install Rucio directly from the mounted source
+            run('docker', *namespace_args, 'exec', rucio_container, 'pip', 'install', '--no-cache-dir', '-e', '/rucio_source')
+
+            # Running test.sh from the source directory
             if tests:
                 tests_env = ('--env', 'TESTS=' + ' '.join(tests))
                 tests_arg = ('-p', )
@@ -354,7 +389,19 @@ def run_with_httpd(
 def main():
     obj = json.load(sys.stdin)
     cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
-    run_tests(cases, obj["images"])
+    
+    # Use runtime images if provided
+    if "runtime_images" in obj:
+        images = {}
+        for case in cases:
+            python_version = case.get("PYTHON", "3.9")
+            if python_version in obj["runtime_images"]:
+                images[obj["runtime_images"][python_version]] = {"PYTHON": python_version}
+    else:
+        # Fallback to old behavior (Keeping this here in case we need to change testing startegy in the future)
+        images = obj["images"]
+    
+    run_tests(cases, images)
 
 
 if __name__ == "__main__":
