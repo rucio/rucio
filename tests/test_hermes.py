@@ -60,11 +60,7 @@ class MyListener:
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
                 ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/doc/_bulk"),
-                (
-                    "hermes",
-                    "influxdb_endpoint",
-                    "http://localhost:8086/api/v2/write?org=rucio&bucket=rucio",
-                ),
+                ("hermes", "influxdb_endpoint", "http://influxdb:8086/api/v2/write?org=rucio&bucket=rucio"),
                 ("hermes", "influxdb_token", "mytoken"),
                 ("messaging-hermes", "destination", "/queue/events"),
                 ("messaging-hermes", "brokers", "localhost"),
@@ -81,11 +77,7 @@ class MyListener:
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
                 ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/doc/_bulk"),
-                (
-                    "hermes",
-                    "influxdb_endpoint",
-                    "http://localhost:8086/api/v2/write?org=rucio&bucket=rucio",
-                ),
+                ("hermes", "influxdb_endpoint", "http://influxdb:8086/api/v2/write?org=rucio&bucket=rucio"),
                 ("hermes", "influxdb_token", "mytoken"),
                 ("messaging-hermes", "destination", "/queue/events"),
                 ("messaging-hermes", "brokers", "localhost"),
@@ -245,7 +237,7 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
     # Checking influxDB
     assert service_dict["influx"] == 0
     res = requests.get(
-        "http://localhost:8086/query?db=rucio",
+        "http://influxdb:8086/query?db=rucio",
         headers={"Authorization": "Token mytoken"},
         params={"q": "SELECT * FROM deletion"},
     )

@@ -35,7 +35,6 @@ from rucio.common.utils import extract_scope  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
 from rucio.gateway.vo import add_vo  # noqa: E402
-from rucio.tests.common import is_influxdb_available  # noqa: E402
 from rucio.tests.common_server import reset_config_table  # noqa: E402
 
 
@@ -68,7 +67,8 @@ def belleii_bootstrap(client):
 
 
 def create_influxdb_database():
-    response = requests.get('http://localhost:8086/api/v2/buckets?org=rucio', headers={'Authorization': 'Token mytoken'})
+    response = requests.get('http://influxdb:8086/api/v2/buckets?org=rucio',
+                            headers={'Authorization': 'Token mytoken'})
     if response.status_code == 200:
         json = response.json()
         buckets = json.get('buckets', [])
@@ -76,7 +76,7 @@ def create_influxdb_database():
             bucket_id, name = bucket['id'], bucket['name']
             if name == 'rucio':
                 data = {"bucketId": bucket_id, "database": "rucio", "default": True, "org": "rucio", "retention_policy": "example-rp"}
-                res = requests.post('http://localhost:8086/api/v2/dbrps', headers={'Authorization': 'Token mytoken', 'Content-type': 'application/json'}, data=dumps(data))
+                res = requests.post('http://influxdb:8086/api/v2/dbrps', headers={'Authorization': 'Token mytoken', 'Content-type': 'application/json'}, data=dumps(data))
                 return res
     return response
 
@@ -149,8 +149,3 @@ if __name__ == '__main__':
 
     if os.getenv('POLICY') == 'belleii':
         belleii_bootstrap(client)
-
-    if is_influxdb_available():
-        response = create_influxdb_database()
-        if response.status_code != 201:
-            print('Failed to create rucio database in influxDB : %s' % response.text)
