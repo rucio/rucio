@@ -50,13 +50,36 @@ skip_outside_gh_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") != "tru
                                              reason="Skipping tests outside GitHub Actions")
 
 
-def is_influxdb_available() -> bool:
-    """Return True if influxdb is available, else return False."""
+def is_influxdb_available(
+        url: str = "http://influxdb:8086",
+        timeout: float = 2.0
+) -> bool:
+    """
+    Return True when InfluxDB is up and ready for queries, otherwise False.
+
+    Strategy:
+    1. Try /health           → 200 + JSON["status"] == "pass"
+    2. Fallback to /ping     → 204
+    """
+    print(f"Checking InfluxDB availability at {url}")
     try:
-        response = requests.get('http://localhost:8086/ping')
-        return response.status_code == 204
-    except requests.exceptions.ConnectionError:
-        print('InfluxDB is not running at localhost:8086')
+        r = requests.get(f"{url}/health", timeout=timeout)
+        print(f"InfluxDB /health responded with {r.status_code} and body: {r.text}", r.status_code, r.text)
+        if r.status_code == 200 and r.json().get("status") == "pass":
+            return True
+        print(f"InfluxDB is not running healthy at {url}.")
+        return False
+    except requests.RequestException as e:
+        # /health failed or is not available (pre‑1.8)
+        print(f"Failed to query InfluxDB /health at {url}: {e}")
+
+    try:
+        print(f"Falling back to /ping for InfluxDB at {url}")
+        r = requests.get(f"{url}/ping", timeout=timeout)
+        print(f"InfluxDB /ping responded with {r.status_code}")
+        return r.status_code == 204
+    except requests.RequestException as e:
+        print(f"InfluxDB is not reachable at {url}: {e}")
         return False
 
 
