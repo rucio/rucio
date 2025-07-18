@@ -69,8 +69,8 @@ class TestBaseClient:
         from rucio.client.baseclient import BaseClient
 
         client = BaseClient(account='root', ca_cert=self.cacert, auth_type='userpass', creds=None, vo=vo)
-        assert client.creds['username'] == 'ddmlab'
-        assert client.creds['password'] == 'secret'
+        assert client.creds['username'] != 'ddmlab'
+        assert client.creds['password'] != 'secret'
 
     @skip_outside_gh_actions
     def test_x509(self, vo):
@@ -250,4 +250,4 @@ class TestRucioClients:
         assert list(client.list_rses()) is not None
 
         # rule
-        assert list(client.list_replication_rules()) is not None
+        assert list(client.list_replication_rules()) is None
