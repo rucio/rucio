@@ -56,7 +56,7 @@ def add_files(
         dids = []
         rses = {}
         for lfn in lfns:
-            scope, name = extract_scope(lfn['lfn'], scopes)
+            scope, name = extract_scope(lfn['lfn'], scopes, vo=vo)
             dids.append({'scope': scope, 'name': name})
             rse = lfn['rse']
             if rse not in rses:

@@ -50,7 +50,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
                 algorithm_name = "def"
             logger.debug("PFN2LFN: Falling back to %s algorithm.", 'default' if algorithm_name == 'def' else algorithm_name)
 
-        self.parser = self.get_parser(algorithm_name)
+        self.parser = self.get_parser(algorithm_name, vo)
 
     @classmethod
     def _module_init_(cls) -> None:
@@ -60,8 +60,14 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         cls.register(cls._default, "def")
 
     @classmethod
-    def get_parser(cls, algorithm_name: str) -> 'Callable[..., Any]':
-        return super()._get_one_algorithm(cls._algorithm_type, algorithm_name)
+    def get_parser(cls, algorithm_name: str, vo: str) -> 'Callable[..., Any]':
+        result = None
+        if algorithm_name == vo:
+            # default algorithm for VO
+            result = super()._get_default_algorithm(RSEDeterministicScopeTranslation._algorithm_type, vo)
+        if result is None:
+            result = super()._get_one_algorithm(cls._algorithm_type, algorithm_name)
+        return result
 
     @classmethod
     def register(
@@ -111,7 +117,8 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
             self,
             rse: Optional[str] = None,
             rse_attributes: Optional["RSESettingsDict"] = None,
-            protocol_attributes: Optional[dict[str, Any]] = None
+            protocol_attributes: Optional[dict[str, Any]] = None,
+            vo: str = DEFAULT_VO
     ):
         """
         Initialize a translator object from the RSE, its attributes, and the protocol-specific
@@ -125,6 +132,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         self.rse = rse
         self.rse_attributes = rse_attributes if rse_attributes else {}
         self.protocol_attributes = protocol_attributes if protocol_attributes else {}
+        self.vo = vo
 
     @classmethod
     def supports(
@@ -251,9 +259,12 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
             :returns: RSE specific URI of the physical file
         """
         algorithm = self.rse_attributes.get(RseAttr.LFN2PFN_ALGORITHM, 'default')
-        if algorithm == 'default':
+        algorithm_callable = None
+        if algorithm == 'default' or algorithm == RSEDeterministicTranslation._DEFAULT_LFN2PFN:
             algorithm = RSEDeterministicTranslation._DEFAULT_LFN2PFN
-        algorithm_callable = super()._get_one_algorithm(RSEDeterministicTranslation._algorithm_type, algorithm)
+            algorithm_callable = super()._get_default_algorithm(RSEDeterministicTranslation._algorithm_type, self.vo)
+        if algorithm_callable is None:
+            algorithm_callable = super()._get_one_algorithm(RSEDeterministicTranslation._algorithm_type, algorithm)
         return algorithm_callable(scope, name, self.rse, self.rse_attributes, self.protocol_attributes)
 
 
