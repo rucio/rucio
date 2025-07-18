@@ -157,7 +157,7 @@ def test_activity_missing(file_config_mock, did_factory, rse_factory, root_accou
 
 
 class TestCollocationHints:
-    class TestCollocationPlugin(FTS3TapeMetadataPlugin):
+    class MockCollocationPlugin(FTS3TapeMetadataPlugin):
         def __init__(self) -> None:
             self.register(
                 'test',
@@ -167,7 +167,7 @@ class TestCollocationHints:
         def _test_collocation(self, hints: dict[str, str]) -> dict[str, dict]:
             return {"collocation_hints": {"0": "", "1": "", "2": "", "3": ""}}
 
-    TestCollocationPlugin()
+    MockCollocationPlugin()
 
     @pytest.mark.parametrize("file_config_mock", [
         {
