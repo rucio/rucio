@@ -50,23 +50,66 @@ skip_outside_gh_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") != "tru
                                              reason="Skipping tests outside GitHub Actions")
 
 
-def is_influxdb_available() -> bool:
-    """Return True if influxdb is available, else return False."""
+def is_influxdb_available(
+        url: str = "http://influxdb:8086",
+        timeout: float = 2.0
+) -> bool:
+    """
+    Return True when InfluxDB is up and ready for queries, otherwise False.
+
+    Strategy:
+    1. Try /health           → 200 + JSON["status"] == "pass"
+    2. Fallback to /ping     → 204
+    """
     try:
-        response = requests.get('http://localhost:8086/ping')
-        return response.status_code == 204
-    except requests.exceptions.ConnectionError:
-        print('InfluxDB is not running at localhost:8086')
+        r = requests.get(f"{url}/health", timeout=timeout)
+        if r.status_code == 200 and r.json().get("status") == "pass":
+            return True
+        else:
+            print(f"InfluxDB is not running healthy at {url}.")
+            return False
+    except requests.RequestException:
+        # /health failed or is not available (pre‑1.8)
+        pass
+
+    try:
+        return requests.get(f"{url}/ping", timeout=timeout).status_code == 204
+    except requests.RequestException:
+        print(f"InfluxDB is not reachable at {url}.")
         return False
 
 
-def is_elasticsearch_available() -> bool:
-    """Return True if elasticsearch is available, else return False."""
+def is_elasticsearch_available(
+        url: str = "http://elasticsearch:9200",
+        timeout: float = 2.0,
+        min_status: str = 'green',
+) -> bool:
+    """
+    Return True when the Elasticsearch node is reachable **and**
+    cluster health is at least `min_status` ('red'<'yellow'<'green').
+
+    1. GET /_cluster/health  → 200 + JSON["status"] meets threshold
+    2. Fallback: HEAD /      → 200 (port open but health unknown)
+    """
+    _status_level = {"red": 1, "yellow": 2, "green": 3}
+
     try:
-        response = requests.get('http://localhost:9200/')
-        return response.status_code == 200
-    except requests.exceptions.ConnectionError:
-        print('Elasticsearch is not running at localhost:9200')
+        r = requests.get(f"{url}/_cluster/health", timeout=timeout)
+        if r.status_code == 200:
+            status = r.json().get("status")
+            if status and _status_level[status] >= _status_level[min_status]:
+                return True
+            print(f"Elasticsearch health is {status!r}, below threshold {min_status!r}.")
+            return False
+    except requests.RequestException:
+        # Either not reachable or /_cluster/health not yet available
+        pass
+
+    # Very old nodes or boot‑strapping clusters: fall back to a simple HEAD /
+    try:
+        return requests.head(url, timeout=timeout).status_code == 200
+    except requests.RequestException:
+        print(f"Elasticsearch is not reachable at {url}.")
         return False
 
 
