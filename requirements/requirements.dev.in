@@ -3,6 +3,7 @@
 pytest==7.4.3
 pytest-cov==5.0.0                                           # Test coverage
 pytest-xdist==3.5.0, <3.6                                   # Used for parallel testing; config-related issues >= 3.6 (could be fixed in Python 3.10)
+pytest-rerunfailures==15.1
 pyflakes==3.1.0                                             # Passive checker of Python programs
 pycodestyle==2.11.0                                         # New package replacing pep8; python_version < '3.9'
 astroid==3.0.1
