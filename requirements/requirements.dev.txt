@@ -382,8 +382,11 @@ pytest==7.4.3
     # via
     #   -r requirements.dev.in
     #   pytest-cov
+    #   pytest-rerunfailures
     #   pytest-xdist
 pytest-cov==5.0.0
+    # via -r requirements.dev.in
+pytest-rerunfailures==15.1
     # via -r requirements.dev.in
 pytest-xdist==3.5.0
     # via -r requirements.dev.in
