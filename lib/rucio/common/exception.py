@@ -1206,3 +1206,58 @@ class ConnectionParameterNotFound(RucioException):
         super(ConnectionParameterNotFound, self).__init__(*args)
         self._message = f"Required connection parameter '{param}' is not provided."
         self.error_code = 114
+
+
+class OpenDataError(RucioException):
+    """
+    Error related to open data.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataError, self).__init__(*args)
+        self._message = f"Error related to open data."
+        self.error_code = 115
+
+
+class OpenDataDataIdentifierNotFound(OpenDataError):
+    """
+    Throws when the data identifier is not in the open data catalog.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataDataIdentifierNotFound, self).__init__(*args)
+        self._message = f"Data identifier not found in the open data catalog."
+        self.error_code = 116
+
+
+class OpenDataDataIdentifierAlreadyExists(OpenDataError):
+    """
+    Throws when the data identifier already exists in the open data catalog.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataDataIdentifierAlreadyExists, self).__init__(*args)
+        self._message = f"Data identifier already exists in the open data catalog."
+        self.error_code = 117
+
+
+class OpenDataInvalidState(OpenDataError):
+    """
+    Throws when the open data entry is in an invalid state.
+    """
+
+    def __init__(self, *args):
+        super(OpenDataInvalidState, self).__init__(*args)
+        self._message = f"Open data entry is in an invalid state."
+        self.error_code = 118
+
+
+class OpenDataInvalidStateUpdate(OpenDataError):
+    """
+    Throws when a forbidden state update is attempted (e.g. from public to draft).
+    """
+
+    def __init__(self, *args):
+        super(OpenDataInvalidStateUpdate, self).__init__(*args)
+        self._message = f"Invalid state update attempted on open data entry."
+        self.error_code = 119
