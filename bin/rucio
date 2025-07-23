@@ -97,7 +97,7 @@ def map_legacy_command() -> Optional[list[str]]:
 
 
 if __name__ == "__main__":
-    commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download")
+    commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download", "opendata")
 
     parser = argparse.ArgumentParser(add_help=False)
     # Check for legacy flag
