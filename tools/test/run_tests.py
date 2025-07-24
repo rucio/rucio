@@ -270,6 +270,7 @@ def run_test_directly(
             '-v', f"{os.path.abspath(os.curdir)}/etc/google-cloud-storage-test.json:/opt/rucio/etc/google-cloud-storage-test.json:Z",
             '-v', f"{os.path.abspath(os.curdir)}/etc/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:Z",
             '-v', f"{os.path.abspath(os.curdir)}/etc/rse_repository.json:/opt/rucio/etc/rse_repository.json:Z",
+            '-v', f"{os.path.abspath(os.curdir)}/etc/docker/test/matrix_policy_package_tests.yml:/opt/rucio/etc/docker/test/matrix_policy_package_tests.yml:Z",
             *(env_args(caseenv)),
             image,
             'sh',
@@ -319,6 +320,7 @@ def run_with_httpd(
                         f"{os.path.abspath(os.curdir)}/etc/google-cloud-storage-test.json:/opt/rucio/etc/google-cloud-storage-test.json:Z",
                         f"{os.path.abspath(os.curdir)}/etc/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:Z",
                         f"{os.path.abspath(os.curdir)}/etc/rse_repository.json:/opt/rucio/etc/rse_repository.json:Z",
+                        f"{os.path.abspath(os.curdir)}/etc/docker/test/matrix_policy_package_tests.yml:/opt/rucio/etc/docker/test/matrix_policy_package_tests.yml:Z",
                     ],
                 },
                 'ruciodb': {
