@@ -9,6 +9,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  runtime_images:
+    name: Build Python 3.9 Runtime Image
+    uses: ./.github/workflows/runtime_images.yml
+    permissions:
+      packages: write
   setup:
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +33,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
 
   integration-tests:
-    needs: setup
+    needs: [runtime_images, setup]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -93,34 +98,39 @@ jobs:
               echo "Tag $GIT_REF not found in rucio/containers. Integration test containers will be built against the master branch instead."
               git checkout master
           fi
-      - name: Use rucio/containers Dockerfile for integration tests
-        shell: bash
-        run: |
-          sed -i 's;RUN git clone .*;COPY ./rucio /tmp/rucio;' $GITHUB_WORKSPACE/dev/alma9.Dockerfile
-      - name: Build rucio-dev images
+      - name: Set up Docker Buildx
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      - name: Build Python 3.9 image locally
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: etc/docker/test/runtime.Dockerfile
+          target: final
+          build-args: |
+            PYTHON=3.9
+          push: false
+          tags: ${{ needs.runtime_images.outputs.py39_image }}
+          outputs: type=docker
+        continue-on-error: false
+      - name: Pull all required images
         id: images
         shell: bash
         run: |
-          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
           docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam pull
-          i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | $GITHUB_WORKSPACE/dev/rucio/tools/test/build_images.py --output list \
-                --cache-repo ghcr.io/${{ github.repository }} --branch "${{ needs.setup.outputs.branch }}" \
-                $GITHUB_WORKSPACE/dev || echo "")
-            if [[ -n $IMAGES ]]; then break;
-            else
-              i=$((i+1)); sleep 5;
-              echo "::warning::Building images failed, retrying…"
-            fi
-          done
-          docker logout https://ghcr.io
-          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "images=$IMAGES" >> $GITHUB_OUTPUT
-      - name: Prepare Docker Compose
+      - name: Set Runtime Image in Docker Compose
         shell: bash
         run: |
           docker image ls
-          sed -i 's;image: docker.io/rucio/rucio-dev.*;image: ${{ fromJSON(steps.images.outputs.images)[0] }};' \
+          sed -i 's;image: .*rucio-dev.*;image: ${{ needs.runtime_images.outputs.py39_image }};' \
               $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml
       - name: Start containers
         run: |
@@ -129,8 +139,13 @@ jobs:
       - name: Initialize tests
         shell: bash
         run: |
-          docker exec -t dev-rucio-1 cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
-          docker exec -t dev-rucio-1 tools/run_tests.sh -ir
+          docker exec -t dev-rucio-1 bash -c "
+            set -e
+            cd /rucio_source
+            cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
+            pip install --no-cache-dir -e /rucio_source
+            tools/run_tests.sh -ir
+          "
       - name: File Upload/Download Test
         run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rucio_server.py
       - name: UploadClient Test
