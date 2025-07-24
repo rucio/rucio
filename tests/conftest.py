@@ -52,6 +52,17 @@ _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--suite", 
+                     choices=["client", "remote_dbs", "sqlite", "multi_vo", "votest"], 
+                     default="remote_dbs",
+                     help="Test suite to run (matches existing SUITE env var)")
+    parser.addoption("--activate-rses", action="store_true", 
+                     help="Activate default RSEs (XRD1, XRD2, XRD3, SSH1)")
+    parser.addoption("--keep-db", action="store_true", 
+                     help="Keep database from previous run")
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
@@ -796,3 +807,219 @@ def db_write_session():
 
     with db_session(DatabaseOperationType.WRITE) as session:
         yield session
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_environment_setup(request: pytest.FixtureRequest) -> None:
+    """
+    Session-level setup for test environment based on suite type.
+    Handles memcached, cleanup, and basic environment preparation.
+    """
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    
+    suite = request.config.getoption("--suite")
+    
+    # Set SUITE environment variable for compatibility with existing code
+    os.environ['SUITE'] = suite
+    
+    if suite == "client":
+        # Client-only tests need minimal setup
+        return
+    
+    # Server tests need full environment setup
+    print("Setting up test environment for suite:", suite)
+    
+    # Start memcached if not running
+    try:
+        subprocess.run(['memcached', '-u', 'root', '-d'], check=False, capture_output=True)
+    except FileNotFoundError:
+        print("Warning: memcached not found, skipping memcached setup")
+    
+    # Clear memcache
+    try:
+        with open('/dev/tcp/127.0.0.1/11211', 'w') as f:
+            f.write('flush_all\n')
+    except:
+        # Alternative method using netcat or telnet if direct socket fails
+        try:
+            subprocess.run(['echo', 'flush_all'], stdout=subprocess.PIPE, check=False)
+        except:
+            print("Warning: Could not clear memcache")
+    
+    # Cleanup temporary files
+    temp_patterns = [
+        '/tmp/.rucio_*/',
+        '/tmp/rucio_rse/*'
+    ]
+    
+    for pattern in temp_patterns:
+        try:
+            import glob
+            for path in glob.glob(pattern):
+                if os.path.isdir(path):
+                    import shutil
+                    shutil.rmtree(path, ignore_errors=True)
+                elif os.path.isfile(path):
+                    os.remove(path)
+        except Exception as e:
+            print(f"Warning: Could not cleanup {pattern}: {e}")
+    
+    # Clean .pyc files from lib directory
+    try:
+        subprocess.run(['find', 'lib', '-iname', '*.pyc', '-delete'], 
+                      check=False, capture_output=True)
+    except Exception as e:
+        print(f"Warning: Could not clean .pyc files: {e}")
+
+
+@pytest.fixture(scope="session")
+def database_setup(request: pytest.FixtureRequest, test_environment_setup) -> None:
+    """
+    Session-level database setup and reset.
+    Only runs for server test suites that need database access.
+    """
+    import os
+    import subprocess
+    
+    suite = request.config.getoption("--suite")
+    keep_db = request.config.getoption("--keep-db")
+    
+    if suite == "client":
+        pytest.skip("Client tests don't need database setup")
+    
+    print("Setting up database for suite:", suite)
+    
+    if not keep_db:
+        print("Resetting database tables")
+        
+        # Remove old SQLite databases
+        sqlite_paths = ['/tmp/rucio.db']
+        for db_path in sqlite_paths:
+            if os.path.exists(db_path):
+                print(f"Removing old SQLite database: {db_path}")
+                os.remove(db_path)
+        
+        # Reset database using existing tool
+        try:
+            result = subprocess.run(['python', 'tools/reset_database.py'], 
+                                  check=True, capture_output=True, text=True)
+            print("Database reset completed")
+        except subprocess.CalledProcessError as e:
+            print(f"Database reset failed: {e}")
+            print(f"stdout: {e.stdout}")
+            print(f"stderr: {e.stderr}")
+            pytest.fail("Failed to reset database")
+        
+        # Fix SQLite permissions if database exists
+        for db_path in sqlite_paths:
+            if os.path.exists(db_path):
+                print(f"Setting SQLite database permissions: {db_path}")
+                os.chmod(db_path, 0o666)
+    
+    # Run Alembic migrations
+    try:
+        env = os.environ.copy()
+        if 'RUCIO_HOME' not in env:
+            env['RUCIO_HOME'] = '/opt/rucio'
+        env['ALEMBIC_CONFIG'] = f"{env['RUCIO_HOME']}/etc/alembic.ini"
+        
+        result = subprocess.run(['tools/alembic_migration.sh'], 
+                              check=True, capture_output=True, text=True, env=env)
+        print("Alembic migration completed")
+    except subprocess.CalledProcessError as e:
+        print(f"Alembic migration failed: {e}")
+        print(f"stdout: {e.stdout}")
+        print(f"stderr: {e.stderr}")
+        pytest.fail("Failed to run Alembic migrations")
+
+
+@pytest.fixture(scope="session")
+def rucio_bootstrap(request: pytest.FixtureRequest, database_setup, test_environment_setup) -> None:
+    """
+    Session-level Rucio bootstrap setup.
+    Handles Apache restart, test data bootstrap, RSE sync, and metadata sync.
+    """
+    import os
+    import subprocess
+    
+    suite = request.config.getoption("--suite")
+    activate_rses = request.config.getoption("--activate-rses")
+    
+    if suite == "client":
+        print("Client suite: minimal bootstrap")
+        # Set client-specific configuration
+        source_path = os.environ.get('RUCIO_HOME', '/opt/rucio')
+        client_cfg = f"{source_path}/etc/docker/test/extra/rucio_client.cfg"
+        target_cfg = f"{source_path}/etc/rucio.cfg"
+        
+        if os.path.exists(client_cfg):
+            import shutil
+            shutil.copy2(client_cfg, target_cfg)
+            print(f"Copied client config from {client_cfg} to {target_cfg}")
+        return
+    
+    print("Server suite: full bootstrap")
+    
+    # Restart Apache httpd
+    try:
+        subprocess.run(['httpd', '-k', 'graceful'], check=True, capture_output=True)
+        print("Apache httpd restarted")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Could not restart Apache: {e}")
+    except FileNotFoundError:
+        print("Warning: httpd not found, skipping Apache restart")
+    
+    # Bootstrap test data
+    try:
+        result = subprocess.run(['python', 'tools/bootstrap_tests.py'], 
+                              check=True, capture_output=True, text=True)
+        print("Test data bootstrap completed")
+    except subprocess.CalledProcessError as e:
+        print(f"Bootstrap failed: {e}")
+        print(f"stdout: {e.stdout}")
+        print(f"stderr: {e.stderr}")
+        pytest.fail("Failed to bootstrap test data")
+    
+    # Sync RSE repository
+    try:
+        if suite == "special" and os.path.exists('etc/rse_repository.json.special'):
+            result = subprocess.run(['python', 'tools/sync_rses.py', 'etc/rse_repository.json.special'],
+                                  check=True, capture_output=True, text=True)
+        else:
+            result = subprocess.run(['python', 'tools/sync_rses.py'], 
+                                  check=True, capture_output=True, text=True)
+        print("RSE repository sync completed")
+    except subprocess.CalledProcessError as e:
+        print(f"RSE sync failed: {e}")
+        print(f"stdout: {e.stdout}")
+        print(f"stderr: {e.stderr}")
+        pytest.fail("Failed to sync RSE repository")
+    
+    # Sync metadata keys
+    try:
+        result = subprocess.run(['python', 'tools/sync_meta.py'], 
+                              check=True, capture_output=True, text=True)
+        print("Metadata sync completed")
+    except subprocess.CalledProcessError as e:
+        print(f"Metadata sync failed: {e}")
+        print(f"stdout: {e.stdout}")
+        print(f"stderr: {e.stderr}")
+        pytest.fail("Failed to sync metadata")
+    
+    # Activate RSEs if requested
+    if activate_rses:
+        print("Activating default RSEs (XRD1, XRD2, XRD3, SSH1)")
+        try:
+            result = subprocess.run(['tools/docker_activate_rses.sh'], 
+                                  check=True, capture_output=True, text=True)
+            print("RSE activation completed")
+        except subprocess.CalledProcessError as e:
+            print(f"RSE activation failed: {e}")
+            print(f"stdout: {e.stdout}")
+            print(f"stderr: {e.stderr}")
+            pytest.fail("Failed to activate RSEs")
+        except FileNotFoundError:
+            print("Warning: docker_activate_rses.sh not found, skipping RSE activation")

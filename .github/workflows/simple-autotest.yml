@@ -106,9 +106,17 @@ jobs:
             wait_for_httpd
           "
       - name: Run Tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "True"
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} --profile ${{ env.PROFILE }} exec rucio bash -c "
-            tools/run_tests.sh
+            python -m pytest \
+              --suite=remote_dbs \
+              -r fExX \
+              --log-level=DEBUG \
+              -v --tb=short \
+              -p xdist --numprocesses=3 \
+              tests/
           "
 
       - name: Cleanup docker-compose services
