@@ -10,6 +10,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  runtime_images:
+    name: Build Runtime Images
+    uses: ./.github/workflows/runtime_images.yml
+    permissions:
+      packages: write
+
   setup:
     runs-on: ubuntu-latest
     steps:
@@ -27,8 +33,9 @@ jobs:
     outputs:
       branch: ${{ steps.branch.outputs.branch }}
       matrix: ${{ steps.matrix.outputs.matrix }}
+
   test:
-    needs: setup
+    needs: [runtime_images, setup]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -36,9 +43,32 @@ jobs:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Build Images and Run Tests
-        uses: ./.github/actions/build-images-and-run-tests
+      - name: Set up Docker Buildx
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
-          cfg: ${{ toJson(matrix.cfg) }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ needs.setup.outputs.branch }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Python 3.9 image locally
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: etc/docker/test/runtime.Dockerfile
+          target: final
+          build-args: |
+            PYTHON=3.9
+          push: false
+          tags: ${{ needs.runtime_images.outputs.py39_image }}
+          outputs: type=docker
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache
+
+      - name: Run test with cfg
+        env:
+          PY39_RUNTIME_IMAGE: ${{ needs.runtime_images.outputs.py39_image }}
+          BUILD_LOCALLY: ${{ needs.runtime_images.outputs.build_locally }}
+        run: |
+          echo '{"matrix": ${{ toJson(matrix.cfg) }}, "runtime_images": {"3.9": "${{ needs.runtime_images.outputs.py39_image }}"}, "build_locally": "${{ needs.runtime_images.outputs.build_locally }}" }' | ./tools/test/run_tests.py
