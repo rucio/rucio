@@ -1,0 +1,9 @@
+name: dev
+
+services:
+  rucio:
+    image: ${RUCIO_TEST_IMAGE}
+  
+  ruciodb:
+    profiles:
+      - donotstart

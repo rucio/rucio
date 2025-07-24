@@ -69,22 +69,13 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
 
-      - name: Create docker-compose override
-        run: |
-          cat > docker-compose.override.yml << 'EOF'
-          services:
-            rucio:
-              image: ${{ steps.image-tag.outputs.tag  }}
-            ruciodb:
-              profiles:
-                - donotstart
-          EOF
-
       - name: Start services with docker-compose (httpd tests)
+        env:
+          RUCIO_TEST_IMAGE: ${{ steps.image-tag.outputs.tag }}
         run: |
           docker compose -p ${{ env.COMPOSE_PROJECT }} \
             --file etc/docker/dev/docker-compose.yml \
-            --file docker-compose.override.yml \
+            --file etc/docker/dev/docker-compose.test.override.yml \
             --profile ${{ env.PROFILE }} \
             up -d
       - name: Wait for services to be ready
