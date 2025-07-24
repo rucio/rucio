@@ -99,15 +99,33 @@ FROM python AS rucio-runtime
         dnf -y update && \
         dnf install -y \
         xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel \
-        httpd-devel \
+        httpd httpd-devel \
         libnsl libaio \
         memcached \
         gridsite \
         sqlite \
-        gfal2-devel \
+        gfal2-devel gfal2-all python3-gfal2-util python3-gfal2 \
         nodejs npm \
         glibc-langpack-en \
-        git
+        xrootd-client \
+        git \
+        swig \
+        gmp-devel \
+        krb5-devel \
+        libxml2-devel \
+        mariadb-connector-c \
+        mod_ssl \
+        mod_auth_gssapi \
+        multitail \
+        nmap-ncat \
+        openssh-clients \
+        openssl-devel \
+        python3-m2crypto \
+        rsync \
+        unzip \
+        vim \
+        voms-clients-java \
+        which
 
     # Set up directories and permissions for mounting source code
     RUN mkdir -p /opt/rucio/lib /opt/rucio/bin /opt/rucio/tools /opt/rucio/etc /opt/rucio/tests && \
@@ -148,8 +166,10 @@ FROM rucio-runtime AS requirements
     RUN dnf -y update --nobest && \
         dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
         python3 -m pip --no-cache-dir install --upgrade pip && \
+        python3 -m pip --no-cache-dir install --upgrade fts3 && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
         python3 -m pip --no-cache-dir install --upgrade -r /tmp/requirements/requirements.server.txt -r /tmp/requirements/requirements.dev.txt
+    RUN curl https://rclone.org/install.sh | bash
 
 FROM requirements AS final
 
@@ -178,4 +198,4 @@ FROM requirements AS final
     VOLUME /opt/rucio/etc
 
     ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-    CMD ["httpd","-D","FOREGROUND"] 
+    CMD ["httpd","-D","FOREGROUND"]
