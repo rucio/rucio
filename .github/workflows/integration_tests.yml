@@ -112,8 +112,8 @@ jobs:
         if: needs.runtime_images.outputs.build_locally == 'true'
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
-          context: .
-          file: etc/docker/test/runtime.Dockerfile
+          context: dev/rucio
+          file: dev/rucio/etc/docker/test/runtime.Dockerfile
           target: final
           build-args: |
             PYTHON=3.9
