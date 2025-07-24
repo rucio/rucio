@@ -247,17 +247,14 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
 
 
 def _rse_deletion_hostname(rse: RseData, scheme: Optional[str]) -> Optional[str]:
-    """
-    Retrieves the hostname of the default deletion protocol
-    """
+    """Retrieve the hostname of the highest-priority WAN deletion protocol."""
     rse.ensure_loaded(load_info=True)
-    for prot in rse.info['protocols']:
-        if scheme:
-            if prot['scheme'] == scheme and prot['domains']['wan']['delete'] != 0:
-                return prot['hostname']
-        else:
-            if prot['domains']['wan']['delete'] == 1:
-                return prot['hostname']
+    delete_protocols = [prot for prot in rse.info['protocols']
+                        if prot['domains']['wan']['delete']]    # Drop None and 0.
+    for prot in sorted(delete_protocols, key=lambda p: p['domains']['wan']['delete']):    # type: ignore (None excluded above)
+        if scheme and prot['scheme'] != scheme:
+            continue
+        return prot['hostname']
     return None
 
 
