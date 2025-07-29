@@ -37,11 +37,8 @@ def did():
 @click.option("--short", is_flag=True, default=False, help="Dump the list of DIDs")
 @click.argument("did-pattern", nargs=-1)
 @click.option("--parent", default=False, is_flag=True, help="List the parents of the DID - must use a full DID scope and name")
-# TODO Implement or remove option - view https://github.com/rucio/rucio/issues/7230
-@click.option("--pfn", hidden=True)
-@click.option("--guid", hidden=True)
 @click.pass_context
-def list_(ctx, did_pattern, recursive, filter_, short, parent, pfn, guid):
+def list_(ctx, did_pattern, recursive, filter_, short, parent):
     """
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
