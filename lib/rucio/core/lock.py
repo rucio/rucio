@@ -553,6 +553,9 @@ def touch_dataset_locks(dataset_locks: "Iterable[dict[str, Any]]", *, session: "
             }).execution_options(
                 synchronize_session=False
             )
+
+            session.execute(stmt)
+
             subq = select(
                 models.DatasetLock.rule_id
             ).where(
