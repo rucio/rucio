@@ -21,7 +21,7 @@ from flask import Flask, Response, jsonify, redirect, request
 from rucio.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.account import add_account, add_account_attribute, del_account, del_account_attribute, get_account_info, get_usage_history, list_account_attributes, list_accounts, list_identities, update_account
-from rucio.gateway.account_limit import get_global_account_limit, get_global_account_usage, get_local_account_limit, get_local_account_usage
+from rucio.gateway.account_limit import delete_global_account_limit, delete_local_account_limit, get_global_account_limit, get_global_account_usage, get_local_account_limit, get_local_account_usage, set_global_account_limit, set_local_account_limit
 from rucio.gateway.identity import add_account_identity, del_account_identity
 from rucio.gateway.rule import list_replication_rules
 from rucio.gateway.scope import add_scope, get_scopes
@@ -567,6 +567,96 @@ class LocalAccountLimits(ErrorHandlingMethodView):
 
         return Response(render_json(**limits), content_type="application/json")
 
+    def post(self, account: str, rse: str) -> 'ResponseReturnValue':
+        """
+        ---
+        summary: Create or update a local account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  bytes:
+                    description: The new limit in bytes.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
+        """
+        parameters = json_parameters()
+        bytes_param = param_get(parameters, 'bytes')
+        try:
+            set_local_account_limit(account=account, rse=rse, bytes_=bytes_param, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except (RSENotFound, AccountNotFound) as error:
+            return generate_http_error_flask(404, error)
+
+        return 'Created', 201
+
+    def delete(self, account: str, rse: str) -> 'ResponseReturnValue':
+        """
+        ---
+        summary: Delete a local account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: The rse for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
+        """
+        try:
+            delete_local_account_limit(account=account, rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except (AccountNotFound, RSENotFound) as error:
+            return generate_http_error_flask(404, error)
+
+        return '', 200
+
 
 class GlobalAccountLimits(ErrorHandlingMethodView):
     @check_accept_header_wrapper_flask(['application/json'])
@@ -611,6 +701,102 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
         return Response(render_json(**limits), content_type="application/json")
+
+    def post(self, account: str, rse_expression: str) -> 'ResponseReturnValue':
+        """
+        ---
+        summary: Create or update a global account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse_expression
+          in: path
+          description: The rse expression for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        requestBody:
+          content:
+            'application/json':
+              schema:
+                type: object
+                required:
+                - bytes
+                properties:
+                  bytes:
+                    description: The new limit in bytes.
+                    type: integer
+        responses:
+          201:
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['Created']
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
+        """
+        parameters = json_parameters()
+        bytes_param = param_get(parameters, 'bytes')
+        try:
+            set_global_account_limit(
+                account=account,
+                rse_expression=rse_expression,
+                bytes_=bytes_param,
+                issuer=request.environ['issuer'],
+                vo=request.environ['vo'],
+            )
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except (RSENotFound, AccountNotFound) as error:
+            return generate_http_error_flask(404, error)
+
+        return 'Created', 201
+
+    def delete(self, account: str, rse_expression: str) -> 'ResponseReturnValue':
+        """
+        ---
+        summary: Delete a global account limit
+        tags:
+          - Account Limit
+        parameters:
+        - name: account
+          in: path
+          description: The account for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        - name: rse_expression
+          in: path
+          description: The rse expression for the accountlimit.
+          schema:
+            type: string
+          style: simple
+        responses:
+          200:
+            description: OK
+          401:
+            description: Invalid Auth Token
+          404:
+            description: No RSE or account found for the given id.
+        """
+        try:
+            delete_global_account_limit(account=account, rse_expression=rse_expression, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except (AccountNotFound, RSENotFound) as error:
+            return generate_http_error_flask(404, error)
+
+        return '', 200
 
 
 class Identities(ErrorHandlingMethodView):
@@ -1055,11 +1241,11 @@ def blueprint(with_doc: bool = False) -> AuthenticatedBlueprint:
     local_account_limits_view = LocalAccountLimits.as_view('local_account_limit')
     bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, methods=['get', ])
     bp.add_url_rule('/<account>/limits', view_func=local_account_limits_view, methods=['get', ])
-    bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', 'post', 'delete'])
     bp.add_url_rule('/<account>/limits/<rse>', view_func=local_account_limits_view, methods=['get', ])
     global_account_limits_view = GlobalAccountLimits.as_view('global_account_limit')
     bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=['get', ])
-    bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', 'post', 'delete'])
     identities_view = Identities.as_view('identities')
     bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
     rules_view = Rules.as_view('rules')
@@ -1088,6 +1274,24 @@ def blueprint(with_doc: bool = False) -> AuthenticatedBlueprint:
 
     bp.after_request(response_headers)
     return bp
+
+
+def blueprint_legacy(with_doc: bool = False) -> AuthenticatedBlueprint:
+    # TODO Remove in 42.0
+    # View issue https://github.com/rucio/rucio/issues/7826
+    # Old route for accountlimits (which is separated from account_limit)
+    # should not in included in documentation
+    account_limits_bp = AuthenticatedBlueprint('accountlimits', __name__, url_prefix='/accountlimits')
+
+    if not with_doc:
+        local_account_limit_view = LocalAccountLimits.as_view('local_account_limit')
+        account_limits_bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
+        account_limits_bp.add_url_rule('/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
+        global_account_limit_view = GlobalAccountLimits.as_view('global_account_limit')
+        account_limits_bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=['post', 'delete'])
+
+        account_limits_bp.after_request(response_headers)
+    return account_limits_bp
 
 
 def make_doc() -> Flask:
