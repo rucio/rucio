@@ -542,7 +542,7 @@ def touch_dataset_locks(dataset_locks: "Iterable[dict[str, Any]]", *, session: "
     for dataset_lock in dataset_locks:
         eol_at = define_eol(dataset_lock['scope'], dataset_lock['name'], rses=[{'id': dataset_lock['rse_id']}], session=session)
         try:
-            stmt = update(
+            update_dslock_stmt = update(
                 models.DatasetLock
             ).where(
                 and_(models.DatasetLock.scope == dataset_lock['scope'],
@@ -553,27 +553,25 @@ def touch_dataset_locks(dataset_locks: "Iterable[dict[str, Any]]", *, session: "
             }).execution_options(
                 synchronize_session=False
             )
+            session.execute(update_dslock_stmt)
 
-            session.execute(stmt)
-
-            subq = select(
+            update_rule_subq = select(
                 models.DatasetLock.rule_id
             ).where(
                 and_(models.DatasetLock.scope == dataset_lock['scope'],
                      models.DatasetLock.name == dataset_lock['name'],
                      models.DatasetLock.rse_id == dataset_lock['rse_id'])
             )
-
-            stmt = update(
+            update_rule_stmt = update(
                 models.ReplicationRule
             ).where(
-                models.ReplicationRule.id.in_(subq)
+                models.ReplicationRule.id.in_(update_rule_subq)
             ).values({
                 models.ReplicationRule.eol_at: eol_at
             }).execution_options(
                 synchronize_session=False
             )
-            session.execute(stmt)
+            session.execute(update_rule_stmt)
         except DatabaseError:
             return False
 
