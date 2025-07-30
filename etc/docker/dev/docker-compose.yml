@@ -173,6 +173,8 @@ services:
     container_name: dev-fts-1
     image: "docker.io/${DOCKER_REPO:-rucio}/test-fts:${RUCIO_TAG:-latest}"
     platform: linux/amd64
+    ports:
+      - "8449:8449"  # Expose FTS Web UI
     profiles:
       - storage
     volumes:
