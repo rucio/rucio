@@ -627,7 +627,6 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
 
 
 @skip_rse_tests_with_accounts
-@pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION',
