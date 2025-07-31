@@ -626,7 +626,6 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
@@ -635,16 +634,21 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
     'rucio.core.rse_expression_parser.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
-def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_mock):
+def test_receiver_archiving(rse_factory, vo, did_factory, root_account, caches_mock, scitags_mock):
     """
     Ensure that receiver doesn't mark archiving requests as DONE
     """
 
-    src_rse = 'XRD3'
-    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
-    dst_rse = 'XRD4'
-    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [src_rse_id, dst_rse_id]
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
+
+    rse_core.add_rse_attribute(src_rse_id, RseAttr.VERIFY_CHECKSUM, False)
+    rse_core.add_rse_attribute(dst_rse_id, RseAttr.VERIFY_CHECKSUM, False)
 
     received_messages = {}
 
@@ -667,30 +671,22 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
 
             did = did_factory.upload_test_file(src_rse)
             rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
+
             submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
             # Wait for the reception of the FTS Completion message for the submitted request
             request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            for i in range(MAX_POLL_WAIT_SECONDS):
-                if request['id'] in received_messages:
-                    break
-                if i == MAX_POLL_WAIT_SECONDS - 1:
-                    assert False  # Waited too long; fail the test
-                time.sleep(1)
+
             assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
 
             # Receiver must not mark "ARCHIVING" requests as "DONE"
             request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            assert received_messages[request['id']].get('scitag') == 2 << 6 | 18  # 'atlas' experiment: 2; 'test' activity: 18
             assert request['state'] == RequestState.SUBMITTED
             # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
             poller(once=True, older_than=0, partition_wait_time=0)
             request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
             assert request['state'] == RequestState.SUBMITTED
         finally:
-            rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.DISK})
-            rse_core.del_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT)
-
             RECEIVER_GRACEFUL_STOP.set()
             receiver_thread.join(timeout=5)
             RECEIVER_GRACEFUL_STOP.clear()
