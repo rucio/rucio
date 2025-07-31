@@ -646,50 +646,36 @@ def test_receiver_archiving(rse_factory, vo, did_factory, root_account, caches_m
     distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
 
-    rse_core.add_rse_attribute(src_rse_id, RseAttr.VERIFY_CHECKSUM, False)
-    rse_core.add_rse_attribute(dst_rse_id, RseAttr.VERIFY_CHECKSUM, False)
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
+    receiver_thread.start()
+    # Fake that destination RSE is a tape
+    rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.TAPE})
+    try:
+        rse_core.add_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT, 60)
 
-    received_messages = {}
+        did = did_factory.upload_test_file(src_rse)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
 
-    class ReceiverWrapper(Receiver):
-        """
-        Wrap receiver to record the last handled message for each given request_id
-        """
-        def _perform_request_update(self, msg, *, session=None, logger=logging.log):
-            ret = super()._perform_request_update(msg, session=session, logger=logger)
-            received_messages[msg['file_metadata']['request_id']] = msg
-            return ret
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-    with patch('rucio.daemons.conveyor.receiver.Receiver', ReceiverWrapper):
-        receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
-        receiver_thread.start()
-        # Fake that destination RSE is a tape
-        rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.TAPE})
-        try:
-            rse_core.add_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT, 60)
+        # Wait for the reception of the FTS Completion message for the submitted request
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
-            did = did_factory.upload_test_file(src_rse)
-            rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
+        assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
 
-            submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
-
-            # Wait for the reception of the FTS Completion message for the submitted request
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-
-            assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
-
-            # Receiver must not mark "ARCHIVING" requests as "DONE"
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            assert request['state'] == RequestState.SUBMITTED
-            # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
-            poller(once=True, older_than=0, partition_wait_time=0)
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            assert request['state'] == RequestState.SUBMITTED
-        finally:
-            RECEIVER_GRACEFUL_STOP.set()
-            receiver_thread.join(timeout=5)
-            RECEIVER_GRACEFUL_STOP.clear()
+        # Receiver must not mark "ARCHIVING" requests as "DONE"
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.SUBMITTED
+        # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
+        poller(once=True, older_than=0, partition_wait_time=0)
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.SUBMITTED
+    finally:
+        RECEIVER_GRACEFUL_STOP.set()
+        receiver_thread.join(timeout=5)
+        RECEIVER_GRACEFUL_STOP.clear()
 
 
 @pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
