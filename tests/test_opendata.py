@@ -32,10 +32,13 @@ skip_unsupported_json = pytest.mark.skipif(
     reason="JSON support is not implemented in this database"
 )
 
-skip_unsupported_dialect = pytest.mark.skipif(
-    get_session().bind.dialect.name in ['oracle', 'sqlite'],
-    reason=f"Unsupported dialect: {get_session().bind.dialect.name}"
-)
+
+def skip_unsupported_dialect(*unsupported_dialects):
+    session = get_session()
+    dialect = session.bind.dialect.name if session.bind else None
+    should_skip = dialect in unsupported_dialects
+    reason = f"Unsupported dialect: {dialect}" if should_skip else None
+    return pytest.mark.skipif(should_skip, reason=reason)
 
 
 class TestOpenDataCommon:
@@ -191,7 +194,7 @@ class TestOpenDataCore:
 
         assert state == OpenDataDIDState.PUBLIC
 
-    @skip_unsupported_dialect
+    @skip_unsupported_dialect("oracle", "sqlite")
     def test_opendata_dids_meta_update(self, mock_scope, root_account, db_write_session):
         name = did_name_generator(did_type="dataset")
 
@@ -453,7 +456,10 @@ class TestOpenDataAPI:
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
 
+    @skip_unsupported_dialect("postgresql")
     def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope):
+        # More details why this is skipped: https://github.com/rucio/rucio/pull/7903#issuecomment-3144608087
+
         name = did_name_generator(did_type="dataset")
         opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
         meta_endpoint = f"/dids/{mock_scope}/{name}/meta"
