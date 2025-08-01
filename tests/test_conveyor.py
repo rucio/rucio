@@ -1430,7 +1430,6 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 @pytest.mark.parametrize("core_config_mock", [
@@ -1474,6 +1473,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     all_rses = [rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id, rse7_id]
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
         rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
         rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
     distance_core.add_distance(rse1_id, rse2_id, distance=10)
