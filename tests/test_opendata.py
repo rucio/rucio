@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import re
 
 import pytest
@@ -388,9 +389,11 @@ class TestOpenDataAPI:
     api_endpoint_public = '/opendata/public/dids'
 
     def test_opendata_api_list(self, rest_client, auth_token, root_account):
+        request_headers = headers(auth(auth_token))
+
         response = rest_client.get(
             self.api_endpoint,
-            headers=headers(auth(auth_token)),
+            headers=request_headers,
         )
         assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
 
@@ -427,7 +430,7 @@ class TestOpenDataAPI:
             endpoint,
             headers=request_headers,
         )
-        assert response.status_code == 201, f"Expected 200 OK, got {response.status_code}"
+        assert response.status_code == 201, f"Expected 201 OK, got {response.status_code}"
 
         # Add it again, should fail because it already exists
         response = rest_client.post(
@@ -449,6 +452,59 @@ class TestOpenDataAPI:
             headers=request_headers,
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
+
+    def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope):
+        name = did_name_generator(did_type="dataset")
+        opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
+        meta_endpoint = f"/dids/{mock_scope}/{name}/meta"
+        request_headers = headers(auth(auth_token))
+
+        # Add it as a DID
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
+
+        # Check `is_opendata` returns False for a regular DID
+        response = rest_client.get(
+            meta_endpoint,
+            headers=request_headers,
+        )
+        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+        response_data = json.loads(response.get_data(as_text=True))
+        is_opendata: bool = response_data["is_opendata"]
+        assert not is_opendata, "Expected is_opendata to be False for a regular DID"
+
+        # Register as Opendata
+        response = rest_client.post(
+            opendata_endpoint,
+            headers=request_headers,
+        )
+        assert response.status_code == 201, f"Expected 201 OK, got {response.status_code}"
+
+        # Check `is_opendata` returns True for an Opendata DID
+        response = rest_client.get(
+            meta_endpoint,
+            headers=request_headers,
+        )
+        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+        response_data = json.loads(response.get_data(as_text=True))
+        is_opendata: bool = response_data["is_opendata"]
+        assert is_opendata, "Expected is_opendata to be True for an Opendata DID"
+
+        # Remove it from Opendata
+        response = rest_client.delete(
+            opendata_endpoint,
+            headers=request_headers,
+        )
+        assert response.status_code == 204, f"Expected 204 OK, got {response.status_code}"
+
+        # Check `is_opendata` returns False again after removal
+        response = rest_client.get(
+            meta_endpoint,
+            headers=request_headers,
+        )
+        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+        response_data = json.loads(response.get_data(as_text=True))
+        is_opendata: bool = response_data["is_opendata"]
+        assert not is_opendata, "Expected is_opendata to be False after removal from Opendata"
 
 
 class TestOpenDataCLI:
