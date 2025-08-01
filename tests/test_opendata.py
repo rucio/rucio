@@ -35,7 +35,10 @@ skip_unsupported_json = pytest.mark.skipif(
 
 def skip_unsupported_dialect(*unsupported_dialects):
     session = get_session()
-    dialect = session.bind.dialect.name if session.bind else None
+    if not session.bind:
+        return pytest.mark.skipif(False, reason="")
+
+    dialect: str = session.bind.dialect.name
     should_skip = dialect in unsupported_dialects
     reason = f"Unsupported dialect: {dialect}" if should_skip else None
     return pytest.mark.skipif(should_skip, reason=reason)
