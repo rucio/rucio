@@ -696,7 +696,6 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
             RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.THROTTLER, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 @pytest.mark.parametrize("file_config_mock", [{
