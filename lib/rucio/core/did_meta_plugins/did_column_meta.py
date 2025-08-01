@@ -62,7 +62,9 @@ class DidColumnMeta(DidMetaPlugin):
             if not opendata_table_exists:
                 row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name).\
                     with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-                return row.to_dict()
+                result = row.to_dict()
+                result["is_opendata"] = False
+                return result
             else:
                 opendata_subquery = session.query(models.OpenDataDid.scope, models.OpenDataDid.name).subquery()
                 query = session.query(
