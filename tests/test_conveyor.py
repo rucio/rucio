@@ -1029,7 +1029,6 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_lost_transfers(rse_factory, did_factory, root_account):
