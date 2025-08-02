@@ -135,7 +135,7 @@ rucio did content add test:file3 test:file4 --to-did test:dataset2
 rucio did add --type container test:container
 rucio did content add test:dataset1 test:dataset2 --to-did test:container
 
-rucio add-rule test:container 1 XRD3
+rucio rule add test:container --copies 1 --rses XRD3
 
 # Create complication
 rucio did add --type dataset test:dataset3
