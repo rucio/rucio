@@ -113,7 +113,7 @@ rucio account limit add root --rse XRD4 --bytes -1
 rucio account limit add root --rse SSH1 --bytes -1
 
 # Create a default scope for testing
-rucio-admin scope add --account root --scope test
+rucio scope add test --account root
 
 # Create initial transfer testing data
 dd if=/dev/urandom of=file1 bs=10M count=1
