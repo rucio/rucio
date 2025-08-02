@@ -35,13 +35,13 @@ echo "Creating RSEs"
 (KEY=$(mktemp); cat /opt/rucio/etc/userkey.pem > "$KEY"; voms-proxy-init -valid 9999:00 -cert /opt/rucio/etc/usercert.pem -key "$KEY"; rm -f "$KEY")
 
 # First, create the RSEs
-rucio-admin rse add XRD1
-rucio-admin rse add XRD2
-rucio-admin rse add XRD3
-rucio-admin rse add XRD4
-rucio-admin rse add XRD5
-rucio-admin rse add SSH1
-rucio-admin rse add WEB1
+rucio rse add XRD1
+rucio rse add XRD2
+rucio rse add XRD3
+rucio rse add XRD4
+rucio rse add XRD5
+rucio rse add SSH1
+rucio rse add WEB1
 
 # Add the protocol definitions for the storage servers
 rucio-admin rse add-protocol --hostname xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
