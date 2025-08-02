@@ -127,19 +127,19 @@ XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file3
 XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file4
 
 rucio did add --type dataset test:dataset1
-rucio attach test:dataset1 test:file1 test:file2
+rucio did content add test:dataset1 test:file1 test:file2
 
 rucio did add --type dataset test:dataset2
-rucio attach test:dataset2 test:file3 test:file4
+rucio did content add test:dataset2 test:file3 test:file4
 
 rucio add-container test:container
-rucio attach test:container test:dataset1 test:dataset2
+rucio did content add test:container test:dataset1 test:dataset2
 
 rucio add-rule test:container 1 XRD3
 
 # Create complication
 rucio did add --type dataset test:dataset3
-rucio attach test:dataset3 test:file4
+rucio did content add test:dataset3 test:file4
 
 # FTS Check
 fts-rest-whoami -v -s https://fts:8446
