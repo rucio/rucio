@@ -442,8 +442,8 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
                   'prefix': '/the/one/with/all/the/files',
                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                   'domains': {
-                      'lan': {'read': 4,
-                              'write': 1,
+                      'lan': {'read': 1,
+                              'write': 0,
                               'delete': None}
                   },
                   'extended_attributes': 'TheOneWithAllTheRest'},
@@ -453,8 +453,8 @@ def test_get_pfn_to_rse(rse_factory, rse_client, vo):
                   'prefix': '/the/one/with/all/the/files',
                   'impl': 'rucio.rse.protocols.SomeProtocol.SomeImplementation',
                   'domains': {
-                      'lan': {'read': 1,
-                              'write': 1,
+                      'lan': {'read': 0,
+                              'write': 0,
                               'delete': None}},
                   'extended_attributes': 'TheOneWithAllTheRest'}, ]
     for prot in protocols:

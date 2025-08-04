@@ -91,16 +91,16 @@ class TestReplicaCore:
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
         add_protocol(rse_id, {'scheme': 'http',
                               'hostname': 'root.aperture.com',
                               'port': 1409,
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         files = []
 
@@ -145,24 +145,24 @@ class TestReplicaCore:
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
         add_protocol(rse_id, {'scheme': 'root',
                               'hostname': 'root.aperture.com',
                               'port': 1401,
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
         add_protocol(rse_id, {'scheme': 'root',
                               'hostname': 'root2.aperture.com',
                               'port': 1401,
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         files = []
 
@@ -373,24 +373,24 @@ class TestReplicaCore:
                       'prefix': '/i/prefer/the/lan',
                       'impl': 'rucio.rse.protocols.mock.Default',
                       'domains': {
-                          'lan': {'read': 1,
+                          'lan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0},
+                          'wan': {'read': 1,
                                   'write': 1,
-                                  'delete': 1},
-                          'wan': {'read': 2,
-                                  'write': 2,
-                                  'delete': 2}}},
+                                  'delete': 1}}},
                      {'scheme': 'MOCK',
                       'hostname': 'localhost',
                       'port': 18,
                       'prefix': '/i/prefer/the/wan',
                       'impl': 'rucio.rse.protocols.mock.Default',
                       'domains': {
-                          'lan': {'read': 2,
-                                  'write': 2,
-                                  'delete': 2},
-                          'wan': {'read': 1,
+                          'lan': {'read': 1,
                                   'write': 1,
-                                  'delete': 1}}}, ]
+                                  'delete': 1},
+                          'wan': {'read': 0,
+                                  'write': 0,
+                                  'delete': 0}}}, ]
         for p in protocols:
             add_protocol(rse_id, p)
 
@@ -451,8 +451,8 @@ class TestReplicaCore:
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.gfal.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         name = did_name_generator('file')
         file_item = {'scope': mock_scope, 'name': name, 'bytes': 1234, 'adler32': 'deadbeef'}
@@ -473,8 +473,8 @@ class TestReplicaCore:
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         add_rse_attribute(rse_id=rse_id, key=RseAttr.SITE, value='APERTURE')
 
@@ -507,16 +507,16 @@ class TestReplicaCore:
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
         add_protocol(rse_id, {'scheme': 'http',
                               'hostname': 'root.aperture.com',
                               'port': 1409,
                               'prefix': '//test/chamber/',
                               'impl': 'rucio.rse.protocols.xrootd.Default',
                               'domains': {
-                                  'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                  'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                  'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                  'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         files = []
 

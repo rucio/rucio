@@ -645,16 +645,16 @@ def test_download_file_with_impl(rse_factory, did_factory, download_client, mock
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 1, 'write': 1, 'delete': 1},
-                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                              'lan': {'read': 0, 'write': 0, 'delete': 0},
+                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
-                              'lan': {'read': 2, 'write': 2, 'delete': 2},
-                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     path = file_generator()
     name = os.path.basename(path)
 
@@ -691,24 +691,24 @@ def test_download_file_with_supported_protocol_from_config(rse_factory, did_fact
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 1, 'write': 1, 'delete': 1},
-                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                              'lan': {'read': 0, 'write': 0, 'delete': 0},
+                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_id, {'scheme': 'file',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.scp.Default',
                           'domains': {
-                              'lan': {'read': 2, 'write': 2, 'delete': 2},
-                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
-                              'lan': {'read': 3, 'write': 3, 'delete': 3},
-                              'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
 
     config_add_section('download')
     config_set('download', 'preferred_impl', 'rclone, xrootd')

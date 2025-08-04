@@ -43,12 +43,12 @@ __mock_protocol = {'scheme': 'MOCK',
                    'prefix': '/test/reaper',
                    'impl': 'rucio.rse.protocols.mock.Default',
                    'domains': {
-                       'lan': {'read': 1,
-                               'write': 1,
-                               'delete': 1},
-                       'wan': {'read': 1,
-                               'write': 1,
-                               'delete': 1}}}
+                       'lan': {'read': 0,
+                               'write': 0,
+                               'delete': 0},
+                       'wan': {'read': 0,
+                               'write': 0,
+                               'delete': 0}}}
 
 
 def __add_test_rse_and_replicas(vo, scope, rse_name, names, file_size, epoch_tombstone=False):
