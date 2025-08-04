@@ -36,8 +36,8 @@ class TestCredential:
                                     'prefix': '/atlas-europe-west1/',
                                     'impl': 'rucio.rse.protocols.gfal.Default',
                                     'domains': {
-                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
+                                        'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                        'wan': {'read': 0, 'write': 0, 'delete': 0, 'third_party_copy_read': 0, 'third_party_copy_write': 0}}})
 
         add_protocol(self.rse2_id, {'scheme': 'https',
                                     'hostname': 'storage.googleapis.com',
@@ -45,8 +45,8 @@ class TestCredential:
                                     'prefix': '/atlas-europe-east1/',
                                     'impl': 'rucio.rse.protocols.gfal.Default',
                                     'domains': {
-                                        'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                        'wan': {'read': 1, 'write': 1, 'delete': 1, 'third_party_copy_read': 1, 'third_party_copy_write': 1}}})
+                                        'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                        'wan': {'read': 0, 'write': 0, 'delete': 0, 'third_party_copy_read': 0, 'third_party_copy_write': 0}}})
 
     def test_sign_url_gcs(self):
         """ CREDENTIAL: Sign a URL for Google Cloud Storage """
