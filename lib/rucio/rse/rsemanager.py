@@ -132,10 +132,10 @@ def _get_possible_protocols(
 
         if not domain:
             for d in list(protocol['domains'].keys()):
-                if protocol['domains'][d][operation]:
+                if protocol['domains'][d][operation] is not None:
                     filtered = False
         else:
-            if protocol['domains'].get(domain, {operation: None}).get(operation):
+            if protocol['domains'].get(domain, {operation: None}).get(operation) is not None:
                 filtered = False
 
         if filtered:
@@ -795,8 +795,7 @@ def find_matching_scheme(
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        prot = protocol['domains'].get(domain, {}).get(operation_src, 1)
-        if prot is None or prot == 0:
+        if protocol['domains'].get(domain, {}).get(operation_src, 1) is None:
             tbr.append(protocol)
     for r in tbr:
         src_candidates.remove(r)
@@ -811,8 +810,7 @@ def find_matching_scheme(
             if protocol['scheme'] not in scheme:
                 tbr.append(protocol)
                 continue
-        prot = protocol['domains'].get(domain, {}).get(operation_dest, 1)
-        if prot is None or prot == 0:
+        if protocol['domains'].get(domain, {}).get(operation_dest, 1) is None:
             tbr.append(protocol)
     for r in tbr:
         dest_candidates.remove(r)
