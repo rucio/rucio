@@ -429,7 +429,7 @@ def test_list_blocklisted_replicas(rucio_client, rse_factory, did_factory):
             "prefix": "/rucio",
             "port": 0,
             "impl": "rucio.rse.protocols.posix.Default",
-            "domain_json": '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}'
+            "domain_json": '{"wan": {"read": 0, "write": 0, "delete": 0, "third_party_copy_read": 0, "third_party_copy_write": 0}'
         })
 
     # Add a dataset with a file to the rse

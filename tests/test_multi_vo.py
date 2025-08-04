@@ -1034,12 +1034,12 @@ class TestMultiVODaemons:
                          'prefix': '/test/automatix',
                          'impl': 'rucio.rse.protocols.mock.Default',
                          'domains': {
-                             'lan': {'read': 1,
-                                     'write': 1,
-                                     'delete': 1},
-                             'wan': {'read': 1,
-                                     'write': 1,
-                                     'delete': 1}}}
+                             'lan': {'read': 0,
+                                     'write': 0,
+                                     'delete': 0},
+                             'wan': {'read': 0,
+                                     'write': 0,
+                                     'delete': 0}}}
         rse_client.add_rse(shr_rse)
         rse_client.add_rse_attribute(rse=shr_rse, key=RseAttr.VERIFY_CHECKSUM, value=False)
         rse_client.add_rse_attribute(rse=shr_rse, key=RseAttr.SKIP_UPLOAD_STAT, value=True)

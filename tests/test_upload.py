@@ -208,14 +208,14 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
                               'lan': {'read': None, 'write': None, 'delete': None},
-                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_id, {'scheme': 'file',
                           'hostname': 'file-lan.aperture.com',
                           'port': 0,
                           'prefix': '/prefix2/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'lan': {'read': 0, 'write': 0, 'delete': 0},
                               'wan': {'read': None, 'write': None, 'delete': None}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': 'root.aperture.com',
@@ -223,8 +223,8 @@ def test_multiple_protocols_same_scheme(rse_factory, upload_client, mock_scope, 
                           'prefix': '/prefix3/',
                           'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
-                              'lan': {'read': 2, 'write': 2, 'delete': 2},
-                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
     # Upload a file
     path = file_factory.file_generator()
@@ -258,16 +258,16 @@ def test_upload_file_with_impl(rse_factory, upload_client, mock_scope, file_fact
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 1, 'write': 1, 'delete': 1},
-                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                              'lan': {'read': 0, 'write': 0, 'delete': 0},
+                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
-                              'lan': {'read': 2, 'write': 2, 'delete': 2},
-                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
 
     path = file_factory.file_generator()
     name = os.path.basename(path)
@@ -309,24 +309,24 @@ def test_upload_file_with_supported_protocol(rse_factory, upload_client, mock_sc
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 1, 'write': 1, 'delete': 1},
-                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                              'lan': {'read': 0, 'write': 0, 'delete': 0},
+                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
-                              'lan': {'read': 2, 'write': 2, 'delete': 2},
-                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_id, {'scheme': 'file',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.ssh.Default',
                           'domains': {
-                              'lan': {'read': 3, 'write': 3, 'delete': 3},
-                              'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
 
     path = file_factory.file_generator()
     name = os.path.basename(path)
@@ -358,24 +358,24 @@ def test_upload_file_with_supported_protocol_from_config(rse_factory, upload_cli
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.xrootd.Default',
                           'domains': {
-                              'lan': {'read': 1, 'write': 1, 'delete': 1},
-                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                              'lan': {'read': 0, 'write': 0, 'delete': 0},
+                              'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_id, {'scheme': 'file',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.posix.Default',
                           'domains': {
-                              'lan': {'read': 2, 'write': 2, 'delete': 2},
-                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                              'lan': {'read': 1, 'write': 1, 'delete': 1},
+                              'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_id, {'scheme': 'root',
                           'hostname': '%s.cern.ch' % rse_id,
                           'port': 0,
                           'prefix': '/test/',
                           'impl': 'rucio.rse.protocols.ssh.Default',
                           'domains': {
-                              'lan': {'read': 3, 'write': 3, 'delete': 3},
-                              'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+                              'lan': {'read': 2, 'write': 2, 'delete': 2},
+                              'wan': {'read': 2, 'write': 2, 'delete': 2}}})
 
     config_add_section('upload')
     config_set('upload', 'preferred_impl', 'rclone, xrootd')

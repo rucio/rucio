@@ -110,8 +110,8 @@ class TestDatasetReplicaClient:
                                                'prefix': '//test/chamber/',
                                                'impl': 'rucio.rse.protocols.xrootd.Default',
                                                'domains': {
-                                                   'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                                   'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                                   'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                                   'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         rse2 = 'BLACKMESA_%s' % rse_name_generator()
         rse2_id = add_rse(rse2, vo=vo)
@@ -121,8 +121,8 @@ class TestDatasetReplicaClient:
                                                 'prefix': '//underground/facility',
                                                 'impl': 'rucio.rse.protocols.xrootd.Default',
                                                 'domains': {
-                                                    'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                                    'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                                    'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                                    'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
         # register archive
         archive = {'scope': scope, 'name': '%sanother.zip' % did_name_generator('file'),
