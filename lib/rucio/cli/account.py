@@ -212,5 +212,5 @@ def identity_add(ctx, account_name, type_, id, email, password):
 @click.pass_context
 def identity_remove(ctx, account_name, type_, id):
     """Revoke a given ID's access from an account"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "authtype": type_, "id": id})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "authtype": type_, "identity": id})
     identity_delete(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
