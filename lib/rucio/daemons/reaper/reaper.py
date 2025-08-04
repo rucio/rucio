@@ -250,7 +250,7 @@ def _rse_deletion_hostname(rse: RseData, scheme: Optional[str]) -> Optional[str]
     """Retrieve the hostname of the highest-priority WAN deletion protocol."""
     rse.ensure_loaded(load_info=True)
     delete_protocols = [prot for prot in rse.info['protocols']
-                        if prot['domains']['wan']['delete']]    # Drop None and 0.
+                        if prot['domains']['wan']['delete'] is not None]
     for prot in sorted(delete_protocols, key=lambda p: p['domains']['wan']['delete']):    # type: ignore (None excluded above)
         if scheme and prot['scheme'] != scheme:
             continue
