@@ -30,28 +30,29 @@ fi
 
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD="True"
 
-RUN_XDIST="${RUN_XDIST:-False}"
+RUN_XDIST="${RUN_XDIST:-True}"
 if [[ "${RDBMS:-}" == "sqlite" ]]; then
   # no parallel tests on sqlite, because of random "sqlite3.OperationalError: database is locked"
   echo "Disabling parallel testing for sqlite"
-  RUN_XDIST="True"
+  RUN_XDIST="False"
 elif [[ "${RDBMS:-}" =~ mysql.* ]]; then
   # no parallel tests on mysql, because of random "pymysql.err.OperationalError:
   # (1213, 'Deadlock found when trying to get lock; try restarting transaction')"
   echo "Disabling parallel testing for mysql"
-  RUN_XDIST="True"
+  RUN_XDIST="False"
 elif [[ "${RDBMS:-}" == "oracle" ]]; then
   # no parallel tests on oracle, because of potential database deadlock errors.
   echo "Disabling parallel testing for oracle"
-  RUN_XDIST="True"
+  RUN_XDIST="False"
 fi
 
-if [[ "$RUN_XDIST" == "False" ]]; then
-  RUN_XDIST="$(python -c 'import xdist; print(False)' ||:)"
+if [[ "$RUN_XDIST" == "True" ]] && ! python -c 'import xdist' &>/dev/null 2>&1; then
+    echo "xdist is not installed, disabling parallel testing"
+    RUN_XDIST="False"
 fi
 
 XDIST_ARGS=()
-if [[ "$RUN_XDIST" == "False" ]]; then
+if [[ "$RUN_XDIST" == "True" ]]; then
   if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     # run on 3 processes instead of 2 on GitHub Actions
     PROCESS_COUNT="3"
