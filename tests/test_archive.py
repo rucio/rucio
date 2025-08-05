@@ -188,24 +188,24 @@ def test_root_priority_is_highest(rse_factory, did_factory, mock_scope, root_acc
                            'prefix': '/prefix1/',
                            'impl': 'rucio.rse.protocols.posix.Default',
                            'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                               'lan': {'read': 0, 'write': 0, 'delete': 0},
+                               'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse1_id, {'scheme': 'root',
                            'hostname': 'xrootpriority1.aperture.com',
                            'port': 1410,
                            'prefix': '/prefix2/',
                            'impl': 'rucio.rse.protocols.xrootd.Default',
                            'domains': {
-                               'lan': {'read': 2, 'write': 2, 'delete': 2},
-                               'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                               'lan': {'read': 1, 'write': 1, 'delete': 1},
+                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse2_id, {'scheme': 'file',
                            'hostname': 'xrootpriority2.aperture.com',
                            'port': 1409,
                            'prefix': '/prefix3/',
                            'impl': 'rucio.rse.protocols.posix.Default',
                            'domains': {
-                               'lan': {'read': 1, 'write': 1, 'delete': 1},
-                               'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                               'lan': {'read': 0, 'write': 0, 'delete': 0},
+                               'wan': {'read': 0, 'write': 0, 'delete': 0}}})
 
     # register archive
     archive = {**did_factory.random_file_did(name_suffix='.zip', external=True), 'type': 'FILE', 'bytes': 2596, 'adler32': 'beefdead'}
