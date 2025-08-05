@@ -30,28 +30,28 @@ fi
 
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD="True"
 
-NO_XDIST="${NO_XDIST:-False}"
+RUN_XDIST="${RUN_XDIST:-False}"
 if [[ "${RDBMS:-}" == "sqlite" ]]; then
   # no parallel tests on sqlite, because of random "sqlite3.OperationalError: database is locked"
   echo "Disabling parallel testing for sqlite"
-  NO_XDIST="True"
+  RUN_XDIST="True"
 elif [[ "${RDBMS:-}" =~ mysql.* ]]; then
   # no parallel tests on mysql, because of random "pymysql.err.OperationalError:
   # (1213, 'Deadlock found when trying to get lock; try restarting transaction')"
   echo "Disabling parallel testing for mysql"
-  NO_XDIST="True"
+  RUN_XDIST="True"
 elif [[ "${RDBMS:-}" == "oracle" ]]; then
   # no parallel tests on oracle, because of potential database deadlock errors.
   echo "Disabling parallel testing for oracle"
-  NO_XDIST="True"
+  RUN_XDIST="True"
 fi
 
-if [[ "$NO_XDIST" == "False" ]]; then
-  NO_XDIST="$(python -c 'import xdist; print(False)' ||:)"
+if [[ "$RUN_XDIST" == "False" ]]; then
+  RUN_XDIST="$(python -c 'import xdist; print(False)' ||:)"
 fi
 
 XDIST_ARGS=()
-if [[ "$NO_XDIST" == "False" ]]; then
+if [[ "$RUN_XDIST" == "False" ]]; then
   if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     # run on 3 processes instead of 2 on GitHub Actions
     PROCESS_COUNT="3"
