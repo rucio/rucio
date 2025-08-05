@@ -154,7 +154,8 @@ def receiver(
     except Exception:
         logging.info('could not find use_ssl in configuration -- please update your rucio.cfg')
 
-    port = config_get_int('messaging-fts3', 'port')
+    if use_ssl:
+        port = config_get_int('messaging-fts3', 'port')
     vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
     if not use_ssl:
         username = config_get('messaging-fts3', 'username')
