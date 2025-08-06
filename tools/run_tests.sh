@@ -15,6 +15,14 @@
 # limitations under the License.
 
 memcached -u root -d
+memcached_ready=false
+for attempt in {1..10}; do
+    if timeout 1 bash -c "cat < /dev/null > /dev/tcp/127.0.0.1/11211" 2>/dev/null; then
+        memcached_ready=true
+        break
+    fi
+    sleep 1
+done
 
 function usage {
   echo "Usage: $0 [OPTION]..."
@@ -63,7 +71,11 @@ if [ -z "$RUCIO_HOME" ]; then
     RUCIO_HOME=/opt/rucio
 fi
 echo 'Clearing memcache'
-echo flush_all > /dev/tcp/127.0.0.1/11211
+if [ "$memcached_ready" = true ]; then
+    echo flush_all > /dev/tcp/127.0.0.1/11211
+else
+    echo 'Warning: memcached on port 11211 did not become ready; skipping flush'
+fi
 
 if [ -f './requirements/requirements.dev.txt' ]; then
     echo 'Update dependencies with pip'
