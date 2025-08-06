@@ -61,6 +61,16 @@ services:
       - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
       - RDBMS
+    depends_on:
+      oracle:
+        condition: service_healthy
+        required: false
+      ruciodb:
+        condition: service_healthy
+        required: false
+      postgres14:
+        condition: service_healthy
+        required: false
 
   # ------------------------------------------------------------------
   # Database, MQ, metrics, and other external services
@@ -75,6 +85,12 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
     volumes:
       - vol-ruciodb-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
 
   graphite:
     container_name: dev-graphite-1
@@ -132,6 +148,12 @@ services:
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
     volumes:
       - vol-postgres14-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
 
   mysql8:
     container_name: dev-mysql8-1
@@ -165,6 +187,12 @@ services:
       - transactions=1215
     volumes:
       - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/oracle/healthcheck.sh > /dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
 
   # ------------------------------------------------------------------
   # FTS and XRootD containers (test RSEs)
