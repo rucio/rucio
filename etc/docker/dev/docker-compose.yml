@@ -28,7 +28,7 @@ services:
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
-      - ../../../:/rucio_source:ro
+      - ../../../:/rucio_source:Z
     environment:
       - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
@@ -56,7 +56,7 @@ services:
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
       - ../../../tests:/opt/rucio/tests:Z
-      - ../../../:/rucio_source:ro
+      - ../../../:/rucio_source
     environment:
       - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
