@@ -197,13 +197,8 @@ services:
       - oracle
     environment:
       - ORACLE_PASSWORD=rucio
-      - ORACLE_ALLOW_REMOTE=true
-      - ORACLE_DISABLE_ASYNCH_IO=true
-      - processes=1000
-      - sessions=1105
-      - transactions=1215
     volumes:
-      - ./oracle_setup.sh:/container-entrypoint-initdb.d/oracle_setup.sh:Z
+      - ./oracle/01_tune_oracle_limits.sql:/container-entrypoint-initdb.d/01_tune_oracle_limits.sql:ro
     healthcheck:
       test: [ "CMD-SHELL", "/opt/oracle/healthcheck.sh > /dev/null || exit 1" ]
       interval: 10s
