@@ -59,23 +59,15 @@ def _get_generic_schema_module():
 if not _is_multivo():
     GENERIC_FALLBACK = 'generic'
 
-    if config.config_has_section('policy'):
-        try:
-            if 'RUCIO_POLICY_PACKAGE' in environ:
-                policy = environ['RUCIO_POLICY_PACKAGE']
-            else:
-                policy = config.config_get('policy', 'package', check_config_table=False)
-            package_module = importlib.import_module(policy)
-            check_policy_module_version(package_module)
-            policy = policy + ".schema"
-        except (NoOptionError, NoSectionError, ModuleNotFoundError):
-            # fall back to old system for now
-            try:
-                policy = config.config_get('policy', 'schema', check_config_table=False)
-            except (NoOptionError, NoSectionError):
-                policy = GENERIC_FALLBACK
-            policy = 'rucio.common.schema.' + policy.lower()
-    else:
+    try:
+        if 'RUCIO_POLICY_PACKAGE' in environ:
+            policy = environ['RUCIO_POLICY_PACKAGE']
+        else:
+            policy = config.config_get('policy', 'package', check_config_table=False, raise_exception=True)
+        package_module = importlib.import_module(policy)
+        check_policy_module_version(package_module)
+        policy = policy + ".schema"
+    except (NoOptionError, NoSectionError, ModuleNotFoundError):
         policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
 
     try:
@@ -102,24 +94,16 @@ if not _is_multivo():
 
 def load_schema_for_vo(vo: str) -> None:
     generic_fallback = 'generic_multi_vo'
-    if config.config_has_section('policy'):
-        try:
-            env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
-            if env_name in environ:
-                policy = environ[env_name]
-            else:
-                policy = config.config_get('policy', 'package-' + vo, check_config_table=False)
-            package_module = importlib.import_module(policy)
-            check_policy_module_version(package_module)
-            policy = policy + ".schema"
-        except (NoOptionError, NoSectionError, ModuleNotFoundError):
-            # fall back to old system for now
-            try:
-                policy = config.config_get('policy', 'schema', check_config_table=False)
-            except (NoOptionError, NoSectionError):
-                policy = generic_fallback
-            policy = 'rucio.common.schema.' + policy.lower()
-    else:
+    try:
+        env_name = 'RUCIO_POLICY_PACKAGE_' + vo.upper()
+        if env_name in environ:
+            policy = environ[env_name]
+        else:
+            policy = config.config_get('policy', 'package-' + vo, check_config_table=False, raise_exception=True)
+        package_module = importlib.import_module(policy)
+        check_policy_module_version(package_module)
+        policy = policy + ".schema"
+    except (NoOptionError, NoSectionError, ModuleNotFoundError):
         policy = 'rucio.common.schema.' + generic_fallback.lower()
 
     try:
