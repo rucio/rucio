@@ -63,4 +63,4 @@ if [[ "$RUN_XDIST" == "True" ]]; then
   echo "Running pytest with pytest-xdist: " "${XDIST_ARGS[@]}"
 fi
 
-exec python -bb -m pytest -r fExX --log-level=DEBUG ${XDIST_ARGS[@]+"${XDIST_ARGS[@]}"} ${ARGS[@]}
+exec python -bb -m pytest --rootdir=${RUCIO_DIR} -c tools/pytest.ini -r fExX --log-level=DEBUG ${XDIST_ARGS[@]+"${XDIST_ARGS[@]}"} ${ARGS[@]}
