@@ -18,6 +18,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HttpMethod
 from rucio.common.utils import build_url
 
 
@@ -56,7 +57,7 @@ class ScopeClient(BaseClient):
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', quote_plus(scope)])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST')
+        r = self._send_request(url, method=HttpMethod.POST)
         if r.status_code == codes.created:
             return True
         else:
