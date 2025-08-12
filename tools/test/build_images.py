@@ -80,8 +80,8 @@ def build_images(matrix, script_args):
                 # skip building
                 continue
 
-            args = ()
-            env = {"DOCKER_BUILDKIT": "1"}
+            env = os.environ.copy()
+            env["DOCKER_BUILDKIT"] = "1"
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / 'alma9.Dockerfile'
                 args = (

@@ -21,6 +21,7 @@
 #  A convenience script for testers/devs to set up (bootstrap) a local Rucio environment. It can:
 #   - Checkout a specific Rucio release or master branch into an ephemeral "demo-env" branch (force-overwriting it).
 #   - Start the Rucio services via Docker Compose, controlled via profiles.
+#   - Run one of the available tests after the bootstrap step.
 #
 #  What this script does:
 #    1. (Optional) Checks out a specific Rucio version in your local Git repo using:
@@ -38,7 +39,12 @@
 #           -p monitoring
 #           -p storage -p monitoring
 #
-#    3. (Optional) Enables local port mappings (127.0.0.1:<port>:<container_port>) via:
+#    3. (Optional) Runs a selected test after bootstrapping via:
+#         -t, --test <N>
+#       This option must NOT be combined with -p/--profile, as the tests will manage
+#       Docker Compose on their own depending on what they need.
+#
+#    4. (Optional) Enables local port mappings (127.0.0.1:<port>:<container_port>) via:
 #         -x, --expose-ports
 #       This will include the additional docker-compose.ports.yml file so that the containers
 #       expose their ports on localhost. If omitted, the containers run without published ports.
@@ -50,9 +56,10 @@
 # Usage:
 #   ./tools/bootstrap_dev.sh [--release <TAG> | --latest | --master]
 #                            [--profile [<NAME>] ...]
+#                            [--test <N>]
 #                            [--expose-ports]
 #                            [--help]
-#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -x)
+#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -t <N>, -x)
 #
 # Examples:
 #   1) Check out a specific release (37.4.0) and start the dev environment including the "storage" profile:
@@ -80,6 +87,11 @@
 #     or:
 #        ./tools/bootstrap_dev.sh -p
 #
+#   6) Run the default local test suite after bootstrapping:
+#        ./tools/bootstrap_dev.sh --test 1
+#     or:
+#        ./tools/bootstrap_dev.sh -t 1
+#
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -89,6 +101,9 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 DEMO_BRANCH="demo-env"        # The ephemeral local branch we will force-reset if needed
 UPSTREAM_REMOTE="upstream"    # The name of the remote pointing to https://github.com/rucio/rucio
+SELECTED_TEST=""              # Optional test number to run after bootstrap
+TEST_COMMANDS=()              # Commands for available tests
+TEST_DESCRIPTIONS=()          # Human readable descriptions for tests
 
 # ---------------------------------------------------------------------------
 #                             HELPER: Print usage
@@ -110,6 +125,8 @@ Docker options:
   -x, --expose-ports    Include docker-compose.ports.yml so that containers have published ports.
 
 Other:
+  -t, --test <N>        Run test number N after bootstrap. Cannot be used with
+                        -p/--profile, as tests handle Docker Compose themselves.
   -h, --help            Show this message and exit.
 
 Notes:
@@ -122,6 +139,10 @@ Notes:
      Rucio repository. If it's absent or incorrect, the script will fix it automatically.
   5) If you specify -x or --expose-ports, the additional 'docker-compose.ports.yml' is used
      so that each service's port is published on 127.0.0.1.
+  6) The -t/--test option cannot be combined with -p/--profile. When a test is
+     selected, this script will start any required services automatically.
+  7) Running tests is destructive: any existing 'dev_vol-ruciodb-data' volume and
+     containers using it will be removed to guarantee a clean database.
 
 Examples:
   $0 --release 37.4.0 --profile storage
@@ -130,6 +151,9 @@ Examples:
   $0 --master
   $0 --profile
 EOF
+
+gather_tests
+print_available_tests
 }
 
 # ---------------------------------------------------------------------------
@@ -235,25 +259,34 @@ function ensure_tag_fetched() {
 #    HELPER: Find a release tag that matches Docker Hub’s 'latest' digest
 # ---------------------------------------------------------------------------
 function find_release_tag_for_latest_digest() {
-  local REPO="rucio/rucio-dev"
-  local PAGE_SIZE="100"
+  # Query the Docker Hub API to discover which semantic version tag shares the
+  # same image digest as the "latest" tag. The endpoint is paginated, so loop
+  # over pages until both the digest and matching tag are found.
+  local REPO="rucio/rucio-dev"                      # Repository to query
+  local PAGE_SIZE="100"                             # Fetch up to 100 tags per page
   local URL="https://hub.docker.com/v2/repositories/$REPO/tags/?page_size=$PAGE_SIZE"
-  local arch_to_match="amd64"
+  local arch_to_match="amd64"                       # Architecture to compare digests for
 
   local LATEST_DIGEST=""
   local MATCHING_TAG=""
 
+  # Continue looping while the API provides a "next" page to follow.
   while [[ -n "$URL" && "$URL" != "null" ]]; do
     local RESPONSE
+    # Retrieve the current page. "-f" makes curl fail on HTTP errors to handle them explicitly.
     RESPONSE="$(curl -fsSL "$URL")" || {
       echo "ERROR: Unable to fetch $URL"
       return 1
     }
 
+    # Extract the list of tags from the JSON response.
+    # Each element will be processed individually by jq in the sections below.
     local TAGS_ON_PAGE
     TAGS_ON_PAGE="$(echo "$RESPONSE" | jq -c '.results[]')"
 
-    # 1) Find the 'latest' digest if not found yet
+    # 1) Discover the digest referenced by the "latest" tag if we haven't done so yet.
+    #    The jq expression filters for the latest tag, then selects the image matching
+    #    our target architecture and extracts its digest.
     if [[ -z "$LATEST_DIGEST" ]]; then
       LATEST_DIGEST="$(
         echo "$TAGS_ON_PAGE" \
@@ -267,7 +300,8 @@ function find_release_tag_for_latest_digest() {
       )"
     fi
 
-    # 2) If we have LATEST_DIGEST, see if we can find a semver release tag with the same digest
+    # 2) Once we know the digest of "latest", search the remaining tags for a
+    #    semantic version (or release-) tag that points to the same digest.
     if [[ -n "$LATEST_DIGEST" && -z "$MATCHING_TAG" ]]; then
       MATCHING_TAG="$(
         echo "$TAGS_ON_PAGE" \
@@ -281,16 +315,162 @@ function find_release_tag_for_latest_digest() {
       )"
     fi
 
-    # 3) If we have both, we can stop; no need to parse further pages
+    # 3) If both values are populated, we've found what we were after. Abort the pagination.
     if [[ -n "$LATEST_DIGEST" && -n "$MATCHING_TAG" ]]; then
       break
     fi
 
-    # Move to the next page
+    # Use the "next" field from the API response to continue to the next page, if any.
     URL="$(echo "$RESPONSE" | jq -r '.next')"
   done
 
   echo "$MATCHING_TAG"
+}
+
+# ---------------------------------------------------------------------------
+#            HELPER: Collect and display available test commands
+# ---------------------------------------------------------------------------
+function gather_tests() {
+
+  # Reset the arrays that hold test metadata for each invocation of this function.
+  # Each index in TEST_COMMANDS corresponds to the same index in TEST_DESCRIPTIONS.
+  TEST_COMMANDS=()
+  TEST_DESCRIPTIONS=()
+
+  # Determine the repository root if not already provided by the caller.
+  # This allows the script to be executed from anywhere within the repository tree.
+  if [[ -z "${RUCIO_REPO_ROOT:-}" ]]; then
+    local script_dir
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    RUCIO_REPO_ROOT="$(cd "$script_dir/.." && pwd)"
+  fi
+
+  # Add the default option which simply runs the local test suite.
+  TEST_COMMANDS+=("$COMPOSE_CMD --project-name dev exec rucio tools/run_tests.sh")
+  TEST_DESCRIPTIONS+=("run local test suite (tools/run_tests.sh)")
+
+  # The autotest matrix contains additional cases defined in a YAML file.
+  # We convert it to JSON using a helper Python script and then iterate over each
+  # case to build commands and human readable descriptions.
+  local matrix_json
+  if matrix_json=$(python3 "$RUCIO_REPO_ROOT/tools/test/matrix_parser.py" < "$RUCIO_REPO_ROOT/etc/docker/test/matrix.yml" 2>/dev/null); then
+    # Use 'mapfile' if available to read the JSON array into Bash; fall back to
+    # a manual read loop otherwise for broader compatibility.
+    if command -v mapfile >/dev/null 2>&1; then
+      mapfile -t matrix_cases < <(echo "$matrix_json" | jq -c '(. // []) | .[]?')
+    else
+      matrix_cases=()
+      while IFS= read -r line; do
+        matrix_cases+=("$line")
+      done < <(echo "$matrix_json" | jq -c '(. // []) | .[]?')
+    fi
+
+    if ((${#matrix_cases[@]} > 0)); then
+      for case in "${matrix_cases[@]}"; do
+        local dist py suite db services desc cmd
+        # Extract various parameters for this test case.
+        # Optional values such as RDBMS or extra services may be empty.
+        dist=$(echo "$case" | jq -r '.DIST')
+        py=$(echo "$case" | jq -r '.PYTHON')
+        suite=$(echo "$case" | jq -r '.SUITE')
+        db=$(echo "$case" | jq -r '.RDBMS // empty')
+        services=$(echo "$case" | jq -r '[.SERVICES] | flatten | join(",")')
+
+        # Build a human-readable description and the command to run for this entry in the matrix.
+        desc="autotest: ${suite} (dist ${dist}, py ${py}"
+        if [[ -n "$db" ]]; then
+          desc+=", db ${db}"
+        fi
+        if [[ -n "$services" ]]; then
+          desc+=", services ${services}"
+        fi
+        desc+=")"
+
+        cmd="$RUCIO_REPO_ROOT/tools/run_autotests.sh --build -d ${dist} --py ${py} --suite ${suite}"
+        if [[ -n "$db" ]]; then
+          cmd+=" --db ${db}"
+        fi
+        TEST_COMMANDS+=("$cmd")
+        TEST_DESCRIPTIONS+=("$desc")
+      done
+    else
+      echo "WARNING: Autotest matrix is empty" >&2
+    fi
+  else
+    echo "WARNING: Unable to parse autotest matrix" >&2
+  fi
+}
+
+function print_available_tests() {
+  echo
+  echo "Available tests:"
+  local idx=1
+  for desc in "${TEST_DESCRIPTIONS[@]}"; do
+    printf "  %2d) %s\n" "$idx" "$desc"
+    idx=$((idx+1))
+  done
+  echo "Run with '$0 --test <number>' or '$0 -t <number>' to execute one automatically."
+}
+
+# ---------------------------------------------------------------------------
+#                HELPER: Remove dev database volume and container
+# ---------------------------------------------------------------------------
+function remove_rucio_db_volume() {
+  local volume="dev_vol-ruciodb-data"
+
+  # Remove any containers that still reference the volume. Docker refuses to delete a volume
+  # that is in use, so we force-remove such containers to guarantee a clean slate for upcoming
+  # tests. Normally this case should never occur because containers should be already stopped.
+  local containers
+  containers=$(docker ps -aq --filter "volume=$volume" 2>/dev/null || true)
+  if [[ -n "$containers" ]]; then
+    echo ">>> Removing containers using volume '$volume'..."
+    docker rm -f $containers >/dev/null 2>&1 || true
+  fi
+
+  # Remove the volume itself if it exists. This ensures each test run starts
+  # with a brand new database without any leftover state from previous runs.
+  if docker volume inspect "$volume" >/dev/null 2>&1; then
+    echo ">>> Removing existing database volume '$volume' to ensure a clean test database..."
+    docker volume rm -f "$volume" >/dev/null 2>&1 || true
+  fi
+}
+
+# ---------------------------------------------------------------------------
+#      HELPER: Stop any running containers from the 'dev' compose project
+# ---------------------------------------------------------------------------
+function stop_dev_containers() {
+  local compose_dir="$RUCIO_REPO_ROOT/etc/docker/dev"
+  if [[ -d "$compose_dir" ]]; then
+    (
+      cd "$compose_dir"
+      echo ">>> Stopping any previous containers from 'dev' environment..."
+      $COMPOSE_CMD --project-name dev --file docker-compose.yml \
+        --profile default \
+        --profile monitoring \
+        --profile storage \
+        --profile externalmetadata \
+        --profile iam \
+        --profile client \
+        --profile postgres14 \
+        --profile mysql8 \
+        --profile oracle \
+        down >/dev/null 2>&1 || true
+    )
+  fi
+
+
+  # Some tests start containers with a random Docker Compose project name
+  # while still assigning a fixed container_name like 'dev-graphite-1'. Such
+  # containers won't be removed by the command above because their project
+  # label differs. Explicitly remove any leftover containers matching the
+  # 'dev-' prefix to avoid name conflicts on subsequent runs.
+  local leftovers
+  leftovers=$(docker ps -aq --filter 'name=^dev-' 2>/dev/null || true)
+  if [[ -n "$leftovers" ]]; then
+    echo ">>> Removing leftover 'dev' containers to avoid conflicts..."
+    docker rm -f $leftovers >/dev/null 2>&1 || true
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -394,6 +574,13 @@ while [[ $# -gt 0 ]]; do
       EXPOSE_PORTS=true
       shift
       ;;
+    -t|--test)
+      if [[ -z "${2:-}" || "${2:0:1}" == "-" ]]; then
+        echo "ERROR: Option '$1' requires a test number."; exit 1
+      fi
+      SELECTED_TEST="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -410,6 +597,13 @@ done
 if [[ "$#" -gt 0 ]]; then
   echo "ERROR: Unexpected extra arguments: $*"
   usage
+  exit 1
+fi
+
+# Disallow combining tests with explicit profile selection
+if [[ -n "$SELECTED_TEST" && $ANY_PROFILE_ARG == true ]]; then
+  echo "ERROR: --test/-t cannot be used together with --profile/-p." >&2
+  echo "       Selected tests start any required Docker Compose services automatically." >&2
   exit 1
 fi
 
@@ -533,20 +727,10 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-#                   IF NO PROFILES SPECIFIED, WE STOP HERE
-# ---------------------------------------------------------------------------
-if ! $ANY_PROFILE_ARG; then
-  echo
-  echo ">>> No '-p/--profile' specified. Skipping Docker Compose."
-  echo ">>> Done."
-  exit 0
-fi
-
-# ---------------------------------------------------------------------------
 #                RUN DOCKER COMPOSE with the requested profiles
 #       (First tear down any existing environment to ensure a clean start)
 # ---------------------------------------------------------------------------
-
+if $ANY_PROFILE_ARG; then
 echo ">>> Using Docker images with RUCIO_TAG=\"$RUCIO_TAG\" and RUCIO_DEV_PREFIX=\"$RUCIO_DEV_PREFIX\""
 
 # Make sure Docker Compose sees the RUCIO_TAG environment variable
@@ -555,29 +739,25 @@ export RUCIO_DEV_PREFIX="$RUCIO_DEV_PREFIX"
 
 cd "$RUCIO_REPO_ROOT/etc/docker/dev"
 
-# Build an array of '--profile' arguments if the user gave them
+# Build an array of '--profile' arguments if the user gave them. Docker Compose
+# expects a separate '--profile <name>' pair for each profile, so transform the
+# simple list stored in PROFILES into the appropriate CLI arguments.
 profile_args=()
-for prof in "${PROFILES[@]}"; do
-  profile_args+=( --profile "$prof" )
-done
 
-echo ">>> Stopping any previous containers from 'dev' environment..."
-$COMPOSE_CMD --project-name dev --file docker-compose.yml \
-  --profile default \
-  --profile monitoring \
-  --profile storage \
-  --profile externalmetadata \
-  --profile iam \
-  --profile client \
-  --profile postgres14 \
-  --profile mysql8 \
-  --profile oracle \
-  down || true
+if [ "${PROFILES+set}" = set ]; then
+  for prof in "${PROFILES[@]}"; do
+    profile_args+=( --profile "$prof" )
+  done
+fi
+
+stop_dev_containers
 
 # Build an array of compose files including always the docker-compose.yml and (optionally)
 # also the docker-compose.ports.yml if EXPOSE_PORTS is true.
 compose_files=(--file docker-compose.yml)
 if $EXPOSE_PORTS; then
+  # Include an additional compose file that exposes container ports on
+  # localhost when the user requested --expose-ports.
   compose_files+=(--file docker-compose.ports.yml)
 fi
 
@@ -653,5 +833,61 @@ Rucio dev environment started.
       the container will be replaced on-the-fly. This can cause unpredictable behavior or
       partial/inconsistent code loading. For best results, tear down the containers before
       switching branches, then start them again on the new branch.
+
+   4) Running tests (-t/--test) is destructive. The script will remove the 'dev_vol-ruciodb-data'
+      volume and any containers using it, wiping any data stored there.
 -------------------------------------------------------------------
 EOF
+else
+  echo
+  echo ">>> Since no '-p/--profile' specified, skipping Docker Compose."
+  if [[ -z "$SELECTED_TEST" ]]; then
+    exit 0
+  else
+    echo ">>> Test option detected; required services (if any) will be started automatically."
+  fi
+fi
+
+# Warn about destructive volume removal before running any test
+if [[ -n "$SELECTED_TEST" ]]; then
+  echo ">>> WARNING: Running tests will remove the 'dev_vol-ruciodb-data' volume."
+  stop_dev_containers
+  remove_rucio_db_volume
+fi
+
+# If running the basic test suite (--test 1) without starting the dev
+# environment explicitly, ensure the 'rucio' service is up so that
+# `docker compose exec rucio` succeeds.
+if [[ "$SELECTED_TEST" == "1" ]]; then
+  echo ">>> Ensuring 'rucio' service is running for test #1..."
+
+  # The first test executes commands inside the running "rucio" container.
+  # Make sure the bare minimum service is available here.
+  export RUCIO_TAG="$RUCIO_TAG"
+  export RUCIO_DEV_PREFIX="$RUCIO_DEV_PREFIX"
+
+  compose_files=(--file docker-compose.yml)
+  if $EXPOSE_PORTS; then
+    compose_files+=(--file docker-compose.ports.yml)
+  fi
+
+  (
+    cd "$RUCIO_REPO_ROOT/etc/docker/dev" && \
+    $COMPOSE_CMD --project-name dev "${compose_files[@]}" up -d
+  )
+fi
+
+# Build the test ID mapping
+gather_tests
+
+if [[ -n "$SELECTED_TEST" ]]; then
+  if ! [[ "$SELECTED_TEST" =~ ^[0-9]+$ ]] || (( SELECTED_TEST < 1 || SELECTED_TEST > ${#TEST_COMMANDS[@]} )); then
+    echo "ERROR: Invalid test number '$SELECTED_TEST'" >&2
+  else
+    cd "$RUCIO_REPO_ROOT"
+    echo ">>> Running test #$SELECTED_TEST: ${TEST_DESCRIPTIONS[SELECTED_TEST-1]}"
+    eval "${TEST_COMMANDS[SELECTED_TEST-1]}"
+  fi
+fi
+
+print_available_tests
