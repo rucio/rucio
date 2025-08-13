@@ -28,27 +28,26 @@
 #         -r, --release <X>  => a specific Rucio release tag (e.g. 36.5.0)
 #         -l, --latest       => the tag matching Docker Hub's 'latest' digest (if found)
 #         -m, --master       => the latest master branch from upstream
-#       If none of these are used, no checkout is performed (the local repo remains untouched).
+#       - If none of these are used, no checkout is performed (the local repo remains untouched).
 #
 #    2. (Optional) Spins up the dev environment **only if** one or more -p, --profile <NAME> arguments are provided.
 #       - If `-p` or `--profile` is used WITHOUT a specified <NAME> (e.g. `-p`), we spin up *only* the unprofiled/base services.
 #       - If any `-p someProfile` / `--profile anotherProfile` are given, we spin up the unprofiled services **plus** those named profiles.
+#       - Can be combined with `-c` / `--cache-use` to skip pulling from registries and use locally cached service images.
 #         Examples:
 #           -p
 #           -p storage
 #           -p monitoring
 #           -p storage -p monitoring
 #
-#    3. (Optional) Runs a selected test after bootstrapping via:
-#         -t, --test <N>
-#       This option must NOT be combined with -p/--profile, as the tests will manage
-#       Docker Compose on their own depending on what they need. Combine with
-#       -f, --filter <PYTEST_FILTER> to run only specific tests within the suite.
+#    3. (Optional) Runs a selected test after bootstrapping via -t, --test <N>.
+#       - This option is NOT combinable with -p/--profile. Tests will manage Docker Compose on their own depending on what they need.
+#       - Can be combined with `-f <PYTEST>` / `--filter <PYTEST>` to run only specific tests within the suite.
+#       - Can be combined with `-c` / `--cache-use` to reuse cached autotest images (no rebuild).
 #
-#    4. (Optional) Enables local port mappings (127.0.0.1:<port>:<container_port>) via:
-#         -x, --expose-ports
-#       This will include the additional docker-compose.ports.yml file so that the containers
-#       expose their ports on localhost. If omitted, the containers run without published ports.
+#    4. (Optional) Enables local port mappings (127.0.0.1:<port>:<container_port>) via -x, --expose-ports.
+#       - This will include the additional docker-compose.ports.yml file so that the containers expose their ports on localhost.
+#       - If omitted, the containers run without published ports.
 #
 #  Prerequisites:
 #   - You have cloned your Rucio fork locally.
@@ -57,10 +56,11 @@
 # Usage:
 #   ./tools/bootstrap_dev.sh [--release <TAG> | --latest | --master]
 #                            [--profile [<NAME>] ...]
-#                            [--test <N>] [--filter <PYTEST_FILTER>]
+#                            [--test <N>] [--filter <PYTEST>]
+#                            [--cache-use]
 #                            [--expose-ports]
 #                            [--help]
-#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -t <N>, -f <PYTEST_FILTER>, -x)
+#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -t <N>, -f <PYTEST>, -c, -x, -h)
 #
 # Examples:
 #   1) Check out a specific release (37.4.0) and start the dev environment including the "storage" profile:
@@ -97,6 +97,16 @@
 #        ./tools/bootstrap_dev.sh --test 9 --filter tests/test_scope.py::test_scope_duplicate
 #     or:
 #        ./tools/bootstrap_dev.sh -t 9 -f tests/test_scope.py::test_scope_duplicate
+#
+#   8) Reuse cached autotest images when running a test:
+#        ./tools/bootstrap_dev.sh --test 9 --cache-use
+#     or:
+#        ./tools/bootstrap_dev.sh -t 9 -c
+#
+#   9) Start the dev environment using locally cached images only (skip pulls):
+#        ./tools/bootstrap_dev.sh -p storage -p monitoring -c
+#     or:
+#        ./tools/bootstrap_dev.sh --profile storage --profile monitoring --cache-use
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -132,9 +142,12 @@ Docker options:
 Other:
   -t, --test <N>        Run test number N after bootstrap. Cannot be used with
                         -p/--profile, as tests handle Docker Compose themselves.
-  -f, --filter <PYTEST_FILTER>
+  -f, --filter <PYTEST>
                         When running tests with -t/--test, limit execution to
                         tests matching the given pytest filter.
+  -c, --cache-use       Reuse cached images:
+                        - With --test/-t: reuse cached autotest images (skip rebuilds).
+                        - With --profile/-p: skip 'docker compose pull' and use locally cached images.
   -h, --help            Show this message and exit.
 
 Notes:
@@ -153,6 +166,10 @@ Notes:
      containers using it will be removed to guarantee a clean database.
   8) The -f/--filter option can be used with -t/--test to pass any pytest-style
      filter such as 'tests/file.py::TestClass::test_method' to run a subset of tests.
+  9) The -c/--cache-use option works in two modes:
+     - Tests: skips rebuilding autotest images if cached (internally sets RUCIO_AUTOTEST_REUSE_IMAGES=1).
+     - Profiles: skips pulling images from registries and uses locally cached images (or fails if missing).
+       You can also set RUCIO_DEV_SKIP_PULL=1 to enable this behavior via environment variable.
 
 Examples:
   $0 --release 37.4.0 --profile storage
@@ -161,6 +178,8 @@ Examples:
   $0 --master
   $0 --profile
   $0 --test 9 --filter tests/test_scope.py::test_scope_duplicate
+  $0 --test 9 --cache-use
+  $0 --profile storage --profile monitoring --cache-use
 EOF
 
 gather_tests
@@ -398,6 +417,9 @@ function gather_tests() {
         desc+=")"
 
         cmd="$RUCIO_REPO_ROOT/tools/run_autotests.sh --build -d ${dist} --py ${py} --suite ${suite}"
+        if $REUSE_AUTOTEST_IMAGES; then
+          cmd="RUCIO_AUTOTEST_REUSE_IMAGES=1 $cmd"
+        fi
         if [[ -n "$db" ]]; then
           cmd+=" --db ${db}"
         fi
@@ -545,9 +567,19 @@ fi
 SPECIFIED_RELEASE=""
 USE_MASTER="false"
 USE_LATEST="false"
-PROFILES=()           # Named profiles
-ANY_PROFILE_ARG=false # Will be set true if -p/--profile is used at all
-EXPOSE_PORTS=false    # Track whether we want to expose ports
+PROFILES=()                 # Named profiles
+ANY_PROFILE_ARG=false       # Will be set true if -p/--profile is used at all
+EXPOSE_PORTS=false          # Track whether we want to expose ports
+PYTEST_FILTER=""            # Optional pytest filter for selected tests
+REUSE_AUTOTEST_IMAGES=false # Reuse cached test images if available
+if [[ "${RUCIO_AUTOTEST_REUSE_IMAGES:-}" == "1" ]]; then
+  REUSE_AUTOTEST_IMAGES=true
+fi
+
+SKIP_PULL_FOR_PROFILES=false # Skip 'docker compose pull' when using profiles, rely on local images
+if [[ "${RUCIO_DEV_SKIP_PULL:-}" == "1" ]]; then
+  SKIP_PULL_FOR_PROFILES=true
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -598,6 +630,11 @@ while [[ $# -gt 0 ]]; do
       EXPOSE_PORTS=true
       shift
       ;;
+    -c|--cache-use)
+      REUSE_AUTOTEST_IMAGES=true
+      SKIP_PULL_FOR_PROFILES=true
+      shift
+      ;;
     -t|--test)
       if [[ -z "${2:-}" || "${2:0:1}" == "-" ]]; then
         echo "ERROR: Option '$1' requires a test number."; exit 1
@@ -632,8 +669,14 @@ if [[ "$#" -gt 0 ]]; then
 fi
 
 # Ensure filter is only used when a test is selected
-if [[ -n "$PYTEST_FILTER" && -z "$SELECTED_TEST" ]]; then
+if [[ -n "${PYTEST_FILTER:-}" && -z "$SELECTED_TEST" ]]; then
   echo "ERROR: --filter/-f must be used together with --test/-t." >&2
+  exit 1
+fi
+
+# Ensure cache reuse is used with either tests or profiles
+if [[ ( "$REUSE_AUTOTEST_IMAGES" == true || "$SKIP_PULL_FOR_PROFILES" == true ) && -z "$SELECTED_TEST" && $ANY_PROFILE_ARG == false ]]; then
+  echo "ERROR: --cache-use/-c must be used together with either --test/-t or --profile/-p." >&2
   exit 1
 fi
 
@@ -681,6 +724,17 @@ if [[ -n "$SELECTED_TEST" ]]; then
   fi
 else
   echo "No tests selected."
+fi
+
+# Cache-use logging
+if [[ -n "$SELECTED_TEST" && "$REUSE_AUTOTEST_IMAGES" == true ]]; then
+  echo "Cache-use: autotests will reuse cached images (RUCIO_AUTOTEST_REUSE_IMAGES=1)."
+fi
+if $ANY_PROFILE_ARG && $SKIP_PULL_FOR_PROFILES; then
+  echo "Cache-use: profiles will skip 'docker compose pull' and use locally cached images."
+  if [[ "$COMPOSE_CMD" == "docker compose" ]]; then
+    echo "Compose v2 detected: will also add '--pull never' to 'docker compose up'."
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -807,18 +861,36 @@ if $EXPOSE_PORTS; then
   compose_files+=(--file docker-compose.ports.yml)
 fi
 
+# Determine if we should prevent pulls during 'up' (Compose v2 only supports --pull never)
+declare -a up_no_pull_args=()
+if $SKIP_PULL_FOR_PROFILES; then
+  if [[ "$COMPOSE_CMD" == "docker compose" ]]; then
+    up_no_pull_args=(--pull never)
+  fi
+fi
+
 # If we have no named profiles, that means the user specified `-p` with no name,
 # so we do not pass --profile at all => only unprofiled containers will run.
 if [[ "${#profile_args[@]}" -eq 0 ]]; then
   echo ">>> Starting only unprofiled/base containers (no named profiles)."
-  $COMPOSE_CMD "${compose_files[@]}" pull || true
+
+  if ! $SKIP_PULL_FOR_PROFILES; then
+    $COMPOSE_CMD "${compose_files[@]}" pull || true
+  else
+    echo ">>> Cache-use enabled: skipping 'docker compose pull' (using locally cached images)."
+  fi
   # Bring them up
-  $COMPOSE_CMD --project-name dev "${compose_files[@]}" up -d
+  $COMPOSE_CMD --project-name dev "${compose_files[@]}" up -d ${up_no_pull_args[@]+"${up_no_pull_args[@]}"}
 else
   echo ">>> Starting unprofiled/base + named profiles: ${PROFILES[*]}"
-  $COMPOSE_CMD "${compose_files[@]}" "${profile_args[@]}" pull || true
+
+  if ! $SKIP_PULL_FOR_PROFILES; then
+    $COMPOSE_CMD "${compose_files[@]}" "${profile_args[@]}" pull || true
+  else
+    echo ">>> Cache-use enabled: skipping 'docker compose pull' (using locally cached images)."
+  fi
   # Bring them up with profiles + base
-  $COMPOSE_CMD --project-name dev "${compose_files[@]}" "${profile_args[@]}" up -d
+  $COMPOSE_CMD --project-name dev "${compose_files[@]}" "${profile_args[@]}" up -d ${up_no_pull_args[@]+"${up_no_pull_args[@]}"}
 fi
 
 # ------------------------------------------------------------------------------
@@ -882,6 +954,12 @@ Rucio dev environment started.
 
    4) Running tests (-t/--test) is destructive. The script will remove the 'dev_vol-ruciodb-data'
       volume and any containers using it, wiping any data stored there.
+
+   5) Using cached images with profiles:
+      If you add -c/--cache-use together with -p/--profile, the script will skip pulling images
+      and use the ones already present locally (offline/air‑gapped mode). You can also export
+      RUCIO_DEV_SKIP_PULL=1 to enable this behavior. If images are missing locally, Compose will
+      attempt to pull them (Compose v1) or fail early (Compose v2 with '--pull never').
 -------------------------------------------------------------------
 EOF
 else
