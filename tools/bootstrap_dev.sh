@@ -42,7 +42,8 @@
 #    3. (Optional) Runs a selected test after bootstrapping via:
 #         -t, --test <N>
 #       This option must NOT be combined with -p/--profile, as the tests will manage
-#       Docker Compose on their own depending on what they need.
+#       Docker Compose on their own depending on what they need. Combine with
+#       -f, --filter <PYTEST_FILTER> to run only specific tests within the suite.
 #
 #    4. (Optional) Enables local port mappings (127.0.0.1:<port>:<container_port>) via:
 #         -x, --expose-ports
@@ -56,10 +57,10 @@
 # Usage:
 #   ./tools/bootstrap_dev.sh [--release <TAG> | --latest | --master]
 #                            [--profile [<NAME>] ...]
-#                            [--test <N>]
+#                            [--test <N>] [--filter <PYTEST_FILTER>]
 #                            [--expose-ports]
 #                            [--help]
-#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -t <N>, -x)
+#   (You can also use the short forms: -r <TAG>, -l, -m, -p <NAME>, -t <N>, -f <PYTEST_FILTER>, -x)
 #
 # Examples:
 #   1) Check out a specific release (37.4.0) and start the dev environment including the "storage" profile:
@@ -92,6 +93,10 @@
 #     or:
 #        ./tools/bootstrap_dev.sh -t 1
 #
+#   7) Run a single pytest within "multi_vo (dist alma9, py 3.9, db postgres14) test suite using a filter:
+#        ./tools/bootstrap_dev.sh --test 9 --filter tests/test_scope.py::test_scope_duplicate
+#     or:
+#        ./tools/bootstrap_dev.sh -t 9 -f tests/test_scope.py::test_scope_duplicate
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -127,6 +132,9 @@ Docker options:
 Other:
   -t, --test <N>        Run test number N after bootstrap. Cannot be used with
                         -p/--profile, as tests handle Docker Compose themselves.
+  -f, --filter <PYTEST_FILTER>
+                        When running tests with -t/--test, limit execution to
+                        tests matching the given pytest filter.
   -h, --help            Show this message and exit.
 
 Notes:
@@ -143,6 +151,8 @@ Notes:
      selected, this script will start any required services automatically.
   7) Running tests is destructive: any existing 'dev_vol-ruciodb-data' volume and
      containers using it will be removed to guarantee a clean database.
+  8) The -f/--filter option can be used with -t/--test to pass any pytest-style
+     filter such as 'tests/file.py::TestClass::test_method' to run a subset of tests.
 
 Examples:
   $0 --release 37.4.0 --profile storage
@@ -150,6 +160,7 @@ Examples:
   $0 --latest --profile storage
   $0 --master
   $0 --profile
+  $0 --test 9 --filter tests/test_scope.py::test_scope_duplicate
 EOF
 
 gather_tests
@@ -581,6 +592,13 @@ while [[ $# -gt 0 ]]; do
       SELECTED_TEST="$2"
       shift 2
       ;;
+    -f|--filter)
+      if [[ -z "${2:-}" || "${2:0:1}" == "-" ]]; then
+        echo "ERROR: Option '$1' requires a test selection."; exit 1
+      fi
+      PYTEST_FILTER="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -597,6 +615,12 @@ done
 if [[ "$#" -gt 0 ]]; then
   echo "ERROR: Unexpected extra arguments: $*"
   usage
+  exit 1
+fi
+
+# Ensure filter is only used when a test is selected
+if [[ -n "$PYTEST_FILTER" && -z "$SELECTED_TEST" ]]; then
+  echo "ERROR: --filter/-f must be used together with --test/-t." >&2
   exit 1
 fi
 
@@ -635,6 +659,15 @@ if $EXPOSE_PORTS; then
   echo "Local port mappings enabled (docker-compose.ports.yml will be used)."
 else
   echo "No local port mappings requested."
+fi
+
+if [[ -n "$SELECTED_TEST" ]]; then
+  echo "Test selection: #$SELECTED_TEST"
+  if [[ -n "$PYTEST_FILTER" ]]; then
+    echo "Pytest filter: $PYTEST_FILTER"
+  fi
+else
+  echo "No tests selected."
 fi
 
 # ---------------------------------------------------------------------------
@@ -886,7 +919,16 @@ if [[ -n "$SELECTED_TEST" ]]; then
   else
     cd "$RUCIO_REPO_ROOT"
     echo ">>> Running test #$SELECTED_TEST: ${TEST_DESCRIPTIONS[SELECTED_TEST-1]}"
-    eval "${TEST_COMMANDS[SELECTED_TEST-1]}"
+    cmd="${TEST_COMMANDS[SELECTED_TEST-1]}"
+    if [[ -n "$PYTEST_FILTER" ]]; then
+      filter_escaped=$(printf '%q' "$PYTEST_FILTER")
+      if [[ "$SELECTED_TEST" == "1" ]]; then
+        cmd="$COMPOSE_CMD --project-name dev exec -e TESTS=$filter_escaped rucio tools/run_tests.sh -p"
+      else
+        cmd+=" --filter $filter_escaped"
+      fi
+    fi
+    eval "$cmd"
   fi
 fi
 
