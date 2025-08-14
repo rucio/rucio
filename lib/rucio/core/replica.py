@@ -2874,7 +2874,11 @@ def touch_replica(
         ).prefix_with(
             '/*+ INDEX(DIDS DIDS_PK) */', dialect='oracle'
         ).values({
-            models.DataIdentifier.accessed_at: accessed_at
+            models.DataIdentifier.accessed_at: accessed_at,
+            models.DataIdentifier.access_cnt: case(
+                (models.DataIdentifier.access_cnt == none_value, 1),
+                else_=(models.DataIdentifier.access_cnt + 1)
+            )  # type: ignore
         }).execution_options(
             synchronize_session=False
         )
