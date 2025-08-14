@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from flask import Blueprint, Flask, Response, redirect, render_template, request
+from jinja2.exceptions import TemplateNotFound
 from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
@@ -579,9 +580,17 @@ class CodeOIDC(ErrorHandlingMethodView):
             return render_template('auth_crash.html', crashtype='no_result'), 401, headers
 
         if 'fetchcode' in result:
-            return render_template('auth_granted.html', authcode=result['fetchcode']), 200, headers
+            try:
+                return render_template('auth_granted.html', authcode=result['fetchcode']), 200, headers
+            except TemplateNotFound:
+                headers.set('Content-Type', 'text/plain')
+                return 'auth_granted.html missing', 500, headers
         elif 'polling' in result and result['polling'] is True:
-            return render_template('auth_granted.html', authcode='allok'), 200, headers
+            try:
+                return render_template('auth_granted.html', authcode='allok'), 200, headers
+            except TemplateNotFound:
+                headers.set('Content-Type', 'text/plain')
+                return 'auth_granted.html missing', 500, headers
         else:
             headers.extend(error_headers('InvalidRequest', 'Cannot recognize and process your request'))
             return render_template('auth_crash.html', crashtype='bad_request'), 400, headers
