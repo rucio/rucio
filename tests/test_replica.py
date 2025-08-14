@@ -30,7 +30,7 @@ from rucio.common.constants import RseAttr
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
-from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, list_files, set_status
+from rucio.core.did import add_did, attach_dids, get_did, get_did_atime, get_did_access_cnt, list_files, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_rse_coverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
@@ -318,6 +318,26 @@ class TestReplicaCore:
 
         for i in range(0, nbfiles - 1):
             assert get_replica_atime({'scope': files2[i]['scope'], 'name': files2[i]['name'], 'rse_id': rse_id}) is None
+
+    def test_touch_replicas_increments_did_access_cnt(self, rse_factory, mock_scope, root_account):
+        """ REPLICA (CORE): Touch replicas increments DID access_cnt """
+
+        _, rse_id = rse_factory.make_mock_rse()
+
+        file_item = {'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}}
+
+        # Add a replica and ensure initial DID access_cnt is None
+        add_replicas(rse_id=rse_id, files=[file_item], account=root_account, ignore_availability=True)
+        assert get_did_access_cnt(scope=mock_scope, name=file_item['name']) is None
+
+        # First touch should set access_cnt to 1
+        touch_replica({'scope': file_item['scope'], 'name': file_item['name'], 'rse_id': rse_id})
+        assert get_did_access_cnt(scope=mock_scope, name=file_item['name']) == 1
+
+        # Multiple touches should increment accordingly
+        for _ in range(4):
+            touch_replica({'scope': file_item['scope'], 'name': file_item['name'], 'rse_id': rse_id})
+        assert get_did_access_cnt(scope=mock_scope, name=file_item['name']) == 5
 
     def test_list_replicas_all_states(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): list file replicas with all_states"""
