@@ -71,6 +71,9 @@ services:
       postgres14:
         condition: service_healthy
         required: false
+      elasticsearch:
+        condition: service_healthy
+        required: false
 
   # ------------------------------------------------------------------
   # Database, MQ, metrics, and other external services
@@ -124,6 +127,11 @@ services:
     image: docker.io/elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   activemq:
     container_name: dev-activemq-1
