@@ -53,6 +53,7 @@ DEFAULT_ENDPOINTS = {
     'opendata_public',
 }
 
+
 def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
     for blueprint_module in modules:
         try:

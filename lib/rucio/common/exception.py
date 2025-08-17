@@ -1215,7 +1215,7 @@ class OpenDataError(RucioException):
 
     def __init__(self, *args):
         super(OpenDataError, self).__init__(*args)
-        self._message = f"Error related to open data."
+        self._message = "Error related to open data."
         self.error_code = 115
 
 
@@ -1226,7 +1226,7 @@ class OpenDataDataIdentifierNotFound(OpenDataError):
 
     def __init__(self, *args):
         super(OpenDataDataIdentifierNotFound, self).__init__(*args)
-        self._message = f"Data identifier not found in the open data catalog."
+        self._message = "Data identifier not found in the open data catalog."
         self.error_code = 116
 
 
@@ -1237,7 +1237,7 @@ class OpenDataDataIdentifierAlreadyExists(OpenDataError):
 
     def __init__(self, *args):
         super(OpenDataDataIdentifierAlreadyExists, self).__init__(*args)
-        self._message = f"Data identifier already exists in the open data catalog."
+        self._message = "Data identifier already exists in the open data catalog."
         self.error_code = 117
 
 
@@ -1248,7 +1248,7 @@ class OpenDataInvalidState(OpenDataError):
 
     def __init__(self, *args):
         super(OpenDataInvalidState, self).__init__(*args)
-        self._message = f"Open data entry is in an invalid state."
+        self._message = "Open data entry is in an invalid state."
         self.error_code = 118
 
 
@@ -1259,5 +1259,5 @@ class OpenDataInvalidStateUpdate(OpenDataError):
 
     def __init__(self, *args):
         super(OpenDataInvalidStateUpdate, self).__init__(*args)
-        self._message = f"Invalid state update attempted on open data entry."
+        self._message = "Invalid state update attempted on open data entry."
         self.error_code = 119

@@ -517,6 +517,7 @@ class OpenDataDOI(BASE, ModelBase):
         Index('OPENDATA_DOI_CREATED_AT_IDX', 'created_at'),
     )
 
+
 class OpenDataMeta(BASE, ModelBase):
     """Mapping between OpenData DIDs and DOIs"""
     __tablename__ = 'dids_opendata_meta'
@@ -534,6 +535,7 @@ class OpenDataMeta(BASE, ModelBase):
             ondelete='CASCADE',
         ),
     )
+
 
 class VirtualPlacements(BASE, ModelBase):
     """Represents virtual placements"""
