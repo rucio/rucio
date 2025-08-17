@@ -399,7 +399,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
         Initialises a non-deterministic PFN construction object
         """
         super().__init__()
-        
+
         self.vo = vo
 
     def construct_non_deterministic_pfn(self, dsn: str, scope: Optional[str], filename: str, naming_convention: str) -> str:
