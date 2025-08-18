@@ -355,9 +355,33 @@ class TestDIDCore:
         file_2 = did_factory.random_file_did()
         file_3 = did_factory.random_file_did()
 
+        files = [
+            {
+                'scope': file_1['scope'],
+                'name': file_1['name'],
+                'pfn': "file1_pfn",
+                'bytes': 12345,
+                'adler32': '0cc737eb',
+            },
+            {
+                'scope': file_2['scope'],
+                'name': file_2['name'],
+                'pfn': "file2_pfn",
+                'bytes': 67890,
+                'adler32': '0cc737ec',
+            },
+            {
+                'scope': file_3['scope'],
+                'name': file_3['name'],
+                'pfn': "file3_pfn",
+                'bytes': 111213,
+                'adler32': '0cc737ed',
+            }
+        ]
+
         # Register replicas, add dids and attachments
         add_files_with_attachments(
-            files=[file_1],
+            files=files[0:1],  # Only add the first file
             dids_attachment=dids_attachment,
             account=root_account,
             rse_id=rse_id,
@@ -365,7 +389,7 @@ class TestDIDCore:
 
         # Running again should not raise an error
         add_files_with_attachments(
-            files=[file_1],
+            files=files[0:1],  # Only add the first file
             dids_attachment=dids_attachment,
             account=root_account,
             rse_id=rse_id,
@@ -373,7 +397,7 @@ class TestDIDCore:
 
         # Add all files, one of which is already registered
         add_files_with_attachments(
-            files=[file_1, file_2, file_3],
+            files=files,
             dids_attachment=dids_attachment,
             account=root_account,
             rse_id=rse_id,
