@@ -74,6 +74,9 @@ services:
       elasticsearch:
         condition: service_healthy
         required: false
+      influxdb:
+        condition: service_healthy
+        required: false
 
   # ------------------------------------------------------------------
   # Database, MQ, metrics, and other external services
@@ -121,6 +124,11 @@ services:
     volumes:
       - vol-influxdb-etc:/etc/influxdb2
       - vol-influxdb-var:/var/lib/influxdb2
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8086/ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   elasticsearch:
     container_name: dev-elasticsearch-1
