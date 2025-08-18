@@ -19,8 +19,6 @@ suites:
       - oracle
       - mysql8
       - postgres14
-    services:
-      - influxdb_elastic
   - id: sqlite
     RDBMS:
       - sqlite
