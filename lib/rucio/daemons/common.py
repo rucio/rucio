@@ -118,7 +118,7 @@ def _activity_looper(
         sleep_time: int,
         activities: Optional['Sequence[str]'],
         heartbeat_handler: HeartbeatHandler,
-) -> 'Generator[tuple[str, float], tuple[float, bool], None]':
+) -> 'Generator[tuple[Optional[str], float], tuple[float, bool], None]':
     """
     Generator which loops (either once, or indefinitely) over all activities while ensuring that `sleep_time`
     passes between handling twice the same activity.

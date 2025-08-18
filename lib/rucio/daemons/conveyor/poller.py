@@ -66,7 +66,7 @@ def _fetch_requests(
         transfertool: Optional[str],
         filter_transfertool: Optional[str],
         cached_topology: Optional[ExpiringObjectCache],
-        activity: str,
+        activity: Optional[str],
         set_last_processed_by: bool,
         heartbeat_handler: "HeartbeatHandler"
 ) -> tuple[bool, list[dict[str, Any]]]:
@@ -196,7 +196,7 @@ def poller(
     )
     def _db_producer(
         *,
-        activity: str,
+        activity: Optional[str],
         heartbeat_handler: "HeartbeatHandler"
     ) -> tuple[bool, list[dict[str, Any]]]:
         return _fetch_requests(

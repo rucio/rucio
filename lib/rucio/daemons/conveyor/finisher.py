@@ -66,7 +66,7 @@ def _fetch_requests(
         set_last_processed_by: bool,
         cached_topology: Optional[ExpiringObjectCache],
         heartbeat_handler: "HeartbeatHandler",
-        activity: str,
+        activity: Optional[str],
 ) -> tuple[bool, tuple[list[dict[str, Any]], Topology]]:
     worker_number, total_workers, logger = heartbeat_handler.live()
 
@@ -184,7 +184,7 @@ def finisher(
     )
     def _db_producer(
         *,
-        activity: str,
+        activity: Optional[str],
         heartbeat_handler: "HeartbeatHandler"
     ) -> tuple[bool, tuple[list[dict[str, Any]], Topology]]:
         return _fetch_requests(
