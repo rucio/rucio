@@ -102,7 +102,7 @@ def throttler(
         sleep_time=sleep_time)
     def _db_producer(
             *,
-            activity: str,
+            activity: Optional[str],
             heartbeat_handler: "HeartbeatHandler"
     ) -> tuple[bool, Optional["ReleaseGroupsDict"]]:
         worker_number, total_workers, logger = heartbeat_handler.live()

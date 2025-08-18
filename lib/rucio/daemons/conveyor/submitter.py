@@ -55,7 +55,7 @@ TRANSFER_TYPE = config_get('conveyor', 'transfertype', False, 'single')
 def _fetch_requests(
         partition_hash_var: Optional[str],
         bulk: int,
-        activity: str,
+        activity: Optional[str],
         rse_ids: Optional[list[str]],
         request_type: list[RequestType],
         ignore_availability: bool,
@@ -285,7 +285,7 @@ def submitter(
         activities=activities)
     def _db_producer(
         *,
-        activity: str,
+        activity: Optional[str],
         heartbeat_handler: "HeartbeatHandler"
     ) -> tuple[bool, tuple[Topology, dict[str, RequestWithSources]]]:
         return _fetch_requests(

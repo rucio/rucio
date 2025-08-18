@@ -100,7 +100,7 @@ def preparer(
         sleep_time=sleep_time)
     def _db_producer(
         *,
-        activity: str,
+        activity: Optional[str],
         heartbeat_handler: "HeartbeatHandler"
     ) -> tuple[bool, tuple[Topology, dict[str, RequestWithSources]]]:
         return _fetch_requests(
