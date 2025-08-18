@@ -3035,7 +3035,7 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
 @transactional_session
 def add_files_with_attachments(
         files: "Iterable[dict[str, Any]]",
-        dids_attachments: "Sequence[dict[str, Any]]",
+        dids_attachment: "Sequence[dict[str, Any]]",
         rse_id: str,
         *,
         account: "InternalAccount",
@@ -3050,7 +3050,7 @@ def add_files_with_attachments(
         - pfn: The physical file name.
         - bytes: The file size in bytes.
         - adler32: The adler32 checksum.
-    :param dids_attachments: Optional list of DIDs to attach the files to.
+    :param dids_attachment: Optional list of DIDs to attach the files to.
     Each entry should be a tuple of (scope, did_type), where did_type can be a string or a DIDType enum.
         Valid did_type values are 'DATASET' or 'CONTAINER'.
         If did_type is a string, it will be converted to the corresponding DIDType enum.
@@ -3070,10 +3070,10 @@ def add_files_with_attachments(
             if key not in file:
                 raise exception.InputValidationError(f"Missing '{key}' in files entry: {file}")
 
-    if len(dids_attachments) < 1:
-        raise exception.InputValidationError("dids_attachments must contain at least one DID")
+    if len(dids_attachment) < 1:
+        raise exception.InputValidationError("dids_attachment must contain at least one DID")
 
-    for did in dids_attachments:
+    for did in dids_attachment:
         if "type" not in did:
             raise exception.InputValidationError("Attachment must contain 'type' key")
 
@@ -3096,9 +3096,9 @@ def add_files_with_attachments(
 
     attachments = []
     # Attach the DIDs sequentially
-    for i in range(len(dids_attachments) - 1):
-        parent_did = dids_attachments[i + 1]
-        child_did = dids_attachments[i]
+    for i in range(len(dids_attachment) - 1):
+        parent_did = dids_attachment[i + 1]
+        child_did = dids_attachment[i]
 
         attachments.append({
             'scope': parent_did['scope'],
@@ -3111,7 +3111,7 @@ def add_files_with_attachments(
 
     # Add the DIDs if they do not exist
     add_dids(
-        dids=dids_attachments,
+        dids=dids_attachment,
         account=account,
         session=session,
     )
@@ -3119,10 +3119,10 @@ def add_files_with_attachments(
     # Attach the DIDs
     attach_dids_to_dids(attachments=attachments, account=account, session=session, ignore_duplicate=True)
 
-    # Add the replicas and attach them to the first dataset of the attachments list
+    # Add the replicas and attach them to the first dataset of the attachment list
     __add_files_to_dataset(
         files=files,
-        parent_did=dids_attachments[0],
+        parent_did=dids_attachment[0],
         account=account,
         ignore_duplicate=True,
         rse_id=rse_id,

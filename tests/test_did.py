@@ -23,6 +23,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import (
     add_did,
     add_did_to_followed,
+    add_files_with_attachments,
     attach_dids,
     bulk_list_files,
     delete_dids,
@@ -318,6 +319,67 @@ class TestDIDCore:
         assert len(result) == len(files)
         for dataset in non_existing_datasets:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
+
+    def test_add_files_with_attachments(self, root_account, rse_factory, did_factory):
+        _, rse_id = rse_factory.make_mock_rse()
+
+        did_attachment_1 = did_factory.make_dataset()
+        did_attachment_2 = did_factory.make_container()
+        did_attachment_3 = did_factory.make_container()
+        did_attachment_4 = did_factory.make_container()
+
+        dids_attachment = [
+            {
+                'scope': did_attachment_1['scope'],
+                'name': did_attachment_1['name'],
+                'type': DIDType.DATASET,
+            },
+            {
+                'scope': did_attachment_2['scope'],
+                'name': did_attachment_2['name'],
+                'type': DIDType.CONTAINER,
+            },
+            {
+                'scope': did_attachment_3['scope'],
+                'name': did_attachment_3['name'],
+                'type': DIDType.CONTAINER,
+            },
+            {
+                'scope': did_attachment_4['scope'],
+                'name': did_attachment_4['name'],
+                'type': DIDType.CONTAINER,
+            }
+        ]
+
+        file_1 = did_factory.random_file_did()
+        file_2 = did_factory.random_file_did()
+        file_3 = did_factory.random_file_did()
+
+        # Register replicas, add dids and attachments
+        add_files_with_attachments(
+            files=[file_1],
+            dids_attachment=dids_attachment,
+            account=root_account,
+            rse_id=rse_id,
+        )
+
+        # Running again should not raise an error
+        add_files_with_attachments(
+            files=[file_1],
+            dids_attachment=dids_attachment,
+            account=root_account,
+            rse_id=rse_id,
+        )
+
+        # Add all files, one of which is already registered
+        add_files_with_attachments(
+            files=[file_1, file_2, file_3],
+            dids_attachment=dids_attachment,
+            account=root_account,
+            rse_id=rse_id,
+        )
+
+        # TODO: check that the files are correctly attached to the datasets and containers
 
 
 class TestDIDGateway:
