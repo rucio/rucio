@@ -38,6 +38,8 @@ from rucio.db.sqla.constants import DatabaseOperationType
 
 EXTRA_MODULES = import_extras(['MySQLdb', 'pymysql'])
 
+LOG = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from typing import Optional, ParamSpec, TypeVar
@@ -70,7 +72,6 @@ DEFAULT_SCHEMA_NAME = config_get(DATABASE_SECTION, 'schema',
                                  raise_exception=False, default=None, check_config_table=False)
 _METADATA = MetaData(schema=DEFAULT_SCHEMA_NAME)
 _MAKER, _ENGINE, _LOCK = None, None, Lock()
-
 
 SQLA_CONFIG_POOLCLASS_MAPPING = {
     'queuepool': QueuePool,
@@ -218,6 +219,12 @@ def get_engine() -> 'Engine':
         if 'mysql' in sql_connection:
             conv = mysql_convert_decimal_to_float(pymysql=sql_connection.startswith('mysql+pymysql'))
             params['connect_args'] = {'conv': conv}
+        elif 'oracle' in sql_connection:
+            try:
+                import oracledb  # pylint: disable=import-error
+                oracledb.init_oracle_client()
+            except Exception as err:
+                LOG.warning('Could not start Oracle thick mode; falling back to thin: %s', err)
         for param, param_type in config_params:
             try:
                 params[param] = param_type(config_get(DATABASE_SECTION, param, check_config_table=False))
