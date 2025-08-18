@@ -3039,8 +3039,8 @@ def add_files_with_attachments(
         rse_id: str,
         *,
         account: "InternalAccount",
-        session: "Session"
-):
+        session: "Session",
+) -> None:
     """
     Add files with structure
 
