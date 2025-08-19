@@ -3064,7 +3064,7 @@ def add_files_with_attachments(
     """
 
     # Input validation
-    required_file_keys = {"scope", "name", "rse", "pfn", "bytes", "adler32"}
+    required_file_keys = {"scope", "name", "pfn", "bytes", "adler32"}
     for file in files:
         for key in required_file_keys:
             if key not in file:
