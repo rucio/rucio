@@ -123,7 +123,9 @@ jobs:
           sed -i 's;image: docker.io/rucio/rucio-dev.*;image: ${{ fromJSON(steps.images.outputs.images)[0] }};' \
               $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml
       - name: Start containers
-        run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam up -d
+        run: |
+          export DEV_PROFILES=storage,externalmetadata,iam
+          docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam up -d
       - name: Initialize tests
         shell: bash
         run: |

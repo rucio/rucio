@@ -61,6 +61,7 @@ services:
       - REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
       - RUCIO_SOURCE_DIR=/rucio_source
       - RDBMS
+      - DEV_PROFILES
     depends_on:
       oracle:
         condition: service_healthy

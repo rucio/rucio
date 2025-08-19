@@ -498,6 +498,7 @@ def test_reaper_without_rse_usage(vo, caches_mock):
 
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
+@pytest.mark.needs_iam
 @pytest.mark.noparallel(groups=[NoParallelGroups.WEB])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'

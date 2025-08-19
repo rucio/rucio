@@ -55,10 +55,24 @@ pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
+    config.addinivalue_line('markers', 'needs_iam: requires the dev iam profile (OIDC/IdP)')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
         config.pluginmanager.register(xdist_noparallel_scheduler)
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """
+    Skip tests marked with 'needs_iam' if the IAM profile is not available in the dev environment.
+    """
+    if item.get_closest_marker("needs_iam"):
+        # Check if we're running in a dev environment with IAM profile available
+        dev_profiles = environ.get('DEV_PROFILES', '').split(',')
+        dev_profiles = [profile.strip() for profile in dev_profiles if profile.strip()]
+        
+        if 'iam' not in dev_profiles:
+            pytest.skip("Test requires IAM profile - start dev environment with: --profile iam")
 
 
 def pytest_make_parametrize_id(
