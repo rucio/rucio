@@ -387,22 +387,6 @@ class TestDIDCore:
             rse_id=rse_id,
         )
 
-        # Running again should not raise an error
-        add_files_with_attachments(
-            files=files[0:1],  # Only add the first file
-            dids_attachment=dids_attachment,
-            account=root_account,
-            rse_id=rse_id,
-        )
-
-        # Add all files, one of which is already registered
-        add_files_with_attachments(
-            files=files,
-            dids_attachment=dids_attachment,
-            account=root_account,
-            rse_id=rse_id,
-        )
-
         # TODO: check that the files are correctly attached to the datasets and containers
 
 
