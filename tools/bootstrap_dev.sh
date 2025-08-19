@@ -553,6 +553,13 @@ echo ">>> Using Docker images with RUCIO_TAG=\"$RUCIO_TAG\" and RUCIO_DEV_PREFIX
 export RUCIO_TAG="$RUCIO_TAG"
 export RUCIO_DEV_PREFIX="$RUCIO_DEV_PREFIX"
 
+# Export the DEV_PROFILES environment variable for containers
+if [[ "${#PROFILES[@]}" -gt 0 ]]; then
+  export DEV_PROFILES=$(IFS=,; echo "${PROFILES[*]}")
+else
+  export DEV_PROFILES=""
+fi
+
 cd "$RUCIO_REPO_ROOT/etc/docker/dev"
 
 # Build an array of '--profile' arguments if the user gave them
