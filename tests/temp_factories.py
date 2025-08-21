@@ -670,15 +670,27 @@ class TemporaryFileFactory:
             self,
             data: Optional[str],
             size: int,
-            namelen: int,
             use_basedir: bool,
             path: Optional[Path]
     ) -> Path:
-        fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
         if use_basedir:
-            fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
+            # For base directory usage, create temp file in the target directory
+            target_dir = self.base_dir / path if path is not None else self.base_dir
+            target_dir.mkdir(parents=True, exist_ok=True)
+            fd, fp_str = tempfile.mkstemp(dir=str(target_dir))
+            fp = Path(fp_str)
+            os.close(fd)
         else:
-            fp = Path(tempfile.gettempdir()) / path / fn if path is not None else Path(tempfile.gettempdir()) / fn
+            # For non-basedir usage, use tempfile to generate in system temp dir
+            if path is not None:
+                target_dir = Path(tempfile.gettempdir()) / path
+                target_dir.mkdir(parents=True, exist_ok=True)
+                fd, fp_str = tempfile.mkstemp(dir=str(target_dir))
+                fp = Path(fp_str)
+            else:
+                fd, fp_str = tempfile.mkstemp()
+                fp = Path(fp_str)
+            os.close(fd)
             self.non_basedir_files.append(fp)
 
         if data is not None:
@@ -691,18 +703,26 @@ class TemporaryFileFactory:
 
     def _make_temp_folder(
             self,
-            namelen: int,
             use_basedir: bool,
             path: Optional[Path]
     ) -> Path:
-        fn = ''.join(choice(ascii_uppercase) for x in range(namelen))
         if use_basedir:
-            fp = self.base_dir / path / fn if path is not None else self.base_dir / fn
+            # For base directory usage, create temp folder in the target directory
+            target_dir = self.base_dir / path if path is not None else self.base_dir
+            target_dir.mkdir(parents=True, exist_ok=True)
+            fp_str = tempfile.mkdtemp(dir=str(target_dir))
+            fp = Path(fp_str)
         else:
-            fp = Path(tempfile.gettempdir()) / path / fn if path is not None else Path(tempfile.gettempdir()) / fn
+            # For non-basedir usage, use tempfile to generate in system temp dir
+            if path is not None:
+                target_dir = Path(tempfile.gettempdir()) / path
+                target_dir.mkdir(parents=True, exist_ok=True)
+                fp_str = tempfile.mkdtemp(dir=str(target_dir))
+                fp = Path(fp_str)
+            else:
+                fp_str = tempfile.mkdtemp()
+                fp = Path(fp_str)
             self.non_basedir_files.append(fp)
-
-        os.makedirs(fp, exist_ok=True)
 
         return fp
 
@@ -710,7 +730,6 @@ class TemporaryFileFactory:
             self,
             data: Optional[str] = None,
             size: int = 2,
-            namelen: int = 10,
             use_basedir: bool = False,
             path: Optional[Path] = None
     ) -> Path:
@@ -718,27 +737,24 @@ class TemporaryFileFactory:
         Creates a temporary file
         :param data        : The content to be written in the file. If provided, the size parameter is ignored.
         :param size        : The size of random bytes to be written in the file
-        :param namelen     : The length of filename
         :param use_basedir : If True, the file is created under the base_dir for this TemporaryFileFactory instance.
         :param path        : Relative path of the file, can be under basedir (if use_basedir True) or from the temp dir
         :returns: The absolute path of the generated file
         """
-        return self._make_temp_file(data, size, namelen, use_basedir, path)
+        return self._make_temp_file(data, size, use_basedir, path)
 
     def folder_generator(
             self,
-            namelen: int = 10,
             use_basedir: bool = False,
             path: Optional[Path] = None
     ) -> Path:
         """
         Creates an empty temporary folder
-        :param namelen     : The length of folder. Only used if path is None.
         :param use_basedir : If True, the folder is created under the base_dir for this TemporaryFileFactory instance.
         :param path        : Relative path of the folder, can be under basedir (if use_basedir True).
         :returns: The absolute path of the generated folder
         """
-        return self._make_temp_folder(namelen, use_basedir, path)
+        return self._make_temp_folder(use_basedir, path)
 
     def cleanup(self) -> None:
         for fp in self.non_basedir_files:

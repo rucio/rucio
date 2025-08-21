@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import tempfile
 import unittest
 from os import remove
 from os.path import basename
@@ -20,12 +22,13 @@ from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
 
-def file_generator(size=2048, namelen=10):
+def file_generator(size=2048):
     """ Create a bogus file and returns it's name.
     :param size: size in bytes
     :returns: The name of the generated file.
     """
-    fn = '/tmp/rucio_testfile_' + uuid()
+    fd, fn = tempfile.mkstemp(prefix='rucio_testfile_', suffix='')
+    os.close(fd)  # Close the file descriptor since we'll use dd to write to it
     execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
     return fn
 

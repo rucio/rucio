@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import tempfile
 
 import pytest
 
@@ -51,10 +52,7 @@ class TestRseRSYNC(MgrTestCases):
             port = 22
             sshuser = 'root'
 
-        try:
-            os.mkdir(prefix)
-        except Exception as e:
-            print(e)
+        os.makedirs(prefix, exist_ok=True)
 
         rse_settings, tmpdir, user = cls.setup_common_test_env(rse_name, vo, tmp_path_factory)
 
@@ -67,12 +65,17 @@ class TestRseRSYNC(MgrTestCases):
         protocol = rsemanager.create_protocol(rse_settings, 'write')
         protocol.connect()
 
-        os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
+        # Use tempfile for file creation in the same directory
+        fd, temp_data_file = tempfile.mkstemp(dir=prefix, suffix='.raw', prefix='data_')
+        os.close(fd)
+        os.system('dd if=/dev/urandom of=%s bs=1024 count=1024' % temp_data_file)
+        data_file = os.path.join(prefix, 'data.raw')
+        os.rename(temp_data_file, data_file)
 
         for f in MgrTestCases.files_remote:
             path = str(prefix + protocol._get_path('user.%s' % user, f))
             pathdir = os.path.dirname(path)
-            cmd = 'rsync -az -e "ssh -p %s" --rsync-path="mkdir -p %s && rsync" --append-verify %s/data.raw %s@%s:%s' % (port, str(pathdir), prefix, sshuser, hostname, path)
+            cmd = 'rsync -az -e "ssh -p %s" --rsync-path="mkdir -p %s && rsync" --append-verify %s %s@%s:%s' % (port, str(pathdir), data_file, sshuser, hostname, path)
             execute(cmd)
 
         for f in MgrTestCases.files_local_and_remote:
@@ -83,7 +86,7 @@ class TestRseRSYNC(MgrTestCases):
 
         yield rse_settings, tmpdir, user
 
-        clean_raw = '%s/data.raw' % prefix
+        clean_raw = data_file
         list_files_cmd_user = 'ssh %s@%s find %s/user/%s' % (sshuser, hostname, prefix, user)
         clean_files = str(execute(list_files_cmd_user)[1]).split('\n')
         list_files_cmd_group = 'ssh %s@%s find %s/group/%s' % (sshuser, hostname, prefix, user)
