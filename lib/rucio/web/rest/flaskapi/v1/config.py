@@ -15,6 +15,7 @@
 from flask import Flask, jsonify
 from flask import request as request
 
+from rucio.common.constants import HttpMethod
 from rucio.common.exception import AccessDenied, ConfigNotFound, ConfigurationError
 from rucio.gateway import config
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -285,13 +286,13 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('config', __name__, url_prefix='/config')
 
     option_set_view = OptionSet.as_view('option_set')
-    bp.add_url_rule('/<section>/<option>/<value>', view_func=option_set_view, methods=['put', ])
+    bp.add_url_rule('/<section>/<option>/<value>', view_func=option_set_view, methods=[HttpMethod.PUT.value])
     option_get_del_view = OptionGetDel.as_view('option_get_del')
-    bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['get', 'delete'])
+    bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=[HttpMethod.GET.value, HttpMethod.DELETE.value])
     section_view = Section.as_view('section')
-    bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
+    bp.add_url_rule('/<section>', view_func=section_view, methods=[HttpMethod.GET.value])
     config_view = Config.as_view('config')
-    bp.add_url_rule('', view_func=config_view, methods=['get', 'post'])
+    bp.add_url_rule('', view_func=config_view, methods=[HttpMethod.GET.value, HttpMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp

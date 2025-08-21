@@ -16,7 +16,7 @@
 from flask import Blueprint, make_response, render_template, request
 
 from rucio.common.config import config_get_bool
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, HttpMethod
 from rucio.common.policy import get_policy
 from rucio.gateway.authentication import get_auth_token_x509
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
@@ -41,15 +41,16 @@ def auth():
         else:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token')
     else:
-        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT)
+        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT,
+                               userpass_support=USERPASS_SUPPORT)
 
 
 def login():
-    if request.method == 'GET':
+    if request.method == HttpMethod.GET.value:
         account = request.args.get('account')
         vo = request.args.get('vo')
         return render_template('login.html', account=account, vo=vo, userpass_support=USERPASS_SUPPORT)
-    if request.method == 'POST':
+    if request.method == HttpMethod.POST.value:
         return userpass_auth()
 
 
@@ -80,12 +81,12 @@ def x509():
 
 
 AUTH_URLS = (
-    ('/auth', 'auth', auth, ['GET', ]),
-    ('/login', 'login', login, ['GET', 'POST']),
-    ('/oidc', 'oidc', oidc, ['GET', ]),
-    ('/oidc_final', 'oidc_final', oidc_final, ['GET', ]),
-    ('/saml', 'saml', saml, ['GET', 'POST']),
-    ('/x509', 'x509', x509, ['GET', ])
+    ('/auth', 'auth', auth, [HttpMethod.GET]),
+    ('/login', 'login', login, [HttpMethod.GET, HttpMethod.POST]),
+    ('/oidc', 'oidc', oidc, [HttpMethod.GET]),
+    ('/oidc_final', 'oidc_final', oidc_final, [HttpMethod.GET]),
+    ('/saml', 'saml', saml, [HttpMethod.GET, HttpMethod.POST]),
+    ('/x509', 'x509', x509, [HttpMethod.GET])
 )
 
 COMMON_URLS = (

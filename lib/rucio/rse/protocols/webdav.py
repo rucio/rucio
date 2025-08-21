@@ -260,10 +260,10 @@ class Default(protocol.RSEProtocol):
         try:
             # use GET instead of HEAD for presigned urls
             if not using_presigned_urls:
-                result = self.session.request(str(HttpMethod.HEAD), path, verify=False, timeout=self.timeout,
+                result = self.session.request(HttpMethod.HEAD.value, path, verify=False, timeout=self.timeout,
                                               cert=self.cert)
             else:
-                result = self.session.request(str(HttpMethod.GET), path, verify=False, timeout=self.timeout,
+                result = self.session.request(HttpMethod.GET.value, path, verify=False, timeout=self.timeout,
                                               cert=self.cert)
             if result.status_code == 200:
                 return True
