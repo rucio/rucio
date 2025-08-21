@@ -1761,6 +1761,7 @@ def test_transfer_plugins(rse_factory, did_factory, root_account, file_config_mo
 
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
+@pytest.mark.needs_iam
 @pytest.mark.parametrize("file_config_mock", [{
     "overrides": [('client', 'register_bittorrent_meta', 'true')]
 }], indirect=True)
