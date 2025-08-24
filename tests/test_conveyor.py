@@ -626,77 +626,57 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
-@pytest.mark.dirty(reason="leaves files in XRD containers")
-@pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.core.rse.REGION',
     'rucio.core.rse_expression_parser.REGION',
     'rucio.rse.rsemanager.RSE_REGION',  # for RSE info
 ]}], indirect=True)
-def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_mock):
+def test_receiver_archiving(rse_factory, vo, did_factory, root_account, caches_mock, scitags_mock):
     """
     Ensure that receiver doesn't mark archiving requests as DONE
     """
 
-    src_rse = 'XRD3'
-    src_rse_id = rse_core.get_rse_id(rse=src_rse, vo=vo)
-    dst_rse = 'XRD4'
-    dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
     all_rses = [src_rse_id, dst_rse_id]
 
-    received_messages = {}
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
 
-    class ReceiverWrapper(Receiver):
-        """
-        Wrap receiver to record the last handled message for each given request_id
-        """
-        def _perform_request_update(self, msg, *, session=None, logger=logging.log):
-            ret = super()._perform_request_update(msg, session=session, logger=logger)
-            received_messages[msg['file_metadata']['request_id']] = msg
-            return ret
+    receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
+    receiver_thread.start()
+    # Fake that destination RSE is a tape
+    rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.TAPE})
+    try:
+        rse_core.add_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT, 60)
 
-    with patch('rucio.daemons.conveyor.receiver.Receiver', ReceiverWrapper):
-        receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
-        receiver_thread.start()
-        # Fake that destination RSE is a tape
-        rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.TAPE})
-        try:
-            rse_core.add_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT, 60)
+        did = did_factory.upload_test_file(src_rse)
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
 
-            did = did_factory.upload_test_file(src_rse)
-            rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, activity='test')
-            submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
 
-            # Wait for the reception of the FTS Completion message for the submitted request
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            for i in range(MAX_POLL_WAIT_SECONDS):
-                if request['id'] in received_messages:
-                    break
-                if i == MAX_POLL_WAIT_SECONDS - 1:
-                    assert False  # Waited too long; fail the test
-                time.sleep(1)
-            assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
+        # Wait for the reception of the FTS Completion message for the submitted request
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
-            # Receiver must not mark "ARCHIVING" requests as "DONE"
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            assert received_messages[request['id']].get('scitag') == 2 << 6 | 18  # 'atlas' experiment: 2; 'test' activity: 18
-            assert request['state'] == RequestState.SUBMITTED
-            # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
-            poller(once=True, older_than=0, partition_wait_time=0)
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            assert request['state'] == RequestState.SUBMITTED
-        finally:
-            rse_core.update_rse(rse_id=dst_rse_id, parameters={'rse_type': RSEType.DISK})
-            rse_core.del_rse_attribute(dst_rse_id, RseAttr.ARCHIVE_TIMEOUT)
+        assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
 
-            RECEIVER_GRACEFUL_STOP.set()
-            receiver_thread.join(timeout=5)
-            RECEIVER_GRACEFUL_STOP.clear()
+        # Receiver must not mark "ARCHIVING" requests as "DONE"
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.SUBMITTED
+        # Poller should also correctly handle "ARCHIVING" transfers and not mark them as DONE
+        poller(once=True, older_than=0, partition_wait_time=0)
+        request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+        assert request['state'] == RequestState.SUBMITTED
+    finally:
+        RECEIVER_GRACEFUL_STOP.set()
+        receiver_thread.join(timeout=5)
+        RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.THROTTLER, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 @pytest.mark.parametrize("file_config_mock", [{
@@ -713,6 +693,10 @@ def test_preparer_throttler_submitter(rse_factory, did_factory, root_account, fi
 
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
+        # Disable checksum verification
+        # to avoid user-defining source and destination checksum for each transfer
+        # (required when using the mock protocol on FTS >= 3.14.1)
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
     distance_core.add_distance(src_rse_id, dst_rse_id1, distance=10)
     distance_core.add_distance(src_rse_id, dst_rse_id2, distance=10)
     # Set limits only for one of the RSEs
@@ -1029,7 +1013,6 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_lost_transfers(rse_factory, did_factory, root_account):
@@ -1045,11 +1028,21 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
 
     did = did_factory.upload_test_file(src_rse)
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
 
     rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    # Fake that the transfer is submitted and lost
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Set the correct checksum on both source and destination
+            file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
+            file['destinations'] = [set_query_parameters(d_url, {'checksum': replica['adler32']}) for d_url in file['destinations']]
+
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
+        # Fake that the transfer is submitted and lost
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     __update_request(request['id'], external_id='some-fake-random-id')
 
@@ -1064,7 +1057,8 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     # The source ranking must not be updated for submission failures and lost transfers
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
     assert __get_source(request_id=request['id'], src_rse_id=src_rse_id, **did).ranking == 0
-    submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
+        submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
     replica = __wait_for_replica_transfer(dst_rse_id=dst_rse_id, **did)
     assert replica['state'] == ReplicaState.AVAILABLE
 
@@ -1430,7 +1424,6 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 @pytest.mark.parametrize("core_config_mock", [
@@ -1474,6 +1467,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     all_rses = [rse1_id, rse2_id, rse3_id, rse4_id, rse5_id, rse6_id, rse7_id]
     for rse_id in all_rses:
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
         rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
         rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
     distance_core.add_distance(rse1_id, rse2_id, distance=10)
@@ -1562,7 +1556,6 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     assert dict_stats[rse2_id][rse1_id]['bytes_done'] == 2
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 def test_checksum_validation(rse_factory, did_factory, root_account):
@@ -1607,11 +1600,11 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     # No common supported checksum between the source and destination rse. It will verify the destination rse checksum and fail
     request = __wait_for_state_transition(dst_rse_id=dst_rse2_id, **did)
     assert request['state'] == RequestState.FAILED
-    assert 'User and destination checksums do not match' in request['err_msg']
+    assert 'User-defined and destination MD5 checksum do not match' in request['err_msg']
 
-    # Common checksum exists between the two. It must use "both" validation strategy and fail
+    # Common checksum exists between the two. It It will fail early when checking the user-defined and destination checksums.
     request = __wait_for_state_transition(dst_rse_id=dst_rse3_id, **did)
-    assert 'Source and destination checksums do not match' in request['err_msg']
+    assert 'User-defined and destination ADLER32 checksum do not match' in request['err_msg']
     assert request['state'] == RequestState.FAILED
 
 
