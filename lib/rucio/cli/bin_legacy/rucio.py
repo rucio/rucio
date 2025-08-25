@@ -32,7 +32,6 @@ from rich.status import Status
 from rich.text import Text
 from rich.theme import Theme
 from rich.traceback import install
-from rich.tree import Tree
 from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
@@ -716,64 +715,7 @@ def list_parent_dids(args, client, logger, console, spinner):
         spinner.update(status='Fetching parent DIDs')
         spinner.start()
 
-    if args.pfns:
-        dict_datasets = {}
-        output = []
-        for res in client.get_did_from_pfns(args.pfns):
-            for key in res:
-                if key not in dict_datasets:
-                    dict_datasets[key] = []
-                for rule in client.list_associated_rules_for_file(res[key]['scope'], res[key]['name']):
-                    if f"{rule['scope']}:{rule['name']}" not in dict_datasets[key]:
-                        dict_datasets[key].append(f"{rule['scope']}:{rule['name']}")
-
-        for i, pfn in enumerate(dict_datasets):
-            if cli_config == 'rich':
-                parent_tree = Tree('')
-                for parent in dict_datasets[pfn]:
-                    parent_tree.add(parent)
-                table = generate_table([['PFN', pfn], ['Parents', parent_tree]], col_alignments=['left', 'left'], row_styles=['none'])
-                output.append(table)
-            else:
-                print('PFN: ', pfn)
-                print('Parents: ', ','.join(dict_datasets[pfn]))
-
-        if cli_config == 'rich':
-            spinner.stop()
-            print_output(*output, console=console, no_pager=args.no_pager)
-    elif args.guids:
-        output = []
-        guids = []
-        for input_ in args.guids:
-            try:
-                uuid.UUID(input_)
-            except ValueError:
-                print(f'Ignoring invalid GUID: {input_}')
-                continue
-        dict_datasets = {}
-        for guid in guids:
-            for did in client.get_dataset_by_guid(guid):
-                if guid not in dict_datasets:
-                    dict_datasets[guid] = []
-                for rule in client.list_associated_rules_for_file(did['scope'], did['name']):
-                    if f"{rule['scope']}:{rule['name']}" not in dict_datasets[guid]:
-                        dict_datasets[guid].append(f"{rule['scope']}:{rule['name']}")
-
-        for i, guid in enumerate(dict_datasets):
-            if cli_config == 'rich':
-                parent_tree = Tree('')
-                for parent in dict_datasets[guid]:
-                    parent_tree.add(parent)
-                table = generate_table([['GUID', guid], ['Parents', parent_tree]], col_alignments=['left', 'left'], row_styles=['none'])
-                output.append(table)
-            else:
-                print('GUID: ', guid)
-                print('Parents : ', ','.join(dict_datasets[guid]))
-
-        if cli_config == 'rich':
-            spinner.stop()
-            print_output(*output, console=console, no_pager=args.no_pager)
-    elif args.did:
+    if args.did:
         table_data = []
         scope, name = get_scope(args.did, client)
         for dataset in client.list_parent_dids(scope=scope, name=name):
@@ -789,7 +731,7 @@ def list_parent_dids(args, client, logger, console, spinner):
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     else:
-        raise InputValidationError('At least one option has to be given. Use -h to list the options.')
+        raise InputValidationError('A DID must be provided. Use -h to list the options.')
     return SUCCESS
 
 
@@ -2403,8 +2345,6 @@ You can filter by key/value, e.g.::
     ''')
     list_parent_parser.set_defaults(function=list_parent_dids)
     list_parent_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
-    list_parent_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
-    list_parent_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
     # argparse 2.7 does not allow aliases for commands, thus the list-parent-datasets is a copy&paste from list-parent-dids
     list_parent_datasets_parser = subparsers.add_parser('list-parent-datasets', help='List parent DIDs for a given DID', description='List all parents Data IDentifier that contains the target Data IDentifier.',
@@ -2423,8 +2363,6 @@ You can filter by key/value, e.g.::
 
     list_parent_datasets_parser.set_defaults(function=list_parent_dids)
     list_parent_datasets_parser.add_argument(dest='did', action='store', nargs='?', default=None, help='Data identifier.')
-    list_parent_datasets_parser.add_argument('--pfn', dest='pfns', action='store', nargs='+', help='List parent dids for these pfns.')
-    list_parent_datasets_parser.add_argument('--guid', dest='guids', action='store', nargs='+', help='List parent dids for these guids.')
 
     # The list-scopes command
     scope_list_parser = subparsers.add_parser('list-scopes', help='List all available scopes.',
