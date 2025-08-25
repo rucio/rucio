@@ -1,44 +1,36 @@
-name: Run all the autotests
+name: Code Quality
 
 on:
-  # pull_request:
+  workflow_dispatch:
+    # pull_request:
   # push:
   # schedule:
-  #   - cron: '0 3 * * *'
-  workflow_dispatch:
+    # - cron: "0 3 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  add_header:
-    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
-    name: Add header lint
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
-          # We need the history to determine the file creation date.
           fetch-depth: 0
-      - name: Check headers
-        shell: bash
-        run: |
-          python3 tools/add_header --dry-run --disable-progress-bar
-  python_ruff:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Install Python
+      - name: Setup Python
         uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: "3.11"
-      - name: Install dependencies
+      - name: Install lint dependencies
         run: |
           python -m pip install --upgrade pip
           pip install ruff
+      - name: Check headers
+        run: python3 tools/add_header --dry-run --disable-progress-bar
       - name: Run Ruff
         run: ruff check --output-format=github .
+
   python_annotations:
     if: |
       !startsWith(github.ref_name, 'release')
@@ -51,7 +43,7 @@ jobs:
       UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../updated_type_annotation_report.txt
       INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../initial_type_annotation_report.txt
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Count current number of missing type annotations
         id: count_updated
         shell: bash
@@ -107,7 +99,7 @@ jobs:
       PYRIGHT_CURRENT_REPORT: ../pyright_current_report.json
       PYRIGHT_ANCESTOR_REPORT: ../pyright_ancestor_report.json
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev git
@@ -136,56 +128,3 @@ jobs:
           tools/run_pyright.sh compare --Werror \
             ${{ env.PYRIGHT_ANCESTOR_REPORT }} \
             ${{ env.PYRIGHT_CURRENT_REPORT }}
-  setup:
-    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Update pip
-        run: python3 -m pip install -U pip setuptools
-      - name: Install python requirements for matrix_parser.py
-        run: python3 -m pip install -U PyYAML
-      - name: Identify branch
-        id: branch
-        run: python3 tools/github/workflow/set_branch_output_env.py
-      - name: Identify Matrix
-        id: matrix
-        run: |
-          EVENT="${{ github.event_name }}"
-          if [ $EVENT != 'schedule' ]; then
-            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)" >> $GITHUB_OUTPUT
-          else
-            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_nightly.yml)" >> $GITHUB_OUTPUT
-          fi
-    outputs:
-      branch: ${{ steps.branch.outputs.branch }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
-  test:
-    needs: setup
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Build images
-        id: images
-        shell: bash
-        run: |
-          docker login https://ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          i=0; until [ "$i" -ge 3 ]; do
-            IMAGES=$(echo '${{ toJson(matrix.cfg) }}' | ./tools/test/build_images.py \
-                --cache-repo ghcr.io/${{ github.repository }} \
-                --branch "${{ needs.setup.outputs.branch }}" ./etc/docker/test || echo "")
-            if [[ -n $IMAGES ]]; then break;
-            else
-              i=$((i+1)); sleep 5;
-              echo "::warning::Building images failed, retrying…"
-            fi
-          done
-          docker logout https://ghcr.io
-          if [[ -z "$IMAGES" ]]; then echo "::error::Building images failed ultimately"; exit 1; fi
-          echo "images=$IMAGES" >> $GITHUB_OUTPUT
-      - name: Run test with cfg
-        run: 'echo ''{"matrix": ${{ toJson(matrix.cfg) }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
