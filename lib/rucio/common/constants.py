@@ -219,3 +219,16 @@ SUPPORTED_SIGN_URL_SERVICES = list(get_args(SUPPORTED_SIGN_URL_SERVICES_LITERAL)
 
 OPENDATA_DID_STATE_LITERAL = Literal['draft', 'public', 'suspended']
 OPENDATA_DID_STATE_LITERAL_LIST = list(get_args(OPENDATA_DID_STATE_LITERAL))
+
+@enum.unique
+class HttpMethod(enum.Enum):
+    """HTTP verbs used in Rucio requests."""
+
+    # Standard HTTP/1.1
+    HEAD = 'HEAD'
+    OPTIONS = 'OPTIONS'
+    PATCH = 'PATCH'
+    GET = 'GET'
+    POST = 'POST'
+    PUT = 'PUT'
+    DELETE = 'DELETE'
