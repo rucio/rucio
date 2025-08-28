@@ -17,6 +17,7 @@ from typing import Any
 
 from flask import Flask, Response, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import (
     AccessDenied,
     AccountNotFound,
@@ -827,21 +828,21 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('rules', __name__, url_prefix='/rules')
 
     rule_view = Rule.as_view('rule')
-    bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=['get', 'put', 'delete'])
+    bp.add_url_rule('/<rule_id>', view_func=rule_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
     all_rule_view = AllRule.as_view('all_rule')
-    bp.add_url_rule('/', view_func=all_rule_view, methods=['get', 'post'])
+    bp.add_url_rule('/', view_func=all_rule_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
     replica_locks_view = ReplicaLocks.as_view('replica_locks')
-    bp.add_url_rule('/<rule_id>/locks', view_func=replica_locks_view, methods=['get', ])
+    bp.add_url_rule('/<rule_id>/locks', view_func=replica_locks_view, methods=[HTTPMethod.GET.value])
     reduce_rule_view = ReduceRule.as_view('reduce_rule')
-    bp.add_url_rule('/<rule_id>/reduce', view_func=reduce_rule_view, methods=['post', ])
+    bp.add_url_rule('/<rule_id>/reduce', view_func=reduce_rule_view, methods=[HTTPMethod.POST.value])
     move_rule_view = MoveRule.as_view('move_rule')
-    bp.add_url_rule('/<rule_id>/move', view_func=move_rule_view, methods=['post', ])
+    bp.add_url_rule('/<rule_id>/move', view_func=move_rule_view, methods=[HTTPMethod.POST.value])
     rule_history_view = RuleHistory.as_view('rule_history')
-    bp.add_url_rule('/<rule_id>/history', view_func=rule_history_view, methods=['get', ])
+    bp.add_url_rule('/<rule_id>/history', view_func=rule_history_view, methods=[HTTPMethod.GET.value])
     rule_history_full_view = RuleHistoryFull.as_view('rule_history_full')
-    bp.add_url_rule('/<path:scope_name>/history', view_func=rule_history_full_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/history', view_func=rule_history_full_view, methods=[HTTPMethod.GET.value])
     rule_analysis_view = RuleAnalysis.as_view('rule_analysis')
-    bp.add_url_rule('/<rule_id>/analysis', view_func=rule_analysis_view, methods=['get', ])
+    bp.add_url_rule('/<rule_id>/analysis', view_func=rule_analysis_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

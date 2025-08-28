@@ -17,6 +17,7 @@ from typing import Any
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, render_json
 
 
@@ -37,7 +38,7 @@ class ImportClient(BaseClient):
         path = '/'.join([self.IMPORT_BASEURL])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='POST', data=render_json(**data))
+        r = self._send_request(url, method=HTTPMethod.POST, data=render_json(**data))
         if r.status_code == codes.created:
             return r.text
         else:

@@ -19,6 +19,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 
@@ -123,7 +124,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'local', account, rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
 
         if r.status_code == codes.created:
             return True
@@ -160,7 +161,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'local', account, rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.ok:
             return True
@@ -196,7 +197,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
 
         if r.status_code == codes.created:
             return True
@@ -233,7 +234,7 @@ class AccountLimitClient(BaseClient):
         path = '/'.join([self.ACCOUNTLIMIT_BASEURL, 'global', account, quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.ok:
             return True

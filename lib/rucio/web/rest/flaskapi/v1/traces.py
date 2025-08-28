@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, Response, request
 from werkzeug.datastructures import Headers
 
+from rucio.common.constants import HTTPMethod
 from rucio.gateway.trace import trace
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, response_headers
 
@@ -122,7 +123,7 @@ def blueprint() -> Blueprint:
     bp = Blueprint('traces', __name__, url_prefix='/traces')
 
     trace_view = Trace.as_view('trace')
-    bp.add_url_rule('/', view_func=trace_view, methods=['post', ])
+    bp.add_url_rule('/', view_func=trace_view, methods=[HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp

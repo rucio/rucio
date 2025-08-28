@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, MissingClientParameter, RucioException
 from rucio.common.utils import execute
 from rucio.tests.common import remove_config, skip_outside_gh_actions
@@ -175,7 +176,7 @@ class TestBaseClient:
             del invocations[:]
             client = BaseClient(rucio_host=server.base_url, auth_host=server.base_url, account='root', auth_type='userpass', creds=creds, vo=vo)
             del invocations[:]
-            client._send_request(server.base_url)  # noqa
+            client._send_request(server.base_url, method=HTTPMethod.GET)  # noqa
         # The client did back-off multiple times before succeeding: 2 * 0.25s (authentication) + 2 * 0.25s (request) = 1s
         assert datetime.utcnow() - start_time > timedelta(seconds=0.9)
 
