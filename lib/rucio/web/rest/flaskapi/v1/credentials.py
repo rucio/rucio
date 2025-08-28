@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, cast
 from flask import Flask, request
 from werkzeug.datastructures import Headers
 
-from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL, HTTPMethod
 from rucio.common.exception import CannotAuthenticate
 from rucio.gateway.credential import get_signed_url
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -203,10 +203,10 @@ def blueprint(with_doc=False):
     bp = AuthenticatedBlueprint('credentials', __name__, url_prefix='/credentials')
 
     signurl_view = SignURL.as_view('signurl')
-    bp.add_url_rule('/signurl', view_func=signurl_view, methods=['get', 'options'])
+    bp.add_url_rule('/signurl', view_func=signurl_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     if not with_doc:
         # yes, /signur ~= '/signurl?$'
-        bp.add_url_rule('/signur', view_func=signurl_view, methods=['get', 'options'])
+        bp.add_url_rule('/signur', view_func=signurl_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
 
     bp.after_request(response_headers)
 

@@ -14,6 +14,7 @@
 
 from flask import Blueprint, Flask, Response
 
+from rucio.common.constants import HTTPMethod
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
 from rucio.web.rest.flaskapi.v1.opendata import OpenDataDIDsView, OpenDataView
 
@@ -129,10 +130,10 @@ def blueprint() -> "Blueprint":
     bp = Blueprint("opendata_public", __name__, url_prefix="/opendata/public")
 
     opendata_public_view = OpenDataPublicView.as_view("opendata")
-    bp.add_url_rule("/dids", view_func=opendata_public_view, methods=["get"])
+    bp.add_url_rule("/dids", view_func=opendata_public_view, methods=[HTTPMethod.GET.value])
 
     opendata_private_did_view = OpenDataPublicDIDsView.as_view("opendata_did")
-    bp.add_url_rule("/dids/<scope>/<name>", view_func=opendata_private_did_view, methods=["get"])
+    bp.add_url_rule("/dids/<scope>/<name>", view_func=opendata_private_did_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
 
