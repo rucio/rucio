@@ -20,6 +20,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, chunks, render_json
 
 
@@ -50,7 +51,7 @@ class ReplicaClient(BaseClient):
         headers = {}
         for chunk in chunks(replicas, self.REPLICAS_CHUNK_SIZE):
             data = {'rse': rse, 'rse_id': rse_id, 'replicas': chunk}
-            r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+            r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data))
             if r.status_code != codes.ok:
                 exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
                 raise exc_cls(exc_msg)
@@ -74,12 +75,12 @@ class ReplicaClient(BaseClient):
             Dictionary of the form {"rse_name": ["did: error",...]} - list of strings for DIDs failed to declare, by RSE
         """
 
-        out = {}    # {rse: ["did: error text",...]}
+        out = {}  # {rse: ["did: error text",...]}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad']))
         headers = {}
         for chunk in chunks(replicas, self.REPLICAS_CHUNK_SIZE):
             data = {'reason': reason, 'replicas': chunk, 'force': force}
-            r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+            r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data))
             if r.status_code not in (codes.created, codes.ok):
                 exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
                 raise exc_cls(exc_msg)
@@ -105,7 +106,7 @@ class ReplicaClient(BaseClient):
         data = {'reason': reason, 'rse': rse, 'dids': dids}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/dids']))
         headers = {}
-        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+        r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data))
         if r.status_code == codes.created:
             return loads(r.text)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -126,7 +127,7 @@ class ReplicaClient(BaseClient):
         data = {'reason': reason, 'pfns': pfns}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'suspicious']))
         headers = {}
-        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+        r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data))
         if r.status_code == codes.created:
             return loads(r.text)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -146,7 +147,7 @@ class ReplicaClient(BaseClient):
         data = {'rse': rse, 'pfns': pfns}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'dids']))
         headers = {}
-        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+        r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -243,7 +244,7 @@ class ReplicaClient(BaseClient):
             headers['Accept'] = 'application/metalink4+xml'
 
         # pass json dict in querystring
-        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data), stream=True)
+        r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data), stream=True)
         if r.status_code == codes.ok:
             if not metalink:
                 return self._load_json_data(r)
@@ -278,22 +279,22 @@ class ReplicaClient(BaseClient):
 
         url = build_url(choice(self.list_hosts),
                         path='/'.join([self.REPLICAS_BASEURL, 'suspicious']))
-        r = self._send_request(url, type_='GET', params=params)
+        r = self._send_request(url, method=HTTPMethod.GET, params=params)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
     def add_replica(
-        self,
-        rse: str,
-        scope: str,
-        name: str,
-        bytes_: int,
-        adler32: str,
-        pfn: Optional[str] = None,
-        md5: Optional[str] = None,
-        meta: Optional[dict[str, Any]] = None
+            self,
+            rse: str,
+            scope: str,
+            name: str,
+            bytes_: int,
+            adler32: str,
+            pfn: Optional[str] = None,
+            md5: Optional[str] = None,
+            meta: Optional[dict[str, Any]] = None
     ) -> bool:
         """
         Add file replicas to a RSE.
@@ -350,7 +351,7 @@ class ReplicaClient(BaseClient):
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
-        r = self._send_request(url, type_='POST', data=render_json(**data))
+        r = self._send_request(url, method=HTTPMethod.POST, data=render_json(**data))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -375,7 +376,7 @@ class ReplicaClient(BaseClient):
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files, 'ignore_availability': ignore_availability}
-        r = self._send_request(url, type_='DEL', data=render_json(**data))
+        r = self._send_request(url, method=HTTPMethod.DELETE, data=render_json(**data))
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -408,7 +409,7 @@ class ReplicaClient(BaseClient):
         """
         url = build_url(choice(self.list_hosts), path=self.REPLICAS_BASEURL)
         data = {'rse': rse, 'files': files}
-        r = self._send_request(url, type_='PUT', data=render_json(**data))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=render_json(**data))
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -438,7 +439,7 @@ class ReplicaClient(BaseClient):
         url = build_url(self.host,
                         path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'datasets']),
                         params=payload)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -459,7 +460,7 @@ class ReplicaClient(BaseClient):
         """
         payload = {'dids': list(dids)}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'datasets_bulk']))
-        r = self._send_request(url, type_='POST', data=dumps(payload))
+        r = self._send_request(url, method=HTTPMethod.POST, data=dumps(payload))
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -493,7 +494,7 @@ class ReplicaClient(BaseClient):
         url = build_url(self.host,
                         path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'datasets_vp']),
                         params=payload)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -516,7 +517,7 @@ class ReplicaClient(BaseClient):
         A list of dict dataset replicas
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'rse', rse]))
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
 
@@ -545,7 +546,7 @@ class ReplicaClient(BaseClient):
         data = {'reason': reason, 'pfns': pfns, 'state': state, 'expires_at': expires_at}
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'bad/pfns']))
         headers = {}
-        r = self._send_request(url, headers=headers, type_='POST', data=dumps(data))
+        r = self._send_request(url, headers=headers, method=HTTPMethod.POST, data=dumps(data))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -562,7 +563,7 @@ class ReplicaClient(BaseClient):
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'tombstone']))
         data = {'replicas': replicas}
-        r = self._send_request(url, type_='POST', data=render_json(**data))
+        r = self._send_request(url, method=HTTPMethod.POST, data=render_json(**data))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)

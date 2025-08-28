@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, redirect, request
 from werkzeug.datastructures import Headers
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound, SortingAlgorithmNotSupported
 from rucio.core.replica_sorter import site_selector, sort_replicas
 from rucio.gateway.replica import list_replicas
@@ -350,11 +351,11 @@ def blueprint(with_doc=False):
     bp = Blueprint('redirect', __name__, url_prefix='/redirect')
 
     metalink_redirector_view = MetaLinkRedirector.as_view('metalink_redirector')
-    bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/metalink', view_func=metalink_redirector_view, methods=[HTTPMethod.GET.value])
     header_redirector_view = HeaderRedirector.as_view('header_redirector')
-    bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>', view_func=header_redirector_view, methods=[HTTPMethod.GET.value])
     if not with_doc:
-        bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=['get', ])
+        bp.add_url_rule('/<path:scope_name>/', view_func=header_redirector_view, methods=[HTTPMethod.GET.value])
 
     return bp
 

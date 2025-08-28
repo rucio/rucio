@@ -19,6 +19,7 @@ from urllib.parse import quote
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ class RSEClient(BaseClient):
         path = '/'.join([self.RSE_BASEURL, rse])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             rse_dict = loads(r.text)
             return rse_dict
@@ -110,7 +111,7 @@ class RSEClient(BaseClient):
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=dumps(kwargs))
+        r = self._send_request(url, method=HTTPMethod.POST, data=dumps(kwargs))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -129,7 +130,7 @@ class RSEClient(BaseClient):
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='PUT', data=dumps(parameters))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=dumps(parameters))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -150,7 +151,7 @@ class RSEClient(BaseClient):
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
         if r.status_code == codes.ok:
             return True
         else:
@@ -175,7 +176,7 @@ class RSEClient(BaseClient):
         else:
             path = 'rses/'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -213,7 +214,7 @@ class RSEClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'value': value})
 
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
         if r.status_code == codes.created:
             return True
         else:
@@ -238,7 +239,7 @@ class RSEClient(BaseClient):
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
         if r.status_code == codes.ok:
             return True
         else:
@@ -260,7 +261,7 @@ class RSEClient(BaseClient):
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             attributes = loads(r.text)
             return attributes
@@ -306,7 +307,7 @@ class RSEClient(BaseClient):
         scheme = params['scheme']
         path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=dumps(params))
+        r = self._send_request(url, method=HTTPMethod.POST, data=dumps(params))
         if r.status_code == codes.created:
             return True
         else:
@@ -366,7 +367,7 @@ class RSEClient(BaseClient):
         params['protocol_domain'] = protocol_domain
         url = build_url(choice(self.list_hosts), path=path, params=params)
 
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             protocols = loads(r.text)
             return protocols
@@ -426,7 +427,7 @@ class RSEClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path, params=params, doseq=True)
 
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             pfns = loads(r.text)
             return pfns
@@ -477,7 +478,7 @@ class RSEClient(BaseClient):
 
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
         if r.status_code == codes.ok:
             return True
         else:
@@ -530,7 +531,7 @@ class RSEClient(BaseClient):
 
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='PUT', data=dumps(data))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=dumps(data))
         if r.status_code == codes.ok:
             return True
         else:
@@ -586,8 +587,10 @@ class RSEClient(BaseClient):
 
         priority_a = protocol_a['domains'][domain][operation]
         priority_b = protocol_b['domains'][domain][operation]
-        self.update_protocols(rse, protocol_a['scheme'], {'domains': {domain: {operation: priority_b}}}, protocol_a['hostname'], protocol_a['port'])
-        self.update_protocols(rse, protocol_b['scheme'], {'domains': {domain: {operation: priority_a}}}, protocol_b['hostname'], protocol_b['port'])
+        self.update_protocols(rse, protocol_a['scheme'], {'domains': {domain: {operation: priority_b}}},
+                              protocol_a['hostname'], protocol_a['port'])
+        self.update_protocols(rse, protocol_b['scheme'], {'domains': {domain: {operation: priority_a}}},
+                              protocol_b['hostname'], protocol_b['port'])
         return True
 
     def add_qos_policy(self, rse: str, qos_policy: str) -> Literal[True]:
@@ -614,7 +617,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST')
+        r = self._send_request(url, method=HTTPMethod.POST)
         if r.status_code == codes.created:
             return True
         else:
@@ -649,7 +652,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
         if r.status_code == codes.ok:
             return True
         else:
@@ -669,7 +672,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'qos_policy']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return loads(r.text)
         else:
@@ -708,7 +711,7 @@ class RSEClient(BaseClient):
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
         data = {'source': source, 'used': used, 'free': free, 'files': files}
-        r = self._send_request(url, type_='PUT', data=dumps(data))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=dumps(data))
         if r.status_code == codes.ok:
             return True
         else:
@@ -737,7 +740,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET', params=filters)
+        r = self._send_request(url, method=HTTPMethod.GET, params=filters)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -766,7 +769,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'usage', 'history']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET', params=filters)
+        r = self._send_request(url, method=HTTPMethod.GET, params=filters)
         if r.status_code == codes.ok:
             return self._load_json_data(r)
         else:
@@ -800,7 +803,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='PUT', data=dumps({'name': name, 'value': value}))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=dumps({'name': name, 'value': value}))
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
@@ -827,7 +830,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
@@ -853,7 +856,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='DEL', data=dumps({'name': name}))
+        r = self._send_request(url, method=HTTPMethod.DELETE, data=dumps({'name': name}))
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
@@ -878,7 +881,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=dumps(parameters))
+        r = self._send_request(url, method=HTTPMethod.POST, data=dumps(parameters))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
@@ -907,7 +910,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='PUT', data=dumps(parameters))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=dumps(parameters))
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
@@ -938,7 +941,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
@@ -962,7 +965,7 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
         if r.status_code == codes.ok:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
