@@ -14,7 +14,7 @@
 
 from flask import Blueprint, Flask, Response, request
 
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
 from rucio.common.utils import render_json
 from rucio.core.opendata import validate_opendata_did_state
@@ -374,10 +374,11 @@ def blueprint() -> "Blueprint":
     bp = AuthenticatedBlueprint("opendata", __name__, url_prefix="/opendata")
 
     opendata_view = OpenDataView.as_view("opendata")
-    bp.add_url_rule("/dids", view_func=opendata_view, methods=["get"])
+    bp.add_url_rule("/dids", view_func=opendata_view, methods=[HTTPMethod.GET.value])
 
     opendata_did_view = OpenDataDIDsView.as_view("opendata_did")
-    bp.add_url_rule("/dids/<scope>/<name>", view_func=opendata_did_view, methods=["get", "post", "put", "delete"])
+    bp.add_url_rule("/dids/<scope>/<name>", view_func=opendata_did_view,
+                    methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
 
     bp.after_request(response_headers)
 

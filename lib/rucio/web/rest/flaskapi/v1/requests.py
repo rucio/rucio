@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Union, cast
 import flask
 from flask import Flask, Response
 
-from rucio.common.constants import TransferLimitDirection
+from rucio.common.constants import HTTPMethod, TransferLimitDirection
 from rucio.common.exception import AccessDenied, RequestNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.core.rse import get_rses_with_attribute_value
@@ -1170,17 +1170,17 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('requests', __name__, url_prefix='/requests')
 
     request_get_view = RequestGet.as_view('request_get')
-    bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/<rse>', view_func=request_get_view, methods=[HTTPMethod.GET.value])
     request_history_get_view = RequestHistoryGet.as_view('request_history_get')
-    bp.add_url_rule('/history/<path:scope_name>/<rse>', view_func=request_history_get_view, methods=['get', ])
+    bp.add_url_rule('/history/<path:scope_name>/<rse>', view_func=request_history_get_view, methods=[HTTPMethod.GET.value])
     request_list_view = RequestList.as_view('request_list')
-    bp.add_url_rule('/list', view_func=request_list_view, methods=['get', ])
+    bp.add_url_rule('/list', view_func=request_list_view, methods=[HTTPMethod.GET.value])
     request_history_list_view = RequestHistoryList.as_view('request_history_list')
-    bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=['get', ])
+    bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=[HTTPMethod.GET.value])
     request_metrics_view = RequestMetricsGet.as_view('request_metrics_get')
-    bp.add_url_rule('/metrics', view_func=request_metrics_view, methods=['get', ])
+    bp.add_url_rule('/metrics', view_func=request_metrics_view, methods=[HTTPMethod.GET.value])
     transfer_limits_view = TransferLimits.as_view('transfer_limits_get')
-    bp.add_url_rule('/transfer_limits', view_func=transfer_limits_view, methods=['get', 'put', 'delete'])
+    bp.add_url_rule('/transfer_limits', view_func=transfer_limits_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
 
     bp.after_request(response_headers)
     return bp

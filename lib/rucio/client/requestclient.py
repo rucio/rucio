@@ -19,7 +19,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
-from rucio.common.constants import TransferLimitDirection
+from rucio.common.constants import HTTPMethod, TransferLimitDirection
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -45,7 +45,7 @@ class RequestClient(BaseClient):
         path = '/'.join([self.REQUEST_BASEURL, 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states)])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -70,7 +70,7 @@ class RequestClient(BaseClient):
         path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states), 'offset={}'.format(offset), 'limit={}'.format(limit)])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -106,7 +106,7 @@ class RequestClient(BaseClient):
         if scope is not None:
             path = '/'.join([self.REQUEST_BASEURL, quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
@@ -144,7 +144,7 @@ class RequestClient(BaseClient):
         if scope is not None:
             path = '/'.join([self.REQUEST_BASEURL, 'history', quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             return next(self._load_json_data(r))
@@ -161,7 +161,7 @@ class RequestClient(BaseClient):
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             return self._load_json_data(r)
@@ -201,7 +201,7 @@ class RequestClient(BaseClient):
                       'direction': direction.value, 'max_transfers': max_transfers,
                       'volume': volume, 'deadline': deadline, 'strategy': strategy,
                       'transfers': transfers, 'waitings': waitings})
-        r = self._send_request(url, type_='PUT', data=data)
+        r = self._send_request(url, method=HTTPMethod.PUT, data=data)
 
         if r.status_code == codes.created:
             return True
@@ -225,7 +225,7 @@ class RequestClient(BaseClient):
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'rse_expression': rse_expression, 'activity': activity, 'direction': direction.value})
-        r = self._send_request(url, type_='DEL', data=data)
+        r = self._send_request(url, method=HTTPMethod.DELETE, data=data)
 
         if r.status_code == codes.ok:
             return True

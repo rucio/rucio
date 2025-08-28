@@ -23,6 +23,7 @@ from jinja2.exceptions import TemplateNotFound
 from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound, InvalidRequest
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
@@ -1632,31 +1633,31 @@ def blueprint() -> Blueprint:
     bp = Blueprint('auth', __name__, url_prefix='/auth')
 
     user_pass_view = UserPass.as_view('user_pass')
-    bp.add_url_rule('/userpass', view_func=user_pass_view, methods=['get', 'options'])
+    bp.add_url_rule('/userpass', view_func=user_pass_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     gss_view = GSS.as_view('gss')
-    bp.add_url_rule('/gss', view_func=gss_view, methods=['get', 'options'])
+    bp.add_url_rule('/gss', view_func=gss_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     x509_view = x509.as_view('x509')
-    bp.add_url_rule('/x509', view_func=x509_view, methods=['get', 'options'])
-    bp.add_url_rule('/x509/webui', view_func=x509_view, methods=['get', 'options'])
-    bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=['get', 'options'])
+    bp.add_url_rule('/x509', view_func=x509_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
+    bp.add_url_rule('/x509/webui', view_func=x509_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
+    bp.add_url_rule('/x509_proxy', view_func=x509_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     ssh_view = SSH.as_view('ssh')
-    bp.add_url_rule('/ssh', view_func=ssh_view, methods=['get', 'options'])
+    bp.add_url_rule('/ssh', view_func=ssh_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     ssh_challenge_token_view = SSHChallengeToken.as_view('ssh_challenge_token')
-    bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=['get', 'options'])
+    bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     saml_view = SAML.as_view('saml')
-    bp.add_url_rule('/saml', view_func=saml_view, methods=['get', 'post', 'options'])
+    bp.add_url_rule('/saml', view_func=saml_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.OPTIONS.value])
     validate_view = Validate.as_view('validate')
-    bp.add_url_rule('/validate', view_func=validate_view, methods=['get', 'options'])
+    bp.add_url_rule('/validate', view_func=validate_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     oidc_view = OIDC.as_view('oidc_view')
-    bp.add_url_rule('/oidc', view_func=oidc_view, methods=['get', 'options'])
+    bp.add_url_rule('/oidc', view_func=oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     token_oidc_view = TokenOIDC.as_view('token_oidc_view')
-    bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=['get', 'options'])
+    bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     code_oidc_view = CodeOIDC.as_view('code_oidc_view')
-    bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=['get', 'options'])
+    bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
-    bp.add_url_rule('/oidc_redirect', view_func=redirect_oidc_view, methods=['get', 'options'])
+    bp.add_url_rule('/oidc_redirect', view_func=redirect_oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     refresh_oidc_view = RefreshOIDC.as_view('refresh_oidc_view')
-    bp.add_url_rule('/oidc_refresh', view_func=refresh_oidc_view, methods=['get', 'options'])
+    bp.add_url_rule('/oidc_refresh', view_func=refresh_oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
 
     return bp
 

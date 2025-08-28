@@ -15,6 +15,7 @@
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 
@@ -60,7 +61,7 @@ class CredentialClient(BaseClient):
         params['op'] = operation
         params['url'] = url
         rurl = build_url(choice(self.list_hosts), path=path, params=params)
-        r = self._send_request(rurl, type_='GET')
+        r = self._send_request(rurl, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             return r.text
