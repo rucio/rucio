@@ -738,8 +738,8 @@ class UploadClient:
                 raise DataIdentifierAlreadyExists
 
             # add the file to rse if it is not registered yet
-            replicastate = list(self.client.list_replicas([file_did], all_states=True))
-            if rse not in replicastate[0]['rses']:
+            replica_state = list(self.client.list_replicas([file_did], all_states=True))
+            if rse not in replica_state[0]['rses']:  # pyright: ignore
                 self.client.add_replicas(rse=rse, files=[replica_for_api])
                 logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
         except DataIdentifierNotFound:
