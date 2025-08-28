@@ -18,6 +18,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, render_json
 
 if TYPE_CHECKING:
@@ -87,7 +88,7 @@ class LockClient(BaseClient):
         path = '/'.join([self.LOCKS_BASEURL, "bulk_locks_for_dids"])
         url = build_url(choice(self.list_hosts), path=path)
 
-        result = self._send_request(url, type_='POST', data=render_json(dids=dids))
+        result = self._send_request(url, method=HTTPMethod.POST, data=render_json(dids=dids))
         if result.status_code == codes.ok:   # pylint: disable-msg=E1101
             out = []
             for lock in self._load_json_data(result):
