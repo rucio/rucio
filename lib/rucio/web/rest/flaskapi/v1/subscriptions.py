@@ -16,6 +16,7 @@ from json import dumps
 
 from flask import Flask, Response, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, InvalidObject, RuleNotFound, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.rule import list_replication_rules
@@ -623,18 +624,18 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('subscriptions', __name__, url_prefix='/subscriptions')
 
     subscription_id_view = SubscriptionId.as_view('subscription_id')
-    bp.add_url_rule('/id/<subscription_id>', view_func=subscription_id_view, methods=['get', ])
+    bp.add_url_rule('/id/<subscription_id>', view_func=subscription_id_view, methods=[HTTPMethod.GET.value])
     states_view = States.as_view('states')
-    bp.add_url_rule('/<account>/<name>/rules/states', view_func=states_view, methods=['get', ])
-    bp.add_url_rule('/<account>/rules/states', view_func=states_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>/rules/states', view_func=states_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/rules/states', view_func=states_view, methods=[HTTPMethod.GET.value])
     rules_view = Rules.as_view('rules')
-    bp.add_url_rule('/<account>/<name>/rules', view_func=rules_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>/rules', view_func=rules_view, methods=[HTTPMethod.GET.value])
     subscription_view = Subscription.as_view('subscription')
-    bp.add_url_rule('/<account>/<name>', view_func=subscription_view, methods=['get', 'post', 'put'])
-    bp.add_url_rule('/<account>', view_func=subscription_view, methods=['get', ])
-    bp.add_url_rule('/', view_func=subscription_view, methods=['get', ])
+    bp.add_url_rule('/<account>/<name>', view_func=subscription_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.PUT.value])
+    bp.add_url_rule('/<account>', view_func=subscription_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/', view_func=subscription_view, methods=[HTTPMethod.GET.value])
     subscription_name_view = SubscriptionName.as_view('subscription_name')
-    bp.add_url_rule('/name/<name>', view_func=subscription_name_view, methods=['get', ])
+    bp.add_url_rule('/name/<name>', view_func=subscription_name_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

@@ -14,6 +14,7 @@
 
 from flask import Flask, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import parse_response
 from rucio.gateway.importer import import_data
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -118,8 +119,8 @@ def blueprint(with_doc=False):
     import_view = Import.as_view('scope')
     if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
-        bp.add_url_rule('', view_func=import_view, methods=['post', ])
-    bp.add_url_rule('/', view_func=import_view, methods=['post', ])
+        bp.add_url_rule('', view_func=import_view, methods=[HTTPMethod.POST.value])
+    bp.add_url_rule('/', view_func=import_view, methods=[HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp

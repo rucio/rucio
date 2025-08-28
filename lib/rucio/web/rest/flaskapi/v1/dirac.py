@@ -14,6 +14,7 @@
 
 from flask import Flask, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierAlreadyExists, Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
 from rucio.common.utils import parse_response
 from rucio.gateway.dirac import add_files
@@ -102,8 +103,8 @@ def blueprint(with_doc=False):
     bp = AuthenticatedBlueprint('dirac', __name__, url_prefix='/dirac')
 
     add_file_view = AddFiles.as_view('addfiles')
-    bp.add_url_rule('/addfiles', view_func=add_file_view, methods=['post', ])
-    bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=['post', ])
+    bp.add_url_rule('/addfiles', view_func=add_file_view, methods=[HTTPMethod.POST.value])
+    bp.add_url_rule('/addfiles/', view_func=add_file_view, methods=[HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp
