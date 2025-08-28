@@ -17,6 +17,7 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, Optional
 
+from rucio.cli.bin_legacy.rucio import get_parser
 from rucio.cli.bin_legacy.rucio import main as main_legacy
 from rucio.cli.command import main
 from rucio.common.utils import setup_logger
@@ -119,9 +120,11 @@ if __name__ == "__main__":
         main()  # pylint: disable=E1120
 
     else:
-        make_warning(logger)
         try:
+            get_parser().parse_args()
+            make_warning(logger)
             main_legacy()
+
         # Make a custom warning - show the new help menu when invalid commands are called.
         except argparse.ArgumentError:
             logger.error("Invalid argument(s) - %s " % sys.argv[1:])
