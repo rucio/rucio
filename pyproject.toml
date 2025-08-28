@@ -10,6 +10,9 @@ pythonpath = [
 testpaths = [
     "tests",
 ]
+filterwarnings = [
+    "ignore::BytesWarning",
+]
 
 [tool.coverage.report]
 exclude_also = [

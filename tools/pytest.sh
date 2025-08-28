@@ -25,7 +25,17 @@ if [[ ${#@} -eq 0 ]]; then
   ARGS=(".")
 else
   echo "Running pytest with extra arguments: $@"
-  ARGS=($@)
+  # Convert /opt/rucio/tests/ paths to relative paths when in /rucio_source
+  ARGS=()
+  for arg in "$@"; do
+    if [[ "$arg" =~ ^/opt/rucio/tests/ ]]; then
+      # Convert /opt/rucio/tests/test_file.py to tests/test_file.py
+      relative_path="${arg#/opt/rucio/}"
+      ARGS+=("$relative_path")
+    else
+      ARGS+=("$arg")
+    fi
+  done
 fi
 
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD="True"
