@@ -27,7 +27,7 @@ from google.oauth2.service_account import Credentials
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, get_rse_credentials
-from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL, HTTPMethod, RseAttr
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_attribute
@@ -51,7 +51,7 @@ def get_signed_url(
     The signed URL will be valid for 1 hour but can be overridden.
 
     :param rse_id: The ID of the RSE that the URL points to.
-    :param service: The service to authorise, either 'gcs', 's3' or 'swift'.
+    :param service: The service to authorize, either 'gcs', 's3' or 'swift'.
     :param operation: The operation to sign, either 'read', 'write', or 'delete'.
     :param url: The URL to sign.
     :param lifetime: Lifetime of the signed URL in seconds.
@@ -68,6 +68,8 @@ def get_signed_url(
 
     if url is None or url == '':
         raise UnsupportedOperation('URL must not be empty')
+
+    operations_map = {'read': HTTPMethod.GET.value, 'write': HTTPMethod.PUT.value, 'delete': HTTPMethod.DELETE.value}
 
     if lifetime:
         if not isinstance(lifetime, int):
@@ -88,25 +90,21 @@ def get_signed_url(
         if lifetime is None:
             lifetime = 0
         else:
-            # GCS is timezone-sensitive, don't use UTC
-            # has to be converted to Unixtime
+            # GCS is timezone-sensitive, don't use UTC. Has to be converted to Unix time
             lifetime_datetime = datetime.datetime.now() + datetime.timedelta(seconds=lifetime)
             lifetime = int(time.mktime(lifetime_datetime.timetuple()))
 
         # sign the path only
         path = components.path
 
-        # Map operations
-        operations = {'read': 'GET', 'write': 'PUT', 'delete': 'DELETE'}
-
-        # assemble message to sign
-        to_sign = "%s\n\n\n%s\n%s" % (operations[operation], lifetime, path)
+        # assemble a message to sign
+        to_sign = "%s\n\n\n%s\n%s" % (operations_map[operation], lifetime, path)
 
         # create URL-capable signature
         # first character is always a '=', remove it
         signature = urlencode({'': base64.b64encode(CREDS_GCS.sign_bytes(to_sign))})[1:]
 
-        # assemble final signed URL
+        # assemble the final signed URL
         signed_url = (
             f'https://{host}{path}'
             f'?GoogleAccessId={CREDS_GCS.service_account_email}'
@@ -127,18 +125,18 @@ def get_signed_url(
         # split URL to get hostname, bucket and key
         components = urlparse(url)
         host = components.netloc
-        pathcomponents = components.path.split('/')
+        path_components = components.path.split('/')
         if s3_url_style == "path":
-            if len(pathcomponents) < 3:
+            if len(path_components) < 3:
                 raise UnsupportedOperation('Not a valid Path-Style S3 URL')
-            bucket = pathcomponents[1]
-            key = '/'.join(pathcomponents[2:])
+            bucket = path_components[1]
+            key = '/'.join(path_components[2:])
         elif s3_url_style == "host":
-            hostcomponents = host.split('.')
-            bucket = hostcomponents[0]
-            if len(pathcomponents) < 2:
+            host_components = host.split('.')
+            bucket = host_components[0]
+            if len(path_components) < 2:
                 raise UnsupportedOperation('Not a valid Host-Style S3 URL')
-            key = '/'.join(pathcomponents[1:])
+            key = '/'.join(path_components[1:])
         else:
             raise UnsupportedOperation('Not a valid RSE S3 URL style (allowed values: path|host)')
 
@@ -185,7 +183,7 @@ def get_signed_url(
                 s3op, Params={'Bucket': bucket, 'Key': key}, ExpiresIn=lifetime)
 
     else:  # service == 'swift'
-        # split URL to get hostname and path
+        # split URL to get the hostname and path
         components = urlparse(url)
         host = components.netloc
 
@@ -194,7 +192,7 @@ def get_signed_url(
         if colon >= 0:
             host = host[:colon]
 
-        # use RSE ID to look up key
+        # use RSE ID to look up the key
         cred_name = rse_id
 
         # look up tempurl signing key
@@ -205,12 +203,7 @@ def get_signed_url(
             REGION.set('swift-%s' % cred_name, cred)
         tempurl_key = cred['tempurl_key']
 
-        if operation == 'read':
-            swiftop = 'GET'
-        elif operation == 'write':
-            swiftop = 'PUT'
-        else:
-            swiftop = 'DELETE'
+        swiftop = operations_map[operation]
 
         expires = int(time.time() + lifetime)  # type: ignore (lifetime could be None)
 
