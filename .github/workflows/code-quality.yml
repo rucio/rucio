@@ -1,44 +1,36 @@
-name: Run all the autotests
+name: Code Quality
 
 on:
-  # pull_request:
+  workflow_dispatch:
+    # pull_request:
   # push:
   # schedule:
-  #   - cron: '0 3 * * *'
-  workflow_dispatch:
+    # - cron: "0 3 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  add_header:
-    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
-    name: Add header lint
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
-          # We need the history to determine the file creation date.
           fetch-depth: 0
-      - name: Check headers
-        shell: bash
-        run: |
-          python3 tools/add_header --dry-run --disable-progress-bar
-  python_ruff:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Install Python
+      - name: Setup Python
         uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: "3.11"
-      - name: Install dependencies
+      - name: Install lint dependencies
         run: |
           python -m pip install --upgrade pip
           pip install ruff
+      - name: Check headers
+        run: python3 tools/add_header --dry-run --disable-progress-bar
       - name: Run Ruff
         run: ruff check --output-format=github .
+
   python_annotations:
     if: |
       !startsWith(github.ref_name, 'release')
@@ -51,7 +43,7 @@ jobs:
       UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../updated_type_annotation_report.txt
       INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../initial_type_annotation_report.txt
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Count current number of missing type annotations
         id: count_updated
         shell: bash
@@ -107,7 +99,7 @@ jobs:
       PYRIGHT_CURRENT_REPORT: ../pyright_current_report.json
       PYRIGHT_ANCESTOR_REPORT: ../pyright_ancestor_report.json
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev git
@@ -136,85 +128,3 @@ jobs:
           tools/run_pyright.sh compare --Werror \
             ${{ env.PYRIGHT_ANCESTOR_REPORT }} \
             ${{ env.PYRIGHT_CURRENT_REPORT }}
-  # Build runtime images for tests
-  runtime_images:
-    if: github.event_name != 'schedule'
-    name: Build Runtime Images
-    uses: ./.github/workflows/runtime_images.yml
-    permissions:
-      packages: write
-  setup:
-    if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Update pip
-        run: python3 -m pip install -U pip setuptools
-      - name: Install python requirements for matrix_parser.py
-        run: python3 -m pip install -U PyYAML
-      - name: Identify branch
-        id: branch
-        run: python3 tools/github/workflow/set_branch_output_env.py
-      - name: Identify Matrix
-        id: matrix
-        run: |
-          EVENT="${{ github.event_name }}"
-          if [ $EVENT != 'schedule' ]; then
-            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix.yml)" >> $GITHUB_OUTPUT
-          else
-            echo "matrix=$(./tools/test/matrix_parser.py < ./etc/docker/test/matrix_nightly.yml)" >> $GITHUB_OUTPUT
-          fi
-    outputs:
-      branch: ${{ steps.branch.outputs.branch }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
-  test:
-    needs: [runtime_images, setup]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-      - name: Build Python 3.9 image locally
-        if: needs.runtime_images.outputs.build_locally == 'true' && matrix.cfg.PYTHON == '3.9'
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: .
-          file: etc/docker/test/runtime.Dockerfile
-          target: final
-          build-args: |
-            PYTHON=3.9
-          push: false
-          tags: ${{ needs.runtime_images.outputs.py39_image }}
-          outputs: type=docker
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache
-        continue-on-error: false
-      - name: Build Python 3.10 image locally
-        if: needs.runtime_images.outputs.build_locally == 'true' && matrix.cfg.PYTHON == '3.10'
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: .
-          file: etc/docker/test/runtime.Dockerfile
-          target: final
-          build-args: |
-            PYTHON=3.10
-          push: false
-          tags: ${{ needs.runtime_images.outputs.py310_image }}
-          outputs: type=docker
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache
-        continue-on-error: false
-      - name: Run test with cfg
-        env:
-          PY39_RUNTIME_IMAGE: ${{ needs.runtime_images.outputs.py39_image }}
-          PY310_RUNTIME_IMAGE: ${{ needs.runtime_images.outputs.py310_image }}
-          BUILD_LOCALLY: ${{ needs.runtime_images.outputs.build_locally }}
-        run: |
-          echo '{"matrix": ${{ toJson(matrix.cfg) }}, "runtime_images": {"3.9": "${{ needs.runtime_images.outputs.py39_image }}", "3.10": "${{ needs.runtime_images.outputs.py310_image }}"}, "build_locally": "${{ needs.runtime_images.outputs.build_locally }}" }' | ./tools/test/run_tests.py

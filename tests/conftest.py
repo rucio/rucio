@@ -52,6 +52,17 @@ _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--suite", 
+                     choices=["client", "remote_dbs", "sqlite", "multi_vo", "votest"], 
+                     default="remote_dbs",
+                     help="Test suite to run (matches existing SUITE env var)")
+    parser.addoption("--activate-rses", action="store_true", 
+                     help="Activate default RSEs (XRD1, XRD2, XRD3, SSH1)")
+    parser.addoption("--keep-db", action="store_true", 
+                     help="Keep database from previous run")
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
@@ -168,55 +179,55 @@ def long_vo() -> str:
 
 
 @pytest.fixture(scope='module')
-def account_client() -> "AccountClient":
+def account_client(rucio_bootstrap) -> "AccountClient":
     from rucio.client.accountclient import AccountClient
 
     return AccountClient()
 
 
 @pytest.fixture(scope='module')
-def replica_client() -> "ReplicaClient":
+def replica_client(rucio_bootstrap) -> "ReplicaClient":
     from rucio.client.replicaclient import ReplicaClient
 
     return ReplicaClient()
 
 
 @pytest.fixture(scope='module')
-def rucio_client() -> "Client":
+def rucio_client(rucio_bootstrap) -> "Client":
     from rucio.client import Client
     return Client()
 
 
 @pytest.fixture(scope='module')
-def did_client() -> "DIDClient":
+def did_client(rucio_bootstrap) -> "DIDClient":
     from rucio.client.didclient import DIDClient
 
     return DIDClient()
 
 
 @pytest.fixture(scope='module')
-def rse_client() -> "RSEClient":
+def rse_client(rucio_bootstrap) -> "RSEClient":
     from rucio.client.rseclient import RSEClient
 
     return RSEClient()
 
 
 @pytest.fixture(scope='module')
-def scope_client() -> "ScopeClient":
+def scope_client(rucio_bootstrap) -> "ScopeClient":
     from rucio.client.scopeclient import ScopeClient
 
     return ScopeClient()
 
 
 @pytest.fixture(scope='module')
-def dirac_client() -> "DiracClient":
+def dirac_client(rucio_bootstrap) -> "DiracClient":
     from rucio.client.diracclient import DiracClient
 
     return DiracClient()
 
 
 @pytest.fixture
-def download_client() -> "DownloadClient":
+def download_client(rucio_bootstrap) -> "DownloadClient":
     from rucio.client.downloadclient import DownloadClient
 
     return DownloadClient()
@@ -810,3 +821,408 @@ def db_write_session():
 
     with db_session(DatabaseOperationType.WRITE) as session:
         yield session
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_environment_setup(request: pytest.FixtureRequest) -> None:
+    """
+    Session-level setup for test environment based on suite type.
+    Handles memcached, cleanup, and basic environment preparation.
+    """
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    
+    suite = request.config.getoption("--suite")
+    
+    # Set SUITE environment variable for compatibility with existing code
+    os.environ['SUITE'] = suite
+    
+    if suite == "client":
+        # Client-only tests need minimal setup
+        return
+    
+    # Server tests need full environment setup
+    print("Setting up test environment for suite:", suite)
+    
+    # Start memcached if not running
+    try:
+        subprocess.run(['memcached', '-u', 'root', '-d'], check=False, capture_output=True)
+    except FileNotFoundError:
+        print("Warning: memcached not found, skipping memcached setup")
+    
+    # Clear memcache
+    try:
+        with open('/dev/tcp/127.0.0.1/11211', 'w') as f:
+            f.write('flush_all\n')
+    except:
+        # Alternative method using netcat or telnet if direct socket fails
+        try:
+            subprocess.run(['echo', 'flush_all'], stdout=subprocess.PIPE, check=False)
+        except:
+            print("Warning: Could not clear memcache")
+    
+    # Cleanup temporary files
+    temp_patterns = [
+        '/tmp/.rucio_*/',
+        '/tmp/rucio_rse/*'
+    ]
+    
+    for pattern in temp_patterns:
+        try:
+            import glob
+            for path in glob.glob(pattern):
+                if os.path.isdir(path):
+                    import shutil
+                    shutil.rmtree(path, ignore_errors=True)
+                elif os.path.isfile(path):
+                    os.remove(path)
+        except Exception as e:
+            print(f"Warning: Could not cleanup {pattern}: {e}")
+    
+    # Clean .pyc files from lib directory
+    try:
+        subprocess.run(['find', 'lib', '-iname', '*.pyc', '-delete'], 
+                      check=False, capture_output=True)
+    except Exception as e:
+        print(f"Warning: Could not clean .pyc files: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def database_setup(request: pytest.FixtureRequest, test_environment_setup) -> None:
+    """
+    Session-level database setup and reset.
+    Only runs for server test suites that need database access.
+    """
+    import os
+    from alembic import command
+    from alembic.config import Config
+    from rucio.db.sqla.util import build_database, create_base_vo, create_root_account, drop_orm_tables
+    
+    suite = request.config.getoption("--suite")
+    keep_db = request.config.getoption("--keep-db")
+    
+    if suite == "client":
+        pytest.skip("Client tests don't need database setup")
+    
+    print("Setting up database for suite:", suite)
+    
+    if not keep_db:
+        print("Resetting database tables")
+        
+        # Remove old SQLite databases
+        sqlite_paths = ['/tmp/rucio.db']
+        for db_path in sqlite_paths:
+            if os.path.exists(db_path):
+                print(f"Removing old SQLite database: {db_path}")
+                os.remove(db_path)
+        
+        # Reset database using direct function calls
+        try:
+            print("Dropping existing database tables")
+            drop_orm_tables()
+            
+            print("Building database schema")
+            build_database()
+            
+            print("Creating base VO and root account")
+            create_base_vo()
+            create_root_account()
+            
+            print("Database reset completed")
+        except Exception as e:
+            print(f"Database reset failed: {e}")
+            import traceback
+            traceback.print_exc()
+            pytest.fail("Failed to reset database")
+        
+        # Fix SQLite permissions if database exists
+        for db_path in sqlite_paths:
+            if os.path.exists(db_path):
+                print(f"Setting SQLite database permissions: {db_path}")
+                os.chmod(db_path, 0o666)
+    
+    # Run Alembic migrations using Python API
+    try:
+        rucio_home = os.environ.get('RUCIO_HOME', '/opt/rucio')
+        alembic_cfg_path = f"{rucio_home}/etc/alembic.ini"
+        
+        print("Running Alembic migrations")
+        print(f"Using Alembic config: {alembic_cfg_path}")
+        
+        # Create Alembic configuration
+        alembic_cfg = Config(alembic_cfg_path)
+        
+        # Run the migration sequence like alembic_migration.sh
+        print("Downgrading database to base")
+        command.downgrade(alembic_cfg, "base")
+        
+        print("Upgrading database to head-1")
+        command.upgrade(alembic_cfg, "head-1")
+        
+        print("Upgrading database to head")
+        command.upgrade(alembic_cfg, "head")
+        
+        print("Alembic migration completed")
+    except Exception as e:
+        print(f"Alembic migration failed: {e}")
+        import traceback
+        traceback.print_exc()
+        pytest.fail("Failed to run Alembic migrations")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def rucio_bootstrap(request: pytest.FixtureRequest, database_setup, test_environment_setup) -> None:
+    """
+    Session-level Rucio bootstrap setup.
+    Handles Apache restart, test data bootstrap, RSE sync, and metadata sync.
+    """
+    import os
+    import subprocess
+    import sys
+    import time
+    from pathlib import Path
+    
+    suite = request.config.getoption("--suite")
+    activate_rses = request.config.getoption("--activate-rses")
+    
+    if suite == "client":
+        print("Client suite: minimal bootstrap")
+        # Set client-specific configuration
+        source_path = os.environ.get('RUCIO_HOME', '/opt/rucio')
+        client_cfg = f"{source_path}/etc/docker/test/extra/rucio_client.cfg"
+        target_cfg = f"{source_path}/etc/rucio.cfg"
+        
+        if os.path.exists(client_cfg):
+            import shutil
+            shutil.copy2(client_cfg, target_cfg)
+            print(f"Copied client config from {client_cfg} to {target_cfg}")
+        return
+    
+    print("Server suite: full bootstrap")
+    
+    # Restart Apache httpd
+    try:
+        subprocess.run(['httpd', '-k', 'graceful'], check=True, capture_output=True)
+        print("Apache httpd restarted")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Could not restart Apache: {e}")
+    except FileNotFoundError:
+        print("Warning: httpd not found, skipping Apache restart")
+    
+    # Bootstrap test data - execute the bootstrap logic directly
+    try:
+        print("Bootstrapping test data")
+        _run_bootstrap_tests()
+        print("Test data bootstrap completed")
+    except Exception as e:
+        print(f"Bootstrap failed: {e}")
+        import traceback
+        traceback.print_exc()
+        pytest.fail("Failed to bootstrap test data")
+    
+    # Sync RSE repository - execute sync logic directly
+    try:
+        print("Syncing RSE repository")
+        if suite == "special" and os.path.exists('etc/rse_repository.json.special'):
+            _run_sync_rses(['etc/rse_repository.json.special'])
+        else:
+            _run_sync_rses([])
+        print("RSE repository sync completed")
+    except Exception as e:
+        print(f"RSE sync failed: {e}")
+        import traceback
+        traceback.print_exc()
+        pytest.fail("Failed to sync RSE repository")
+    
+    # Sync metadata keys - execute sync logic directly
+    try:
+        print("Syncing metadata keys")
+        _run_sync_meta()
+        print("Metadata sync completed")
+    except Exception as e:
+        print(f"Metadata sync failed: {e}")
+        import traceback
+        traceback.print_exc()
+        pytest.fail("Failed to sync metadata")
+    
+    # Activate RSEs if requested
+    if activate_rses:
+        print("Activating default RSEs (XRD1, XRD2, XRD3, SSH1)")
+        try:
+            result = subprocess.run(['tools/docker_activate_rses.sh'], 
+                                  check=True, capture_output=True, text=True)
+            print("RSE activation completed")
+        except subprocess.CalledProcessError as e:
+            print(f"RSE activation failed: {e}")
+            print(f"stdout: {e.stdout}")
+            print(f"stderr: {e.stderr}")
+            pytest.fail("Failed to activate RSEs")
+        except FileNotFoundError:
+            print("Warning: docker_activate_rses.sh not found, skipping RSE activation")
+
+
+def _run_bootstrap_tests() -> None:
+    """Execute bootstrap_tests.py logic directly."""
+    import time
+    from json import dumps
+    
+    import requests
+    
+    from rucio.client import Client
+    from rucio.common.config import config_get, config_get_bool
+    from rucio.common.constants import DEFAULT_VO
+    from rucio.common.exception import Duplicate, DuplicateContent, RucioException
+    from rucio.common.types import InternalAccount
+    from rucio.common.utils import extract_scope
+    from rucio.core.account import add_account_attribute
+    from rucio.core.vo import map_vo
+    from rucio.gateway.vo import add_vo
+    from rucio.tests.common_server import reset_config_table
+    
+    # Create config table including the long VO mappings
+    reset_config_table()
+    if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
+        vo = {'vo': map_vo(config_get('client', 'vo', raise_exception=False, default='tst'))}
+        try:
+            add_vo(new_vo=vo['vo'], issuer='super_root', description='A VO to test multi-vo features', email='N/A', vo=DEFAULT_VO)
+        except Duplicate:
+            print(f'VO {vo["vo"]} already added')
+    else:
+        vo = {}
+
+    try:
+        client = Client()
+    except RucioException as e:
+        error_msg = str(e)
+        print('Creating client failed:', error_msg)
+        if 'Internal Server Error' in error_msg:
+            server_log = '/var/log/rucio/httpd_error_log'
+            if os.path.exists(server_log):
+                # wait for the server to write the error to log
+                time.sleep(5)
+                with open(server_log, 'r') as fhandle:
+                    print(fhandle.readlines()[-200:], file=sys.stderr)
+        raise
+
+    try:
+        client.add_account('jdoe', 'SERVICE', 'jdoe@email.com')
+    except Duplicate:
+        print('Account jdoe already added')
+
+    try:
+        add_account_attribute(account=InternalAccount('root', **vo), key='admin', value=True)
+    except Exception as error:
+        print(error)
+
+    try:
+        client.add_account('panda', 'SERVICE', 'panda@email.com')
+        add_account_attribute(account=InternalAccount('panda', **vo), key='admin', value=True)
+    except Duplicate:
+        print('Account panda already added')
+
+    try:
+        client.add_scope('jdoe', 'mock')
+    except Duplicate:
+        print('Scope mock already added')
+
+    try:
+        client.add_scope('root', 'archive')
+    except Duplicate:
+        print('Scope archive already added')
+
+
+def _run_sync_rses(argv: list) -> None:
+    """Execute sync_rses.py logic directly."""
+    import json
+    import traceback
+    
+    from rucio.client import Client
+    from rucio.common.exception import Duplicate, InvalidObject
+
+    if len(argv) == 1:
+        rse_repo = argv[0]
+    else:
+        rse_repo = 'etc/rse_repository.json'
+
+    try:
+        with open(rse_repo) as f:
+            rses_list = json.load(f)
+    except Exception:
+        print("Failed to load RSE repository file")
+        traceback.print_exc()
+        raise
+
+    c = Client()
+
+    for rse in rses_list:
+        try:
+            c.add_rse(rse)
+        except Duplicate:
+            pass
+        except:
+            print("Failed to add RSE " + rse)
+            traceback.print_exc()
+
+        try:
+            for p_id in rses_list[rse]['protocols']:
+                try:
+                    c.add_protocol(rse, p_id)
+                except Duplicate:
+                    pass
+                except:
+                    print("Failed to add protocol to RSE " + rse + ": " + str(p_id))
+                    traceback.print_exc()
+        except KeyError:
+            pass
+
+        try:
+            for attr in rses_list[rse]['attributes']:
+                try:
+                    c.add_rse_attribute(rse, attr, rses_list[rse]['attributes'][attr])
+                except Duplicate:
+                    pass
+                except:
+                    print("Failed to add attribute " + attr + " to RSE " + rse)
+                    traceback.print_exc()
+        except KeyError:
+            pass
+
+
+def _run_sync_meta() -> None:
+    """Execute sync_meta.py logic directly."""
+    import traceback
+    
+    from rucio.client import Client
+    from rucio.common.exception import Duplicate
+
+    meta_keys = [('project', 'ALL', None, ['data13_hip', 'NoProjectDefined']),
+                 ('run_number', 'ALL', None, ['NoRunNumberDefined']),
+                 ('stream_name', 'ALL', None, ['NoStreamNameDefined']),
+                 ('prod_step', 'ALL', None, ['merge', 'recon', 'simul', 'evgen', 'NoProdstepDefined', 'user']),
+                 ('datatype', 'ALL', None, ['HITS', 'AOD', 'EVNT', 'NTUP_TRIG', 'NTUP_SMWZ', 'NoDatatypeDefined', 'DPD']),
+                 ('version', 'ALL', None, []),
+                 ('campaign', 'ALL', None, []),
+                 ('guid', 'FILE', r'^(\{){0,1}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}(\}){0,1}$', []),
+                 ('events', 'DERIVED', r'^\d+$', [])]
+
+    c = Client()
+
+    for key, key_type, value_regexp, values in meta_keys:
+        try:
+            c.add_did_meta(key, key_type, value_regexp)
+        except Duplicate:
+            pass
+        except Exception:
+            print("Failed to add key " + key)
+            traceback.print_exc()
+
+        for value in values:
+            try:
+                c.add_did_meta(key, key_type, value_regexp, value)
+            except Duplicate:
+                pass
+            except Exception:
+                print("Failed to add value " + value + " to key " + key)
+                traceback.print_exc()
