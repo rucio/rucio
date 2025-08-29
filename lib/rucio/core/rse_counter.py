@@ -199,14 +199,29 @@ def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, A
     :param session: Database session in use.
     """
     # RSE subquery
-    rse_subq = (select(models.RSE.id.label("rse_id")).where(models.RSE.deleted.is_(False)).subquery())
+    rse_subq = select(
+        models.RSE.id.label("rse_id")
+    ).where(
+        models.RSE.deleted.is_(False)
+    ).subquery()
+
     # Replicas subquery
-    repl_subq = (select(models.RSEFileAssociation.rse_id, func.count(1).label("files"), func.sum(models.RSEFileAssociation.bytes).label("bytes")).where(
-                    models.RSEFileAssociation.tombstone == OBSOLETE
-                  ).group_by(models.RSEFileAssociation.rse_id).subquery())
+    repl_subq = select(
+        models.RSEFileAssociation.rse_id,
+        func.count(1).label("files"),
+        func.sum(models.RSEFileAssociation.bytes).label("bytes")
+    ).where(
+        models.RSEFileAssociation.tombstone == OBSOLETE
+    ).group_by(
+        models.RSEFileAssociation.rse_id
+    ).subquery()
 
     # Full query with outer_join()
-    stmt = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes")).outerjoin(
+    stmt = select(
+        rse_subq.c.rse_id,
+        coalesce(repl_subq.c.files, 0).label("files"),
+        coalesce(repl_subq.c.bytes, 0).label("bytes")
+    ).outerjoin(
         repl_subq,
         rse_subq.c.rse_id == repl_subq.c.rse_id
     )
