@@ -75,7 +75,7 @@ def run_once(
         if graceful_stop.is_set():
             break
         start_time = time.time()
-        set_rse_usage(row.rse.id, 'obsolete', row.bytes, None, row.files)
+        set_rse_usage(row.rse_id, 'obsolete', row.bytes, None, row.files)
         logger(logging.DEBUG, 'update of rse "%s" took %f' % (row.rse_id, time.time() - start_time))
 
 
