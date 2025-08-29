@@ -625,7 +625,6 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
