@@ -581,7 +581,6 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
