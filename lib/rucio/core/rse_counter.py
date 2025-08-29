@@ -226,31 +226,3 @@ def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, A
         rse_subq.c.rse_id == repl_subq.c.rse_id
     )
     return session.execute(stmt).all()
-
-
-@transactional_session
-def update_rse_obsolete_replicas(rse: "Row", *, session: "Session") -> None:
-    """
-    Update RSEUsage table with obsolete replicas. Regular (source='rucio') counters are not affected.
-
-    :param rse:      An rse Row from the result returned by check_obsolete_replicas.
-    :param session:  Database session in use.
-    """
-
-    try:
-        stmt = select(
-            models.RSEUsage
-        ).where(
-            and_(models.RSEUsage.rse_id == rse.rse_id,
-                 models.RSEUsage.source == 'obsolete')
-        )
-        rse_counter = session.execute(stmt).scalar_one()
-        rse_counter.used = rse.bytes
-        rse_counter.files = rse.files
-        rse_counter.updated_at = rse.updated_at
-    except NoResultFound:
-        models.RSEUsage(rse_id=rse.rse_id,
-                        used=rse.bytes,
-                        files=rse.files,
-                        updated_at=rse.updated_at,
-                        source='obsolete').save(session=session)
