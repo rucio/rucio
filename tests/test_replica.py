@@ -539,7 +539,7 @@ class TestReplicaCore:
 
     def test_check_obsolete_replicas(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): check obsolete replicas """
-        # Set tombstone on one replica
+        # Set tombstone on replicas
         rse, rse_id = rse_factory.make_mock_rse()
         nbfiles = 3
         for _ in range(nbfiles):
