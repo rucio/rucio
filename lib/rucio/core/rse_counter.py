@@ -23,9 +23,6 @@ from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
-    import datetime
-    from collections.abc import Sequence
-
     from sqlalchemy.engine.row import Row
     from sqlalchemy.orm import Session
 
@@ -192,7 +189,7 @@ def fill_rse_counter_history_table(*, session: "Session"):
 
 
 @read_session
-def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, Any, Any, datetime.datetime]]]":
+def check_obsolete_replicas(*, session: "Session") -> "list[Row[tuple[Any, Any, Any]]]":
     """
     Get replicas with a tombstone set to the begining of epoch.
     based on Oracle specific probe code: probes/common/check_obsolete_replicas
@@ -207,7 +204,7 @@ def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, A
                   ).group_by(models.RSEFileAssociation.rse_id).subquery())
 
     # Full query with outer_join()
-    stmt = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes"), func.now().label("updated_at")).outerjoin(
+    stmt = select(rse_subq.c.rse_id, coalesce(repl_subq.c.files, 0).label("files"), coalesce(repl_subq.c.bytes, 0).label("bytes")).outerjoin(
         repl_subq,
         rse_subq.c.rse_id == repl_subq.c.rse_id
     )

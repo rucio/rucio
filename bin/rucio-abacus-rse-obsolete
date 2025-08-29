@@ -27,41 +27,8 @@ def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Abacus-Obsolete-RSE daemon is responsible for updating RSE usages for OBSOLETE replicas. It runs a custom query and does not use Abacus counters.", epilog='''
-Upload a file to your RSE::
-
-  $ rucio upload --rse MOCK --scope mock filename.txt
-
-Check RSE usage::
-
-  $ rucio list-rse-usage MOCK
-  USAGE:
-  ------
-     files: 0
-     used: 0.000 B
-     rse: MOCK
-     updated_at: 2018-11-30 14:28:34
-     source: rucio
-  ------
-
-Run the daemon::
-
-  $ rucio-abacus-rse --run-once
-
-Check RSE usage again::
-
-  $ rucio list-rse-usage MOCK
-  USAGE:
-  ------
-      files: 1
-      used: 213.481 kB
-      rse: MOCK
-      updated_at: 2018-12-03 08:58:33
-      source: rucio
-  ------
-''', formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="The Abacus-Obsolete-RSE daemon is responsible for updating the 'obsolete' RSE usage counter", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument("--enable-history", action="store_true", default=False, help='Record RSE usage into history table every hour.')
     parser.add_argument('--sleep-time', action="store", default=3600, type=int, help='thread sleep time after each chunk of work (there is only one OBSOLETE replica thread)')
     return parser
 
@@ -72,6 +39,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(once=args.run_once, fill_history_table=args.enable_history, sleep_time=args.sleep_time)
+        run(once=args.run_once, sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()

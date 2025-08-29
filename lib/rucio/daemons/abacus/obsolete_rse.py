@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
-from rucio.common.utils import get_thread_with_periodic_running_function
-from rucio.core.rse_counter import check_obsolete_replicas, fill_rse_counter_history_table, update_rse_obsolete_replicas
+from rucio.core.rse import set_rse_usage
+from rucio.core.rse_counter import check_obsolete_replicas
 from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
@@ -59,23 +59,24 @@ def run_once(
 ) -> None:
     _, _, logger = heartbeat_handler.live()
 
-    # Select a bunch of rses for to update for this worker
+    # check the backlog of obsolete replicas.
     start = time.time()  # NOQA
-    rses = check_obsolete_replicas()
-    logger(logging.DEBUG, 'RSE collection query time %f ' % (time.time() - start))
+    # get a list of rows with #files and #bytes per RSE:
+    rows = check_obsolete_replicas()
+    logger(logging.DEBUG, 'Obsolete replica backlog query time %f ' % (time.time() - start))
 
     # If the list is empty, sent the worker to sleep
-    if not rses:
+    if not rows:
         logger(logging.INFO, 'did not get any work')
         return
 
-    for rse in rses:
+    for row in rows:
         _, _, logger = heartbeat_handler.live()
         if graceful_stop.is_set():
             break
         start_time = time.time()
-        update_rse_obsolete_replicas(rse)
-        logger(logging.DEBUG, 'update of rse "%s" took %f' % (rse.rse_id, time.time() - start_time))
+        set_rse_usage(row.rse.id, 'obsolete', row.bytes, None, row.files)
+        logger(logging.DEBUG, 'update of rse "%s" took %f' % (row.rse_id, time.time() - start_time))
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
@@ -88,7 +89,6 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
 
 def run(
         once: bool = False,
-        fill_history_table: bool = False,
         sleep_time: int = 3600
 ) -> None:
     """
@@ -105,9 +105,6 @@ def run(
     else:
         logging.info('main: starting the RSE usage thread')
         thread_list = [threading.Thread(target=rse_update, kwargs={'once': once, 'sleep_time': sleep_time})]
-        if fill_history_table:
-            logging.info('main: enabling history thread')
-            thread_list.append(get_thread_with_periodic_running_function(3600, fill_rse_counter_history_table, graceful_stop))
         [t.start() for t in thread_list]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
