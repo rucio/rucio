@@ -89,7 +89,7 @@ def test_whoami():
     assert "ERROR" not in err
 
 
-def test_identity(random_account):
+def test_identity(random_account, rucio_client):
     """CLIENT(ADMIN): Add/list/delete identity"""
 
     cmd = f'rucio-admin identity add --account {random_account} --type GSS --id jdoe@CERN.CH --email jdoe@CERN.CH'
@@ -108,6 +108,22 @@ def test_identity(random_account):
     cmd = f'rucio-admin account list-identities {random_account}'
     exitcode, out, _ = execute(cmd)
     assert 'jdoe@CERN.CH' not in out
+
+    # testing OIDC IDs
+
+    id = "CN=Joe Doe,CN=707658,CN=jdoe,OU=Users,OU=Organic Units,DC=cern,DC=ch"
+    cmd = f'rucio account identity add {random_account} --type OIDC --id "{id}" --email jdoe@CERN.CH'
+    exitcode, out, _ = execute(cmd)
+    assert exitcode == 0
+    assert f'Added new identity to account: {id}-{random_account}\n' in out
+
+    cmd = f'rucio -v account identity remove {random_account} --type OIDC --id "{id}"'
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    ids = [i['type'] for i in rucio_client.list_identities(account=random_account.external)]
+    assert 'OIDC' not in ids
 
 
 def test_attributes(random_account):
