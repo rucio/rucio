@@ -18,6 +18,7 @@ from typing import Any
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 
@@ -67,7 +68,7 @@ class PingClient(BaseClient):
         headers = None
         path = 'ping'
         url = build_url(self.host, path=path)
-        r = self._send_request(url, headers=headers, type_='GET')
+        r = self._send_request(url, headers=headers, method=HTTPMethod.GET)
 
         if r.status_code == codes.ok:
             server_info = loads(r.text)

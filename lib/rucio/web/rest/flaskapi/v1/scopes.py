@@ -14,6 +14,7 @@
 
 from flask import Flask, jsonify, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
 from rucio.gateway.scope import add_scope, get_scopes, list_scopes
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -143,10 +144,10 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('scopes', __name__, url_prefix='/scopes')
 
     scope_view = Scope.as_view('scope')
-    bp.add_url_rule('/', view_func=scope_view, methods=['get', ])
-    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=['post', ])
+    bp.add_url_rule('/', view_func=scope_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=[HTTPMethod.POST.value])
     account_scope_list_view = AccountScopeList.as_view('account_scope_list')
-    bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=['get', ])
+    bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

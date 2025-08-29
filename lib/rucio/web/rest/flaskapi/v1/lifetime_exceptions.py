@@ -16,6 +16,7 @@ from json import dumps
 
 from flask import Flask, Response, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, InvalidObject, LifetimeExceptionDuplicate, LifetimeExceptionNotFound, UnsupportedOperation
 from rucio.common.utils import APIEncoder
 from rucio.gateway.lifetime_exception import add_exception, list_exceptions, update_exception
@@ -297,9 +298,9 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('lifetime_exceptions', __name__, url_prefix='/lifetime_exceptions')
 
     lifetime_exception_view = LifetimeException.as_view('lifetime_exception')
-    bp.add_url_rule('/', view_func=lifetime_exception_view, methods=['get', 'post'])
+    bp.add_url_rule('/', view_func=lifetime_exception_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
     lifetime_exception_id_view = LifetimeExceptionId.as_view('lifetime_exception_id')
-    bp.add_url_rule('/<exception_id>', view_func=lifetime_exception_id_view, methods=['get', 'put'])
+    bp.add_url_rule('/<exception_id>', view_func=lifetime_exception_id_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value])
 
     bp.after_request(response_headers)
     return bp
