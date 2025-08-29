@@ -13,7 +13,7 @@
 # limitations under the License.
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, false, func, select
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql.functions import coalesce
 
@@ -202,7 +202,7 @@ def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, A
     rse_subq = select(
         models.RSE.id.label("rse_id")
     ).where(
-        models.RSE.deleted.is_(False)
+        models.RSE.deleted == false()
     ).subquery()
 
     # Replicas subquery
