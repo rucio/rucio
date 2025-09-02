@@ -43,9 +43,9 @@ METRICS = MetricManager(module=__name__)
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
-CONFIG_TRACE_LOGFORMAT = config_get('trace', 'logformat', raise_exception=False, default='%(message)s')
-CONFIG_TRACE_TRACEDIR = config_get('trace', 'tracedir', raise_exception=False, default='/var/log/rucio/trace')
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('trace', 'loglevel', raise_exception=False, default='DEBUG').upper())  # doc: Set the root logger level to the specified level
+CONFIG_TRACE_LOGFORMAT = config_get('trace', 'logformat', raise_exception=False, default='%(message)s')  # doc: Formatter of the log
+CONFIG_TRACE_TRACEDIR = config_get('trace', 'tracedir', raise_exception=False, default='/var/log/rucio/trace')  # doc: Path of the directory for traces
 CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', raise_exception=False, default=1000000000)
 CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', raise_exception=False, default=10)
 
@@ -70,14 +70,14 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERS_ALIAS = config_get_list('trace', 'brokers')
+    BROKERS_ALIAS = config_get_list('trace', 'brokers')  # doc:  Brokers
 except Exception:
     raise Exception('Could not load brokers from configuration')
 
-PORT = config_get_int('trace', 'port')
+PORT = config_get_int('trace', 'port')  # doc: Port of the broker
 TOPIC = config_get('trace', 'topic')
-USERNAME = config_get('trace', 'username')
-PASSWORD = config_get('trace', 'password')
+USERNAME = config_get('trace', 'username')  # doc: Username of the broker
+PASSWORD = config_get('trace', 'password')  # doc: Password of the `username`
 VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
 TOUCH_SCHEMA: 'ObjectSchema' = {

@@ -38,7 +38,7 @@ DEFAULT_CUSTOM_METADATA_PLUGIN_MODULE_PATH = "rucio.core.did_meta_plugins.json_m
 #
 if config.config_has_section('metadata'):
     try:
-        CUSTOM_METADATA_PLUGIN_MODULE_PATHS = config.config_get('metadata', 'plugins')
+        CUSTOM_METADATA_PLUGIN_MODULE_PATHS = config.config_get('metadata', 'plugins', default=DEFAULT_CUSTOM_METADATA_PLUGIN_MODULE_PATH)  # doc: Metadata handler modules
     except (NoOptionError, NoSectionError):
         CUSTOM_METADATA_PLUGIN_MODULE_PATHS = DEFAULT_CUSTOM_METADATA_PLUGIN_MODULE_PATH
 else:
