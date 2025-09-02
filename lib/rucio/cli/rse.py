@@ -223,7 +223,7 @@ def protocol():
 # TODO Better loader for json types
 @protocol.command("add")
 @click.argument("rse-name")
-@click.option("--host", "--host-name", help="Endpoint hostname", required=True)
+@click.option("--hostname", help="Endpoint hostname", required=True)
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
 @click.option("--prefix", help="Endpoint URL path prefix", required=True)
 @click.option("--space-token", help="Space token name (SRM-only)")
@@ -233,17 +233,17 @@ def protocol():
 @click.option("--domain-json", type=json.loads, help="JSON describing the WAN / LAN setup")
 @click.option("--extended-attributes-json", type=json.loads, help="JSON describing any extended attributes")
 @click.pass_context
-def protocol_add(ctx, rse_name, host, scheme, prefix, space_token, web_service_path, port, impl, domain_json, extended_attributes_json):
+def protocol_add(ctx, rse_name, hostname, scheme, prefix, space_token, web_service_path, port, impl, domain_json, extended_attributes_json):
     """
     Add a new protocol for an RSE used for transferring files
 
     \b
     Example, adding a default protocol hosted at jdoes.test.org to the RSE JDOE_DATADISK
-        $ rucio rse protocol add JDOE_DATADISK --host-name jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
+        $ rucio rse protocol add JDOE_DATADISK --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
 
     """
     args = Arguments(
-        {"rse": rse_name, "hostname": host, "ext_attr_json": extended_attributes_json, "scheme": scheme, "prefix": prefix, "space_token": space_token, "web_service_path": web_service_path, "port": port, "impl": impl, "domain_json": domain_json}
+        {"rse": rse_name, "hostname": hostname, "ext_attr_json": extended_attributes_json, "scheme": scheme, "prefix": prefix, "space_token": space_token, "web_service_path": web_service_path, "port": port, "impl": impl, "domain_json": domain_json}
     )
     add_protocol_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -251,12 +251,12 @@ def protocol_add(ctx, rse_name, host, scheme, prefix, space_token, web_service_p
 @protocol.command("remove")
 @click.argument("rse-name")
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
-@click.option("--host-name", help="Endpoint hostname")
+@click.option("--hostname", help="Endpoint hostname")
 @click.option("--port", type=int, help="URL port")
 @click.pass_context
-def protocol_remove(ctx, rse_name, host_name, scheme, port):
+def protocol_remove(ctx, rse_name, hostname, scheme, port):
     """Remove an existing protocol from an RSE"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "scheme": scheme, "hostname": host_name, "port": port})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse_name, "scheme": scheme, "hostname": hostname, "port": port})
     del_protocol_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
