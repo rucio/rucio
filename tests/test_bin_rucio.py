@@ -40,7 +40,7 @@ def test_rucio_version():
 
 def test_rucio_ping(rucio_client):
     """CLIENT(USER): Rucio ping"""
-    cmd = f'rucio --host {rucio_client.host} ping'
+    cmd = f'rucio --hostname {rucio_client.host} ping'
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert 'ERROR' not in err
