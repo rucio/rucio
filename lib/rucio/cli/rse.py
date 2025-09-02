@@ -223,7 +223,7 @@ def protocol():
 # TODO Better loader for json types
 @protocol.command("add")
 @click.argument("rse-name")
-@click.option("--host", "--host-name", help="Endpoint hostname", required=True)
+@click.option("-H", "--host", "--hostname", help="Endpoint hostname", required=True)
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
 @click.option("--prefix", help="Endpoint URL path prefix", required=True)
 @click.option("--space-token", help="Space token name (SRM-only)")
@@ -239,7 +239,7 @@ def protocol_add(ctx, rse_name, host, scheme, prefix, space_token, web_service_p
 
     \b
     Example, adding a default protocol hosted at jdoes.test.org to the RSE JDOE_DATADISK
-        $ rucio rse protocol add JDOE_DATADISK --host-name jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
+        $ rucio rse protocol add JDOE_DATADISK --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
 
     """
     args = Arguments(
@@ -251,7 +251,7 @@ def protocol_add(ctx, rse_name, host, scheme, prefix, space_token, web_service_p
 @protocol.command("remove")
 @click.argument("rse-name")
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
-@click.option("--host-name", help="Endpoint hostname")
+@click.option("-H", "--host", "--hostname", help="Endpoint hostname")
 @click.option("--port", type=int, help="URL port")
 @click.pass_context
 def protocol_remove(ctx, rse_name, host_name, scheme, port):
