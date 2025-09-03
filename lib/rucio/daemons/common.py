@@ -200,7 +200,7 @@ def db_workqueue(
 
             with HeartbeatHandler(executable=executable, renewal_interval=sleep_time - 1) as heartbeat_handler:
                 logger = heartbeat_handler.logger
-                logger(logging.INFO, 'started')
+                logger(logging.INFO, 'Daemon started')
 
                 if partition_wait_time:
                     graceful_stop.wait(partition_wait_time)
