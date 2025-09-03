@@ -14,7 +14,6 @@
 
 import time
 import traceback
-import uuid
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlparse
@@ -332,7 +331,6 @@ class TestAuthCoreAPIoidc:
             'polling': polling,
             'refresh_lifetime': 96,
             'ip': None,
-            'webhome': 'https://rucio-test.cern.ch/ui',
         }
         auth_url = get_auth_oidc(account, session=session, **kwargs)
         print("[get_auth_init_and_mock_response] got auth_url:", auth_url)
@@ -373,8 +371,7 @@ class TestAuthCoreAPIoidc:
                       'issuer': 'dummy_admin_iss_nickname',
                       'polling': False,
                       'refresh_lifetime': 96,
-                      'ip': None,
-                      'webhome': None}
+                      'ip': None}
             # testing classical CLI login init, expecting user to be
             # redirected via Rucio Auth server to the IdP issuer for login
             auth_url = get_auth_oidc(self.account, session=self.db_session, **kwargs)
@@ -497,32 +494,6 @@ class TestAuthCoreAPIoidc:
         except CannotAuthenticate:
             assert "OIDC identity 'SUB=unknownsub, ISS=https://test_issuer/' of the '" + self.accountstring + "' account is unknown to Rucio." in traceback.format_exc()
 
-    @patch('rucio.core.oidc.__get_init_oidc_client')
-    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_token_oidc_unknown_webui_account_identity(self, mock_clients, mock_oidc_client):
-        """ OIDC Token request with unknown webui identity in the token from IdP
-
-            Runs the Test:
-
-            - getting the auth_query_string (mocking the IdP response)
-              and with it the corresponding entry in the oauth_requests table
-            - calling the get_token_oidc core function
-
-            End:
-
-            - checking the relevant exception to be thrown
-        """
-        mock_oidc_client.side_effect = get_mock_oidc_client
-
-        auth_init_response = self.get_auth_init_and_mock_response(code_response=rndstr(), account=InternalAccount('webui', **self.vo), session=self.db_session)
-        # check if DB entry exists
-        oauth_session_row = get_oauth_session_row(InternalAccount('webui', **self.vo), state=auth_init_response['state'], session=self.db_session)
-        assert oauth_session_row
-
-        NEW_TOKEN_DICT['id_token'] = {'sub': 'unknownsub', 'iss': 'https://test_issuer/', 'nonce': auth_init_response['nonce']}
-        token_dict = get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
-        assert token_dict['webhome'] is None
-        assert token_dict['token'] is None
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
@@ -551,40 +522,6 @@ class TestAuthCoreAPIoidc:
         token_dict = get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
         assert token_dict
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
-        assert db_token
-
-    @patch('rucio.core.oidc.__get_init_oidc_client')
-    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
-    def test_get_access_token_oidc_webui_success(self, mock_clients, mock_oidc_client):
-        """ OIDC Request for access token via webui 'account' - success
-
-            Runs the Test:
-
-            - getting the auth_query_string (mocking the IdP response)
-              and with it the corresponding entry in the oauth_requests table
-            - filling the right identity into the token (mocking the IdP response)
-            - calling the get_token_oidc core function
-
-            End:
-
-            - checking if the right token is saved in the DB and if it is present
-              in the return dict of the get_token_oidc function
-        """
-        mock_oidc_client.side_effect = get_mock_oidc_client
-        auth_init_response = self.get_auth_init_and_mock_response(code_response=rndstr(), account=InternalAccount('webui', **self.vo), session=self.db_session)
-        oauth_session_row = get_oauth_session_row(InternalAccount('webui', **self.vo), state=auth_init_response['state'], session=self.db_session)
-        assert oauth_session_row
-        # mocking the token response
-        access_token = rndstr()
-        NEW_TOKEN_DICT['access_token'] = access_token
-        NEW_TOKEN_DICT['id_token'] = {'sub': 'knownsub', 'iss': 'https://test_issuer/', 'nonce': auth_init_response['nonce']}
-        token_dict = get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
-        assert token_dict
-        assert token_dict['webhome'] is not None
-        assert token_dict['token']['token'] == access_token
-        # not checking the account specifically as it may be that the
-        # identity was registered for other accounts in previous tests
-        db_token = get_token_row(access_token, session=self.db_session)
         assert db_token
 
     @patch('rucio.core.oidc.__get_init_oidc_client')

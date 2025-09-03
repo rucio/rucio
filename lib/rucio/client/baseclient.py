@@ -647,6 +647,8 @@ class BaseClient:
 
         headers['X-Rucio-Client-Fetch-Token'] = 'True'
         if self.creds['oidc_polling']:
+            # give some time for user to copy url before polling
+            time.sleep(10)
             timeout = 180
             start = time.time()
             print("In the next 3 minutes, Rucio Client will be polling \
@@ -962,8 +964,7 @@ class BaseClient:
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No username or password passed')
         elif self.auth_type == 'oidc':
-            if self.creds['oidc_auto'] and (self.creds['oidc_username'] is None or self.creds['oidc_password'] is None):
-                raise NoAuthInformation('For automatic OIDC log-in with your Identity Provider username and password are required.')
+            pass
         elif self.auth_type == 'x509':
             if self.creds['client_cert'] is None:
                 raise NoAuthInformation('The path to the client certificate is required')
@@ -974,8 +975,6 @@ class BaseClient:
             if self.creds['ssh_private_key'] is None:
                 raise NoAuthInformation('The SSH private key has to be defined')
         elif self.auth_type == 'gss':
-            pass
-        elif self.auth_type == 'oidc':
             pass
         elif self.auth_type == 'saml':
             if self.creds['username'] is None or self.creds['password'] is None:

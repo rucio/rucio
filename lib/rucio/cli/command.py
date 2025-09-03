@@ -90,8 +90,6 @@ class LazyGroup(click.Group):
 @click.option("--config", help="The Rucio configuration file to use")
 @click.option("-H", "--host", help="The Rucio API host")
 # oidc auth
-@click.option("--oidc-user", help="OIDC username")
-@click.option("--oidc-password", help="OIDC password")
 @click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
 @click.option(
     "--oidc-issuer",

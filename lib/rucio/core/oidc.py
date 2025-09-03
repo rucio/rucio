@@ -29,7 +29,7 @@ from jwkest.jws import JWS
 from jwkest.jwt import JWT
 from oic import rndstr
 from oic.oic import REQUEST2ENDPOINT, Client, Grant, Token
-from oic.oic.message import AccessTokenResponse, AuthorizationResponse, Message, RegistrationResponse
+from oic.oic.message import AccessTokenResponse, AuthorizationResponse, RegistrationResponse
 from oic.utils import time_util
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import delete, null, or_, select, update
@@ -403,16 +403,10 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
     polling = kwargs.get('polling', False)
     refresh_lifetime = kwargs.get('refresh_lifetime', REFRESH_LIFETIME_H)
     ip = kwargs.get('ip', None)
-    webhome = kwargs.get('webhome', None)
-    # For webui a mock account will be used here and default account
-    # will be assigned to the identity during get_token_oidc
-    if account.external == 'webui':
-        pass
-    else:
-        # Make sure the account exists
-        if not account_exists(account, session=session):
-            logging.debug("Account %s does not exist.", account)
-            return None
+    # Make sure the account exists
+    if not account_exists(account, session=session):
+        logging.debug("Account %s does not exist.", account)
+        return None
 
     try:
         stopwatch = Stopwatch()
@@ -434,8 +428,6 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
         access_msg = rndstr(23)
         if polling:
             access_msg += '_polling'
-        if webhome:
-            access_msg = str(webhome)
         # Making sure refresh_lifetime is an integer or None.
         if refresh_lifetime:
             refresh_lifetime = int(refresh_lifetime)
@@ -531,11 +523,6 @@ def get_token_oidc(
                                                         oidc_tokens['id_token']['iss'])
         jwt_row_dict['account'] = oauth_req_params.account
 
-        if jwt_row_dict['account'].external == 'webui':
-            try:
-                jwt_row_dict['account'] = get_default_account(jwt_row_dict['identity'], IdentityType.OIDC, True, session=session)
-            except Exception:
-                return {'webhome': None, 'token': None}
 
         # check if given account has the identity registered
         if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
@@ -619,8 +606,6 @@ def get_token_oidc(
             METRICS.timer('IdP_authorization').observe(stopwatch.elapsed)
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
-            elif 'http' in oauth_req_params.access_msg:
-                return {'webhome': oauth_req_params.access_msg, 'token': new_token}
             else:
                 return {'fetchcode': fetchcode}
         else:

@@ -1389,9 +1389,7 @@ def get_parser():
     # Options for the userpass auth_strategy
     oparser.add_argument('-u', '--user', dest='username', default=None, help='username')
     oparser.add_argument('-pwd', '--password', dest='password', default=None, help='password')
-    # Options for defining the OIDC scope# Options for defining remaining OIDC parameters
-    oparser.add_argument('--oidc-user', dest='oidc_username', default=None, help='OIDC username')
-    oparser.add_argument('--oidc-password', dest='oidc_password', default=None, help='OIDC password')
+    # Options for defining the OIDC scope
     oparser.add_argument('--oidc-scope', dest='oidc_scope', default='openid profile', help='Defines which (OIDC) information user will share with Rucio. '
                          + 'Rucio requires at least -sc="openid profile". To request refresh token for Rucio, scope must include "openid offline_access" and '  # NOQA: W503
                          + 'there must be no active access token saved on the side of the currently used Rucio Client.')  # NOQA: W503

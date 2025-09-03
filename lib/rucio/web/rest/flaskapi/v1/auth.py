@@ -14,9 +14,7 @@
 
 import json
 import logging
-import time
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 from flask import Blueprint, Flask, Response, redirect, render_template, request
 from jinja2.exceptions import TemplateNotFound
@@ -1529,8 +1527,6 @@ def blueprint() -> Blueprint:
     bp.add_url_rule('/validate', view_func=validate_view, methods=['get', 'options'])
     oidc_view = OIDC.as_view('oidc_view')
     bp.add_url_rule('/oidc', view_func=oidc_view, methods=['get', 'options'])
-    token_oidc_view = TokenOIDC.as_view('token_oidc_view')
-    bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=['get', 'options'])
     code_oidc_view = CodeOIDC.as_view('code_oidc_view')
     bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=['get', 'options'])
     redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
