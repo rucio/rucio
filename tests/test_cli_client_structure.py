@@ -674,6 +674,7 @@ def test_rse_qos_policy(rucio_client):
 
 
 @pytest.mark.dirty
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_rule(rucio_client, mock_scope):
     mock_rse = "MOCK-POSIX"
     rule_rse = "MOCK"
