@@ -102,7 +102,8 @@ def run_once(
             if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))  # noqa: S311
                 METRICS.counter('exceptions.{exception}').labels(exception='LocksDetected').inc()
-                logger(logging.WARNING, 'Locks detected for %s' % rule_id)
+                logger(logging.WARNING,
+                       'Database locks detected for %s. Another instance might be processing this rule at the moment' % rule_id)
             elif match('.*QueuePool.*', str(e.args[0])):
                 logger(logging.WARNING, 'DatabaseException', exc_info=True)
                 METRICS.counter('exceptions.{exception}').labels(exception=e.__class__.__name__).inc()
