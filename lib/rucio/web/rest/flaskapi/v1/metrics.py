@@ -14,6 +14,7 @@
 
 from flask import Blueprint, Flask
 
+from rucio.common.constants import HTTPMethod
 from rucio.core.monitor import generate_prometheus_metrics
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView
 
@@ -26,7 +27,7 @@ class Metrics(ErrorHandlingMethodView):
 def blueprint(standalone=False):
     bp = Blueprint('metrics', __name__, url_prefix='/' if standalone else '/metrics')
     metrics_view = Metrics.as_view('metrics')
-    bp.add_url_rule('/', view_func=metrics_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=metrics_view, methods=[HTTPMethod.GET.value])
     return bp
 
 

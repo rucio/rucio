@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, AccountNotFound, RSENotFound
 from rucio.gateway.account_limit import delete_global_account_limit, delete_local_account_limit, set_global_account_limit, set_local_account_limit
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -219,11 +220,11 @@ def blueprint(with_doc: bool = False) -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('accountlimits', __name__, url_prefix='/accountlimits')
 
     local_account_limit_view = LocalAccountLimit.as_view('local_account_limit')
-    bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
+    bp.add_url_rule('/local/<account>/<rse>', view_func=local_account_limit_view, methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     if not with_doc:
-        bp.add_url_rule('/<account>/<rse>', view_func=local_account_limit_view, methods=['post', 'delete'])
+        bp.add_url_rule('/<account>/<rse>', view_func=local_account_limit_view, methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     global_account_limit_view = GlobalAccountLimit.as_view('global_account_limit')
-    bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=['post', 'delete'])
+    bp.add_url_rule('/global/<account>/<rse_expression>', view_func=global_account_limit_view, methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
 
     bp.after_request(response_headers)
     return bp

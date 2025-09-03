@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, Response, jsonify, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import (
     AccessDenied,
     CounterNotFound,
@@ -2211,33 +2212,39 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('rses', __name__, url_prefix='/rses')
 
     attributes_view = Attributes.as_view('attributes')
-    bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
-    bp.add_url_rule('/<rse>/attr/', view_func=attributes_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/attr/<key>', view_func=attributes_view, methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
+    bp.add_url_rule('/<rse>/attr/', view_func=attributes_view, methods=[HTTPMethod.GET.value])
     distance_view = Distance.as_view('distance')
-    bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view, methods=['get', 'post', 'put', 'delete'])
+    bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view,
+                    methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
     protocol_view = Protocol.as_view('protocol')
-    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view, methods=['delete', 'put'])
-    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>', view_func=protocol_view, methods=['delete', 'put'])
-    bp.add_url_rule('/<rse>/protocols/<scheme>', view_func=protocol_view, methods=['get', 'post', 'delete', 'put'])
+    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view,
+                    methods=[HTTPMethod.DELETE.value, HTTPMethod.PUT.value])
+    bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>', view_func=protocol_view,
+                    methods=[HTTPMethod.DELETE.value, HTTPMethod.PUT.value])
+    bp.add_url_rule('/<rse>/protocols/<scheme>', view_func=protocol_view,
+                    methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.DELETE.value, HTTPMethod.PUT.value])
     protocol_list_view = ProtocolList.as_view('protocol_list')
-    bp.add_url_rule('/<rse>/protocols', view_func=protocol_list_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/protocols', view_func=protocol_list_view, methods=[HTTPMethod.GET.value])
     lfns2pfns_view = LFNS2PFNS.as_view('lfns2pfns')
-    bp.add_url_rule('/<rse>/lfns2pfns', view_func=lfns2pfns_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/lfns2pfns', view_func=lfns2pfns_view, methods=[HTTPMethod.GET.value])
     rse_account_usage_limit_view = RSEAccountUsageLimit.as_view('rse_account_usage_limit')
-    bp.add_url_rule('/<rse>/accounts/usage', view_func=rse_account_usage_limit_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/accounts/usage', view_func=rse_account_usage_limit_view, methods=[HTTPMethod.GET.value])
     usage_view = Usage.as_view('usage')
-    bp.add_url_rule('/<rse>/usage', view_func=usage_view, methods=['get', 'put'])
+    bp.add_url_rule('/<rse>/usage', view_func=usage_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value])
     usage_history_view = UsageHistory.as_view('usage_history')
-    bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=['get', ])
+    bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=[HTTPMethod.GET.value])
     limits_view = Limits.as_view('limits')
-    bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=['get', 'put', 'delete'])
+    bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
     qos_policy_view = QoSPolicy.as_view('qos_policy')
-    bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=['get', ])
-    bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view, methods=['post', 'delete'])
+    bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view,
+                    methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     rse_view = RSE.as_view('rse')
-    bp.add_url_rule('/<rse>', view_func=rse_view, methods=['get', 'delete', 'put', 'post'])
+    bp.add_url_rule('/<rse>', view_func=rse_view,
+                    methods=[HTTPMethod.GET.value, HTTPMethod.DELETE.value, HTTPMethod.PUT.value, HTTPMethod.POST.value])
     rses_view = RSEs.as_view('rses')
-    bp.add_url_rule('/', view_func=rses_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=rses_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp
