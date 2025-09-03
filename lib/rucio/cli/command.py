@@ -94,15 +94,6 @@ class LazyGroup(click.Group):
 @click.option("--oidc-password", help="OIDC password")
 @click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
 @click.option(
-    "--oidc-auto",
-    is_flag=True,
-    default=False,
-    help="""
-        If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
-        If specified, the users explicitly trust Rucio with their IdP credentials"
-    """,
-)
-@click.option(
     "--oidc-issuer",
     help="""
         Defines which Identity Provider is going to be used.
@@ -162,11 +153,8 @@ def main(
     no_pager,
     user,
     password,
-    oidc_user,
-    oidc_password,
     oidc_scope,
     oidc_audience,
-    oidc_auto,
     oidc_polling,
     oidc_refresh_lifetime,
     oidc_issuer,
@@ -207,11 +195,8 @@ def main(
             "VO": vo,
             "username": user,
             "password": password,
-            "oidc_username": oidc_user,
-            "oidc_password": oidc_password,
             "oidc_scope": oidc_scope,
             "oidc_audience": oidc_audience,
-            "oidc_auto": oidc_auto,
             "oidc_polling": oidc_polling,
             "oidc_refresh_lifetime": oidc_refresh_lifetime,
             "oidc_issuer": oidc_issuer,
