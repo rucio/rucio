@@ -112,7 +112,10 @@ class PolicyPackageAlgorithms:
                 default_algorithm = getattr(module, algorithm_type)
                 cls._default_algorithms[type_for_vo] = default_algorithm
         except ImportError:
-            LOGGER.info('Policy algorithm module %s could not be loaded' % module_name)
+            # failure to load the module should not be considered an error.
+            # it normally just means the policy package does not implement this
+            # algorithm type
+            pass
         return default_algorithm
 
     @classmethod
