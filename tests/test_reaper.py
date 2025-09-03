@@ -391,11 +391,10 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
     rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
                                                          names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size, epoch_tombstone=True)
     dataset = did_factory.make_dataset()
-    print(dataset)
     did_core.attach_dids(dids=dids, account=account, **dataset)
 
     rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=50 * file_size)
-    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files, f"Expected {nb_files} replicas, got {len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name)))}. Dataset: {dataset}"
 
     reaper_cache_region.invalidate()
     rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=323000000000)
@@ -417,9 +416,8 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
 
     deleted_dids = list()
     for did in session.execute(stmt).scalars():
-        print(did)
         deleted_dids.append(did)
-    assert len(deleted_dids) == len(dids)
+    assert len(deleted_dids) == len(dids), f"Expected {len(dids)} deleted DIDs, got {len(deleted_dids)}"
 
     stmt = select(
         models.DataIdentifierAssociationHistory.child_scope,
@@ -432,9 +430,8 @@ def test_archive_of_deleted_dids(vo, did_factory, root_account, core_config_mock
 
     deleted_dids = list()
     for did in session.execute(stmt).scalars():
-        print(did)
         deleted_dids.append(did)
-    assert len(deleted_dids) == len(dids)
+    assert len(deleted_dids) == len(dids), f"Expected {len(dids)} deleted DIDs in history, got {len(deleted_dids)}"
 
 
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -487,13 +484,12 @@ def test_reaper_without_rse_usage(vo, caches_mock):
 
     # Now set Epoch tombstone for a few replicas
     for did in dids[:nb_epoch_tombstone]:
-        print(did)
         replica_core.set_tombstone(rse_id, did['scope'], did['name'], tombstone=OBSOLETE)
 
     # The reaper should delete the replica with Epoch tombstone even if the rse_usage is not set
     cache_region.invalidate()
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, scheme='MOCK')
-    assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == nb_files - nb_epoch_tombstone
+    assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == nb_files - nb_epoch_tombstone, f"Expected {nb_files - nb_epoch_tombstone} replicas, got {len(list(replica_core.list_replicas(dids, rse_expression=rse_name)))}"
 
 
 @skip_rse_tests_with_accounts
