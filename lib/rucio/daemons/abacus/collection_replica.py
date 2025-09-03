@@ -71,7 +71,7 @@ def run_once(
     logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(replicas)))
     # If the list is empty, sent the worker to sleep
     if not replicas:
-        logger(logging.INFO, 'did not get any work')
+        logger(logging.INFO, 'Did not get any work')
         must_sleep = True
         return must_sleep
 

@@ -85,10 +85,10 @@ def run_once(
                               worker_number=worker_number,
                               limit=200,
                               blocked_rules=[key for key in paused_rules])
-    logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+    logger(logging.DEBUG, 'Index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
     if not rules:
-        logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
+        logger(logging.DEBUG, 'Did not get any work (paused_rules=%s)' % str(len(paused_rules)))
         return
 
     for rule in rules:
