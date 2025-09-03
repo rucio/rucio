@@ -33,14 +33,14 @@ from oic.oic import REQUEST2ENDPOINT, Client, Grant, Token
 from oic.oic.message import AccessTokenResponse, AuthorizationResponse, Message, RegistrationResponse
 from oic.utils import time_util
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, null, or_, select, update
 from sqlalchemy.sql.expression import true
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
+from rucio.common.utils import all_oidc_req_claims_present, build_url, chunks, val_to_space_sep_str
 from rucio.core.account import account_exists
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager
@@ -462,6 +462,7 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
                                                    refresh_lifetime=refresh_lifetime,
                                                    ip=ip)
         oauth_session_params.save(session=session)
+        _delete_oauth_request_by_account_and_expiration(account, session=session)
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
         if not auto:
@@ -535,6 +536,7 @@ def get_token_oidc(
             raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client"
                                      + " session. This points to possible replay attack !")  # NOQA: W503
 
+        account = oauth_req_params.account
         # starting to fill dictionary with parameters for token DB row
         jwt_row_dict, extra_dict = {}, {}
         jwt_row_dict['identity'] = oidc_identity_string(oidc_tokens['id_token']['sub'],
@@ -595,6 +597,7 @@ def get_token_oidc(
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         METRICS.counter(name='IdP_authorization.access_token.saved').inc()
+        __delete_expired_tokens_account(account=account, session=session)
         if 'refresh_token' in oidc_tokens:
             METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         # In case authentication via browser was requested,
@@ -1276,6 +1279,42 @@ def delete_expired_oauthrequests(total_workers: int, worker_number: int, limit: 
     except Exception as error:
         raise RucioException(error.args) from error
 
+@transactional_session
+def __delete_expired_tokens_account(
+    account: "InternalAccount",
+    *,
+    session: "Session"
+) -> None:
+    """
+    Delete expired tokens from the database.
+
+    :param account: Account to delete expired tokens.
+    :param session: The database session in use.
+    """
+    query = select(
+        models.Token.token
+    ).where(
+        models.Token.expired_at <= datetime.utcnow(),
+        models.Token.account == account,
+        or_(
+            models.Token.refresh_expired_at == null(),
+            models.Token.refresh_expired_at <= datetime.utcnow()
+        )).with_for_update(
+        skip_locked=True
+    )
+    tokens = session.execute(query).scalars().all()
+
+    for chunk in chunks(tokens, 100):
+        delete_query = delete(
+            models.Token
+        ).prefix_with(
+            "/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */"
+        ).where(
+            models.Token.token.in_(chunk)
+        )
+        session.execute(delete_query)
+
+
 
 def __get_keyvalues_from_claims(token: str, keys=None):
     """
@@ -1458,6 +1497,42 @@ def oidc_identity_string(sub: str, iss: str):
     """
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
+
+@transactional_session
+def _delete_oauth_request_by_account_and_expiration(
+    account: str,
+    *,
+    session: "Session"
+) -> None:
+    """
+    Delete an OAuth request by its account and expiration time.
+
+    :param account: The account associated with the OAuth request.
+    :param session: Database session in use.
+    """
+    query = select(
+        models.OAuthRequest.state
+    ).where(
+        models.OAuthRequest.expired_at <= datetime.utcnow(),
+        models.OAuthRequest.account == account
+    ).with_for_update(
+        skip_locked=True
+    )
+
+    # Execute the query and fetch all matching states
+    oauth_requests = session.execute(query).scalars().all()
+
+    # Process deletion in chunks
+    for chunk in chunks(oauth_requests, 100):
+        delete_query = delete(
+            models.OAuthRequest
+        ).where(
+            models.OAuthRequest.state.in_(chunk)
+        )
+        session.execute(delete_query)
+
+    # Commit the transaction
+    session.commit()
 
 def token_dictionary(token: models.Token):
     return {'token': token.token, 'expires_at': token.expired_at}
