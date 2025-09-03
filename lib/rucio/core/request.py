@@ -22,6 +22,7 @@ import threading
 import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, namedtuple
+from collections.abc import Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -310,7 +311,11 @@ def queue_requests(
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:         List of Request-IDs as 32 character hex strings.
     """
-    logger(logging.DEBUG, "queue requests")
+
+    if isinstance(requests, Sized):
+        logger(logging.DEBUG, "Queuing %d requests", len(requests))
+    else:
+        logger(logging.DEBUG, "Queuing requests")
 
     request_clause = []
     rses = {}
