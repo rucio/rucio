@@ -66,7 +66,7 @@ def run_once(
 
     # If the list is empty, sent the worker to sleep
     if not updated_account_counters:
-        logger(logging.INFO, 'did not get any work')
+        logger(logging.INFO, 'Did not get any work')
         return
 
     for account_counter in updated_account_counters:

@@ -83,10 +83,10 @@ def run_once(
                                worker_number=worker_number,
                                limit=100,
                                blocked_rules=[key for key in paused_rules])
-    logger(logging.DEBUG, 'index query time %f fetch size is %d' % (time.time() - start, len(rules)))
+    logger(logging.DEBUG, 'Index query time %f fetch size is %d' % (time.time() - start, len(rules)))
 
     if not rules:
-        logger(logging.DEBUG, 'did not get any work (paused_rules=%s)' % str(len(paused_rules)))
+        logger(logging.DEBUG, 'Did not get any work (paused_rules=%s)' % str(len(paused_rules)))
         return
 
     for rule_id in rules:
@@ -97,7 +97,7 @@ def run_once(
         try:
             start = time.time()
             inject_rule(rule_id=rule_id, logger=logger)
-            logger(logging.DEBUG, 'injection of %s took %f' % (rule_id, time.time() - start))
+            logger(logging.DEBUG, 'Injection of %s took %f' % (rule_id, time.time() - start))
         except (DatabaseException, DatabaseError) as e:
             if match(ORACLE_RESOURCE_BUSY_REGEX, str(e.args[0])) or match(PSQL_PSYCOPG_LOCK_NOT_AVAILABLE_REGEX, str(e.args[0])) or match(MYSQL_LOCK_NOWAIT_REGEX, str(e.args[0])):
                 paused_rules[rule_id] = datetime.utcnow() + timedelta(seconds=randint(60, 600))  # noqa: S311
