@@ -509,7 +509,7 @@ class TestOpenDataCLI:
             f"Subcommand '{subcommand}': expected options {expected_options}, got {options}"
         )
 
-    def test_opendata_cli_list_add_remove(self, mock_scope):
+    def test_opendata_cli_add_show_list_remove(self, mock_scope):
         exitcode, stdout, stderr = execute("rucio opendata did list")
         assert exitcode == 0, f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
         assert "ERROR" not in stderr.upper(), f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
@@ -533,6 +533,9 @@ class TestOpenDataCLI:
         exitcode, stdout, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
         assert exitcode == 1, f"Expected failure when adding existing opendata DID: {stderr.strip()}"
         assert "OpenDataDataIdentifierAlreadyExists" in stderr, "Expected 'OpenDataDataIdentifierAlreadyExists' error in output"
+
+        exitcode, _, stderr = execute(f"rucio opendata did show {mock_scope}:{name}")
+        assert exitcode == 0, f"Failed to show opendata DID: {stderr.strip()}"
 
         exitcode, stdout, stderr = execute("rucio opendata did list")
         assert exitcode == 0, f"Failed to list opendata: {stderr.strip()}"
