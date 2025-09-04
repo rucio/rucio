@@ -95,7 +95,7 @@ def remove_opendata_did(ctx: "Context", did: str) -> None:
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
 @click.pass_context
-def get_opendata_did(ctx: "Context", did: str, include_files: bool, include_metadata: bool, public: bool) -> None:
+def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: bool) -> None:
     """
     Get information about an Opendata DID, optionally including files and metadata.
     """
@@ -103,7 +103,7 @@ def get_opendata_did(ctx: "Context", did: str, include_files: bool, include_meta
     client = ctx.obj.client
     scope, name = extract_scope(did)
     result = client.get_opendata_did(scope=scope, name=name, public=public,
-                                     include_files=include_files, include_metadata=include_metadata,
+                                     include_files=files, include_metadata=meta,
                                      include_doi=True)
     # TODO: pretty print using tables, etc
     print(json.dumps(result, indent=4, sort_keys=True, ensure_ascii=False))
