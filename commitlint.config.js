@@ -39,16 +39,31 @@ const rucioTypes = [
   'patch'     // Small fixes or improvements
 ];
 
-const issueNumberPlugin = {
+const gitTrailerPlugin = {
   rules: {
-    'issue-number-required': (parsed, _when, _value) => {
-      const { header } = parsed;
-      if (!header) return [false, 'Header is required'];
+    'issue-trailer-required': (parsed, _when, _value) => {
+      const { body, footer } = parsed;
+      const fullMessage = [body, footer].filter(Boolean).join('\n');
       
-      // Check if header ends with #<number>
-      const issuePattern = /#\d+$/;
-      if (!issuePattern.test(header)) {
-        return [false, 'Commit message must end with issue number format: #<number>'];
+      if (!fullMessage) {
+        return [false, 'Commit message must include an issue-related Git trailer'];
+      }
+      
+      // Issue-related trailer tokens (case-insensitive)
+      const issueTrailerTokens = [
+        'issue-id', 'issue', 'issues',
+        'closes', 'close', 'closed',
+        'fixes', 'fix', 'fixed',
+        'resolves', 'resolve', 'resolved',
+        'refs', 'ref', 'references', 'reference'
+      ];
+      
+      // Create pattern for issue-related trailers: "Token: Value" or "Token #Value"
+      const tokenPattern = issueTrailerTokens.join('|');
+      const issueTrailerPattern = new RegExp(`^(${tokenPattern})\\s*[:#]\\s*.+$`, 'im');
+      
+      if (!issueTrailerPattern.test(fullMessage)) {
+        return [false, 'Commit message must include an issue-related Git trailer (e.g., "Issue-Id: #123", "Closes: #456", "Fixes: #789", "Refs: #101"). You can add a trailer using: git commit -m "message" --trailer "Fixes: #123"'];
       }
       
       return [true];
@@ -58,7 +73,7 @@ const issueNumberPlugin = {
 
 module.exports = {
   extends: ['@commitlint/config-conventional'],
-  plugins: [issueNumberPlugin],
+  plugins: [gitTrailerPlugin],
   rules: {
     'type-enum': [2, 'always', rucioTypes], // Require a valid type
     'scope-enum': [2, 'always', rucioComponents], // Require a valid scope
@@ -71,7 +86,7 @@ module.exports = {
     'body-max-line-length': [0], // Disable body line length limit
     'body-leading-blank': [1, 'always'], // Body should start with a blank line
     'footer-leading-blank': [1, 'always'], // Footer should start with a blank line
-    'issue-number-required': [2, 'always'] // Issue number is required  
+    'issue-trailer-required': [2, 'always'] // Issue-related Git trailer is required  
   },
   helpUrl: 'https://rucio.cern.ch/documentation/contributing/'
 };
