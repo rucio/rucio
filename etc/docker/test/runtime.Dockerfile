@@ -125,7 +125,8 @@ FROM python AS rucio-runtime
         unzip \
         vim \
         voms-clients-java \
-        which
+        which && \
+        rm -f /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
 
     # Set up directories and permissions for mounting source code
     RUN mkdir -p /opt/rucio/lib /opt/rucio/bin /opt/rucio/tools /opt/rucio/etc /opt/rucio/tests && \
@@ -137,7 +138,6 @@ FROM python AS rucio-runtime
     COPY etc/docker/test/extra/httpd.conf /etc/httpd/conf/httpd.conf
     COPY etc/docker/test/extra/rucio.conf /etc/httpd/conf.d/rucio.conf
     COPY etc/docker/test/extra/00-mpm.conf /etc/httpd/conf.modules.d/00-mpm.conf
-    RUN rm -f /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/autoindex.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/zgridsite.conf
 
     # Copy certificates
     COPY etc/certs/hostcert_rucio.pem /etc/grid-security/hostcert.pem
