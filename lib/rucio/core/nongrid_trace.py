@@ -31,9 +31,9 @@ METRICS = MetricManager(module=__name__)
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('nongrid-trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
-CONFIG_TRACE_LOGFORMAT = config_get('nongrid-trace', 'logformat', raise_exception=False, default='%(message)s')
-CONFIG_TRACE_TRACEDIR = config_get('nongrid-trace', 'tracedir', raise_exception=False, default='/var/log/rucio')
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('nongrid-trace', 'loglevel', raise_exception=False, default='DEBUG').upper())  # doc: Set the root logger level to the specified level
+CONFIG_TRACE_LOGFORMAT = config_get('nongrid-trace', 'logformat', raise_exception=False, default='%(message)s')  # doc: Formatter of the log
+CONFIG_TRACE_TRACEDIR = config_get('nongrid-trace', 'tracedir', raise_exception=False, default='/var/log/rucio')  # doc: Path of the directory for traces
 CONFIG_TRACE_MAXBYTES = config_get_int('nongrid-trace', 'maxbytes', raise_exception=False, default=1000000000)
 CONFIG_TRACE_BACKUPCOUNT = config_get_int('nongrid-trace', 'backupCount', raise_exception=False, default=10)
 
@@ -62,10 +62,10 @@ try:
 except Exception:
     raise Exception('Could not load brokers from configuration')
 
-PORT = config_get_int('nongrid-trace', 'port')
-TOPIC = config_get('nongrid-trace', 'topic')
-USERNAME = config_get('nongrid-trace', 'username')
-PASSWORD = config_get('nongrid-trace', 'password')
+PORT = config_get_int('nongrid-trace', 'port')  # doc: Port of the broker.
+TOPIC = config_get('nongrid-trace', 'topic')  # doc: Name of the destination topic.
+USERNAME = config_get('nongrid-trace', 'username')  # doc: Username of the broker
+PASSWORD = config_get('nongrid-trace', 'password')  # doc: Password of the `username`
 VHOST = config_get('nongrid-trace', 'broker_virtual_host', raise_exception=False)
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)

@@ -726,7 +726,7 @@ def get_lfn2pfn_algorithm_default() -> str:
     """Returns the default algorithm name for LFN2PFN translation for this server."""
     default_lfn2pfn = "hash"
     try:
-        default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
+        default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default', default='hash')  # doc: fault algorithm name for LFN2PFN translation for this server
     except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound, RuntimeError):
         pass
     return default_lfn2pfn

@@ -78,9 +78,8 @@ def get_signed_url(
 
     if service == 'gcs':
         if not CREDS_GCS:
-            CREDS_GCS = Credentials.from_service_account_file(config_get('credentials', 'gcs',
-                                                                         raise_exception=False,
-                                                                         default='/opt/rucio/etc/google-cloud-storage-test.json'))
+            account_file = config_get('credentials', 'gcs', raise_exception=False, default='/opt/rucio/etc/google-cloud-storage-test.json')  # doc: Path of the Google Cloud Storage credentials.
+            CREDS_GCS = Credentials.from_service_account_file(account_file)
         components = urlparse(url)
         host = components.netloc
 
