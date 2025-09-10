@@ -147,3 +147,26 @@ class ConfigClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
+
+    def delete_config_section(self, section: str):
+        """
+        Delete a whole section from the config
+
+        Parameters
+        ----------
+        section :
+            The name of the section.
+
+        Returns
+        -------
+            True if option was removed successfully.
+        """
+        path = '/'.join([self.CONFIG_BASEURL, section])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, type_='DEL')
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
