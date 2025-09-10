@@ -13,6 +13,7 @@
 # limitations under the License.
 import importlib
 import signal
+import sys
 import time
 
 import click
@@ -60,6 +61,16 @@ class LazyGroup(click.Group):
         if not isinstance(cmd_object, click.BaseCommand):
             raise ValueError(f"Lazy loading of {import_path} failed by returning " "a non-command object")
         return cmd_object
+
+    @exception_handler
+    def _invoke_with_handler(self, ctx: click.Context):
+        return super().invoke(ctx)
+
+    def invoke(self, ctx: click.Context):
+        result = self._invoke_with_handler(ctx)
+        if result not in (None, 0):
+            sys.exit(1 if result != 2 else 2)
+        return result
 
 
 @click.group(
@@ -146,33 +157,32 @@ class LazyGroup(click.Group):
 @click.version_option(version.version_string(), message="%(prog)s %(version)s")
 # Hidden options at the end
 @click.option("--no-pager", is_flag=True, default=False, hidden=True)
-@exception_handler
 @click.pass_context
 def main(
-    ctx,
-    config,
-    verbose,
-    host,
-    auth_host,
-    issuer,
-    auth_strategy,
-    timeout,
-    user_agent,
-    vo,
-    no_pager,
-    user,
-    password,
-    oidc_user,
-    oidc_password,
-    oidc_scope,
-    oidc_audience,
-    oidc_auto,
-    oidc_polling,
-    oidc_refresh_lifetime,
-    oidc_issuer,
-    certificate,
-    client_key,
-    ca_certificate,
+    ctx: click.Context,
+    config: str,
+    verbose: bool,
+    host: str,
+    auth_host: str,
+    issuer: str,
+    auth_strategy: str,
+    timeout: float,
+    user_agent: str,
+    vo: str,
+    no_pager: bool,
+    user: str,
+    password: str,
+    oidc_user: str,
+    oidc_password: str,
+    oidc_scope: str,
+    oidc_audience: str,
+    oidc_auto: str,
+    oidc_polling: str,
+    oidc_refresh_lifetime: str,
+    oidc_issuer: str,
+    certificate: str,
+    client_key: str,
+    ca_certificate: str,
 ):
     ctx.ensure_object(Arguments)
     ctx.obj.start_time = time.time()
