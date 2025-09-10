@@ -14,11 +14,10 @@
 import click
 
 from rucio.cli.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
-from rucio.cli.utils import Arguments, exception_handler
+from rucio.cli.utils import Arguments
 
 
 @click.group()
-@exception_handler
 def config():
     "Modify the configuration table"
 
@@ -47,7 +46,6 @@ def add_(ctx, section, key, value):
         $ rucio config add --section my-section --key key --value value
     """
     has_option = ctx.obj.client.get_config().get(section, {}).get(key) is not None
-    print(has_option)
     if has_option:
         msg = f"Config already has field {section}: {key}, please use \n\
             rucio config update --section {section} --key {key} --value {value}"
