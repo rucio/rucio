@@ -22,8 +22,8 @@ from packaging.specifiers import SpecifierSet
 
 from rucio.common import config
 from rucio.common.client import get_client_vo
-from rucio.common.constants import DEFAULT_VO
-from rucio.common.exception import InvalidAlgorithmName, PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES, POLICY_ALGORITHM_TYPES_LITERAL
+from rucio.common.exception import InvalidAlgorithmName, InvalidPolicyPackageAlgorithmType, PolicyPackageIsNotVersioned, PolicyPackageVersionError
 from rucio.version import current_version
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class PolicyPackageAlgorithms:
         - the key is the algorithm type
         - the value is a dictionary of algorithm names and their callables
     """
-    _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
+    _ALGORITHMS: dict[POLICY_ALGORITHM_TYPES_LITERAL, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
     _default_algorithms: dict[str, 'Callable[..., Any]'] = {}
 
@@ -85,12 +85,15 @@ class PolicyPackageAlgorithms:
             self._loaded_policy_modules = True
 
     @classmethod
-    def _get_default_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, vo: str = "") -> Optional['Callable[..., Any]']:
+    def _get_default_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL, vo: str = "") -> Optional['Callable[..., Any]']:
         """
         Gets the default algorithm of this type, if present in the policy package.
         The default algorithm is the function named algorithm_type within the module named algorithm_type.
         Returns None if no default algorithm present.
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
+
         # check if default algorithm for this VO is already cached
         type_for_vo = vo + "_" + algorithm_type
         if type_for_vo in cls._default_algorithms:
@@ -116,38 +119,51 @@ class PolicyPackageAlgorithms:
         return default_algorithm
 
     @classmethod
-    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> 'Callable[..., Any]':
+    def _get_one_algorithm(cls: type[PolicyPackageAlgorithmsT], algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL, name: str) -> 'Callable[..., Any]':
         """
         Get the algorithm from the dictionary of algorithms
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return cls._ALGORITHMS[algorithm_type][name]
 
     @classmethod
-    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str) -> dict[str, 'Callable[..., Any]']:
+    def _get_algorithms(cls: type[PolicyPackageAlgorithmsT], algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL) -> dict[str, 'Callable[..., Any]']:
         """
         Get the dictionary of algorithms for a given type
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return cls._ALGORITHMS[algorithm_type]
 
     @classmethod
     def _register(
             cls: type[PolicyPackageAlgorithmsT],
-            algorithm_type: str, algorithm_dict: dict[str, 'Callable[..., Any]']) -> None:
+            algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL,
+            algorithm_dict: dict[str, 'Callable[..., Any]']) -> None:
         """
         Provided a dictionary of callable function,
         and the associated algorithm type,
         register it as one of the valid algorithms.
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
+
         if algorithm_type in cls._ALGORITHMS:
             cls._ALGORITHMS[algorithm_type].update(algorithm_dict)
         else:
             cls._ALGORITHMS[algorithm_type] = algorithm_dict
 
     @classmethod
-    def _supports(cls: type[PolicyPackageAlgorithmsT], algorithm_type: str, name: str) -> bool:
+    def _supports(
+            cls: type[PolicyPackageAlgorithmsT],
+            algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL,
+            name: str) -> bool:
         """
         Check if a algorithm is supported by the plugin
         """
+        if algorithm_type not in POLICY_ALGORITHM_TYPES:
+            raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return name in cls._ALGORITHMS.get(algorithm_type, {})
 
     @classmethod

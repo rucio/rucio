@@ -17,7 +17,7 @@ import sys
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from rucio.common.config import config_get_int
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import InvalidRequest
 from rucio.common.plugins import PolicyPackageAlgorithms
 
@@ -33,8 +33,8 @@ class FTS3TapeMetadataPlugin(PolicyPackageAlgorithms):
     Plugins are registered during initialization and called during a transfer with FTS3
     """
 
-    ALGORITHM_NAME = "fts3_tape_metadata_plugins"
-    _INIT_FUNC_NAME = "fts3_plugins_init"
+    ALGORITHM_NAME: POLICY_ALGORITHM_TYPES_LITERAL = "fts3_tape_metadata_plugins"
+    _INIT_FUNC_NAME: POLICY_ALGORITHM_TYPES_LITERAL = "fts3_plugins_init"
     DEFAULT = "def"
 
     def __init__(self, policy_algorithm: str) -> None:
