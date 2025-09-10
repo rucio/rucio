@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib
+import os
 
 import pytest
 
@@ -20,6 +21,7 @@ import rucio.common.exception
 import rucio.common.schema
 import rucio.core.permission
 from rucio.common.constants import DEFAULT_VO
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount
 
 
@@ -106,3 +108,22 @@ class TestPolicyPackage:
 
         # restore original schema module
         rucio.common.schema.schema_modules['def'] = old_module
+
+    @pytest.mark.noparallel(reason='changes environment variable')
+    # test that a default algorithm will be loaded correctly
+    def test_default_algorithm(self):
+        # replace policy package in environment with our mock one
+        old_pp_env = os.environ['RUCIO_POLICY_PACKAGE'] if 'RUCIO_POLICY_PACKAGE' in os.environ else None
+        os.environ['RUCIO_POLICY_PACKAGE'] = 'tests.mocks.policy_package_algorithm'
+
+        # retrieve default scope extraction algorithm
+        algo = PolicyPackageAlgorithms._get_default_algorithm('scope')
+
+        # call it to check we get the expected result
+        assert algo('did') == 'Default scope algorithm loaded correctly!'
+        
+        # restore original policy package environment variable
+        if old_pp_env is not None:
+            os.environ['RUCIO_POLICY_PACKAGE'] = old_pp_env
+        else:
+            del os.environ['RUCIO_POLICY_PACKAGE']
