@@ -46,7 +46,7 @@ import requests
 from typing_extensions import ParamSpec
 
 from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import BASE_SCHEME_MAP, DEFAULT_VO
+from rucio.common.constants import BASE_SCHEME_MAP, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
@@ -392,7 +392,7 @@ class NonDeterministicPFNAlgorithms(PolicyPackageAlgorithms):
     from policy packages
     """
 
-    _algorithm_type = 'non_deterministic_pfn'
+    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'non_deterministic_pfn'
 
     def __init__(self, vo: str = DEFAULT_VO) -> None:
         """
@@ -560,7 +560,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
     Handle scope extraction algorithms
     """
 
-    _algorithm_type = 'scope'
+    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'scope'
 
     def __init__(self, vo: str = DEFAULT_VO) -> None:
         """
