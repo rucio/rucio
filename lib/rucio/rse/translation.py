@@ -18,7 +18,7 @@ from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import config
-from rucio.common.constants import DEFAULT_VO, RseAttr
+from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import ConfigNotFound
 from rucio.common.plugins import PolicyPackageAlgorithms
 
@@ -33,7 +33,7 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
         Translates a pfn dictionary into a scope and name
     """
 
-    _algorithm_type = "pfn2lfn"
+    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = "pfn2lfn"
 
     def __init__(self, vo: str = DEFAULT_VO):
         super().__init__()
@@ -111,7 +111,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
     """
 
     _DEFAULT_LFN2PFN = "hash"
-    _algorithm_type = "lfn2pfn"
+    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = "lfn2pfn"
 
     def __init__(
             self,
