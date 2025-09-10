@@ -330,17 +330,19 @@ def remove_section(section: str, *, session: "Session") -> bool:
         return False
     else:
         stmt = select(
+            models.Config.opt,
             models.Config.value
         ).where(
             models.Config.section == section
         )
-        for old in session.execute(stmt).all():
-            old_option = models.ConfigHistory(section=old[0],
-                                              opt=old[1],
-                                              value=old[2])
+        for option, value in session.execute(stmt).all():
+            old_option = models.ConfigHistory(
+                section=section,
+                opt=option,
+                value=value)
             old_option.save(session=session)
-            delete_from_cache(key=CacheKey.has_option(old[0], old[1]))
-            delete_from_cache(key=CacheKey.value(old[0], old[1]))
+            delete_from_cache(key=CacheKey.has_option(section, option))
+            delete_from_cache(key=CacheKey.value(section, option))
 
         stmt = delete(
             models.Config
