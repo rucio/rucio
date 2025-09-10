@@ -1,0 +1,13 @@
+name: dev
+
+services:
+  rucio:
+    image: ${RUCIO_TEST_IMAGE}
+    environment:
+      - RDBMS
+      - RUCIO_HOME=/opt/rucio
+      - PYTEST_DISABLE_PLUGIN_AUTOLOAD=True
+  
+  ruciodb:
+    profiles:
+      - donotstart
