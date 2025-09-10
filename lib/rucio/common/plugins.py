@@ -77,7 +77,7 @@ class PolicyPackageAlgorithms:
     """
     _ALGORITHMS: dict[str, dict[str, 'Callable[..., Any]']] = {}
     _loaded_policy_modules = False
-    _default_algorithms: dict[str, 'Callable[..., Any]'] = {}
+    _default_algorithms: dict[str, Optional['Callable[..., Any]']] = {}
 
     def __init__(self) -> None:
         if not self._loaded_policy_modules:
@@ -102,6 +102,7 @@ class PolicyPackageAlgorithms:
                 vo = ''
             package = cls._get_policy_package_name(vo)
         except (NoOptionError, NoSectionError):
+            cls._default_algorithms[type_for_vo] = default_algorithm
             return default_algorithm
 
         module_name = package + "." + algorithm_type
@@ -110,9 +111,11 @@ class PolicyPackageAlgorithms:
 
             if hasattr(module, algorithm_type):
                 default_algorithm = getattr(module, algorithm_type)
-                cls._default_algorithms[type_for_vo] = default_algorithm
         except ImportError:
             LOGGER.info('Policy algorithm module %s could not be loaded' % module_name)
+        # if the default algorithm is not present, this will store None and we will
+        # not attempt to load the same algorithm again
+        cls._default_algorithms[type_for_vo] = default_algorithm
         return default_algorithm
 
     @classmethod
