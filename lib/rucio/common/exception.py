@@ -1261,3 +1261,13 @@ class OpenDataInvalidStateUpdate(OpenDataError):
         super(OpenDataInvalidStateUpdate, self).__init__(*args)
         self._message = "Invalid state update attempted on open data entry."
         self.error_code = 119
+
+
+class InvalidPolicyPackageAlgorithmType(RucioException):
+    """
+    Thrown when an unknown algorithm type name is encountered.
+    """
+    def __init__(self, param: str, *args):
+        super(InvalidPolicyPackageAlgorithmType, self).__init__(*args)
+        self._message = f"Invalid policy package algorithm type '{param}'."
+        self.error_code = 120
