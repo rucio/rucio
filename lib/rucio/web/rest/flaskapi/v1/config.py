@@ -136,18 +136,50 @@ class Section(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
-        res = {}
-        for item in config.items(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
-            res[item[0]] = item[1]
+        if config.has_section(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
+            res = {}
+            for item in config.items(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
+                res[item[0]] = item[1]
+            return jsonify(res), 200
 
-        if res == {}:
+        else:
             return generate_http_error_flask(
                 status_code=404,
                 exc=ConfigNotFound.__name__,
                 exc_msg=f"No configuration found for section '{section}'"
             )
 
-        return jsonify(res), 200
+    def delete(self, section):
+        """
+        ---
+        summary: Remove an existing section
+        tags:
+            - Config
+        parameters:
+        - name: section
+            in: path
+            description: "The section to remove."
+            schema:
+            type: string
+        responses:
+            200:
+            description: "OK"
+            401:
+            description: "Invalid Auth Token"
+            404:
+            description: "Config not found"
+            406:
+            description: "Not acceptable"
+        """
+        if config.has_section(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
+            config.remove_section(section, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            return '', 200
+        else:
+            return generate_http_error_flask(
+                status_code=404,
+                exc=ConfigNotFound.__name__,
+                exc_msg=f"No configuration found for section '{section}'"
+            )
 
 
 class OptionGetDel(ErrorHandlingMethodView):
@@ -223,8 +255,11 @@ class OptionGetDel(ErrorHandlingMethodView):
           401:
             description: "Invalid Auth Token"
         """
-        config.remove_option(section=section, option=option, issuer=request.environ['issuer'], vo=request.environ['vo'])
-        return '', 200
+        if config.has_option(section, option, issuer=request.environ['issuer'], vo=request.environ['vo']):
+            config.remove_option(section=section, option=option, issuer=request.environ['issuer'], vo=request.environ['vo'])
+            return '', 200
+        else:
+            return generate_http_error_flask(404, ConfigNotFound.__name__, f"No configuration found for section '{section}' option '{option}'")
 
 
 class OptionSet(ErrorHandlingMethodView):
@@ -289,7 +324,7 @@ def blueprint() -> AuthenticatedBlueprint:
     option_get_del_view = OptionGetDel.as_view('option_get_del')
     bp.add_url_rule('/<section>/<option>', view_func=option_get_del_view, methods=['get', 'delete'])
     section_view = Section.as_view('section')
-    bp.add_url_rule('/<section>', view_func=section_view, methods=['get', ])
+    bp.add_url_rule('/<section>', view_func=section_view, methods=['get', 'delete'])
     config_view = Config.as_view('config')
     bp.add_url_rule('', view_func=config_view, methods=['get', 'post'])
 
