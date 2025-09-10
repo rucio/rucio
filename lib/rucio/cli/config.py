@@ -14,10 +14,11 @@
 import click
 
 from rucio.cli.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
-from rucio.cli.utils import Arguments
+from rucio.cli.utils import Arguments, exception_handler
 
 
 @click.group()
+@exception_handler
 def config():
     "Modify the configuration table"
 
@@ -32,7 +33,6 @@ def list_(ctx, section, key):
     get_config(Arguments({"no_pager": ctx.obj.no_pager, "section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
-# TODO Change to only add new fields and cannot modify an existing field
 @config.command("add")
 @click.option("-s", "--section", help="Section name", required=True)
 @click.option('--key', help='Attribute key', required=True)
@@ -46,6 +46,13 @@ def add_(ctx, section, key, value):
     Example, Add a key to an existing section:
         $ rucio config add --section my-section --key key --value value
     """
+    has_option = ctx.obj.client.get_config().get(section, {}).get(key) is not None
+    print(has_option)
+    if has_option:
+        msg = f"Config already has field {section}: {key}, please use \n\
+            rucio config update --section {section} --key {key} --value {value}"
+        raise ValueError(msg)
+
     args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key, "value": value})
     set_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -66,7 +73,17 @@ def show(ctx):
     """Show a single sections options"""
 
 
-# TODO Change this so that it only modifies existing fields
-def update():
+@config.command("update")
+@click.option("-s", "--section", required=True)
+@click.option("-k", "--key", help='Attribute key', required=True)
+@click.option("-v", "--value", help='Attribute value', required=True)
+@click.pass_context
+def update(ctx, section: str, key: str, value: str):
     """Modify an existing command"""
-    pass
+    has_option = ctx.obj.client.get_config().get(section, {}).get(key) is not None
+    if has_option:
+        ctx.obj.client.set_config_option(section, key, value)
+    else:
+        msg = f"{section} {key} not present. Please use \n\
+            rucio config add --section {section} --key {key} --value {value}"
+        raise ValueError(msg)

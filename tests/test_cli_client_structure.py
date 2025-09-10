@@ -214,16 +214,12 @@ def test_account_limit(jdoe_account, rucio_client):
 
 @pytest.mark.noparallel("Changes config settings")
 def test_config():
-    cmd = "rucio config list"
+    cmd = "rucio config list"  # Basic - this command works
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, _, err = execute("rucio config list --section vo-map")
-    assert exitcode == 0
-    assert "ERROR" not in err
-
-    section = "vo-map"
+    section = str(generate_uuid())
     option = "new_option"
     value = "new_value"
 
@@ -232,7 +228,17 @@ def test_config():
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, out, err = execute("rucio config list --section vo-map")
+    # Verify you cannot "add" on top of a section that already exists
+    cmd = f"rucio config add --section {section} --key {option} --value {value}"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" in err
+
+    # But you can add a different option
+    cmd = f"rucio config add --section {section} --key {section} --value {section}"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" not in err
+
+    exitcode, out, err = execute(f"rucio config list --section {section} --key {option}")
     assert exitcode == 0
     assert "ERROR" not in err
     assert value in out
@@ -242,10 +248,34 @@ def test_config():
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, out, err = execute("rucio config list --section vo-map")
+    exitcode, out, err = execute(f"rucio config list --section {section}")
     assert exitcode == 0
     assert "ERROR" not in err
     assert value not in out
+
+    # Verify you can update
+    section = str(generate_uuid())
+    new_value = "newer_value"
+
+    # Using `update` on a non-existent field is not allowed
+    cmd = f"rucio config update --section {section} --key {option} --value {value}"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" in err
+
+    # Re-adding to the existing option
+    cmd = f"rucio config add --section {section} --key {option} --value {value}"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" not in err
+
+    # Use update to change it to the new value
+    cmd = f"rucio config update --section {section} --key {option} --value {new_value}"
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    exitcode, out, err = execute(f"rucio config list --section {section}")
+    assert exitcode == 0
+    assert new_value in out
 
 
 def test_did(rucio_client, root_account):
