@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from flask import Flask, jsonify
 from flask import request as request
 
@@ -20,12 +22,15 @@ from rucio.gateway import config
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, response_headers
 
+if TYPE_CHECKING:
+    from flask.typing import ResponseReturnValue
+
 
 class Config(ErrorHandlingMethodView):
     """ REST API for full configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self):
+    def get(self) -> 'ResponseReturnValue':
         """
         ---
         summary: List
@@ -53,7 +58,7 @@ class Config(ErrorHandlingMethodView):
 
         return jsonify(res), 200
 
-    def post(self):
+    def post(self) -> 'ResponseReturnValue':
         """
         ---
         summary: Create
@@ -97,7 +102,7 @@ class Section(ErrorHandlingMethodView):
     """ REST API for the sections in the configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, section):
+    def get(self, section: str) -> 'ResponseReturnValue':
         """
         ---
         summary: List Sections
@@ -149,7 +154,7 @@ class Section(ErrorHandlingMethodView):
                 exc_msg=f"No configuration found for section '{section}'"
             )
 
-    def delete(self, section):
+    def delete(self, section: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Remove an existing section
@@ -186,7 +191,7 @@ class OptionGetDel(ErrorHandlingMethodView):
     """ REST API for reading or deleting the options in the configuration. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, section, option):
+    def get(self, section: str, option: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Get option
@@ -229,7 +234,7 @@ class OptionGetDel(ErrorHandlingMethodView):
         except ConfigNotFound as error:
             return generate_http_error_flask(404, error, f"No configuration found for section '{section}' option '{option}'")
 
-    def delete(self, section, option):
+    def delete(self, section: str, option: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Delete option
@@ -265,7 +270,7 @@ class OptionGetDel(ErrorHandlingMethodView):
 class OptionSet(ErrorHandlingMethodView):
     """ REST API for setting the options in the configuration. """
 
-    def put(self, section, option, value):
+    def put(self, section: str, option: str, value: str) -> 'ResponseReturnValue':
         """
         ---
         summary: Create value
