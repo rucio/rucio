@@ -61,10 +61,9 @@ def exception_handler(function):
             # Exit is evoked every time click ends a program without running anything
             # This error is raised when the help menu is called
             logger.debug("Exited click context")
-            if ("-h" in sys.argv) or ("--help" in sys.argv):
-                return SUCCESS
-            else:
+            if ("-h" not in sys.argv) or ("--help" not in sys.argv):
                 return FAILURE
+            return SUCCESS
         except InputValidationError as error:
             logger.error(error)
             logger.debug("This means that one you provided an invalid combination of parameters, or incorrect types. Please check the command help (-h/--help).")
@@ -178,10 +177,10 @@ def get_client(args, logger):
                 auth_type = config_get("client", "auth_type").lower()
             except (NoOptionError, NoSectionError):
                 logger.error("Cannot get AUTH_TYPE")
-                raise
+                sys.exit(1)
     else:
         auth_type = args.auth_strategy.lower()
-    print("Setting Creds")
+
     if auth_type in ["userpass", "saml"] and args.username is not None and args.password is not None:
         creds = {"username": args.username, "password": args.password}
     elif auth_type == "oidc":
