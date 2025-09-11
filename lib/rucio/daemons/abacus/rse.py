@@ -67,7 +67,7 @@ def run_once(
 
     # If the list is empty, sent the worker to sleep
     if not rse_ids:
-        logger(logging.INFO, 'did not get any work')
+        logger(logging.INFO, 'Did not get any work')
         return
 
     for rse_id in rse_ids:

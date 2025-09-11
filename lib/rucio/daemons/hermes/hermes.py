@@ -799,19 +799,20 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             except Exception as error:
                 logger(logging.ERROR, "Error sending to ActiveMQ : %s", str(error))
 
-    logger(logging.INFO, "Deleting %s messages", len(to_delete))
-    to_delete = [
-        {
-            "id": message["id"],
-            "created_at": message["created_at"],
-            "updated_at": message["created_at"],
-            "payload": str(message["payload"]),
-            "event_type": message["event_type"],
-            "services": message["services"]
-        }
-        for message in to_delete
-    ]
-    delete_messages(messages=to_delete)
+        logger(logging.INFO, "Deleting %s messages", len(to_delete))
+        to_delete = [
+            {
+                "id": message["id"],
+                "created_at": message["created_at"],
+                "updated_at": message["created_at"],
+                "payload": str(message["payload"]),
+                "event_type": message["event_type"],
+                "services": message["services"]
+            }
+            for message in to_delete
+        ]
+        delete_messages(messages=to_delete)
+
     must_sleep = True
     return must_sleep
 
