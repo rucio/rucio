@@ -69,7 +69,7 @@ class LazyGroup(click.Group):
     def invoke(self, ctx: click.Context):
         result = self._invoke_with_handler(ctx)
         if result not in (None, 0):
-            sys.exit(1 if result != 2 else 2)
+            sys.exit(1 if result != 2 else 1)
         return result
 
 
