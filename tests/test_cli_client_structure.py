@@ -184,7 +184,7 @@ def test_account_identities(rucio_client):
 
     cmd = f"rucio account identity add --account {tmp_account} --type NotAType --email {email} --id {email}"
     exitcode, _, _ = execute(cmd)
-    assert exitcode == 2  # Fails with the argparse validation
+    assert exitcode == 1
 
 
 def test_account_limit(jdoe_account, rucio_client):
@@ -209,7 +209,7 @@ def test_account_limit(jdoe_account, rucio_client):
 
     cmd = f"rucio account limit add {jdoe_account} --rse {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
     exitcode, _, _ = execute(cmd)
-    assert exitcode == 2  # Fails bc locality is limited to local or global
+    assert exitcode == 1  # Fails bc locality is limited to local or global
 
 
 @pytest.mark.noparallel("Changes config settings")

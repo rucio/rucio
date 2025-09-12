@@ -57,14 +57,19 @@ def exception_handler(function):
     def new_funct(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except click.exceptions.Exit:
+        except click.exceptions.Exit as error:
             # Exit is evoked every time click ends a program without running anything
             # This error is raised when the help menu is called
             logger.debug("Exited click context")
             if ("-h" not in sys.argv) or ("--help" not in sys.argv):
-                return FAILURE
+                return error.exit_code
             return SUCCESS
-        except InputValidationError as error:
+        except click.MissingParameter as error:
+            error.show()
+            msg = f"{error}. Please check the command help (-h/--help)."
+            logger.error(msg)
+            return 2  # Always return an error 2 for an incorrect specification
+        except (InputValidationError, click.exceptions.UsageError) as error:
             logger.error(error)
             logger.debug("This means that one you provided an invalid combination of parameters, or incorrect types. Please check the command help (-h/--help).")
             return FAILURE
