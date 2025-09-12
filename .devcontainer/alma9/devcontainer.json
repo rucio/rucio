@@ -1,0 +1,29 @@
+{
+  "name": "Rucio alma9 Development Environment",
+  "image": "rucio/rucio-dev:release-38.0.0",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  },
+  "initializeCommand": ".devcontainer/alma9/initialize.sh",
+  "postCreateCommand": ".devcontainer/alma9/setup.sh",
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+  "remoteUser": "root",
+  "privileged": true,
+  "containerEnv": {
+    "PYTHONPATH": "/workspaces/rucio/lib",
+    "RUCIO_HOME": "/workspaces/rucio",
+    "RUCIO_POLICY_PACKAGE": "atlas_rucio_policy_package"
+  }
+}

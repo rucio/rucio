@@ -71,3 +71,10 @@ tools/test.file.1G
 
 # VSCode
 .vscode/
+
+# reports
+report*
+
+# .devcontainer
+rucio_dev_profiles.cfg
+file*
