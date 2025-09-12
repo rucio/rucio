@@ -182,6 +182,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
+      - name: Set repository variable
+        id: repo
+        run: echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
       - name: Build Python 3.9 image locally
         if: needs.runtime_images.outputs.build_locally == 'true' && matrix.cfg.PYTHON == '3.9'
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -194,7 +197,7 @@ jobs:
           push: false
           tags: ${{ needs.runtime_images.outputs.py39_image }}
           outputs: type=docker
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py39-buildcache
+          cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.repo }}/rucio-dev-runtime:py39-buildcache
         continue-on-error: false
       - name: Build Python 3.10 image locally
         if: needs.runtime_images.outputs.build_locally == 'true' && matrix.cfg.PYTHON == '3.10'
@@ -208,7 +211,7 @@ jobs:
           push: false
           tags: ${{ needs.runtime_images.outputs.py310_image }}
           outputs: type=docker
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py310-buildcache
+          cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.repo }}/rucio-dev-runtime:py310-buildcache
         continue-on-error: false
       - name: Run test with cfg
         env:
