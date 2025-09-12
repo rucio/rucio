@@ -518,11 +518,11 @@ class TestOpenDataCLI:
 
         exitcode, stdout, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
         assert exitcode == 1, f"Expected failure when adding bad DID: {stderr.strip()}"
-        assert "DataIdentifierNotFound" in stderr, "Expected 'DataIdentifierNotFound' error in output"
+        assert "Data identifier not found" in stderr
 
         exitcode, stdout, stderr = execute(f"rucio opendata did remove {mock_scope}:{name}")
         assert exitcode == 1, f"Expected failure when removing unregistered DID: {stderr.strip()}"
-        assert "OpenDataDataIdentifierNotFound" in stderr, "Expected 'OpenDataDataIdentifierNotFound' error in output"
+        assert "Data identifier not found in the open data catalog" in stderr
 
         exitcode, _, stderr = execute(f"rucio did add --type dataset {mock_scope}:{name}")
         assert exitcode == 0, f"Failed to add dataset: {stderr.strip()}"
@@ -532,7 +532,7 @@ class TestOpenDataCLI:
 
         exitcode, stdout, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
         assert exitcode == 1, f"Expected failure when adding existing opendata DID: {stderr.strip()}"
-        assert "OpenDataDataIdentifierAlreadyExists" in stderr, "Expected 'OpenDataDataIdentifierAlreadyExists' error in output"
+        assert "Data identifier already exists in the open data catalog" in stderr
 
         exitcode, _, stderr = execute(f"rucio opendata did show {mock_scope}:{name}")
         assert exitcode == 0, f"Failed to show opendata DID: {stderr.strip()}"
