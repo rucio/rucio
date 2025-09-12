@@ -25,6 +25,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
 from rucio.common import exception
+from rucio.common.constants import HTTPMethod
 from rucio.rse.protocols import protocol
 
 
@@ -259,9 +260,11 @@ class Default(protocol.RSEProtocol):
         try:
             # use GET instead of HEAD for presigned urls
             if not using_presigned_urls:
-                result = self.session.request('HEAD', path, verify=False, timeout=self.timeout, cert=self.cert)
+                result = self.session.request(HTTPMethod.HEAD.value, path, verify=False, timeout=self.timeout,
+                                              cert=self.cert)
             else:
-                result = self.session.request('GET', path, verify=False, timeout=self.timeout, cert=self.cert)
+                result = self.session.request(HTTPMethod.GET.value, path, verify=False, timeout=self.timeout,
+                                              cert=self.cert)
             if result.status_code == 200:
                 return True
             elif result.status_code in [401, ]:

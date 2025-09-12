@@ -22,7 +22,7 @@ from xml.sax.saxutils import escape
 from flask import Flask, Response, request
 
 from rucio.common.config import config_get, config_get_int
-from rucio.common.constants import SUPPORTED_PROTOCOLS
+from rucio.common.constants import SUPPORTED_PROTOCOLS, HTTPMethod
 from rucio.common.exception import (
     AccessDenied,
     DataIdentifierAlreadyExists,
@@ -1832,57 +1832,57 @@ def blueprint(with_doc=False):
     bp = AuthenticatedBlueprint('replicas', __name__, url_prefix='/replicas')
 
     list_replicas_view = ListReplicas.as_view('list_replicas')
-    bp.add_url_rule('/list', view_func=list_replicas_view, methods=['post', ])
+    bp.add_url_rule('/list', view_func=list_replicas_view, methods=[HTTPMethod.POST.value])
     replicas_view = Replicas.as_view('replicas')
     if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
-        bp.add_url_rule('', view_func=replicas_view, methods=['post', 'put', 'delete'])
-    bp.add_url_rule('/', view_func=replicas_view, methods=['post', 'put', 'delete'])
+        bp.add_url_rule('', view_func=replicas_view, methods=[HTTPMethod.POST.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
+    bp.add_url_rule('/', view_func=replicas_view, methods=[HTTPMethod.POST.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
     suspicious_replicas_view = SuspiciousReplicas.as_view('suspicious_replicas')
-    bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=['get', 'post'])
+    bp.add_url_rule('/suspicious', view_func=suspicious_replicas_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
     bad_replicas_states_view = BadReplicasStates.as_view('bad_replicas_states')
-    bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=['get', ])
+    bp.add_url_rule('/bad/states', view_func=bad_replicas_states_view, methods=[HTTPMethod.GET.value])
     bad_replicas_summary_view = BadReplicasSummary.as_view('bad_replicas_summary')
-    bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=['get', ])
+    bp.add_url_rule('/bad/summary', view_func=bad_replicas_summary_view, methods=[HTTPMethod.GET.value])
     bad_replicas_pfn_view = BadPFNs.as_view('add_bad_pfns')
-    bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=['post', ])
+    bp.add_url_rule('/bad/pfns', view_func=bad_replicas_pfn_view, methods=[HTTPMethod.POST.value])
     bad_replicas_dids_view = BadDIDs.as_view('add_bad_dids')
-    bp.add_url_rule('/bad/dids', view_func=bad_replicas_dids_view, methods=['post', ])
+    bp.add_url_rule('/bad/dids', view_func=bad_replicas_dids_view, methods=[HTTPMethod.POST.value])
     replicas_rse_view = ReplicasRSE.as_view('replicas_rse')
-    bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=['get', ])
+    bp.add_url_rule('/rse/<rse>', view_func=replicas_rse_view, methods=[HTTPMethod.GET.value])
 
     bad_replicas_view = BadReplicas.as_view('bad_replicas')
-    bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=['post', ])
+    bp.add_url_rule('/bad', view_func=bad_replicas_view, methods=[HTTPMethod.POST.value])
 
     quarantine_replicas_view = QuarantineReplicas.as_view('quarantine_replicas')
-    bp.add_url_rule('/quarantine', view_func=quarantine_replicas_view, methods=['post', ])
+    bp.add_url_rule('/quarantine', view_func=quarantine_replicas_view, methods=[HTTPMethod.POST.value])
 
     replicas_dids_view = ReplicasDIDs.as_view('replicas_dids')
-    bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=['post', ])
+    bp.add_url_rule('/dids', view_func=replicas_dids_view, methods=[HTTPMethod.POST.value])
     dataset_replicas_view = DatasetReplicas.as_view('dataset_replicas')
-    bp.add_url_rule('/<path:scope_name>/datasets', view_func=dataset_replicas_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/datasets', view_func=dataset_replicas_view, methods=[HTTPMethod.GET.value])
     dataset_replicas_bulk_view = DatasetReplicasBulk.as_view('dataset_replicas_bulk')
-    bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=['post', ])
+    bp.add_url_rule('/datasets_bulk', view_func=dataset_replicas_bulk_view, methods=[HTTPMethod.POST.value])
     dataset_replicas_vp_view = DatasetReplicasVP.as_view('dataset_replicas_vp')
-    bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>', view_func=replicas_view, methods=[HTTPMethod.GET.value])
     set_tombstone_view = Tombstone.as_view('set_tombstone')
-    bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=['post', ])
+    bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=[HTTPMethod.POST.value])
 
     if not with_doc:
-        bp.add_url_rule('/list/', view_func=list_replicas_view, methods=['post', ])
-        bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=['get', 'post'])
-        bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=['get', ])
-        bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=['get', ])
-        bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=['post', ])
-        bp.add_url_rule('/bad/dids/', view_func=bad_replicas_dids_view, methods=['post', ])
-        bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=['get', ])
-        bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=['post', ])
-        bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=['post', ])
-        bp.add_url_rule('/datasets_bulk/', view_func=dataset_replicas_bulk_view, methods=['post', ])
-        bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=['get', ])
-        bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=['get', ])
-        bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=['post', ])
-        bp.add_url_rule('/quarantine/', view_func=quarantine_replicas_view, methods=['post', ])
+        bp.add_url_rule('/list/', view_func=list_replicas_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
+        bp.add_url_rule('/bad/states/', view_func=bad_replicas_states_view, methods=[HTTPMethod.GET.value])
+        bp.add_url_rule('/bad/summary/', view_func=bad_replicas_summary_view, methods=[HTTPMethod.GET.value])
+        bp.add_url_rule('/bad/pfns/', view_func=bad_replicas_pfn_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/bad/dids/', view_func=bad_replicas_dids_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/rse/<rse>/', view_func=replicas_rse_view, methods=[HTTPMethod.GET.value])
+        bp.add_url_rule('/bad/', view_func=bad_replicas_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/dids/', view_func=replicas_dids_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/datasets_bulk/', view_func=dataset_replicas_bulk_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/<path:scope_name>/datasets_vp', view_func=dataset_replicas_vp_view, methods=[HTTPMethod.GET.value])
+        bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=[HTTPMethod.GET.value])
+        bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/quarantine/', view_func=quarantine_replicas_view, methods=[HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp
