@@ -11,16 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import and_, delete, select
+from sqlalchemy import and_, delete, false, func, select
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.sql.functions import coalesce
 
 from rucio.common.exception import CounterNotFound
 from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sqlalchemy.engine.row import Row
     from sqlalchemy.orm import Session
 
 
@@ -183,3 +188,41 @@ def fill_rse_counter_history_table(*, session: "Session"):
     )
     for usage in session.execute(stmt).scalars().all():
         models.RSEUsageHistory(rse_id=usage['rse_id'], used=usage['used'], files=usage['files'], source=usage['source']).save(session=session)
+
+
+@read_session
+def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, Any, Any]]]":
+    """
+    Get replicas with a tombstone set to the begining of epoch.
+    based on Oracle specific probe code: probes/common/check_obsolete_replicas
+
+    :param session: Database session in use.
+    """
+    # RSE subquery
+    rse_subq = select(
+        models.RSE.id.label("rse_id")
+    ).where(
+        models.RSE.deleted == false()
+    ).subquery()
+
+    # Replicas subquery
+    repl_subq = select(
+        models.RSEFileAssociation.rse_id,
+        func.count(1).label("files"),
+        func.sum(models.RSEFileAssociation.bytes).label("bytes")
+    ).where(
+        models.RSEFileAssociation.tombstone == OBSOLETE
+    ).group_by(
+        models.RSEFileAssociation.rse_id
+    ).subquery()
+
+    # Full query with outer_join()
+    stmt = select(
+        rse_subq.c.rse_id,
+        coalesce(repl_subq.c.files, 0).label("files"),
+        coalesce(repl_subq.c.bytes, 0).label("bytes")
+    ).outerjoin(
+        repl_subq,
+        rse_subq.c.rse_id == repl_subq.c.rse_id
+    )
+    return session.execute(stmt).all()
