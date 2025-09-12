@@ -149,3 +149,23 @@ class TestConfigClients:
         assert self.test_option_b + 'ViaUrl' in tmp[self.test_section_1]
         assert self.test_option_i + 'ViaUrl' in tmp[self.test_section_2]
         assert self.test_option_f + 'ViaUrl' in tmp[self.test_section_2]
+
+    def test_section_add_and_remove(self):
+        mock_section = str(generate_uuid())
+        self.c.set_config_option(mock_section, mock_section, mock_section)
+        assert self.c.get_config(mock_section) == {mock_section: mock_section}
+
+        self.c.delete_config_section(mock_section)
+        with pytest.raises(exception.ConfigNotFound):
+            self.c.delete_config_section(mock_section)
+
+    def test_option_set_and_remove(self):
+        mock_section = str(generate_uuid())
+
+        self.c.set_config_option(mock_section, self.test_option_s, self.test_option_sv)
+        assert self.c.get_config(mock_section, self.test_option_s) == self.test_option_sv
+
+        assert self.c.delete_config_option(mock_section, self.test_option_s)
+
+        with pytest.raises(exception.ConfigNotFound):
+            self.c.delete_config_option(mock_section, self.test_option_s)
