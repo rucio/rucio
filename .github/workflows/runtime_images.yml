@@ -64,10 +64,11 @@ jobs:
           BUILD_DATE="${{ steps.metadata.outputs.build_date }}"
           COMMIT_SHA="${{ steps.metadata.outputs.commit_sha }}"
           COMMIT_REF="${{ steps.metadata.outputs.commit_ref }}"
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
 
           for PYVER in 3.9 3.10; do
             HASH=$(echo "PYTHON=${PYVER}" | cat - $FILES_TO_HASH | sha256sum | cut -d' ' -f1 | head -c 12)
-            IMAGE="ghcr.io/${{ github.repository }}/rucio-dev-runtime:py${PYVER//.}-${HASH}"
+            IMAGE="ghcr.io/${REPO}/rucio-dev-runtime:py${PYVER//.}-${HASH}"
             echo "Python ${PYVER} image tag: $IMAGE"
 
             # Export dynamic outputs
@@ -108,8 +109,8 @@ jobs:
               --label "rucio.image.build.date=${BUILD_DATE}" \
               --label "rucio.image.build.workflow=${{ github.workflow }}" \
               --label "rucio.image.build.run_id=${{ github.run_id }}" \
-              --cache-from type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py${PYVER//.}-buildcache \
-              --cache-to type=registry,ref=ghcr.io/${{ github.repository }}/rucio-dev-runtime:py${PYVER//.}-buildcache,mode=max \
+              --cache-from type=registry,ref=ghcr.io/${REPO}/rucio-dev-runtime:py${PYVER//.}-buildcache \
+              --cache-to type=registry,ref=ghcr.io/${REPO}/rucio-dev-runtime:py${PYVER//.}-buildcache,mode=max \
               .
           done
 
