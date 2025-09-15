@@ -128,7 +128,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
         ---
         summary: Get Opendata DID Information
         description: "Retrieves detailed Opendata information for the given scope and name. Supports optional query parameters to control the inclusion of files, metadata, and DOI information."
-        Tags:
+        tags:
           - Opendata
         parameters:
           - name: scope
