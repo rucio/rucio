@@ -131,6 +131,12 @@ class CLITheme:
         'SERVICE': 'yellow'
     }
 
+    OPENDATA_DID_STATE = {
+        'PUBLIC': 'bold green',
+        'DRAFT': 'bold default',
+        'SUSPENDED': 'bold red',
+    }
+
 
 def setup_rich_logger(
     module_name: Optional[str] = None,
