@@ -16,8 +16,11 @@ import json
 from typing import TYPE_CHECKING, Optional
 
 import click
+from rich.text import Text
+from tabulate import tabulate
 
 from rucio.cli.utils import JSONType
+from rucio.client.richclient import CLITheme, generate_table, get_cli_config, print_output
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL_LIST
 from rucio.common.utils import extract_scope
 
@@ -25,6 +28,8 @@ if TYPE_CHECKING:
     from click import Context
 
     from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
+
+cli_config = get_cli_config()
 
 
 def is_valid_json(s: str) -> bool:
@@ -50,15 +55,45 @@ def opendata_did() -> None:
               help="Filter on Opendata state")
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
+@click.option("--short", is_flag=True, default=False, help="Dump the list of Opendata DIDs")
 @click.pass_context
-def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITERAL"], public: bool) -> None:
+def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITERAL"], public: bool,
+                       short: bool) -> None:
     """
     List Opendata DIDs, optionally filtered by state and public/private access
     """
 
     client = ctx.obj.client
-    result = client.list_opendata_dids(state=state, public=public)
-    print(json.dumps(result, indent=4, sort_keys=True, ensure_ascii=False))
+    spinner = ctx.obj.spinner
+
+    dids_list = client.list_opendata_dids(state=state, public=public)
+
+    table_data = []
+
+    if cli_config == 'rich':
+        spinner.update(status='Fetching Opendata DIDs')
+        spinner.start()
+
+    for did in dids_list["dids"]:
+        if cli_config == 'rich':
+            table_data.append([f"{did['scope']}:{did['name']}",
+                               Text(did['state'], style=CLITheme.OPENDATA_DID_STATE.get(did['state'], 'default'))])
+        else:
+            table_data.append([f"{did['scope']}:{did['name']}", did['state']])
+
+    if cli_config == 'rich':
+        if short:
+            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
+        else:
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[STATE]'], col_alignments=['left', 'left'])
+        spinner.stop()
+        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        if short:
+            for did, _ in table_data:
+                print(did)
+        else:
+            print(tabulate(table_data, tablefmt="psql", headers=['SCOPE:NAME', '[STATE]']))
 
 
 @opendata_did.command("add")
@@ -101,12 +136,31 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
     """
 
     client = ctx.obj.client
+    spinner = ctx.obj.spinner
+    console = ctx.obj.console
+
     scope, name = extract_scope(did)
-    result = client.get_opendata_did(scope=scope, name=name, public=public,
-                                     include_files=files, include_metadata=meta,
-                                     include_doi=True)
-    # TODO: pretty print using tables, etc
-    print(json.dumps(result, indent=4, sort_keys=True, ensure_ascii=False))
+    info = client.get_opendata_did(scope=scope, name=name, public=public,
+                                   include_files=files, include_metadata=meta,
+                                   include_doi=True)
+
+    output = []
+    if cli_config == 'rich':
+        spinner.update(status='Fetching Opendata DID stats')
+        spinner.start()
+        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.OPENDATA_DID_STATE}
+
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in
+                      sorted(info.items())]
+        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        output.append(table)
+    else:
+        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
+        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+
+    if cli_config == 'rich':
+        spinner.stop()
+        print_output(*output, console=console, no_pager=ctx.obj.no_pager)
 
 
 @opendata_did.command("update")
