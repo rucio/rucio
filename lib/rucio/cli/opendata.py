@@ -81,17 +81,14 @@ def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITER
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['state']])
 
-    if cli_config == 'rich':
-        if short:
-            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
-        else:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[STATE]'], col_alignments=['left', 'left'])
-        spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    if short:
+        for did, _ in table_data:
+            print(did)
     else:
-        if short:
-            for did, _ in table_data:
-                print(did)
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[STATE]'], col_alignments=['left', 'left'])
+            spinner.stop()
+            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(tabulate(table_data, tablefmt="psql", headers=['SCOPE:NAME', '[STATE]']))
 
