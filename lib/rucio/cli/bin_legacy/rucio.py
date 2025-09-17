@@ -449,7 +449,6 @@ def list_dids(args, client, logger, console, spinner):
     """
 
     filters = {}
-    type_ = 'collection'
     table_data = []
 
     try:
@@ -482,19 +481,17 @@ def list_dids(args, client, logger, console, spinner):
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
-    if cli_config == 'rich':
-        if args.short:
-            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
-        else:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
-        spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+    if args.short:
+        for did, _ in table_data:
+            print(did)
     else:
-        if args.short:
-            for did, _ in table_data:
-                print(did)
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
     return SUCCESS
 
 
@@ -657,19 +654,17 @@ def list_content(args, client, logger, console, spinner):
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
-    if cli_config == 'rich':
-        if args.short:
-            table = generate_table([[did] for did, _ in table_data], headers=['SCOPE:NAME'], col_alignments=['left'])
-        else:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
-        spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+    if args.short:
+        for did, dummy in table_data:
+            print(did)
     else:
-        if args.short:
-            for did, dummy in table_data:
-                print(did)
+        if cli_config == 'rich':
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            spinner.stop()
+            print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
     return SUCCESS
 
 
