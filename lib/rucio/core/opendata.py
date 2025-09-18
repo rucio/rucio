@@ -394,7 +394,6 @@ def add_opendata_did(
     """
 
     try:
-        print(f"Adding Opendata DID {scope}:{name} to the catalog...")
         return add_opendata_dids([{"scope": scope, "name": name}], session=session)
     except exception.DataIdentifierNotFound:
         raise exception.DataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
@@ -423,8 +422,6 @@ def add_opendata_dids(
     for did in dids:
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
-
-    print(f"Adding {len(dids)} Opendata DID(s) to the catalog...")
 
     try:
         # The default state is DRAFT, set in the model
@@ -698,6 +695,11 @@ def update_opendata_state(
                 rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
                 rule_asynchronous = bool(
                     config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
+                rule_activity = config_get("opendata", "rule_activity", raise_exception=False, default=None)
+                if not rule_activity:
+                    # The add_rule method should support a None activity and internally get the default activity
+                    rule_activity = "User Subscriptions"
+
                 print(
                     f"Creating rule for Opendata DID(s) on RSE expression '{rule_rse_expression}', asynchronous: {rule_asynchronous}")
                 try:
@@ -712,7 +714,7 @@ def update_opendata_state(
                         lifetime=None,
                         locked=False,
                         subscription_id=None,
-                        activity="Opendata",
+                        activity=rule_activity,
                         asynchronous=rule_asynchronous,
                         session=session,
                     )
