@@ -1498,7 +1498,7 @@ class SAML(ErrorHandlingMethodView):
             return '', 200, headers
 
         # Path to the SAML config folder
-        saml_path = config_get(Config.saml.name, Config.saml.cfg.name)
+        saml_path = config_get("", Config.saml.cfg)
 
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
         auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
