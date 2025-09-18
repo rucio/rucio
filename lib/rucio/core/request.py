@@ -22,6 +22,7 @@ import threading
 import traceback
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict, namedtuple
+from collections.abc import Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -310,7 +311,11 @@ def queue_requests(
     :param logger:    Optional decorated logger that can be passed from the calling daemons or servers.
     :returns:         List of Request-IDs as 32 character hex strings.
     """
-    logger(logging.DEBUG, "queue requests")
+
+    if isinstance(requests, Sized):
+        logger(logging.DEBUG, "Queuing %d requests", len(requests))
+    else:
+        logger(logging.DEBUG, "Queuing requests")
 
     request_clause = []
     rses = {}
@@ -1508,7 +1513,7 @@ class TransferStatsManager:
     def __enter__(self) -> "TransferStatsManager":
         self.record_stats = config_get_bool('transfers', 'stats_enabled', default=self.record_stats)
         downsample_period = config_get_int('transfers', 'stats_downsample_period', default=self.downsample_period)
-        # Introduce some voluntary jitter to reduce the likely-hood of performing this database
+        # Introduce some voluntary jitter to reduce the likelihood of performing this database
         # operation multiple times in parallel.
         self.downsample_period = random.randint(downsample_period * 3 // 4, math.ceil(downsample_period * 5 / 4))  # noqa: S311
         if self.record_stats:

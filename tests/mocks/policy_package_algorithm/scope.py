@@ -1,5 +1,3 @@
-#!/bin/bash
-# -*- coding: utf-8 -*-
 # Copyright European Organization for Nuclear Research (CERN) since 2012
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-scp root@rucio-daemon-prod-01.cern.ch:/opt/rucio/tools/x509up x509up
-chmod 600 x509up
-export X509_USER_PROXY=x509up
+def scope(did):
+    return 'Default scope algorithm loaded correctly!'

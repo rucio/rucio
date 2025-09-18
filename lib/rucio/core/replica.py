@@ -22,7 +22,6 @@ from curses.ascii import isprint
 from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import groupby
-from json import dumps
 from re import match
 from struct import unpack
 from traceback import format_exc
@@ -2304,9 +2303,9 @@ def __cleanup_after_replica_deletion(
             for scope, name, did_type in session.execute(stmt):
                 if did_type == DIDType.DATASET:
                     messages.append({'event_type': 'ERASE',
-                                     'payload': dumps({'scope': scope.external,
-                                                       'name': name,
-                                                       'account': 'root'})})
+                                     'payload': {'scope': scope.external,
+                                                 'name': name,
+                                                 'account': 'root'}})
                 dids_to_delete.add(ScopeName(scope=scope, name=name))
 
     # Remove Archive Constituents

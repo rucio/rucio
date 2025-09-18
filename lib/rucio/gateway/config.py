@@ -47,23 +47,6 @@ def sections(issuer: str, vo: str = DEFAULT_VO) -> list[str]:
         return config.sections(session=session)
 
 
-def add_section(section: str, issuer: str, vo: str = DEFAULT_VO) -> None:
-    """
-    Add a section to the configuration.
-
-    :param section: The name of the section.
-    :param issuer: The issuer account.
-    :param vo: The VO to act on.
-    """
-
-    kwargs = {'issuer': issuer, 'section': section}
-    with db_session(DatabaseOperationType.WRITE) as session:
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_add_section', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied('%s cannot add section %s. %s' % (issuer, section, auth_result.message))
-        return config.add_section(section, session=session)
-
-
 def has_section(section: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
     """
     Indicates whether the named section is present in the configuration.
@@ -79,25 +62,7 @@ def has_section(section: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
         auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_section', kwargs=kwargs, session=session)
         if not auth_result.allowed:
             raise exception.AccessDenied('%s cannot check existence of section %s. %s' % (issuer, section, auth_result.message))
-        return config.has_section(section, session=session)
-
-
-def options(section: str, issuer: str, vo: str = DEFAULT_VO) -> list[str]:
-    """
-    Returns a list of options available in the specified section.
-
-    :param section: The name of the section.
-    :param issuer: The issuer account.
-    :param vo: The VO to act on.
-    :returns: ['option', ...]
-    """
-
-    kwargs = {'issuer': issuer, 'section': section}
-    with db_session(DatabaseOperationType.READ) as session:
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_options', kwargs=kwargs, session=session)
-        if auth_result.allowed:
-            raise exception.AccessDenied('%s cannot retrieve options from section %s. %s' % (issuer, section, auth_result.message))
-        return config.options(section, session=session)
+        return config.has_section(section, session=session, use_cache=False)
 
 
 def has_option(section: str, option: str, issuer: str, vo: str = DEFAULT_VO) -> bool:
@@ -116,7 +81,7 @@ def has_option(section: str, option: str, issuer: str, vo: str = DEFAULT_VO) -> 
         auth_result = permission.has_permission(issuer=issuer, vo=vo, action='config_has_option', kwargs=kwargs, session=session)
         if not auth_result.allowed:
             raise exception.AccessDenied('%s cannot check existence of option %s from section %s. %s' % (issuer, option, section, auth_result.message))
-        return config.has_option(section, option, session=session)
+        return config.has_option(section, option, session=session, use_cache=False)
 
 
 def get(section: str, option: str, issuer: str, vo: str = DEFAULT_VO) -> Any:
