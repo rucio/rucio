@@ -161,7 +161,7 @@ class MessagingFTS3:
 
 
 class MessagingHermes:
-    name = "messaging_hermes"
+    name = "messaging-hermes"
     brokers = ConfigOption(name, "brokers", "Brokers")
     port = ConfigOption(name, "port", "Port of the broker if `use_ssl` is set", int)
     un = ConfigOption(name, "username", "Username of the broker. Only used if `use_ssl` is not set")
@@ -357,7 +357,7 @@ class WebUI:
 
 class API:
     name = "api"
-    endpoints = ConfigOption(name, "endpoints", "Endpoints separated by commas. When empty, all endpoints are loaded", list, [])
+    endpoints = ConfigOption(name, "endpoints", "Endpoints separated by commas. When empty, all endpoints are loaded", list, default=[])
 
 
 class Config:

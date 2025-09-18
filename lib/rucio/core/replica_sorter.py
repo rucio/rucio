@@ -73,7 +73,7 @@ def __download_geoip_db(destination: 'StrPath') -> None:
     download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
     verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
     if not download_url:
-        licence_key = config_get(Config.core.name, Config.core.geoip_license_key.name, raise_exception=False, default=None)
+        licence_key = config_get("", Config.core.geoip_license_key, raise_exception=False)
         if not licence_key:
             raise Exception('Cannot download GeoIP database: license key not provided')
         download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
@@ -302,7 +302,7 @@ def sort_replicas(
 
     # all sorts must be stable to preserve the priority (the Python standard sorting functions always are stable)
     if selection == 'geoip':
-        ignore_error = config_get_bool(Config.core.name, Config.core.geoip_ignore_error.name, raise_exception=False, default=True)
+        ignore_error = config_get_bool("", Config.core.geoip_ignore_error, raise_exception=False)
         replicas = sort_geoip(dictreplica, client_location, ignore_error=ignore_error)
     elif selection == 'custom_table':
         replicas = sort_custom(dictreplica, client_location)

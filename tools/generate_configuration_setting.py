@@ -94,7 +94,7 @@ def arguments():
         "-o", "--output",
         help="Output file name",
         type=str,
-        default="rucio_config_defaults.json"
+        default="rucio_config_defaults.md"
     )
 
     parser.add_argument(
