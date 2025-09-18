@@ -99,7 +99,7 @@ class LazyGroup(click.Group):
 @click.option("--certificate", help="Client certificate file")
 @click.option("--client-key", help="Client key for x509 Authentication")
 @click.option("--config", help="The Rucio configuration file to use")
-@click.option("-H", "--host", help="The Rucio API host")
+@click.option("-H", "--host", "--hostname", help="The Rucio API host")
 # oidc auth
 @click.option("--oidc-user", help="OIDC username")
 @click.option("--oidc-password", help="OIDC password")
