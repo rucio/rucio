@@ -32,6 +32,7 @@ from statsd import StatsClient
 
 import __main__ as main
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config_settings import Config
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import retrying
 
@@ -82,16 +83,15 @@ if PROMETHEUS_MULTIPROC_DIR:
     atexit.register(cleanup_prometheus_files_at_exit)
 
 
-SERVER = config_get('monitor', 'carbon_server', raise_exception=False, default=None)
-PORT = config_get_int('monitor', 'carbon_port', raise_exception=False, default=8125)
-SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
-STATSD_CLIENT = None
+SERVER = config_get(Config.monitor.name, Config.monitor.carbon_server.name, raise_exception=False, default=None)
+PORT = config_get_int(Config.monitor.name, Config.monitor.carbon_port.name, raise_exception=False, default=8125)
+SCOPE = config_get(Config.monitor.name, Config.monitor.user_scope.name, raise_exception=False, default='rucio')
 if SERVER is not None:
     STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
 
-ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)
+ENABLE_METRICS = config_get_bool(Config.monitor.name, Config.monitor.enable_metrics.name, raise_exception=False, default=False)
 if ENABLE_METRICS:
-    METRICS_PORT = config_get_int('monitor', 'metrics_port', raise_exception=False, default=8080)
+    METRICS_PORT = config_get_int(Config.monitor.name, Config.monitor.metrics_port.name, raise_exception=False, default=8080)
     start_http_server(METRICS_PORT, registry=REGISTRY)
 
 COUNTERS = {}

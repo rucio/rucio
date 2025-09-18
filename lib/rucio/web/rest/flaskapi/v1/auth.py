@@ -24,6 +24,7 @@ from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
 from rucio.common.constants import HTTPMethod
+from rucio.common.config_settings import Config
 from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound, InvalidRequest
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
@@ -1498,7 +1499,7 @@ class SAML(ErrorHandlingMethodView):
             return '', 200, headers
 
         # Path to the SAML config folder
-        saml_path = config_get('saml', 'config_path')
+        saml_path = config_get(Config.saml.name, Config.saml.cfg.name)
 
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
         auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)

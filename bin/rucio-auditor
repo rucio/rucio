@@ -30,6 +30,7 @@ import rucio.common.config as config
 import rucio.common.dumper as dumper
 import rucio.daemons.auditor
 from rucio.client.rseclient import RSEClient
+from rucio.common.config_settings import Config
 from rucio.common.exception import RSENotFound
 
 RETRY_AFTER = 60 * 60 * 24 * 14  # Two weeks
@@ -78,10 +79,11 @@ def main(args):
     if not config.config_has_section('auditor'):
         raise NoSectionError("Auditor section required in config to run the auditor daemon.")
 
-    cache_dir = config.config_get('auditor', 'cache')
-    results_dir = config.config_get('auditor', 'results')
+    cache_dir = config.config_get(Config.auditor.name, Config.auditor.cache.name)
+    results_dir = config.config_get(Config.auditor.name, Config.auditor.results.name)
 
-    logfilename = os.path.join(config.config_get('common', 'logdir'), 'auditor.log')
+    log_dir = config.config_get(Config.auditor.name, Config.auditor.logdir.name)
+    logfilename = os.path.join(log_dir, 'auditor.log')
     logger.info('Starting auditor')
 
     def termhandler(sign, trace):
