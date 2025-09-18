@@ -14,6 +14,7 @@
 
 from flask import Flask, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import RSENotFound
 from rucio.common.utils import render_json
 from rucio.gateway.lock import get_dataset_locks, get_dataset_locks_bulk, get_dataset_locks_by_rse
@@ -339,13 +340,13 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('locks', __name__, url_prefix='/locks')
 
     lock_by_rse_view = LockByRSE.as_view('lock_by_rse')
-    bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=['get', ])
+    bp.add_url_rule('/<rse>', view_func=lock_by_rse_view, methods=[HTTPMethod.GET.value])
 
     lock_by_scope_name_view = LocksByScopeName.as_view('locks_by_scope_name')
-    bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>', view_func=lock_by_scope_name_view, methods=[HTTPMethod.GET.value])
 
     locks_for_dids_view = DatasetLocksForDids.as_view('locks_for_dids')
-    bp.add_url_rule('/bulk_locks_for_dids', view_func=locks_for_dids_view, methods=['post', ])
+    bp.add_url_rule('/bulk_locks_for_dids', view_func=locks_for_dids_view, methods=[HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp

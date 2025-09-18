@@ -222,3 +222,20 @@ OPENDATA_DID_STATE_LITERAL_LIST = list(get_args(OPENDATA_DID_STATE_LITERAL))
 
 POLICY_ALGORITHM_TYPES_LITERAL = Literal['non_deterministic_pfn', 'scope', 'lfn2pfn', 'pfn2lfn', 'fts3_tape_metadata_plugins', 'fts3_plugins_init', 'auto_approve']
 POLICY_ALGORITHM_TYPES = list(get_args(POLICY_ALGORITHM_TYPES_LITERAL))
+
+@enum.unique
+class HTTPMethod(str, enum.Enum):
+    """HTTP verbs used in Rucio requests."""
+
+    # TODO: remove this enum in favor of standard library `http` module when the minimum supported Python version is >= 3.11
+    # Just replacing the `from rucio.common.constants import HTTPMethod` to `from rucio.common.constants import HTTPMethod` should be enough
+    # Corresponding issue: https://github.com/rucio/rucio/issues/7959
+
+    # Standard HTTP/1.1
+    HEAD = 'HEAD'
+    OPTIONS = 'OPTIONS'
+    PATCH = 'PATCH'
+    GET = 'GET'
+    POST = 'POST'
+    PUT = 'PUT'
+    DELETE = 'DELETE'

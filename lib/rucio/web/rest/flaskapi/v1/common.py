@@ -31,7 +31,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.common import config
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
@@ -66,7 +66,7 @@ class CORSMiddleware:
     def __call__(self, environ: 'WSGIEnvironment', start_response: 'StartResponse') -> 'Iterable[bytes]':
         request: Request = Request(environ)
 
-        if request.environ.get('REQUEST_METHOD') == 'OPTIONS':
+        if request.environ.get('REQUEST_METHOD') == HTTPMethod.OPTIONS.value:
             try:
                 webui_urls = config.config_get_list('webui', 'urls')
             except (NoOptionError, NoSectionError, RuntimeError) as error:
@@ -145,7 +145,7 @@ class ErrorHandlingMethodView(MethodView):
 
 
 def request_auth_env() -> Optional['ResponseReturnValue']:
-    if flask.request.environ.get('REQUEST_METHOD') == 'OPTIONS':
+    if flask.request.environ.get('REQUEST_METHOD') == HTTPMethod.OPTIONS.value:
         return '', 200
 
     auth_token = flask.request.headers.get('X-Rucio-Auth-Token', default=None)
@@ -176,7 +176,7 @@ def response_headers(response: ResponseTypeVar) -> ResponseTypeVar:
     response.headers['Access-Control-Allow-Methods'] = '*'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
 
-    if flask.request.environ.get('REQUEST_METHOD') == 'GET':
+    if flask.request.environ.get('REQUEST_METHOD') == HTTPMethod.GET.value:
         response.headers['Cache-Control'] = 'no-cache, no-store, max-age=0, must-revalidate'
         response.headers['Cache-Control'] = 'post-check=0, pre-check=0'
         response.headers['Pragma'] = 'no-cache'

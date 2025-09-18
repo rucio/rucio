@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, request
 from werkzeug.datastructures import Headers
 
+from rucio.common.constants import HTTPMethod
 from rucio.core.nongrid_trace import trace
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, json_parameters, response_headers
 
@@ -84,7 +85,7 @@ def blueprint() -> Blueprint:
     bp = Blueprint('nongrid_traces', __name__, url_prefix='/nongrid_traces')
 
     xaod_trace_view = XAODTrace.as_view('xaod_trace')
-    bp.add_url_rule('/', view_func=xaod_trace_view, methods=['post', ])
+    bp.add_url_rule('/', view_func=xaod_trace_view, methods=[HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp
