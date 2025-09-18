@@ -27,6 +27,7 @@ import stomp
 from jsonschema import Draft7Validator, ValidationError, validate
 
 from rucio.common.config import config_get, config_get_int, config_get_list
+from rucio.common.config_settings import Config
 from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
 from rucio.common.logging import rucio_log_formatter
 from rucio.common.schema.generic import TIME_ENTRY, UUID, IPv4orIPv6
@@ -41,11 +42,11 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 
-CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
+CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get(Config.common.name, Config.common.loglevel.name, raise_exception=False, default='DEBUG').upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get('trace', 'loglevel', raise_exception=False, default='DEBUG').upper())
-CONFIG_TRACE_LOGFORMAT = config_get('trace', 'logformat', raise_exception=False, default='%(message)s')
-CONFIG_TRACE_TRACEDIR = config_get('trace', 'tracedir', raise_exception=False, default='/var/log/rucio/trace')
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get(Config.trace.name, Config.trace.loglevel.name, raise_exception=False, default='DEBUG').upper())
+CONFIG_TRACE_LOGFORMAT = config_get(Config.trace.name,  Config.trace.logformat.name, raise_exception=False, default='%(message)s')
+CONFIG_TRACE_TRACEDIR = config_get(Config.trace.name, Config.trace.tracedir.name, raise_exception=False, default='/var/log/rucio/trace')
 CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', raise_exception=False, default=1000000000)
 CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', raise_exception=False, default=10)
 
@@ -70,14 +71,14 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERS_ALIAS = config_get_list('trace', 'brokers')
+    BROKERS_ALIAS = config_get_list(Config.trace.name, Config.trace.brokers.name)
 except Exception:
     raise Exception('Could not load brokers from configuration')
 
-PORT = config_get_int('trace', 'port')
+PORT = config_get_int(Config.trace.name, Config.trace.port.name)
 TOPIC = config_get('trace', 'topic')
-USERNAME = config_get('trace', 'username')
-PASSWORD = config_get('trace', 'password')
+USERNAME = config_get(Config.trace.name, Config.trace.username.name)
+PASSWORD = config_get(Config.trace.name, Config.trace.password.name)
 VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
 TOUCH_SCHEMA: 'ObjectSchema' = {

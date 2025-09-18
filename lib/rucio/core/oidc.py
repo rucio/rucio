@@ -38,6 +38,7 @@ from sqlalchemy.sql.expression import true
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config_settings import Config
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
@@ -65,7 +66,7 @@ METRICS = MetricManager(module=__name__)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
 
 # private/protected file containing Rucio Client secrets known to the Identity Provider as well
-IDPSECRETS = config_get('oidc', 'idpsecrets', False)
+IDPSECRETS = config_get(Config.oidc.name, Config.oidc.ipsecrets.name, False)
 ADMIN_ISSUER_ID = config_get('oidc', 'admin_issuer', False)
 EXPECTED_OIDC_AUDIENCE = config_get('oidc', 'expected_audience', False, 'rucio')
 EXPECTED_OIDC_SCOPE = config_get('oidc', 'expected_scope', False, 'openid profile')

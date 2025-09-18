@@ -22,6 +22,7 @@ from sqlalchemy import BigInteger, and_, case, cast, false, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config_settings import Config
 from rucio.common.exception import (
     DuplicateRule,
     InsufficientAccountLimit,
@@ -139,9 +140,7 @@ def __dump_url(
     # get the date of the most recent dump
     today = date.today()
     dump_dates = []
-    dump_production_day = config_get(
-        "bb8", "dump_production_day", raise_exception=False, default=None
-    )
+    dump_production_day = config_get(Config.bb8.name, Config.bb8.dump_production_day.name, raise_exception=False, default=None)
     if dump_production_day is None:
         for idx in range(0, 7):
             dump_date = today - timedelta(idx)
@@ -167,11 +166,7 @@ def __dump_url(
         dump_dates = [dump_date.strftime("%d-%m-%Y")]
 
     # getting structure (template) of url location of a dump
-    url_template_str = config_get(
-        "bb8",
-        "dump_url_template",
-        raise_exception=False,
-    )
+    url_template_str = config_get(Config.bb8.name, Config.bb8.url_template_str, raise_exception=False)
     url_template = Template(url_template_str)
 
     # populating url template

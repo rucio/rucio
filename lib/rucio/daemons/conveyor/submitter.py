@@ -220,8 +220,8 @@ def submitter(
 
     partition_hash_var = config_get('conveyor', 'partition_hash_var', default=None, raise_exception=False)
 
-    config_schemes = set(config_get_list('conveyor', 'scheme', raise_exception=False) or [])
-    config_failover_schemes = set(config_get_list('conveyor', 'failover_scheme', raise_exception=False) or [])
+    config_schemes = set(config_get_list('conveyor', 'scheme', raise_exception=False, default=[]))  # doc: Schemes to process
+    config_failover_schemes = set(config_get_list('conveyor', 'failover_scheme', raise_exception=False, default=[]))  # doc: Failover schemes
 
     schemes_supported_by_tt = set()
     for transfertool in transfertools:
@@ -243,9 +243,9 @@ def submitter(
     if config_failover_schemes.difference(failover_schemes):
         logging.info(f'Following failover schemes filtered out: {list(config_failover_schemes.difference(failover_schemes))}')
 
-    timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)
+    timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)  # doc: Timeout
 
-    bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)
+    bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)  # doc: Integer, bring online timeout
 
     max_time_in_queue = _get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)

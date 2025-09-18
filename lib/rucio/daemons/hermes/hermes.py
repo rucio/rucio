@@ -44,6 +44,7 @@ from rucio.common.config import (
     config_get_int,
     config_get_list,
 )
+from rucio.common.config_settings import Config
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
@@ -115,7 +116,7 @@ def setup_activemq(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = config_get_list("messaging-hermes", "brokers")
+        brokers_alias = config_get_list(Config.messaging_hermes.name, Config.messaging_hermes.brokers.name)
     except Exception:
         raise Exception("Could not load brokers from configuration")
 
@@ -155,14 +156,14 @@ def setup_activemq(
             "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
         )
 
-    port = config_get_int("messaging-hermes", "port")
+    port = config_get_int(Config.messaging_hermes.name, Config.messaging_hermes.port.name)
     vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
     username = None
     password = None
     if not use_ssl:
-        username = config_get("messaging-hermes", "username")
-        password = config_get("messaging-hermes", "password")
-        port = config_get_int("messaging-hermes", "nonssl_port")
+        username = config_get(Config.messaging_hermes.name, Config.messaging_hermes.un.name)
+        password = config_get(Config.messaging_hermes.name, Config.messaging_hermes.pw.name)
+        port = config_get_int(Config.messaging_hermes.name, Config.messaging_hermes.nonssl_port.name)
 
     conns = []
     for broker in brokers_resolved:
@@ -187,8 +188,8 @@ def setup_activemq(
         )
         if use_ssl:
             con.set_ssl(
-                key_file=config_get("messaging-hermes", "ssl_key_file"),
-                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
+                key_file=config_get(Config.messaging_hermes.name, Config.messaging_hermes.ssl_key.name),
+                cert_file=config_get(Config.messaging_hermes.name, Config.messaging_hermes.ssl_cert.name),
             )
 
         con.set_listener(
@@ -196,7 +197,7 @@ def setup_activemq(
         )
 
         conns.append(con)
-    destination = config_get("messaging-hermes", "destination")
+    destination = config_get(Config.messaging_hermes.name, Config.messaging_hermes.destination.name)
     return conns, destination, username, password, use_ssl
 
 
@@ -642,7 +643,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     if "influx" in services_list:
         influx_endpoint = None
         try:
-            influx_endpoint = config_get("hermes", "influxdb_endpoint", False, None)
+            influx_endpoint = config_get(Config.hermes.name, Config.hermes.influxdb_endpoint.name, False, None)
             if not influx_endpoint:
                 logger(
                     logging.ERROR,
@@ -653,7 +654,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     if "elastic" in services_list:
         elastic_endpoint = None
         try:
-            elastic_endpoint = config_get("hermes", "elastic_endpoint", False, None)
+            elastic_endpoint = config_get(Config.hermes.name, Config.hermes.elastic_endpoint.name, False, None)
             if not elastic_endpoint:
                 logger(
                     logging.ERROR,

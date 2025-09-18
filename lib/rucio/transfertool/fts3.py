@@ -31,6 +31,7 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 from rucio.common.cache import MemcacheRegion
 from rucio.common.checksum import PREFERRED_CHECKSUM
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config_settings import Config
 from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.policy import get_policy
@@ -176,7 +177,7 @@ def _pick_cert_file(vo: Optional[str]) -> Optional[str]:
             if vo_cert.exists():
                 cert = str(vo_cert)
     if not cert:
-        usercert = config_get('conveyor', 'usercert', False, None)
+        usercert = config_get(Config.conveyor.name, Config.conveyor.usercert.name,  False, None)
         if usercert:
             cert = usercert
     return cert

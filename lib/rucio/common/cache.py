@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-CACHE_URL = config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False)
+CACHE_URL = config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False)  # doc: URL of the cache.
 
 ENABLE_CACHING = True
 _mc_client = None

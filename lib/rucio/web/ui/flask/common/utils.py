@@ -24,6 +24,7 @@ from urllib.parse import quote, unquote
 from flask import Response, make_response, redirect, render_template, request
 
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import CannotAuthenticate
 from rucio.common.extra import import_extras
@@ -49,10 +50,10 @@ else:
     SAML_SUPPORT = False
 
 # check if there is preferred server side config for webui authentication
-AUTH_TYPE = config_get('webui', 'auth_type', False, None)
+AUTH_TYPE = config_get(Config.webui.name, Config.webui.auth_type.name, False, None)
 if AUTH_TYPE == 'oidc':
     try:
-        AUTH_ISSUER_WEBUI = config_get('webui', 'auth_issuer')
+        AUTH_ISSUER_WEBUI = config_get(Config.webui.name, Config.webui.auth_user.name)
     except Exception:
         render_template("problem.html", msg="Please specify auth_issuer in the [webui] section of the Rucio configuration.")
 

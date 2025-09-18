@@ -37,6 +37,7 @@ import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_ACTIVITY, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import (
     DataIdentifierNotFound,
@@ -2852,7 +2853,7 @@ def generate_email_for_rule_ok_notification(
 
     if rule.state == RuleState.OK and rule.notification == RuleNotification.YES:
         try:
-            template_path = '%s/rule_ok_notification.tmpl' % config_get('common', 'mailtemplatedir')
+            template_path = '%s/rule_ok_notification.tmpl' % config_get(Config.common.name, Config.common.mail_template_dir.name)
         except NoOptionError as ex:
             logger(logging.ERROR, "Missing configuration option 'mailtemplatedir'.", exc_info=ex)
             return
@@ -4423,9 +4424,7 @@ def _create_recipients_list(
 
     # DDMADMIN as default
     if not recipients:
-        default_mail_from = config_get(
-            'core', 'default_mail_from', raise_exception=False, default=None
-        )
+        default_mail_from = config_get(Config.core.name, Config.core.default_mail_from.name, raise_exception=False, default=None)
         if default_mail_from:
             recipients = [(default_mail_from, 'ddmadmin')]
 

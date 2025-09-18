@@ -31,6 +31,7 @@ from dogpile.cache.api import NO_VALUE
 from rucio.common import utils
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config_settings import Config
 from rucio.common.constants import SORTING_ALGORITHMS
 from rucio.common.exception import InvalidRSEExpression, SortingAlgorithmNotSupported
 from rucio.core.rse_expression_parser import parse_expression
@@ -72,9 +73,9 @@ def __download_geoip_db(destination: 'StrPath') -> None:
     download_url = config_get('core', 'geoip_download_url', raise_exception=False, default=None)
     verify_tls = config_get_bool('core', 'geoip_download_verify_tls', raise_exception=False, default=True)
     if not download_url:
-        licence_key = config_get('core', 'geoip_licence_key', raise_exception=False, default=None)
+        licence_key = config_get(Config.core.name, Config.core.geoip_license_key.name, raise_exception=False, default=None)
         if not licence_key:
-            raise Exception('Cannot download GeoIP database: licence key not provided')
+            raise Exception('Cannot download GeoIP database: license key not provided')
         download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
 
     result = requests.get(download_url, stream=True, verify=verify_tls)
@@ -301,7 +302,8 @@ def sort_replicas(
 
     # all sorts must be stable to preserve the priority (the Python standard sorting functions always are stable)
     if selection == 'geoip':
-        replicas = sort_geoip(dictreplica, client_location, ignore_error=config_get_bool('core', 'geoip_ignore_error', raise_exception=False, default=True))
+        ignore_error = config_get_bool(Config.core.name, Config.core.geoip_ignore_error.name, raise_exception=False, default=True)
+        replicas = sort_geoip(dictreplica, client_location, ignore_error=ignore_error)
     elif selection == 'custom_table':
         replicas = sort_custom(dictreplica, client_location)
     elif selection == 'random':

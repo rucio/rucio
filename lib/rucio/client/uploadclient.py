@@ -1230,7 +1230,7 @@ class UploadClient:
         Exception
             If the requested service is not available or permissions are not granted.
         """
-        retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)
+        retries = config_get_int('client', 'protocol_stat_retries', raise_exception=False, default=6)  # doc: Number of retries if stat file fails.
         for attempt in range(retries):
             try:
                 self.logger(logging.DEBUG, 'stat: pfn=%s' % pfn)

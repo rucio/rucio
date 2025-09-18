@@ -40,6 +40,7 @@ from rucio.cli.utils import exception_handler, get_client, setup_gfal2_logger, s
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_float
+from rucio.common.config_settings import Config
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import (
     DuplicateRule,
@@ -1002,7 +1003,7 @@ def download(args, client, logger, console, spinner):
         item_defaults['nrandom'] = args.nrandom
         item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout \
             if args.transfer_speed_timeout is not None \
-            else config_get_float('download', 'transfer_speed_timeout', False, 500)
+            else config_get_float(Config.download.name, Config.download.transfer_speed_timeout.name, False, 500)
         items = []
         if args.dids:
             for did in args.dids:
@@ -1128,7 +1129,7 @@ def get_metadata(args, client, logger, console, spinner):
     if args.plugin:
         plugin = args.plugin
     else:
-        plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
+        plugin = config_get(Config.client.name, Config.client.metadata_default_plugin.name, default='DID_COLUMN')
 
     if cli_config == 'rich':
         spinner.update(status='Fetching metadata')

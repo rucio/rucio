@@ -27,6 +27,7 @@ from google.oauth2.service_account import Credentials
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, get_rse_credentials
+from rucio.common.config_settings import Config as ConfigSettings
 from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL, SUPPORTED_SIGN_URL_SERVICES, SUPPORTED_SIGN_URL_SERVICES_LITERAL, HTTPMethod, RseAttr
 from rucio.common.exception import UnsupportedOperation
 from rucio.core.monitor import MetricManager
@@ -80,9 +81,8 @@ def get_signed_url(
 
     if service == 'gcs':
         if not CREDS_GCS:
-            CREDS_GCS = Credentials.from_service_account_file(config_get('credentials', 'gcs',
-                                                                         raise_exception=False,
-                                                                         default='/opt/rucio/etc/google-cloud-storage-test.json'))
+            account_file = config_get(ConfigSettings.credentials.name, ConfigSettings.credentials.gcs.name, raise_exception=False, default='/opt/rucio/etc/google-cloud-storage-test.json')
+            CREDS_GCS = Credentials.from_service_account_file(account_file)
         components = urlparse(url)
         host = components.netloc
 

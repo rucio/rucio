@@ -23,6 +23,7 @@ from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import UndefinedPolicy
 
@@ -37,10 +38,10 @@ def get_policy(logger: 'LoggerFunction' = logging.log) -> str:
     policy = REGION.get('policy')
     if isinstance(policy, NoValue):
         try:
-            policy = config_get('policy', 'permission')
+            policy = config_get(Config.policy.name, Config.policy.permission.name)  # doc: Same as `permission/policy`
         except (NoOptionError, NoSectionError):
             try:
-                policy = config_get('permission', 'policy')
+                policy = config_get(Config.permission.name, Config.permission.policy.name, default="def")
             except (NoOptionError, NoSectionError):
                 policy = DEFAULT_VO
                 logger(logging.WARNING, "Policy not specified, falling back to DEFAULT_VO")
@@ -53,7 +54,7 @@ def get_scratchdisk_lifetime() -> int:
     scratchdisk_lifetime = REGION.get('scratchdisk_lifetime')
     if isinstance(scratchdisk_lifetime, NoValue):
         try:
-            scratchdisk_lifetime = config_get('policy', 'scratchdisk_lifetime')
+            scratchdisk_lifetime = config_get('policy', 'scratchdisk_lifetime', default=14)
             scratchdisk_lifetime = int(scratchdisk_lifetime)
         except (NoOptionError, NoSectionError, ValueError):
             scratchdisk_lifetime = 14
