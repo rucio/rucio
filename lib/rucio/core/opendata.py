@@ -21,10 +21,12 @@ from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
+from rucio.common.config import config_get
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_replicas
+from rucio.core.rule import add_rule
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 
@@ -431,6 +433,23 @@ def add_opendata_dids(
                 }
                 for did in dids]
         )
+        # from the config section get the rule_enabled value
+        rule_enable = bool(config_get("opendata", "rule_enable", raise_exception=False, default=False))
+        if rule_enable:
+            # When the `rule_enable` is set to True, `rule_rse_expression` must be set to a valid RSE expression
+            rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
+            rule_asynchronous = bool(config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
+            add_rule(
+                dids=[{"scope": did["scope"], "name": did["name"]} for did in dids],
+                account="root",
+                copies=1,
+                rse_expression=rule_rse_expression,
+                grouping="ALL",
+                activity="Opendata",
+                asynchronous=rule_asynchronous,
+                session=session,
+            )
+
     except IntegrityError as error:
         msg = str(error)
 
