@@ -509,7 +509,11 @@ class TestOpenDataCLI:
             f"Subcommand '{subcommand}': expected options {expected_options}, got {options}"
         )
 
-    def test_opendata_cli_add_show_list_remove(self, mock_scope):
+    @pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [('experimental', 'cli', 'tabulate')]},
+        {"overrides": [('experimental', 'cli', 'rich')]},
+    ], indirect=True)
+    def test_opendata_cli_add_show_list_remove(self, mock_scope, file_config_mock):
         exitcode, stdout, stderr = execute("rucio opendata did list")
         assert exitcode == 0, f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
         assert "ERROR" not in stderr.upper(), f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
@@ -540,6 +544,14 @@ class TestOpenDataCLI:
         exitcode, stdout, stderr = execute("rucio opendata did list")
         assert exitcode == 0, f"Failed to list opendata: {stderr.strip()}"
         assert f"{name}" in stdout, f"Expected {mock_scope}:{name} in opendata list"
+
+        # Using the --short option the output should be the same regardless of rich client being used
+        exitcode, stdout, stderr = execute("rucio opendata did list --short")
+        assert exitcode == 0, f"Failed to list opendata with short option: {stderr.strip()}"
+        lines = [line.strip() for line in stdout.split("\n") if line.strip()]
+        pattern = re.compile(rf"^{mock_scope}:.+$")
+        assert all(pattern.match(line) for line in lines), f"All lines should follow the {mock_scope}:name pattern"
+        assert f"{mock_scope}:{name}" in lines, f"Expected {mock_scope}:{name} in opendata list with short option"
 
         exitcode, stdout, stderr = execute("rucio opendata did list --state draft")
         assert exitcode == 0, f"Failed to list opendata with state draft: {stderr.strip()}"
