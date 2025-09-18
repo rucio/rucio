@@ -23,6 +23,7 @@ from sqlalchemy.sql.expression import bindparam, select
 from rucio.common import exception
 from rucio.common.config import config_get
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
+from rucio.common.types import InternalAccount
 from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_replicas
@@ -393,6 +394,7 @@ def add_opendata_did(
     """
 
     try:
+        print(f"Adding Opendata DID {scope}:{name} to the catalog...")
         return add_opendata_dids([{"scope": scope, "name": name}], session=session)
     except exception.DataIdentifierNotFound:
         raise exception.DataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
@@ -422,6 +424,8 @@ def add_opendata_dids(
         if "scope" not in did or "name" not in did:
             raise exception.InputValidationError("DID must have 'scope' and 'name' keys.")
 
+    print(f"Adding {len(dids)} Opendata DID(s) to the catalog...")
+
     try:
         # The default state is DRAFT, set in the model
         session.execute(
@@ -433,22 +437,6 @@ def add_opendata_dids(
                 }
                 for did in dids]
         )
-        # from the config section get the rule_enabled value
-        rule_enable = bool(config_get("opendata", "rule_enable", raise_exception=False, default=False))
-        if rule_enable:
-            # When the `rule_enable` is set to True, `rule_rse_expression` must be set to a valid RSE expression
-            rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
-            rule_asynchronous = bool(config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
-            add_rule(
-                dids=[{"scope": did["scope"], "name": did["name"]} for did in dids],
-                account="root",
-                copies=1,
-                rse_expression=rule_rse_expression,
-                grouping="ALL",
-                activity="Opendata",
-                asynchronous=rule_asynchronous,
-                session=session,
-            )
 
     except IntegrityError as error:
         msg = str(error)
@@ -464,6 +452,8 @@ def add_opendata_dids(
             raise exception.OpenDataDataIdentifierAlreadyExists()
 
         raise exception.DataIdentifierNotFound()
+    except Exception as error:
+        print(f"Error adding Opendata DIDs: {error}")
 
 
 def delete_opendata_did(
@@ -700,6 +690,36 @@ def update_opendata_state(
 
         if result.rowcount == 0:
             raise ValueError(f"Error updating Opendata state for DID '{scope}:{name}'.")
+
+        if state == OpenDataDIDState.PUBLIC:
+            rule_enable = bool(config_get("opendata", "rule_enable", raise_exception=False, default=False))
+            if rule_enable:
+                # When the `rule_enable` is set to True, `rule_rse_expression` must be set to a valid RSE expression
+                rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
+                rule_asynchronous = bool(
+                    config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
+                print(
+                    f"Creating rule for Opendata DID(s) on RSE expression '{rule_rse_expression}', asynchronous: {rule_asynchronous}")
+                try:
+                    result = add_rule(
+                        dids=[{"scope": scope, "name": name}],
+                        # We need an account, perhaps we should pass the issuer argument around like in other methods with account
+                        account=InternalAccount("root"),
+                        copies=1,
+                        rse_expression=rule_rse_expression,
+                        grouping="DATASET",
+                        weight=None,
+                        lifetime=None,
+                        locked=False,
+                        subscription_id=None,
+                        activity="Opendata",
+                        asynchronous=rule_asynchronous,
+                        session=session,
+                    )
+                    print(f"Created rule(s): {result}")
+                # except duplicate
+                except exception.DuplicateRule:
+                    print(f"Rule for Opendata DID {scope}:{name} already exists, skipping rule creation.")
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
