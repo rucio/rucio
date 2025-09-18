@@ -22,6 +22,7 @@ from queue import Empty as EmptyQueue
 from typing import TYPE_CHECKING, Optional
 
 from rucio.common import config
+from rucio.common.config_settings import Config
 from rucio.common.dumper import LogPipeHandler, mkdir, temp_file
 from rucio.common.dumper.consistency import Consistency
 from rucio.common.types import InternalAccount, InternalScope
@@ -170,7 +171,7 @@ def process_output(
     rse = os.path.basename(output[:output.rfind('_')])
     rse_id = get_rse_id(rse=rse)
     usage = get_rse_usage(rse_id=rse_id, source='rucio')[0]
-    threshold = config.config_get_float('auditor', 'threshold', False, 0.1)
+    threshold = config.config_get_float(Config.auditor.name, Config.auditor.threshold.name, False, 0.1)
 
     # Perform a basic sanity check by comparing the number of entries
     # with the total number of files on the RSE.  If the percentage is
