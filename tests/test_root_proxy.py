@@ -65,12 +65,12 @@ def root_proxy_example_data(vo, root_account, mock_scope):
                                         'prefix': '//training/facility/',
                                         'impl': 'rucio.rse.protocols.xrootd.Default',
                                         'domains': {
-                                            'lan': {'read': 1,
-                                                    'write': 1,
-                                                    'delete': 1},
-                                            'wan': {'read': 1,
-                                                    'write': 1,
-                                                    'delete': 1}}})
+                                            'lan': {'read': 0,
+                                                    'write': 0,
+                                                    'delete': 0},
+                                            'wan': {'read': 0,
+                                                    'write': 0,
+                                                    'delete': 0}}})
 
     add_protocol(rse_with_proxy_id, {'scheme': 'root',
                                      'hostname': 'root.aperture.com',
@@ -78,12 +78,12 @@ def root_proxy_example_data(vo, root_account, mock_scope):
                                      'prefix': '//test/chamber/',
                                      'impl': 'rucio.rse.protocols.xrootd.Default',
                                      'domains': {
-                                         'lan': {'read': 1,
-                                                 'write': 1,
-                                                 'delete': 1},
-                                         'wan': {'read': 1,
-                                                 'write': 1,
-                                                 'delete': 1}}})
+                                         'lan': {'read': 0,
+                                                 'write': 0,
+                                                 'delete': 0},
+                                         'wan': {'read': 0,
+                                                 'write': 0,
+                                                 'delete': 0}}})
 
     yield {'files': files, 'rse_without_proxy': rse_without_proxy, 'rse_with_proxy': rse_with_proxy}
 
