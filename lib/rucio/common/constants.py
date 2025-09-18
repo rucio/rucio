@@ -224,7 +224,7 @@ POLICY_ALGORITHM_TYPES_LITERAL = Literal['non_deterministic_pfn', 'scope', 'lfn2
 POLICY_ALGORITHM_TYPES = list(get_args(POLICY_ALGORITHM_TYPES_LITERAL))
 
 @enum.unique
-class HTTPMethod(enum.Enum):
+class HTTPMethod(str, enum.Enum):
     """HTTP verbs used in Rucio requests."""
 
     # TODO: remove this enum in favor of standard library `http` module when the minimum supported Python version is >= 3.11
