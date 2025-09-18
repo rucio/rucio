@@ -665,8 +665,8 @@ def extract_scope(
         vo: str = DEFAULT_VO
 ) -> 'Sequence[str]':
     scope_extraction_algorithms = ScopeExtractionAlgorithms(vo)
-    common_extract_scope = config_get(Config.common.name, Config.common.extract_scope.name, False, None)
-    policy_extract_scope = config_get(Config.policy.name, Config.policy.extract_scope.name, False, None)
+    common_extract_scope = config_get("", Config.common.extract_scope, False)
+    policy_extract_scope = config_get("", Config.policy.extract_scope, False)
     extract_scope_convention = common_extract_scope or policy_extract_scope
     if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
         extract_scope_convention = default_extract

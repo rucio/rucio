@@ -70,7 +70,7 @@ class CORSMiddleware:
 
         if request.environ.get('REQUEST_METHOD') == HTTPMethod.OPTIONS.value:
             try:
-                webui_urls = config.config_get_list(Config.webui.name, Config.webui.urls.name)
+                webui_urls = config.config_get_list("", Config.webui.urls)
             except (NoOptionError, NoSectionError, RuntimeError) as error:
                 logging.exception('Could not get webui urls from config file')
                 return str(error), 500  # type: ignore (return type incompatible with Flask middleware)

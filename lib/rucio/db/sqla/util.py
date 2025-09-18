@@ -61,7 +61,7 @@ def build_database() -> None:
     """ Applies the schema to the database. Run this command once to build the database. """
     engine = get_engine()
 
-    schema = config_get(ConfigSettings.database.name, ConfigSettings.database.schema.name, raise_exception=False, check_config_table=False)
+    schema = config_get("", ConfigSettings.database.schema, raise_exception=False, check_config_table=False)
     if schema:
         print('Schema set in config, trying to create schema:', schema)
         try:
@@ -74,7 +74,7 @@ def build_database() -> None:
     models.register_models(engine)
 
     # Put the database under version control
-    alembic_cfg = Config(config_get(ConfigSettings.alembic.name, ConfigSettings.alembic.cfg.name))
+    alembic_cfg = Config(config_get("", ConfigSettings.alembic.cfg))
     command.stamp(alembic_cfg, "head")
 
 
@@ -173,21 +173,21 @@ def create_root_account() -> None:
 
     multi_vo = bool(config_get('common', 'multi_vo', False, False))
 
-    up_id = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.userpass_identity.name, default='ddmlab')
-    up_pwd = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.userpass_pwd.name, default='secret')
-    up_email = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.userpass_email.name, default='ph-adp-ddm-lab@cern.ch')
-    x509_id = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.x509_identity.name, default='emailAddress=ph-adp-ddm-lab@cern.ch,CN=DDMLAB Client Certificate,OU=PH-ADP-CO,O=CERN,ST=Geneva,C=CH')
-    x509_email = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.x509_email.name, default='ph-adp-ddm-lab@cern.ch')
-    gss_id = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.gss_identity.name, default='ddmlab@CERN.CH')
-    gss_email = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.gss_email.name, default='ph-adp-ddm-lab@cern.ch')
-    ssh_id = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.ssh_identity.name,
+    up_id = config_get("", ConfigSettings.bootstrap.userpass_identity)
+    up_pwd = config_get("", ConfigSettings.bootstrap.userpass_pwd)
+    up_email = config_get("", ConfigSettings.bootstrap.userpass_email)
+    x509_id = config_get("", ConfigSettings.bootstrap.x509_identity)
+    x509_email = config_get("", ConfigSettings.bootstrap.x509_email)
+    gss_id = config_get("", ConfigSettings.bootstrap.gss_identity)
+    gss_email = config_get("", ConfigSettings.bootstrap.gss_email)
+    ssh_id = config_get("", ConfigSettings.bootstrap.ssh_identity,
                         default='ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL614sulXQ7wnIr1aGhGtl8b+HCB/'
                         '0FhMSMTHwSjX78UbfqEorZV16rXrWPgUpvcbp2hqctw6eCbxwqcgu3uGWaeS5A0iWRw7oXUh6ydn'
                         'Vy89zGzX1FJFFDZ+AgiZ3ytp55tg1bjqqhK1OSC0pJxdNe878TRVVo5MLI0S/rZY2UovCSGFaQG2'
                         'iLj14wz/YqI7NFMUuJFR4e6xmNsOP7fCZ4bGMsmnhR0GmY0dWYTupNiP5WdYXAfKExlnvFLTlDI5'
                         'Mgh4Z11NraQ8pv4YE1woolYpqOc/IMMBBXFniTT4tC7cgikxWb9ZmFe+r4t6yCDpX4IL8L5GOQ== ddmlab'
                         )
-    ssh_email = config_get(ConfigSettings.bootstrap.name, ConfigSettings.bootstrap.ssh_email.name, default='ph-adp-ddm-lab@cern.ch')
+    ssh_email = config_get("", ConfigSettings.bootstrap.ssh_email)
 
     session_scoped = get_session()
 

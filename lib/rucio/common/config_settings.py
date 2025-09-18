@@ -84,6 +84,7 @@ class Bootstrap:
 class Cache:
     name = "cache"
     use_external_for_auth_tokens = ConfigOption(name, "use_external_cache_for_auth_tokens", "Use remote cache provider for auth tokens. If False, use a private in-memory cache.", type_=bool, default=False)
+    url = ConfigOption(name, "url", "URL of the cache", default='127.0.0.1:11211')
 
 
 class Common:
@@ -102,6 +103,26 @@ class Credentials:
 class Client:
     name = "client"
     metadata_default_plugin = ConfigOption(name, "metadata_default_plugin", "", default='DID_COLUMN')
+    rucio_host = ConfigOption(name, "rucio_host", "URL of the rucio host")
+    auth_host = ConfigOption(name, "auth_host", "URL of the host of the rucio authentication server")
+    ca_cert = ConfigOption(name, "ca_cert", "Path of the cert file for HTTPS.")
+    account = ConfigOption(name, "account", "Rucio Account")
+    vo = ConfigOption(name, "vo", "VO name")
+    request_retries = ConfigOption(name, "request_retries", "Number of retries if an unauthorized error is returned")
+    auth_token_file_path = ConfigOption(name, "auth_token_file_path", "If token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO", default=None)
+    auth_type = ConfigOption(name, "auth_type", "Type of authentication in rucio. Values: `{userpass, x509, x509_proxy, gss, ssh, saml, oidc}")
+    oidc_audience = ConfigOption(name, "oidc_audience", "Only used if `auth_type = oidc`")
+    oidc_password = ConfigOption(name, "oidc_password", "Only used if `auth_type = oidc`")
+    oidc_scope = ConfigOption(name, "oidc_scope", "Only used if `auth_type = oidc`", default='openid profile')
+    oidc_polling = ConfigOption(name, "oidc_polling", "Only used if `auth_type = oidc`", default=False)
+    username = ConfigOption(name, "username", "Mandatory if `auth_type = userpass` or `auth_type = saml`")
+    password = ConfigOption(name, "password", "Password of the user specified in `username`. Mandatory if `auth_type = userpass` or `auth_type = saml`")
+    client_cert = ConfigOption(name, "client_cert", "Path of the X.509 client cert file. This can be overwritten by the `RUCIO_CLIENT_CERT` environment variable.")
+    client_key = ConfigOption(name, "client_key", "Path of the X.509 client key file for the cert defined in `client_cert`. This can be overwritten by the `RUCIO_CLIENT_KEY` environment variable.")
+    client_x509_proxy = ConfigOption(name, "client_x509_proxy", "auth of the X.509 client proxy. Mandatory if `auth_type = x509_proxy`")
+    ssh_private_key = ConfigOption(name, "ssh_private_key", "Path of the SSH private key file. Mandatory if `auth_type = ssh`")
+    oidc_auto = ConfigOption(name, "oidc_auto", "", default=False)
+    protocol_stat_retries = ConfigOption(name, "protocol_stat_retries", "Number of retries if stat file fails.", default=6, type_=int)
 
 
 class Conveyor:
@@ -112,6 +133,7 @@ class Conveyor:
     submit_timeout = ConfigOption(name, "submit_timeout", "Timeout", float)
     bring_online = ConfigOption(name, "bring_online", "Integer, bring online timeout", int, 43200)
     usercert = ConfigOption(name, "usercert", "Path to the certificate for the FTS3 implementation of a Rucio transfertool")
+    partition_hash_var = ConfigOption(name, "partition_hash_var", "")
 
 
 class Core:
@@ -161,7 +183,7 @@ class MessagingFTS3:
 
 
 class MessagingHermes:
-    name = "messaging_hermes"
+    name = "messaging-hermes"
     brokers = ConfigOption(name, "brokers", "Brokers")
     port = ConfigOption(name, "port", "Port of the broker if `use_ssl` is set", int)
     un = ConfigOption(name, "username", "Username of the broker. Only used if `use_ssl` is not set")
@@ -238,6 +260,7 @@ class Policy:
     support_rucio = ConfigOption(name, "support_rucio", " Rucio contact information", default="https://github.com/rucio/rucio/issues")
     permission = ConfigOption(name, "permission", "Same as `permission/policy`")
     extract_scope = ConfigOption(name, "extract_scope", "Extraction algorithm for scope. Equivalent to [common] extract_scope")
+    lfn2pfn_algorithm_default = ConfigOption(name, "lfn2pfn_algorithm_default", "fault algorithm name for LFN2PFN translation for this server", default='hash', )
 
 
 class Permission:
@@ -357,7 +380,7 @@ class WebUI:
 
 class API:
     name = "api"
-    endpoints = ConfigOption(name, "endpoints", "Endpoints separated by commas. When empty, all endpoints are loaded", list, [])
+    endpoints = ConfigOption(name, "endpoints", "Endpoints separated by commas. When empty, all endpoints are loaded", list, default=[])
 
 
 class Config:

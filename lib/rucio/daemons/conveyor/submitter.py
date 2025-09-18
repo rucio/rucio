@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Optional
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_float, config_get_int, config_get_list
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.logging import setup_logging
 from rucio.common.schema import get_schema_value
@@ -218,10 +219,10 @@ def submitter(
     if not request_type:
         request_type = [RequestType.TRANSFER]
 
-    partition_hash_var = config_get('conveyor', 'partition_hash_var', default=None, raise_exception=False)
+    partition_hash_var = config_get('', Config.conveyor.partition_hash_var, raise_exception=False)
 
-    config_schemes = set(config_get_list('conveyor', 'scheme', raise_exception=False, default=[]))  # doc: Schemes to process
-    config_failover_schemes = set(config_get_list('conveyor', 'failover_scheme', raise_exception=False, default=[]))  # doc: Failover schemes
+    config_schemes = set(config_get_list('', Config.conveyor.scheme, raise_exception=False))
+    config_failover_schemes = set(config_get_list('', Config.conveyor.failover, raise_exception=False))
 
     schemes_supported_by_tt = set()
     for transfertool in transfertools:
@@ -243,9 +244,9 @@ def submitter(
     if config_failover_schemes.difference(failover_schemes):
         logging.info(f'Following failover schemes filtered out: {list(config_failover_schemes.difference(failover_schemes))}')
 
-    timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)  # doc: Timeout
+    timeout = config_get_float('', Config.conveyor.submit_timeout, raise_exception=False)
 
-    bring_online = config_get_int('conveyor', 'bring_online', default=43200, raise_exception=False)  # doc: Integer, bring online timeout
+    bring_online = config_get_int('', Config.conveyor.bring_online, raise_exception=False)
 
     max_time_in_queue = _get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)

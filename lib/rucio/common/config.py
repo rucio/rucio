@@ -21,7 +21,9 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, overload
 
 from rucio.common import exception
+from rucio.common.config_settings import Config as ConfigSettings
 from rucio.common.exception import ConfigLoadingError, ConfigNotFound, DatabaseException
+from rucio.common.types import ConfigOption
 
 _T = TypeVar('_T')
 _U = TypeVar('_U')
@@ -86,7 +88,7 @@ def is_client() -> bool:
 @overload
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         clean_cached: bool = ...,
         check_config_table: bool = ...,
@@ -100,7 +102,7 @@ def config_get(
 @overload
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         default: _T = ...,
         clean_cached: bool = ...,
@@ -115,7 +117,7 @@ def config_get(
 @overload
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool,
         default: _T = ...,
         *,
@@ -131,7 +133,7 @@ def config_get(
 @overload
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         clean_cached: bool = ...,
         check_config_table: bool = ...,
@@ -146,7 +148,7 @@ def config_get(
 @overload
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         default: _T = ...,
         clean_cached: bool = ...,
@@ -162,7 +164,7 @@ def config_get(
 @overload
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool,
         default: _T = ...,
         *,
@@ -178,7 +180,7 @@ def config_get(
 
 def config_get(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool = True,
         default: _U = None,
         clean_cached: bool = False,
@@ -214,6 +216,13 @@ def config_get(
     :raises NoSectionError
     :raises RuntimeError
     """
+    if isinstance(option, ConfigOption):
+        section = option.section
+        if default is None:
+            default = option.default
+        convert_type_fnc = option.type_ if convert_type_fnc is None else convert_type_fnc
+        option = option.name
+
     try:
         return convert_type_fnc(get_config().get(section, option))
     except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound) as err:
@@ -270,7 +279,7 @@ def config_add_section(section: str):
 @overload
 def config_get_int(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         check_config_table: bool = ...,
         session: "Optional[Session]" = ...,
@@ -283,7 +292,7 @@ def config_get_int(
 @overload
 def config_get_int(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         default: int = ...,
         check_config_table: bool = ...,
@@ -297,7 +306,7 @@ def config_get_int(
 @overload
 def config_get_int(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool,
         default: _T = ...,
         *,
@@ -311,7 +320,7 @@ def config_get_int(
 
 def config_get_int(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool = True,
         default=None,
         check_config_table: bool = True,
@@ -356,7 +365,7 @@ def config_get_int(
 @overload
 def config_get_float(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         check_config_table: bool = ...,
         session: "Optional[Session]" = ...,
@@ -369,7 +378,7 @@ def config_get_float(
 @overload
 def config_get_float(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         default: float = ...,
         check_config_table: bool = ...,
@@ -383,7 +392,7 @@ def config_get_float(
 @overload
 def config_get_float(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception,
         default: _T = ...,
         *,
@@ -397,7 +406,7 @@ def config_get_float(
 
 def config_get_float(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool = True,
         default=None,
         check_config_table: bool = True,
@@ -443,7 +452,7 @@ def config_get_float(
 @overload
 def config_get_bool(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         check_config_table: bool = ...,
         session: "Optional[Session]" = ...,
@@ -456,7 +465,7 @@ def config_get_bool(
 @overload
 def config_get_bool(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         default: bool = ...,
         check_config_table: bool = ...,
@@ -470,7 +479,7 @@ def config_get_bool(
 @overload
 def config_get_bool(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception,
         default: _T = ...,
         *,
@@ -484,7 +493,7 @@ def config_get_bool(
 
 def config_get_bool(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool = True,
         default=None,
         check_config_table: bool = True,
@@ -530,7 +539,7 @@ def config_get_bool(
 @overload
 def config_get_list(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         check_config_table: bool = ...,
         session: "Optional[Session]" = ...,
@@ -543,7 +552,7 @@ def config_get_list(
 @overload
 def config_get_list(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         *,
         default: _T = ...,
         check_config_table: bool = ...,
@@ -557,7 +566,7 @@ def config_get_list(
 @overload
 def config_get_list(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception,
         default: _T = ...,
         *,
@@ -571,7 +580,7 @@ def config_get_list(
 
 def config_get_list(
         section: str,
-        option: str,
+        option: Union[str, ConfigOption],
         raise_exception: bool = True,
         default=None,
         check_config_table: bool = True,
@@ -726,7 +735,7 @@ def get_lfn2pfn_algorithm_default() -> str:
     """Returns the default algorithm name for LFN2PFN translation for this server."""
     default_lfn2pfn = "hash"
     try:
-        default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default', default='hash')  # doc: fault algorithm name for LFN2PFN translation for this server
+        default_lfn2pfn = config_get('policy', ConfigSettings.policy.lfn2pfn_algorithm_default)
     except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound, RuntimeError):
         pass
     return default_lfn2pfn

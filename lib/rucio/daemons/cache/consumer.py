@@ -120,20 +120,20 @@ def consumer(id_: int, num_thread: int = 1) -> None:
 
     logger(logging.INFO, 'Rucio Cache consumer starting')
 
-    brokers = config_get_list(Config.messaging_cache.name, Config.messaging_cache.brokers.name)
+    brokers = config_get_list("", Config.messaging_cache.brokers)
 
     use_ssl = config_get_bool('messaging-cache', 'use_ssl', default=True, raise_exception=False)
     if not use_ssl:
         username = config_get('messaging-cache', 'username')
         password = config_get('messaging-cache', 'password')
-    destination = config_get(Config.messaging_cache.name, Config.messaging_cache.destination.name)
+    destination = config_get("", Config.messaging_cache.destination)
     subscription_id = 'rucio-cache-messaging'
 
     vhost = config_get('messaging-cache', 'broker_virtual_host', raise_exception=False)
     port = config_get_int('messaging-cache', 'port')
     reconnect_attempts = config_get_int('messaging-cache', 'reconnect_attempts', default=100)
-    ssl_key_file = config_get(Config.messaging_cache.name, Config.messaging_cache.ssl_key_file.name)
-    ssl_cert_file = config_get(Config.messaging_cache.name, Config.messaging_cache.ssl_cert_file.name)
+    ssl_key_file = config_get("", Config.messaging_cache.ssl_key_file)
+    ssl_cert_file = config_get("", Config.messaging_cache.ssl_cert_file)
 
     stomp_conn_mngr = StompConnectionManager()
     conns, _ = stomp_conn_mngr.re_configure(

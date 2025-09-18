@@ -27,7 +27,7 @@ from dogpile.cache.api import NO_VALUE, NoValue
 from sqlalchemy import delete, null, or_, select
 
 from rucio.common.cache import MemcacheRegion
-from rucio.common.config import config_get_bool
+from rucio.common.config import config_get
 from rucio.common.config_settings import Config
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import chunks, date_to_str, generate_uuid
@@ -83,7 +83,7 @@ def token_key_generator(namespace, fni, **kwargs):
     return generate_key
 
 
-if config_get_bool(Config.cache.name, Config.cache.use_external_for_auth_tokens.name, default=False):
+if config_get("", Config.cache.use_external_for_auth_tokens):
     TOKENREGION = MemcacheRegion(expiration_time=900, function_key_generator=token_key_generator)
 else:
     TOKENREGION = make_region(function_key_generator=token_key_generator).configure('dogpile.cache.memory', expiration_time=900)

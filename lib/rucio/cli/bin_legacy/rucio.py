@@ -1003,7 +1003,7 @@ def download(args, client, logger, console, spinner):
         item_defaults['nrandom'] = args.nrandom
         item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout \
             if args.transfer_speed_timeout is not None \
-            else config_get_float(Config.download.name, Config.download.transfer_speed_timeout.name, False, 500)
+            else config_get_float("", Config.download.transfer_speed_timeout)
         items = []
         if args.dids:
             for did in args.dids:
@@ -1129,7 +1129,7 @@ def get_metadata(args, client, logger, console, spinner):
     if args.plugin:
         plugin = args.plugin
     else:
-        plugin = config_get(Config.client.name, Config.client.metadata_default_plugin.name, default='DID_COLUMN')
+        plugin = config_get("", Config.client.metadata_default_plugin)
 
     if cli_config == 'rich':
         spinner.update(status='Fetching metadata')
