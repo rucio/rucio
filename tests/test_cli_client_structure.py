@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
+import re
 import tempfile
 from typing import TYPE_CHECKING
 
@@ -248,7 +250,11 @@ def test_config():
     assert value not in out
 
 
-def test_did(rucio_client, root_account):
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('experimental', 'cli', 'tabulate')]},
+    {"overrides": [('experimental', 'cli', 'rich')]},
+], indirect=True)
+def test_did(rucio_client, root_account, file_config_mock):
     scope = scope_name_generator()
     rucio_client.add_scope(account=root_account.external, scope=scope)
     dataset = file_generator().split("/")[-1]
@@ -260,6 +266,17 @@ def test_did(rucio_client, root_account):
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
+
+    cmd = f"rucio did list {scope}:* --short"
+    exitcode, stdout, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    lines = [line.strip() for line in stdout.split("\n") if line.strip()]
+    pattern = re.compile(rf"^{scope}:.+$")
+    assert all(pattern.match(line) for line in lines), f"All lines should follow the {scope}:name pattern"
+    assert f"{scope}:{dataset}" in lines, f"Expected {scope}:{dataset} in list with short option"
+    assert f"{scope}:{container}" in lines, f"Expected {scope}:{container} in list with short option"
 
     cmd = f"rucio did update --touch {scope}:{dataset}"
     exitcode, _, err = execute(cmd)
