@@ -487,7 +487,7 @@ def is_str_list(in_list: list[Any]) -> TypeGuard[list[str]]:
 
 
 class ConfigOption:
-    def __init__(self, section: str, name: str, docstring: str, type_: type = str, default: Union[int, float, bool, str, list, None] = None) -> None:
+    def __init__(self, section: str, name: str, docstring: str, type_: 'Callable[[str], Any]' = str, default: 'Any' = None) -> None:
         self.section = section
         self.name = name
         self.type_ = type_

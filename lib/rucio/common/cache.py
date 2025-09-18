@@ -17,12 +17,13 @@ from typing import TYPE_CHECKING, Optional
 from dogpile.cache.region import CacheRegion
 
 from rucio.common.config import config_get, is_client
+from rucio.common.config_settings import Config
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-CACHE_URL = config_get('cache', 'url', False, '127.0.0.1:11211', check_config_table=False)  # doc: URL of the cache.
+CACHE_URL = config_get('', Config.cache.url, raise_exception=False, check_config_table=False)
 
 ENABLE_CACHING = True
 _mc_client = None

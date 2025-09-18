@@ -42,11 +42,11 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 
-CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get(Config.common.name, Config.common.loglevel.name, raise_exception=False, default='DEBUG').upper())
+CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get("", Config.common.loglevel, raise_exception=False).upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get(Config.trace.name, Config.trace.loglevel.name, raise_exception=False, default='DEBUG').upper())
-CONFIG_TRACE_LOGFORMAT = config_get(Config.trace.name,  Config.trace.logformat.name, raise_exception=False, default='%(message)s')
-CONFIG_TRACE_TRACEDIR = config_get(Config.trace.name, Config.trace.tracedir.name, raise_exception=False, default='/var/log/rucio/trace')
+CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get("", Config.trace.loglevel, raise_exception=False).upper())
+CONFIG_TRACE_LOGFORMAT = config_get("",  Config.trace.logformat, raise_exception=False)
+CONFIG_TRACE_TRACEDIR = config_get("", Config.trace.tracedir, raise_exception=False)
 CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', raise_exception=False, default=1000000000)
 CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', raise_exception=False, default=10)
 
@@ -71,14 +71,14 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERS_ALIAS = config_get_list(Config.trace.name, Config.trace.brokers.name)
+    BROKERS_ALIAS = config_get_list("", Config.trace.brokers)
 except Exception:
     raise Exception('Could not load brokers from configuration')
 
-PORT = config_get_int(Config.trace.name, Config.trace.port.name)
+PORT = config_get_int("", Config.trace.port)
 TOPIC = config_get('trace', 'topic')
-USERNAME = config_get(Config.trace.name, Config.trace.username.name)
-PASSWORD = config_get(Config.trace.name, Config.trace.password.name)
+USERNAME = config_get("", Config.trace.username)
+PASSWORD = config_get("", Config.trace.password)
 VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
 TOUCH_SCHEMA: 'ObjectSchema' = {
