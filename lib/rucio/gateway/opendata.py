@@ -151,7 +151,7 @@ def update_opendata_did(
         meta: Optional[dict] = None,
         doi: Optional[str] = None,
         vo: str = DEFAULT_VO,
-) -> None:
+) -> dict[str, Any]:
     """
     Update an existing Opendata DID in the Opendata catalog.
 
