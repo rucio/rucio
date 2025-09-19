@@ -84,3 +84,7 @@ services:
   indigoiam-login-service:
     ports:
       - "127.0.0.1:8090:8090"
+  keycloak:
+    ports:
+      - "127.0.0.1:8082:8080"  # Keycloak HTTP - avoids 8080 (graphite) and 8081
+      - "127.0.0.1:8445:8443"  # Keycloak HTTPS - avoids 8443 (rucio) and 8444
