@@ -760,6 +760,10 @@ def update_opendata_state(
                     output["rule"] = _add_opendata_rule(scope=scope, name=name, session=session)
                     output["comments"] = "Replication rule created"
 
+                webui_url = config_get("webui", "url", raise_exception=False, default=None)
+                if webui_url:
+                    output["rule_webui_url"] = f"{webui_url.rstrip('/')}/rule/page/{output['rule']}"
+
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
 

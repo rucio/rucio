@@ -191,8 +191,17 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
         spinner.start()
         keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.OPENDATA_DID_STATE}
 
+        excluded_keys = ["rule_webui_url"]
+        if "rule_webui_url" in info:
+            excluded_keys.append("rule")
+
         table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in
-                      sorted(info.items())]
+                      sorted(info.items()) if k not in excluded_keys]
+
+        if "rule_webui_url" in info:
+            table_data.append(("rule", Text(info["rule"], style=f"link {info['rule_webui_url']}")))
+            table_data = sorted(table_data, key=lambda x: x[0])
+
         table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
     else:
