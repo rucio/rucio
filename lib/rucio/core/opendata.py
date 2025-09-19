@@ -638,6 +638,7 @@ def _add_opendata_rule(
         config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
     rule_activity = config_get("opendata", "rule_activity", raise_exception=False, default=None)
     if not rule_activity:
+        # TODO: in the 38.3.0 remove this lines as we can pass None as activity in add_rule
         rule_activity = "User Subscriptions"
     rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
 
