@@ -453,8 +453,6 @@ def add_opendata_dids(
             raise exception.OpenDataDataIdentifierAlreadyExists()
 
         raise exception.DataIdentifierNotFound()
-    except Exception as error:
-        print(f"Error adding Opendata DIDs: {error}")
 
 
 def delete_opendata_did(
