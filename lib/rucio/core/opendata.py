@@ -560,7 +560,7 @@ def update_opendata_meta(
         name: str,
         meta: Union[dict, str],
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update the metadata associated with an Opendata DID.
 
@@ -608,6 +608,8 @@ def update_opendata_meta(
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
+
+    return {"scope": scope, "name": name, "meta": meta}
 
 
 def _fetch_opendata_rule(scope: "InternalScope",
@@ -776,7 +778,7 @@ def update_opendata_doi(
         name: str,
         doi: str,
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update the DOI (Digital Object Identifier) associated with an Opendata DID.
 
@@ -826,3 +828,6 @@ def update_opendata_doi(
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
+
+    return {"scope": scope, "name": name, "doi_new": doi, "doi_previous": doi_before}
+
