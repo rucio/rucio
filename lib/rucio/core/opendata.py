@@ -303,6 +303,7 @@ def get_opendata_did(
         include_files: bool = True,
         include_metadata: bool = False,
         include_doi: bool = True,
+        include_rule: bool = True,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -315,6 +316,7 @@ def get_opendata_did(
         include_files: If True, include a list of associated files. Defaults to True.
         include_metadata: If True, include extended metadata. Defaults to False.
         include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
+        include_rule: If True, include the Opendata replication rule. Defaults to True.
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -348,6 +350,8 @@ def get_opendata_did(
         result["doi"] = get_opendata_doi(scope=scope, name=name, session=session)
     if include_metadata:
         result["meta"] = get_opendata_meta(scope=scope, name=name, session=session)
+    if include_rule:
+        result["rule"] = _fetch_opendata_rule(scope=scope, name=name, session=session)
     if include_files:
         opendata_files = get_opendata_did_files(scope=scope, name=name, session=session)
         result["files"] = opendata_files
@@ -608,6 +612,56 @@ def update_opendata_meta(
         raise exception.InputValidationError(f"Invalid data: {error}")
 
 
+def _fetch_opendata_rule(scope: "InternalScope",
+                         name: str,
+                         session: "Session"
+                         ) -> Optional[str]:
+    rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
+
+    return session.execute(
+        select(models.ReplicationRule.id).where(
+            and_(
+                models.ReplicationRule.scope == scope,
+                models.ReplicationRule.name == name,
+                models.ReplicationRule.account == InternalAccount("root"),
+                models.ReplicationRule.rse_expression == rule_rse_expression,
+                models.ReplicationRule.copies == 1,
+            )
+        )
+    ).scalar()
+
+
+def _add_opendata_rule(
+        scope: "InternalScope",
+        name: str,
+        session: "Session"
+) -> str:
+    rule_asynchronous = bool(
+        config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
+    rule_activity = config_get("opendata", "rule_activity", raise_exception=False, default=None)
+    if not rule_activity:
+        rule_activity = "User Subscriptions"
+    rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
+
+    add_rule_result = add_rule(
+        dids=[{"scope": scope, "name": name}],
+        # We need an account, perhaps we should pass the issuer argument around like in other methods with account
+        account=InternalAccount("root"),
+        copies=1,
+        rse_expression=rule_rse_expression,
+        grouping="DATASET",
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None,
+        activity=rule_activity,
+        asynchronous=rule_asynchronous,
+        session=session,
+    )
+    assert len(add_rule_result) == 1, "add_rule did not return exactly one rule id"
+    return add_rule_result[0]
+
+
 def update_opendata_state(
         *,
         scope: "InternalScope",
@@ -689,7 +743,7 @@ def update_opendata_state(
         if state_before == OpenDataDIDState.DRAFT:
             raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
 
-    output = {"scope": scope, "name": name, "state_previous": state_before, "state": state, "rule": None}
+    output = {"scope": scope, "name": name, "state_previous": state_before, "state_new": state}
 
     try:
         result = session.execute(update_query)
@@ -700,38 +754,13 @@ def update_opendata_state(
         if state == OpenDataDIDState.PUBLIC:
             rule_enable = bool(config_get("opendata", "rule_enable", raise_exception=False, default=False))
             if rule_enable:
-                # When the `rule_enable` is set to True, `rule_rse_expression` must be set to a valid RSE expression
-                rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
-                rule_asynchronous = bool(
-                    config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
-                rule_activity = config_get("opendata", "rule_activity", raise_exception=False, default=None)
-                if not rule_activity:
-                    # The add_rule method should support a None activity and internally get the default activity
-                    rule_activity = "User Subscriptions"
-
-                print(
-                    f"Creating rule for Opendata DID(s) on RSE expression '{rule_rse_expression}', asynchronous: {rule_asynchronous}")
-                try:
-                    add_rule_result = add_rule(
-                        dids=[{"scope": scope, "name": name}],
-                        # We need an account, perhaps we should pass the issuer argument around like in other methods with account
-                        account=InternalAccount("root"),
-                        copies=1,
-                        rse_expression=rule_rse_expression,
-                        grouping="DATASET",
-                        weight=None,
-                        lifetime=None,
-                        locked=False,
-                        subscription_id=None,
-                        activity=rule_activity,
-                        asynchronous=rule_asynchronous,
-                        session=session,
-                    )
-                    assert len(add_rule_result) == 1, "add_rule did not return exactly one rule id"
-                    output["rule"] = add_rule_result[0]
-                # except duplicate
-                except exception.DuplicateRule:
-                    print(f"Rule for Opendata DID {scope}:{name} already exists, skipping rule creation.")
+                rule_id = _fetch_opendata_rule(scope=scope, name=name, session=session)
+                if rule_id:
+                    output["rule"] = rule_id
+                    output["comments"] = "Replication rule already exists"
+                else:
+                    output["rule"] = _add_opendata_rule(scope=scope, name=name, session=session)
+                    output["comments"] = "Replication rule created"
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")

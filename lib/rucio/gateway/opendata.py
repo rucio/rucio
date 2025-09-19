@@ -182,9 +182,10 @@ def update_opendata_did(
             raise ValueError(f"Invalid JSON: {error}")
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        return opendata.update_opendata_did(scope=internal_scope,
+        result =  opendata.update_opendata_did(scope=internal_scope,
                                             name=name,
                                             state=state_enum,
                                             meta=meta,
                                             doi=doi,
                                             session=session)
+        return result
