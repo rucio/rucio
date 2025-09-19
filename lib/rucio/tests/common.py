@@ -204,12 +204,13 @@ def rfc2253_dn_generator() -> str:
     return random_dn
 
 
-def file_generator(size: int = 2, namelen: int = 10) -> str:
+def file_generator(size: int = 2) -> str:
     """ Create a bogus file and returns it's name.
     :param size: size in bytes
     :returns: The name of the generated file.
     """
-    fn = '/tmp/file_' + ''.join(choice(ascii_uppercase) for x in range(namelen))  # noqa: S311
+    fd, fn = tempfile.mkstemp(prefix='file_', suffix='')
+    os.close(fd)  # Close the file descriptor since we'll use dd to write to it
     execute('dd if=/dev/urandom of={0} count={1} bs=1'.format(fn, size))
     return fn
 
