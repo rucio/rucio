@@ -514,7 +514,7 @@ def update_opendata_did(
         meta: Optional[Union[dict, str]] = None,
         doi: Optional[str] = None,
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update an existing Opendata DID in the catalog.
 
@@ -539,15 +539,18 @@ def update_opendata_did(
     if not _check_opendata_did_exists(scope=scope, name=name, session=session):
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
+    result = {}
+
     if state is not None:
-        update_opendata_state(scope=scope, name=name, state=state, session=session)
+        result |= update_opendata_state(scope=scope, name=name, state=state, session=session)
 
     if meta is not None:
-        update_opendata_meta(scope=scope, name=name, meta=meta, session=session)
+        result |= update_opendata_meta(scope=scope, name=name, meta=meta, session=session)
 
     if doi is not None:
-        update_opendata_doi(scope=scope, name=name, doi=doi, session=session)
+        result |= update_opendata_doi(scope=scope, name=name, doi=doi, session=session)
 
+    return result
 
 def update_opendata_meta(
         *,
@@ -611,15 +614,19 @@ def update_opendata_state(
         name: str,
         state: OpenDataDIDState,
         session: "Session",
-) -> None:
+) -> Optional[dict[str, Any]]:
     """
     Update the state of an Opendata DID.
+    If the new state is PUBLIC, a replication rule may be created based on configuration.
 
     Parameters:
         scope: The scope under which the Opendata DID is registered.
         name: The name of the Opendata DID.
         state: The new state to set for the Opendata DID.
         session: SQLAlchemy session to use for the operation.
+
+    Returns:
+        A dictionary with the scope and name of the DID and the rule id if a rule was created.
 
     Raises:
         InputValidationError: If the provided state is not a valid OpenDataDIDState.
@@ -682,6 +689,8 @@ def update_opendata_state(
         if state_before == OpenDataDIDState.DRAFT:
             raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
 
+    output = {"scope": scope, "name": name, "state_previous": state_before, "state": state, "rule": None}
+
     try:
         result = session.execute(update_query)
 
@@ -703,7 +712,7 @@ def update_opendata_state(
                 print(
                     f"Creating rule for Opendata DID(s) on RSE expression '{rule_rse_expression}', asynchronous: {rule_asynchronous}")
                 try:
-                    result = add_rule(
+                    add_rule_result = add_rule(
                         dids=[{"scope": scope, "name": name}],
                         # We need an account, perhaps we should pass the issuer argument around like in other methods with account
                         account=InternalAccount("root"),
@@ -718,7 +727,8 @@ def update_opendata_state(
                         asynchronous=rule_asynchronous,
                         session=session,
                     )
-                    print(f"Created rule(s): {result}")
+                    assert len(add_rule_result) == 1, "add_rule did not return exactly one rule id"
+                    output["rule"] = add_rule_result[0]
                 # except duplicate
                 except exception.DuplicateRule:
                     print(f"Rule for Opendata DID {scope}:{name} already exists, skipping rule creation.")
@@ -726,6 +736,7 @@ def update_opendata_state(
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
 
+    return output
 
 def update_opendata_doi(
         *,

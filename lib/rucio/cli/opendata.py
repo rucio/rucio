@@ -180,4 +180,6 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
         raise ValueError("At least one of --meta, --state, or --doi must be provided.")
 
     scope, name = extract_scope(did)
-    client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
+    result = client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
+    if result:
+        print(result)
