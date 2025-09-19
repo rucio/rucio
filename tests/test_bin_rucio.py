@@ -1094,8 +1094,11 @@ def test_download(did_factory, rse_factory, mock_scope):
 
     tmp_file1 = did_factory.upload_test_file(rse_name=rse, scope=scope)
     tmp_file2 = did_factory.upload_test_file(rse_name=rse, scope=scope)
+    tmp_file3 = did_factory.upload_test_file(rse_name=rse, scope=scope)
+
     tmp_file1 = tmp_file1['name']
     tmp_file2 = tmp_file2['name']
+    tmp_file3 = tmp_file3['name']
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         # download files
@@ -1109,6 +1112,11 @@ def test_download(did_factory, rse_factory, mock_scope):
         exitcode, out, err = execute(cmd)
         assert exitcode == 0
         assert tmp_file2 in os.listdir(f"{tmp_dir}/{scope}")
+
+        cmd = f"rucio -v download --legacy --dir {tmp_dir} --scope {scope} {tmp_file3}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert tmp_file3 in os.listdir(f"{tmp_dir}/{scope}")
 
 
 def test_download_with_filter(did_factory, rse_factory, mock_scope, rucio_client):
