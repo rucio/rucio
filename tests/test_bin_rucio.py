@@ -1299,6 +1299,33 @@ def test_download_file_check_by_size(rse_factory, mock_scope, did_factory):
         assert "File with same name exists locally, but filesize mismatches" in err
 
 
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [('experimental', 'cli', 'tabulate')]},
+    {"overrides": [('experimental', 'cli', 'rich')]},
+], indirect=True)
+def test_show_extended_rses(rucio_client, rse_factory, file_config_mock):
+    # Add an rse with an extended attributes dictionary, ensure it displays with rich and regular cli
+    rse, _ = rse_factory.make_posix_rse()
+    host_name = "SomeImplementation"
+    protocol = {
+        'domains': {'lan': {'delete': 1, 'read': None, 'write': 1},
+                    'wan': {'delete': 1, 'read': 1, 'write': 1}},
+        'extended_attributes': {'space_token': 'ATLASDATADISK',
+                                'web_service_path': '/srm/managerv2?SFN='},
+        'hostname': host_name,
+        'impl': 'rucio.rse.protocols.gfal.Default',
+        'port': 1234,
+        'prefix': f'{host_name}/rucio/',
+        'scheme': 'srm'
+    }
+    rucio_client.add_protocol(rse, protocol)
+    cmd = f"rucio rse show {rse}"
+    exitcode, out, err = execute(cmd)
+    assert host_name in out
+    assert "ERROR" not in err
+    assert exitcode == 0
+
+
 @pytest.mark.parametrize(
     ("cli", "lfn"),
     [
