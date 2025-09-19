@@ -180,7 +180,7 @@ def add_rule(
     locked: bool,
     subscription_id: Optional[str],
     source_replica_expression: Optional[str] = None,
-    activity: str = DEFAULT_ACTIVITY,
+    activity: Optional[str] = None,
     notify: Optional[Literal['Y', 'N', 'C', 'P']] = None,
     purge_replicas: bool = False,
     ignore_availability: bool = False,
@@ -231,6 +231,9 @@ def add_rule(
     """
     if copies <= 0:
         raise InvalidValueForKey("The number of copies for a replication rule should be greater than 0.")
+
+    if not activity:
+        activity = DEFAULT_ACTIVITY
 
     rule_ids = []
 
