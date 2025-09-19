@@ -27,7 +27,7 @@ class OpenDataPublicView(ErrorHandlingMethodView):
         summary: List Opendata DIDs marked as public
         description: "Retrieves a list of public Opendata Data Identifiers (DIDs). Supports optional query parameters for pagination."
         tags:
-          - Opendata
+          - Opendata Public
         parameters:
           - name: limit
             in: query
@@ -66,8 +66,8 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
         ---
         summary: Get Opendata DID Information for public Opendata DIDs
         description: "Retrieves detailed Opendata information for the given scope and name. Only works for public opendata DIDs. Supports optional query parameters to control the inclusion of files, metadata, and DOI information."
-        Tags:
-          - Opendata
+        tags:
+          - Opendata Public
         parameters:
           - name: scope
             in: path
