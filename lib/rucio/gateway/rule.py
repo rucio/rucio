@@ -15,7 +15,7 @@
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from rucio.common.config import config_get_bool
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_ACTIVITY, DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
@@ -97,7 +97,7 @@ def add_replication_rule(
         account = issuer
 
     if activity is None:
-        activity = 'User Subscriptions'
+        activity = DEFAULT_ACTIVITY
 
     kwargs = {'dids': dids, 'copies': copies, 'rse_expression': rse_expression, 'weight': weight, 'lifetime': lifetime,
               'grouping': grouping, 'account': account, 'locked': locked, 'subscription_id': subscription_id,

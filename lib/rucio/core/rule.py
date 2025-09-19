@@ -37,7 +37,7 @@ import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get
-from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
+from rucio.common.constants import DEFAULT_ACTIVITY, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import (
     DataIdentifierNotFound,
     DuplicateRule,
@@ -180,7 +180,7 @@ def add_rule(
     locked: bool,
     subscription_id: Optional[str],
     source_replica_expression: Optional[str] = None,
-    activity: str = 'User Subscriptions',
+    activity: str = DEFAULT_ACTIVITY,
     notify: Optional[Literal['Y', 'N', 'C', 'P']] = None,
     purge_replicas: bool = False,
     ignore_availability: bool = False,
