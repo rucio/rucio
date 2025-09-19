@@ -52,7 +52,7 @@ from rucio.common.config import config_get_float
 @click.option("--trace-taskid", default=os.environ.get("RUCIO_TRACE_TASKID", None), hidden=True)
 @click.option("--trace-usrdn", default=os.environ.get("RUCIO_TRACE_USRDN", None), hidden=True)
 @click.option("--filter", help="Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.")
-@click.option("--scope", help="Scope if you are using the filter option and no full DID.")
+@click.option("--scope", help="Scope to use as a filter or to use with DID names.")
 @click.option("--metalink", help="Path to a metalink file.")
 @click.option("--no-show-download-exceptions", default=False, is_flag=True, help="Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.")  # NOQA: E501
 @click.option("--replica-selection", help="Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).")
