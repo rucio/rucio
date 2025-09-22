@@ -151,7 +151,7 @@ def update_opendata_did(
         meta: Optional[dict] = None,
         doi: Optional[str] = None,
         vo: str = DEFAULT_VO,
-) -> None:
+) -> dict[str, Any]:
     """
     Update an existing Opendata DID in the Opendata catalog.
 
@@ -164,7 +164,7 @@ def update_opendata_did(
         vo: The virtual organization.
 
     Returns:
-        None
+        A dictionary containing the scope and name of the DID and details of the updates performed. (e.g., new/old state, new/old DOI, etc.)
 
     Raises:
         ValueError: If meta is a string and cannot be parsed as valid JSON.

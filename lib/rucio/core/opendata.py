@@ -321,7 +321,7 @@ def get_opendata_did(
         session: SQLAlchemy session to use for the query.
 
     Returns:
-        A dictionary containing metadata about the specified DID.
+        A dictionary containing info about the specified DID which include "scope", "name", "state", "meta" (if requested), etc.
     """
 
     query = select(
@@ -528,6 +528,9 @@ def update_opendata_did(
         doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar").
         session: SQLAlchemy session to use for the operation.
 
+    Returns:
+        A dictionary containing the scope and name of the DID and details of the updates performed. (e.g., new/old state, new/old DOI, etc.)
+
     Raises:
         InputValidationError: If none of 'state', 'meta', or 'doi' are provided, or if the provided data is invalid.
         OpenDataDataIdentifierNotFound: If the Opendata DID does not exist.
@@ -554,6 +557,7 @@ def update_opendata_did(
 
     return result
 
+
 def update_opendata_meta(
         *,
         scope: "InternalScope",
@@ -569,6 +573,9 @@ def update_opendata_meta(
         name: The name of the Opendata DID.
         meta: Metadata to update for the DID. Must be a valid JSON object or string.
         session: SQLAlchemy session to use for the operation.
+
+    Returns:
+        A dictionary containing the scope, name, and updated metadata of the Opendata DID.
 
     Raises:
         InputValidationError: If 'meta' is not a dictionary or a valid JSON string.
@@ -609,7 +616,7 @@ def update_opendata_meta(
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
 
-    return {"scope": scope, "name": name, "meta": meta}
+    return {"scope": scope, "name": name, "meta_new": meta}
 
 
 def _fetch_opendata_rule(scope: "InternalScope",
@@ -715,7 +722,7 @@ def update_opendata_state(
         session: SQLAlchemy session to use for the operation.
 
     Returns:
-        A dictionary with the scope and name of the DID and the rule id if a rule was created.
+        A dictionary with the scope and name of the DID and the rule id if a rule was created and the old and new state.
 
     Raises:
         InputValidationError: If the provided state is not a valid OpenDataDIDState.
@@ -819,6 +826,9 @@ def update_opendata_doi(
         doi: The new DOI to associate with the Opendata DID. Must be a valid DOI string.
         session: SQLAlchemy session to use for the operation.
 
+    Returns:
+        A dictionary containing the scope, name, new DOI, and previous DOI of the Opendata DID.
+
     Raises:
         InputValidationError: If the provided DOI is not a valid string or does not match the expected format.
         OpenDataDataIdentifierNotFound: If the Opendata DID does not exist.
@@ -860,4 +870,4 @@ def update_opendata_doi(
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
 
-    return {"scope": scope, "name": name, "doi_new": doi, "doi_previous": doi_before}
+    return {"scope": scope, "name": name, "doi_new": doi, "doi_old": doi_before}
