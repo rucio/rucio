@@ -162,7 +162,7 @@ class OpenDataClient(BaseClient):
             state: Optional["OPENDATA_DID_STATE_LITERAL"] = None,
             meta: Optional[dict] = None,
             doi: Optional[str] = None,
-    ) -> bool:
+    ) -> dict[str, Any]:
         """
         Update an existing Opendata DID in the Opendata catalog.
 
@@ -201,7 +201,7 @@ class OpenDataClient(BaseClient):
         r = self._send_request(url, type_='PUT', data=render_json(**data))
 
         if r.status_code == codes.ok:
-            return True
+            return json.loads(r.content.decode('utf-8'))
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)

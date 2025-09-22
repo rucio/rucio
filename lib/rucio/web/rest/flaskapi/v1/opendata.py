@@ -310,7 +310,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             state = param_get(parameters, 'state', default=None)
             meta = param_get(parameters, 'meta', default=None)
             doi = param_get(parameters, 'doi', default=None)
-            opendata.update_opendata_did(scope=scope,
+            result = opendata.update_opendata_did(scope=scope,
                                          name=name,
                                          state=state,
                                          meta=meta,
@@ -324,7 +324,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
         except Exception as error:
             return generate_http_error_flask(400, error)
 
-        return Response(status=200, mimetype='application/json')
+        return Response(status=200, mimetype='application/json', response=render_json(**result))
 
     def delete(self, scope: str, name: str) -> "Response":
         """
