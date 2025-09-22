@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import re
 import tempfile
 from typing import TYPE_CHECKING
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from rucio.common.types import FileToUploadDict
 
 
+@pytest.mark.noparallel(reason='Modifies the configuration file')
 def test_main_args():
     specify_account = "rucio --account root --auth-strategy userpass whoami"
     exitcode, out, err = execute(specify_account)
@@ -49,6 +51,26 @@ def test_main_args():
     non_existent_cmd = "rucio lfkdl --slkfdj 1"
     _, _, err = execute(non_existent_cmd)
     assert "This method is being deprecated" not in err
+
+    import configparser
+    cfg = configparser.ConfigParser()
+    cfg['database'] = {"default": "postgresql+psycopg://rucio:secret@ruciodb/rucio", "schema": ""}
+    cfg["client"] = {"rucio_host": "", "auth_host": "", "auth_type": "", "username": "", "password": ""}
+
+    # Set to a non-existent config path
+    current_config = os.environ.get('RUCIO_CONFIG')
+    fake_config = "/NoConfigHere.cfg"
+    with open(fake_config, "w") as f:
+        cfg.write(f)
+    os.environ['RUCIO_CONFIG'] = fake_config
+    exitcode, _, err = execute("rucio whoami")
+    if current_config is not None:
+        os.environ['RUCIO_CONFIG'] = current_config
+    else:
+        os.environ.pop("RUCIO_CONFIG")
+
+    assert exitcode != 0
+    assert "ERROR" in err
 
 
 def test_help_menus():
