@@ -921,8 +921,8 @@ def __is_retry_required(lock, activity):
     :param activity:             The activity of the rule.
     """
 
-    created_at_diff = (datetime.utcnow() - lock.created_at).days * 24 * 3600 + (datetime.utcnow() - lock.created_at).seconds
-    updated_at_diff = (datetime.utcnow() - lock.updated_at).days * 24 * 3600 + (datetime.utcnow() - lock.updated_at).seconds
+    created_at_diff = (datetime.utcnow() - lock.created_at).total_seconds()
+    updated_at_diff = (datetime.utcnow() - lock.updated_at).total_seconds()
 
     if activity == 'Express':
         if updated_at_diff > 3600 * 2:
