@@ -159,21 +159,19 @@ class Section(ErrorHandlingMethodView):
         ---
         summary: Remove an existing section
         tags:
-            - Config
+          - Config
         parameters:
         - name: section
-            in: path
-            description: "The section to remove."
-            schema:
-            type: string
+          in: path
+          description: "The section."
         responses:
-            200:
+          200:
             description: "OK"
-            401:
+          401:
             description: "Invalid Auth Token"
-            404:
+          404:
             description: "Config not found"
-            406:
+          406:
             description: "Not acceptable"
         """
         if config.has_section(section, issuer=request.environ['issuer'], vo=request.environ['vo']):
