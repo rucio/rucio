@@ -13,14 +13,17 @@
 # limitations under the License.
 
 import re
+from configparser import DuplicateSectionError, NoOptionError
 
 import pytest
 
+from rucio.common.config import config_add_section, config_get_bool, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
+from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
@@ -47,7 +50,6 @@ class TestOpenDataCommon:
         opendata_did_state_from_enum = set([state.name for state in OpenDataDIDState])
 
         assert opendata_did_state_from_common == opendata_did_state_from_enum, "'OpenDataDIDState' enum does not match expected states from 'OPENDATA_DID_STATE_LITERAL'"
-
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCore:
@@ -156,14 +158,16 @@ class TestOpenDataCore:
                                          session=db_write_session)
 
         set_status(scope=mock_scope, name=name, open=False, session=db_write_session)
-        opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
-                                     session=db_write_session)
+        response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
+                                                session=db_write_session)
 
         db_write_session.commit()
 
         state = opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)["state"]
 
         assert state == OpenDataDIDState.PUBLIC
+        assert response["state_new"] == OpenDataDIDState.PUBLIC
+        assert response["state_old"] == OpenDataDIDState.DRAFT
 
         with pytest.raises(OpenDataInvalidStateUpdate):
             opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.DRAFT,
@@ -296,6 +300,70 @@ class TestOpenDataCore:
         assert opendata_did_public_new["name"] == did_public_name, "Name does not match"
         assert opendata_did_public_new["state"] == OpenDataDIDState.PUBLIC, "State does not match"
 
+    def test_opendata_dids_update_rule(self, mock_scope, root_account, vo, db_write_session, rse_factory):
+        _, opendata_rse_id = rse_factory.make_posix_rse(session=db_write_session)
+        add_rse_attribute(opendata_rse_id, key='Opendata', value=True, session=db_write_session)
+
+        name = did_name_generator(did_type="dataset")
+
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET, session=db_write_session)
+        opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        db_write_session.commit()
+
+        set_status(scope=mock_scope, name=name, open=False, session=db_write_session)
+        opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
+                                     session=db_write_session)
+
+        db_write_session.commit()
+
+        try:
+            config_add_section('opendata')
+        except DuplicateSectionError:
+            # config already exists, no need to update it
+            pass
+
+        try:
+            config_set('opendata', 'rule_enable', 'False')
+            # Remove `rule_rse_expression` to check exception when rule configuration is not present
+            config_remove_option('opendata', 'rule_rse_expression')
+
+            rule_enable = config_get_bool("opendata", "rule_enable", raise_exception=False, default=False)
+            assert rule_enable is False, "'opendata.rule_enable' should be False"
+
+            response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
+                                                    session=db_write_session)
+            assert "rule" not in response or response[
+                "rule"] is None, "No rule configuration is present, so no rule should be created"
+
+            config_set('opendata', 'rule_enable', 'True')
+
+            with pytest.raises(NoOptionError):
+                # Because `rule_rse_expression` is not configured, rule creation fails
+                opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
+                                             session=db_write_session)
+
+            config_set('opendata', 'rule_rse_expression', 'Opendata=True')
+            config_set('opendata', 'rule_vo', vo)
+
+            response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
+                                                    session=db_write_session)
+            rule = response["rule"]
+            assert rule is not None, "Rule configuration is present, so a rule should be created"
+            rule_first = rule
+
+            response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.SUSPENDED,
+                                                    session=db_write_session)
+            assert "rule" not in response or response["rule"] is None, "Suspending a DID should not return a rule"
+
+            response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
+                                                    session=db_write_session)
+            rule = response["rule"]
+            assert rule is not None, "Rule configuration is present, so a rule should be created"
+            assert rule == rule_first, "Rule should be the same as before because rules are not deleted when DID is suspended"
+
+        finally:
+            config_set('opendata', 'rule_enable', 'False')
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:
@@ -384,7 +452,6 @@ class TestOpenDataClient:
         meta = opendata_did["meta"]
         assert meta == {}, "'meta' should be empty"
 
-
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataAPI:
     api_endpoint = '/opendata/dids'
@@ -452,7 +519,6 @@ class TestOpenDataAPI:
             headers=request_headers,
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
-
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCLI:
