@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from dogpile.cache.region import CacheRegion
     from flask.testing import FlaskClient
     from prometheus_client import CollectorRegistry
+    from sqlalchemy.orm import Session
     from sqlalchemy.orm.scoping import scoped_session
     from werkzeug.test import TestResponse
 
@@ -56,7 +57,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
     config.addinivalue_line('markers', 'needs_iam: requires the dev iam profile (OIDC/IdP)')
-    config.addinivalue_line('markers', 'debug: marks test for debugging/branch coverage purposes')
+    config.addinivalue_line(
+        "markers",
+        "flaky(reruns, reruns_delay): mark test as flaky and rerun on failure"
+    )
     config.addinivalue_line('markers', 'integration: marks tests as integration tests')
     config.addinivalue_line('markers', 'external: tests that verify external service behavior without invoking internal Rucio functions')
 
@@ -390,6 +394,16 @@ def containerized_rses(rucio_client: "Client") -> list[tuple[str, str]]:
     return rses
 
 
+def _get_db_session_from_request(request: pytest.FixtureRequest) -> Optional["Session"]:
+    db_session = None
+    if 'db_session' in request.fixturenames:
+        db_session = request.getfixturevalue('db_session')
+    elif 'db_read_session' in request.fixturenames:
+        db_session = request.getfixturevalue('db_read_session')
+    elif 'db_write_session' in request.fixturenames:
+        db_session = request.getfixturevalue('db_write_session')
+    return db_session
+
 @pytest.fixture
 def rse_factory(
     request: pytest.FixtureRequest,
@@ -398,11 +412,9 @@ def rse_factory(
 ) -> "Iterator[TemporaryRSEFactory]":
     from .temp_factories import TemporaryRSEFactory
 
-    session = None
-    if 'db_session' in request.fixturenames:
-        session = request.getfixturevalue('db_session')
+    db_session=_get_db_session_from_request(request)
 
-    with TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix, db_session=session) as factory:
+    with TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix, db_session=db_session) as factory:
         yield factory
 
 
@@ -433,12 +445,10 @@ def did_factory(
 ) -> "Iterator[TemporaryDidFactory]":
     from .temp_factories import TemporaryDidFactory
 
-    session = None
-    if 'db_session' in request.fixturenames:
-        session = request.getfixturevalue('db_session')
+    db_session = _get_db_session_from_request(request)
 
     with TemporaryDidFactory(vo=vo, default_scope=mock_scope, name_prefix=function_scope_prefix, file_factory=file_factory,
-                             default_account=root_account, db_session=session) as factory:
+                             default_account=root_account, db_session=db_session) as factory:
         yield factory
 
 

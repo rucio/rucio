@@ -98,7 +98,7 @@ class LazyGroup(click.Group):
 @click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
 @click.option("--certificate", help="Client certificate file")
 @click.option("--client-key", help="Client key for x509 Authentication")
-@click.option("--config", help="The Rucio configuration file to use")
+@click.option("--config", help="The Rucio configuration file to use", envvar="RUCIO_CONFIG")
 @click.option("-H", "--host", help="The Rucio API host")
 # oidc auth
 @click.option("--oidc-user", help="OIDC username")

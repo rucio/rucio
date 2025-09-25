@@ -1006,6 +1006,8 @@ def download(args, client, logger, console, spinner):
         items = []
         if args.dids:
             for did in args.dids:
+                if args.scope:
+                    did = f"{args.scope}:{did}"
                 item = {'did': did}
                 item.update(item_defaults)
                 items.append(item)
@@ -1038,9 +1040,15 @@ def download(args, client, logger, console, spinner):
         item_defaults['did'] = did_str
         if args.rses is None:
             logger.warning("No RSE was given, selecting one.")
+            if not args.scope:
+                scope = did_str.split(':')[0]
+                did = did_str.split(':')[-1]
+            else:
+                scope = args.scope
+                did = did_str.split(':')[-1]
 
             replicas = client.list_replicas(
-                [{"scope": did_str.split(':')[0], "name": did_str.split(':')[-1]}],
+                [{"scope": scope, "name": did}],
                 schemes=args.protocol,
                 ignore_availability=False,
                 client_location=detect_client_location(),
@@ -2468,7 +2476,7 @@ You can filter by key/value, e.g.::
         selected_parser.add_argument('--trace_taskid', '--trace-taskid', new_option_string='--trace-taskid', dest='trace_taskid', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_TASKID', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--trace_usrdn', '--trace-usrdn', new_option_string='--trace-usrdn', dest='trace_usrdn', action=StoreAndDeprecateWarningAction, default=os.environ.get('RUCIO_TRACE_USRDN', None), help=argparse.SUPPRESS)
         selected_parser.add_argument('--filter', dest='filter', action='store', help='Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.')
-        selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope if you are using the filter option and no full DID.')
+        selected_parser.add_argument('--scope', dest='scope', action='store', help='Scope to use as a filter or to use with DID names.')
         selected_parser.add_argument('--metalink', dest='metalink_file', action='store', help='Path to a metalink file.')
         selected_parser.add_argument('--deactivate-file-download-exceptions', dest='deactivate_file_download_exceptions', action='store_true', help='Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.')  # NOQA: E501
         selected_parser.add_argument('--replica-selection', dest='sort', action='store', help='Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).')
