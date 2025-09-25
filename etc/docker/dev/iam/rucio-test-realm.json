@@ -1,0 +1,35 @@
+{
+  "realm": "rucio-test",
+  "enabled": true,
+  "accessTokenLifespan": 3600,
+  "refreshTokenMaxReuse": 1,
+  "clients": [
+    {
+      "clientId": "rucio-test-client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "rucio-test-secret",
+      "publicClient": false,
+      "redirectUris": [
+        "http://dev-keycloak-1:*/auth/oidc_token",
+        "http://dev-keycloak-1:*/auth/oidc_code"
+      ],
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpass123",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

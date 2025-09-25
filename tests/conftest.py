@@ -56,6 +56,9 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
     config.addinivalue_line('markers', 'needs_iam: requires the dev iam profile (OIDC/IdP)')
+    config.addinivalue_line('markers', 'debug: marks test for debugging/branch coverage purposes')
+    config.addinivalue_line('markers', 'integration: marks tests as integration tests')
+    config.addinivalue_line('markers', 'external: tests that verify external service behavior without invoking internal Rucio functions')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler

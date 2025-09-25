@@ -545,7 +545,7 @@ services:
   keycloak:
     container_name: dev-keycloak-1
     image: quay.io/keycloak/keycloak:23.0.1
-    command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
+    command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem --health-enabled=true --import-realm
     profiles:
       - iam
     environment:
@@ -555,6 +555,7 @@ services:
       - ../../certs/rucio_ca.pem:/etc/grid-security/certificates/5fca1cb1.0:z
       - ../../certs/hostcert_keycloak.pem:/cert.pem:z
       - ../../certs/hostcert_keycloak.key.pem:/key.pem:z
+      - ./iam/rucio-test-realm.json:/opt/keycloak/data/import/rucio-test-realm.json:ro
     depends_on:
       iam-db:
         condition: service_healthy

@@ -148,6 +148,9 @@ jobs:
             pip install --no-cache-dir -e /rucio_source
             tools/run_tests.sh -ir
           "
+      
+      - name: Test OIDC Integration 
+        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short -m integration tests/test_oidc_with_keycloak.py tests/test_baseclient_with_keycloak.py
       - name: File Upload/Download Test
         run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rucio_server.py
       - name: UploadClient Test
