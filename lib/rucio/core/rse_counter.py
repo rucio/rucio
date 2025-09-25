@@ -208,7 +208,7 @@ def check_obsolete_replicas(*, session: "Session") -> "Sequence[Row[tuple[Any, A
     # Replicas subquery
     repl_subq = select(
         models.RSEFileAssociation.rse_id,
-        func.count(1).label("files"),
+        func.count().label("files"),
         func.sum(models.RSEFileAssociation.bytes).label("bytes")
     ).where(
         models.RSEFileAssociation.tombstone == OBSOLETE

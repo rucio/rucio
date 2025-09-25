@@ -20,14 +20,14 @@ Abacus rse is a daemon to update rse counters.
 import argparse
 import signal
 
-from rucio.daemons.abacus.obsolete_rse import run, stop
+from rucio.daemons.abacus.rse_obsolete import run, stop
 
 
 def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The Abacus-Obsolete-RSE daemon is responsible for updating the 'obsolete' RSE usage counter", formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="The abacus-rse-obsolete daemon is responsible for updating the 'obsolete' RSE usage counter", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
     parser.add_argument('--sleep-time', action="store", default=3600, type=int, help='thread sleep time after each chunk of work (there is only one OBSOLETE replica thread)')
     return parser

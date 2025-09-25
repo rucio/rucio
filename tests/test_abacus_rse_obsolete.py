@@ -17,7 +17,7 @@ from sqlalchemy import delete
 
 from rucio.core.replica import add_replica, get_replica, set_tombstone
 from rucio.core.rse import get_rse_usage
-from rucio.daemons.abacus.obsolete_rse import run
+from rucio.daemons.abacus.rse_obsolete import run
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import get_session
