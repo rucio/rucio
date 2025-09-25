@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING
 import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
-from rucio.core.rse import set_rse_usage
-from rucio.core.rse_counter import check_obsolete_replicas
+from rucio.core.rse import list_rses
+from rucio.core.rse_counter_obsolete import check_obsolete_replicas
 from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
@@ -57,26 +57,18 @@ def run_once(
         heartbeat_handler: HeartbeatHandler,
         **_kwargs: object
 ) -> None:
-    _, _, logger = heartbeat_handler.live()
 
-    # check the backlog of obsolete replicas.
-    start = time.time()  # NOQA
-    # get a list of rows with #files and #bytes per RSE:
-    rows = check_obsolete_replicas()
-    logger(logging.DEBUG, 'Obsolete replica backlog query time %f ' % (time.time() - start))
-
-    # If the list is empty, sent the worker to sleep
-    if not rows:
-        logger(logging.INFO, 'did not get any work')
-        return
-
-    for row in rows:
+    start_time = time.time()
+    rses = list_rses()  # NOQA
+    for rse in rses:
         _, _, logger = heartbeat_handler.live()
         if graceful_stop.is_set():
             break
-        start_time = time.time()
-        set_rse_usage(row.rse_id, 'obsolete', row.bytes, None, row.files)
-        logger(logging.DEBUG, 'update of rse "%s" took %f' % (row.rse_id, time.time() - start_time))
+        start = time.time()
+        check_obsolete_replicas(rse['id'])
+        logger(logging.DEBUG, 'Obsolete replica backlog query for RSE %s took %f s.' % (rse['id'], time.time() - start))
+
+    logger(logging.DEBUG, 'update of all RSEs took %f s.' % (time.time() - start_time))
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
