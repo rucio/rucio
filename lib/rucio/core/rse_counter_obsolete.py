@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 @transactional_session
 def check_obsolete_replicas(rse_id: int, *, session: "Session") -> None:
     """
-    Get number of files and bytes used by obsolete replicas for a given RSE.
+    Get number of files and bytes used by obsolete replicas for a given RSE and
+    update RSE usage accordingly.
 
     :param rse_id: id of the RSE to check.
     :param session: Database session in use.
