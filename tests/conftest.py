@@ -779,7 +779,7 @@ def rse_protocol() -> "Iterator[dict[str, Any]]":
         "prefix": "//defdatadisk/rucio/",
         "domains": {
             "wan": {
-                "read": 1,
+                "read": 0,
             }
         },
     }
