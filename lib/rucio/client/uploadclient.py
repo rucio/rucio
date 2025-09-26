@@ -353,7 +353,10 @@ class UploadClient:
         rse_expression = None
         for file in files:
             rse_expression = file['rse']
-            rse = self.rse_expressions.setdefault(rse_expression, _pick_random_rse(rse_expression))
+
+            if rse_expression not in self.rse_expressions:
+                self.rse_expressions[rse_expression] = _pick_random_rse(rse_expression)
+            rse = self.rse_expressions[rse_expression]
 
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
