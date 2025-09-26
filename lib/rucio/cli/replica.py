@@ -55,11 +55,26 @@ def replica_list():
 @click.option("--no-resolve-archives", is_flag=True, default=False, help="Do not resolve archives which may contain the files", required=False)
 @click.option("--sort", help="Replica sort algorithm. Available options: geoip (default), random")
 @click.option("--rses", "--rse-exp", "rses", help="The RSE filter expression")
+@click.option("--csv", is_flag=True, default=False, help="Write output to comma separated values")
 @click.option("--human", default=True, hidden=True)
 @click.pass_context
-def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
+def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, csv, human):
     """List the replicas of a DID and its PFNs. By default all states, even unavailable, are shown"""
-    args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
+    args = {
+        "dids": dids,
+        "protocols": protocols,
+        "all_states": all_states,
+        "pfns": pfns,
+        "domain": domain,
+        "link": link,
+        "missing": missing,
+        "metalink": metalink,
+        "no_resolve_archives": no_resolve_archives,
+        "sort": sort,
+        "rses": rses,
+        "csv": csv,
+        "human": human
+    }
     list_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
@@ -101,13 +116,15 @@ def state():
 @click.option("--rses", "--rse-exp", help="RSE name or expression")  # TODO remap rse_expression to rses (for consistency)
 @click.option("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
 @click.option("--n-attempts", help="Minimum number of failed attempts to access a suspicious file")
+@click.option('--csv', is_flag=True, default=False, help='Output a list of suspicious replicas as a csv')
 @click.pass_context
-def state_list(ctx, state_type, rses, younger_than, n_attempts):
+def state_list(ctx, state_type, rses, younger_than, n_attempts, csv):
     """List replicas by state. WARNING: Only implemented for 'suspicious'"""
 
     if state_type != "suspicious":
         raise ValueError(f"Cannot list state by {state_type}, please choose from ('suspicious')")
-    list_suspicious_replicas(Arguments({"no_pager": ctx.obj.no_pager, "rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    args = Arguments({"no_pager": ctx.obj.no_pager, "rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts, "csv": csv})
+    list_suspicious_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @state.group("update")
