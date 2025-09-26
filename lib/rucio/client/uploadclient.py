@@ -381,6 +381,7 @@ class UploadClient:
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
+        rse_attribute_cache = {}
         for file in files:
             basename = file['basename']
             logger(logging.INFO, 'Preparing upload for file %s' % basename)
@@ -419,11 +420,15 @@ class UploadClient:
 
             # resolving local area networks
             domain = 'wan'
-            rse_attributes = {}
-            try:
-                rse_attributes = self.client.list_rse_attributes(rse)
-            except Exception:
-                logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+            if rse in rse_attribute_cache:
+                rse_attributes = rse_attribute_cache[rse]
+            else:
+                rse_attributes = {}
+                try:
+                    rse_attributes = self.client.list_rse_attributes(rse)
+                except Exception:
+                    logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+                rse_attribute_cache[rse] = rse_attributes
             if self.client_location and 'lan' in rse_settings['domain'] and RseAttr.SITE in rse_attributes:
                 if self.client_location['site'] == rse_attributes[RseAttr.SITE]:
                     domain = 'lan'
