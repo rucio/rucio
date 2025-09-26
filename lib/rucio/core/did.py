@@ -3031,3 +3031,100 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
             is_archive=did.is_archive,
             constituent=did.constituent
         ).save(session=session, flush=False)
+
+@transactional_session
+def add_files_with_attachments(
+        files: "Iterable[dict[str, Any]]",
+        dids_attachment: "Sequence[dict[str, Any]]",
+        rse_id: str,
+        *,
+        account: "InternalAccount",
+        session: "Session",
+) -> None:
+    """
+    Add files with structure
+
+    :param files: An iterable of files to add. It should be a list of dictionaries with the following keys:
+        - scope: The scope name.
+        - name: The data identifier name.
+        - pfn: The physical file name.
+        - bytes: The file size in bytes.
+        - adler32: The adler32 checksum.
+    :param dids_attachment: Optional list of DIDs to attach the files to.
+    Each entry should be a tuple of (scope, did_type), where did_type can be a string or a DIDType enum.
+        Valid did_type values are 'DATASET' or 'CONTAINER'.
+        If did_type is a string, it will be converted to the corresponding DIDType enum.
+        If the datasets or containers do not exist, they will be created.
+        The files will be attached to the first dataset or container found in `did_attachments`, then this dataset or container will be attached to the next one, and so on.
+        For example, if did_attachments is [('did_1', 'DATASET'), ('did_2', 'CONTAINER'), ('did_3', 'CONTAINER')],
+        the files will be attached to 'did_1' and then 'did_1' will be attached to 'did_2' which will be attached to 'did_3'.
+    :param rse_id: The RSE where the files will be registered.
+    :param account: The account to use.
+    :param session: The database session in use.
+    """
+
+    # Input validation
+    required_file_keys = {"scope", "name", "pfn", "bytes", "adler32"}
+    for file in files:
+        for key in required_file_keys:
+            if key not in file:
+                raise exception.InputValidationError(f"Missing '{key}' in files entry: {file}")
+
+    if len(dids_attachment) < 1:
+        raise exception.InputValidationError("dids_attachment must contain at least one DID")
+
+    for did in dids_attachment:
+        if "type" not in did:
+            raise exception.InputValidationError("Attachment must contain 'type' key")
+
+        did_type = did["type"]
+
+        # Convert string to DIDType if needed
+        if isinstance(did_type, str):
+            try:
+                did_type = DIDType[did_type]
+            except KeyError:
+                raise exception.InputValidationError(f"Invalid DIDType string: {did_type}")
+
+        if not isinstance(did_type, DIDType):
+            raise exception.InputValidationError(f"Attachment did_type must be a DIDType enum: {did_type}")
+
+        if did_type not in (DIDType.DATASET, DIDType.CONTAINER):
+            raise exception.InputValidationError(
+                f"Attachment did_type must be DATASET or CONTAINER: {did_type}"
+            )
+
+    attachments = []
+    # Attach the DIDs sequentially
+    for i in range(len(dids_attachment) - 1):
+        parent_did = dids_attachment[i + 1]
+        child_did = dids_attachment[i]
+
+        attachments.append({
+            'scope': parent_did['scope'],
+            'name': parent_did['name'],
+            'dids': [{
+                'scope': child_did['scope'],
+                'name': child_did['name'],
+            }]
+        })
+
+    # Add the DIDs if they do not exist
+    add_dids(
+        dids=dids_attachment,
+        account=account,
+        session=session,
+    )
+
+    # Attach the DIDs
+    attach_dids_to_dids(attachments=attachments, account=account, session=session, ignore_duplicate=True)
+
+    # Add the replicas and attach them to the first dataset of the attachment list
+    __add_files_to_dataset(
+        files=files,
+        parent_did=dids_attachment[0],
+        account=account,
+        ignore_duplicate=True,
+        rse_id=rse_id,
+        session=session,
+    )
