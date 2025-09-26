@@ -920,7 +920,7 @@ def upload(args, client, logger, console, spinner):
     from rucio.client.uploadclient import UploadClient
     upload_client = UploadClient(client, logger=logger)
     summary_file_path = 'rucio_upload.json' if args.summary else None
-    upload_client.upload(items=items, summary_file_path=summary_file_path)
+    upload_client.upload(items=items, summary_file_path=summary_file_path, new_file=args.new_file)
     return SUCCESS
 
 
