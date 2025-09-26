@@ -75,7 +75,9 @@ def add_quarantined_replicas(rse_id: str, replicas: list[dict[str, Any]], *, ses
     )
     quarantine_replicas = [(path, rseid) for path, rseid in session.execute(stmt).all()]
     replicas = [replica for replica in replicas if (replica['path'], rse_id) not in quarantine_replicas]
-
+    if not replicas:
+        return
+    
     values = [{'rse_id': rse_id,
                'path': replica['path'],
                'scope': replica.get('scope'),
