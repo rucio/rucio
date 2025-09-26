@@ -11,11 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import click
+from typing import Optional
 
-from rucio.cli.bin_legacy.rucio import add_rule, delete_rule, info_rule, list_rules, list_rules_history, move_rule, update_rule
+import click
+from tabulate import tabulate
+
+from rucio.cli.bin_legacy.rucio import add_rule, delete_rule, info_rule, list_rules_history, move_rule, update_rule
 from rucio.cli.utils import Arguments
+from rucio.client.richclient import CLITheme, generate_table, print_output
 from rucio.common.exception import InputValidationError
+from rucio.common.utils import extract_scope, sizefmt
 
 
 @click.group()
@@ -151,17 +156,109 @@ def update(
 
 @rule.command("list")
 @click.option("--did", help="Filter by DID")
-@click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did")
+@click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did. Must supply a DID.")
 @click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
-@click.option("--file", help="Filter by file")
+@click.option("--lock", is_flag=True, default=False, help="See all rules locking a DID")
 @click.option("--account", help="Filter by account")
 @click.option("--subscription", help="Filter by subscription name")
+@click.option("--rses", "--rse-exp", help="Filter by RSE")
 @click.pass_context
-def list_(ctx, did, traverse, csv, file, account, subscription):
+def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, lock: bool, account: Optional[str], subscription: Optional[str], rses: Optional[str]) -> None:
     """List all rules impacting a given DID"""
-    # Done here to raise error==2
-    if not (did or file or account or subscription):
-        raise InputValidationError("At least one option has to be given. Use -h to list the options.")
 
-    args = Arguments({"no_pager": ctx.obj.no_pager, "did": did, "traverse": traverse, "csv": csv, "file": file, "rule_account": account, "subscription": subscription})
-    list_rules(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if (traverse and (did is None)) or (lock and (did is None)):
+        raise InputValidationError("To use the `--traverse` or `--lock` option a DID must be supplied")
+
+    cli_config = ctx.obj.cli_config
+    spinner = ctx.obj.spinner
+    client = ctx.obj.client
+
+    if cli_config == 'rich':
+        spinner.update(status='Fetching rules')
+        spinner.start()
+
+    rules = None
+    filters = {}
+    if did is not None:
+        scope, name = extract_scope(did)
+        filters["scope"] = scope
+        filters["name"] = name
+        if traverse:
+            locks = client.get_dataset_locks(scope=scope, name=name)
+            rules = []
+            for rule_id in list(set([lock['rule_id'] for lock in locks])):
+                rules.append(client.get_replication_rule(rule_id))
+        if lock:
+            rules = client.list_associated_rules_for_file(scope, name)
+
+    if account is not None:
+        filters['account'] = account
+    if subscription is not None:
+        subscription_info = client.list_subscriptions(name=subscription)['subscription_id']
+        filters["subscription_id"] = subscription_info
+    if rses is not None:
+        filters['rse_expression'] = rses
+
+    if rules is None:
+        rules = client.list_replication_rules(filters=filters)
+
+    if csv:
+        for rule in rules:
+            print(
+                rule['id'],
+                rule['account'],
+                f"{rule['scope']}:{rule['name']}",
+                f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                rule['rse_expression'],
+                rule['copies'],
+                sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                rule['expires_at'],
+                rule['created_at'],
+                sep=','
+            )
+
+        if cli_config == 'rich':
+            spinner.stop()
+    else:
+        table_data = []
+        for rule in rules:
+            if cli_config == 'rich':
+                table_data.append([
+                    rule['id'],
+                    rule['account'],
+                    f"{rule['scope']}:{rule['name']}",
+                    f"[{CLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                    rule['rse_expression'],
+                    rule['copies'],
+                    sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                    rule['expires_at'],
+                    rule['created_at']
+                ])
+            else:
+                table_data.append([
+                    rule['id'],
+                    rule['account'],
+                    f"{rule['scope']}:{rule['name']}",
+                    f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                    rule['rse_expression'],
+                    rule['copies'],
+                    sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                    rule['expires_at'],
+                    rule['created_at']
+                ])
+
+        if cli_config == 'rich':
+            table = generate_table(
+                table_data,
+                headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
+                col_alignments=['left', 'left', 'left', 'right', 'left', 'right', 'right', 'left', 'left']
+            )
+            spinner.stop()
+            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        else:
+            print(tabulate(
+                table_data,
+                tablefmt='simple',
+                headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
+                disable_numparse=True)
+            )

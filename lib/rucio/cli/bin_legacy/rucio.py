@@ -1487,7 +1487,7 @@ def list_rules(args, client, logger, console, spinner):
         name = args.subscription
         rules = client.list_subscription_rules(account=account, name=name)
     else:
-        raise InputValidationError('At least one option has to be given. Use -h to list the options.')
+        rules = client.list_replication_rules()
     if args.csv:
         for rule in rules:
             print(rule['id'],
