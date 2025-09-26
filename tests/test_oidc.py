@@ -1743,8 +1743,7 @@ class TestAuthCoreAPIoidc:
         new_token_dict = get_token_for_account_operation(req_account, req_audience=req_audience, req_scope=req_scope, admin=req_admin, session=self.db_session)
         # ---------------------------
         # Check if token has been received
-        print('NEW TOKEN DICT ==', new_token_dict)
-        assert new_token_dict
+        assert new_token_dict, 'No token received from get_token_for_account_operation'
         # ---------------------------
         # Check of token being in DB under the expected account
         db_token = get_token_row(new_token_dict['token'], account=final_token_account, session=self.db_session)

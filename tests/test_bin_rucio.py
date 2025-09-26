@@ -289,8 +289,7 @@ def test_create_dataset(rucio_client, mock_scope):
     tmp_name = f"{scope}:DSet_{generate_uuid()}"
     cmd = f'rucio add-dataset {tmp_name}'
     exitcode, out, err = execute(cmd)
-    print(err, out)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to create dataset: {err} {out}"
     assert re.search('Added ' + tmp_name, out) is not None
     assert tmp_name in [f"{scope}:{did}" for did in rucio_client.list_dids(scope=scope, did_type="dataset", filters={})]
 
@@ -466,8 +465,7 @@ def test_create_rule(did_factory, rse_factory, rucio_client):
     # add rules
     cmd = f"rucio add-rule {temp_scope}:{temp_file_name} {n_replicas} 'spacetoken=ATLASSCRATCHDISK'"
     exitcode, out, err = execute(cmd)
-    print(out, err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to add rule: {err} {out}"
     assert "ERROR" not in err
     rule = out.split('\n')[-2]
     assert re.match(r'^\w+$', rule)
@@ -794,8 +792,7 @@ def test_set_tombstone(rse_factory, mock_scope, rucio_client):
     rucio_client.add_replica(rse, scope, name, 4, 'aaaaaaaa')
     cmd = f'rucio-admin replicas set-tombstone {scope}:{name} --rse {rse}'
     exitcode, out, err = execute(cmd)
-    print(out, err)
-    assert exitcode == 0
+    assert exitcode == 0, f"Failed to set tombstone: {err} {out}"
     assert 'Set tombstone successfully' in err
 
     # Set tombstone on locked replica
@@ -1208,8 +1205,7 @@ def test_download_metalink(rse_factory, mock_scope, did_factory, rucio_client):
             cmd = f'rucio download --legacy --dir {tmp_dir} --metalink {metalink_file.name}'
             exitcode, out, err = execute(cmd)
 
-            print(out, err)
-            assert exitcode == 0
+            assert exitcode == 0, f"Failed to download with metalink: {err} {out}"
             assert f'{tmp_file} successfully downloaded' in err
             assert re.search('Total files.*1', out) is not None
             assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file}")
