@@ -175,9 +175,26 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
     Update an existing Opendata DID in the Opendata catalog.
     """
 
-    client = ctx.obj.client
     if not any([meta, state, doi]):
         raise ValueError("At least one of --meta, --state, or --doi must be provided.")
 
+    client = ctx.obj.client
+    spinner = ctx.obj.spinner
+    console = ctx.obj.console
+
     scope, name = extract_scope(did)
-    client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
+    info = client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
+
+    if cli_config == 'rich':
+        spinner.update(status='Fetching Opendata DID stats')
+        spinner.start()
+        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.OPENDATA_DID_STATE}
+
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in
+                      sorted(info.items())]
+        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        spinner.stop()
+        print_output(table, console=console, no_pager=ctx.obj.no_pager)
+    else:
+        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
+        print(tabulate(table, tablefmt='plain', disable_numparse=True))

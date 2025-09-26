@@ -21,10 +21,13 @@ from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
+from rucio.common.types import InternalAccount
 from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_replicas
+from rucio.core.rule import add_rule
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 
@@ -300,6 +303,7 @@ def get_opendata_did(
         include_files: bool = True,
         include_metadata: bool = False,
         include_doi: bool = True,
+        include_rule: bool = True,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -312,10 +316,11 @@ def get_opendata_did(
         include_files: If True, include a list of associated files. Defaults to True.
         include_metadata: If True, include extended metadata. Defaults to False.
         include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
+        include_rule: If True, include the Opendata replication rule. Defaults to True.
         session: SQLAlchemy session to use for the query.
 
     Returns:
-        A dictionary containing metadata about the specified DID.
+        A dictionary containing info about the specified DID which include "scope", "name", "state", "meta" (if requested), etc.
     """
 
     query = select(
@@ -345,6 +350,8 @@ def get_opendata_did(
         result["doi"] = get_opendata_doi(scope=scope, name=name, session=session)
     if include_metadata:
         result["meta"] = get_opendata_meta(scope=scope, name=name, session=session)
+    if include_rule:
+        result["rule"] = _fetch_opendata_rule(scope=scope, name=name, session=session)
     if include_files:
         opendata_files = get_opendata_did_files(scope=scope, name=name, session=session)
         result["files"] = opendata_files
@@ -508,7 +515,7 @@ def update_opendata_did(
         meta: Optional[Union[dict, str]] = None,
         doi: Optional[str] = None,
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update an existing Opendata DID in the catalog.
 
@@ -519,6 +526,9 @@ def update_opendata_did(
         meta: Metadata to update for the DID. Must be a valid JSON object or string.
         doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar").
         session: SQLAlchemy session to use for the operation.
+
+    Returns:
+        A dictionary containing the scope and name of the DID and details of the updates performed. (e.g., new/old state, new/old DOI, etc.)
 
     Raises:
         InputValidationError: If none of 'state', 'meta', or 'doi' are provided, or if the provided data is invalid.
@@ -533,14 +543,18 @@ def update_opendata_did(
     if not _check_opendata_did_exists(scope=scope, name=name, session=session):
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
+    result = {}
+
     if state is not None:
-        update_opendata_state(scope=scope, name=name, state=state, session=session)
+        result |= update_opendata_state(scope=scope, name=name, state=state, session=session)
 
     if meta is not None:
-        update_opendata_meta(scope=scope, name=name, meta=meta, session=session)
+        result |= update_opendata_meta(scope=scope, name=name, meta=meta, session=session)
 
     if doi is not None:
-        update_opendata_doi(scope=scope, name=name, doi=doi, session=session)
+        result |= update_opendata_doi(scope=scope, name=name, doi=doi, session=session)
+
+    return result
 
 
 def update_opendata_meta(
@@ -549,7 +563,7 @@ def update_opendata_meta(
         name: str,
         meta: Union[dict, str],
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update the metadata associated with an Opendata DID.
 
@@ -558,6 +572,9 @@ def update_opendata_meta(
         name: The name of the Opendata DID.
         meta: Metadata to update for the DID. Must be a valid JSON object or string.
         session: SQLAlchemy session to use for the operation.
+
+    Returns:
+        A dictionary containing the scope, name, and updated metadata of the Opendata DID.
 
     Raises:
         InputValidationError: If 'meta' is not a dictionary or a valid JSON string.
@@ -598,6 +615,87 @@ def update_opendata_meta(
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
 
+    return {"scope": scope, "name": name, "meta_new": meta}
+
+
+def _fetch_opendata_rule(scope: "InternalScope",
+                         name: str,
+                         session: "Session"
+                         ) -> Optional[str]:
+    """
+    Retrieves the replication rule ID associated with an Opendata DID, if it exists.
+    The rule is searched for in the rules table by matching the scope, name, account (root), rse_expression,
+    and copies (1) based on the configuration used for creating the rule.
+
+    Parameters:
+        scope: The scope under which the Opendata DID is registered.
+        name: The name of the Opendata DID.
+        session: SQLAlchemy session to use for the query.
+    Returns:
+        The replication rule ID if it exists, otherwise None.
+    """
+
+    rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=False, default=None)
+    if not rule_rse_expression:
+        return None
+
+    return session.execute(
+        select(models.ReplicationRule.id).where(
+            and_(
+                models.ReplicationRule.scope == scope,
+                models.ReplicationRule.name == name,
+                models.ReplicationRule.account == InternalAccount("root"),
+                models.ReplicationRule.rse_expression == rule_rse_expression,
+                models.ReplicationRule.copies == 1,
+            )
+        )
+    ).scalar()
+
+
+def _add_opendata_rule(
+        scope: "InternalScope",
+        name: str,
+        session: "Session"
+) -> str:
+    """
+    Create a replication rule for an Opendata DID.
+    The rule is created with parameters defined in the configuration file under the [opendata] section.
+
+    Parameters:
+        scope: The scope under which the Opendata DID is registered.
+        name: The name of the Opendata DID.
+        session: SQLAlchemy session to use for the operation.
+    Returns:
+        The ID of the created replication rule.
+    Raises:
+        ValueError: If there is an error during the rule creation process.
+    """
+
+    rule_asynchronous = bool(
+        config_get("opendata", "rule_asynchronous", raise_exception=False, default=False))
+    rule_activity = config_get("opendata", "rule_activity", raise_exception=False, default=None)
+    rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
+
+    add_rule_result = add_rule(
+        dids=[{"scope": scope, "name": name}],
+        # We need an account, perhaps we should pass the issuer argument around like in other methods with account
+        account=InternalAccount("root"),
+        copies=1,
+        rse_expression=rule_rse_expression,
+        grouping="DATASET",
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None,
+        activity=rule_activity,
+        asynchronous=rule_asynchronous,
+        session=session,
+    )
+    if len(add_rule_result) != 1:
+        raise ValueError(f"Error adding Open Data rule: {add_rule_result}")
+
+    return add_rule_result[0]
+
 
 def update_opendata_state(
         *,
@@ -605,15 +703,19 @@ def update_opendata_state(
         name: str,
         state: OpenDataDIDState,
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update the state of an Opendata DID.
+    If the new state is PUBLIC, a replication rule may be created based on configuration.
 
     Parameters:
         scope: The scope under which the Opendata DID is registered.
         name: The name of the Opendata DID.
         state: The new state to set for the Opendata DID.
         session: SQLAlchemy session to use for the operation.
+
+    Returns:
+        A dictionary with the scope and name of the DID and the rule id if a rule was created and the old and new state.
 
     Raises:
         InputValidationError: If the provided state is not a valid OpenDataDIDState.
@@ -676,14 +778,29 @@ def update_opendata_state(
         if state_before == OpenDataDIDState.DRAFT:
             raise OpenDataInvalidStateUpdate("Cannot set state to SUSPENDED from DRAFT. First set it to PUBLIC.")
 
+    output = {"scope": scope, "name": name, "state_old": state_before, "state_new": state}
+
     try:
         result = session.execute(update_query)
 
         if result.rowcount == 0:
             raise ValueError(f"Error updating Opendata state for DID '{scope}:{name}'.")
 
+        if state == OpenDataDIDState.PUBLIC:
+            rule_enable = config_get_bool("opendata", "rule_enable", raise_exception=False, default=False)
+            if rule_enable:
+                rule_id = _fetch_opendata_rule(scope=scope, name=name, session=session)
+                if rule_id:
+                    output["rule"] = rule_id
+                    output["comments"] = "Replication rule already exists"
+                else:
+                    output["rule"] = _add_opendata_rule(scope=scope, name=name, session=session)
+                    output["comments"] = "Replication rule created"
+
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
+
+    return output
 
 
 def update_opendata_doi(
@@ -692,7 +809,7 @@ def update_opendata_doi(
         name: str,
         doi: str,
         session: "Session",
-) -> None:
+) -> dict[str, Any]:
     """
     Update the DOI (Digital Object Identifier) associated with an Opendata DID.
 
@@ -701,6 +818,9 @@ def update_opendata_doi(
         name: The name of the Opendata DID.
         doi: The new DOI to associate with the Opendata DID. Must be a valid DOI string.
         session: SQLAlchemy session to use for the operation.
+
+    Returns:
+        A dictionary containing the scope, name, new DOI, and previous DOI of the Opendata DID.
 
     Raises:
         InputValidationError: If the provided DOI is not a valid string or does not match the expected format.
@@ -742,3 +862,5 @@ def update_opendata_doi(
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
+
+    return {"scope": scope, "name": name, "doi_new": doi, "doi_old": doi_before}
