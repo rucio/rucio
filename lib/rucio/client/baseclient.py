@@ -38,7 +38,7 @@ from requests.status_codes import codes
 from rucio import version
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_has_section
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, ConfigNotFound, MissingClientParameter, MissingModuleException, NoAuthInformation, ServerConnectionException
 from rucio.common.extra import import_extras
 from rucio.common.utils import build_url, get_tmp_dir, my_key_generator, parse_response, setup_logger, ssh_sign, wlcg_token_discovery
@@ -440,14 +440,14 @@ class BaseClient:
         self.logger.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
         time.sleep(sleep_time)
 
-    def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False, get_token=False,
+    def _send_request(self, url, headers=None, method : HTTPMethod = HTTPMethod.GET, data=None, params=None, stream=False, get_token=False,
                       cert=None, auth=None, verify=None):
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
         :param url: the http url to use.
         :param headers: additional http headers to send.
-        :param type_: the http request type to use.
+        :param method: the http request type to use.
         :param data: post data.
         :param params: (optional) Dictionary or bytes to be sent in the url query string.
         :param get_token: (optional) if it is called from a _get_token function.
@@ -469,28 +469,28 @@ class BaseClient:
         if verify is None:
             verify = self.ca_cert or False  # Maybe unnecessary but make sure to convert "" -> False
 
-        self.logger.debug("HTTP request: %s %s" % (type_, url))
+        self.logger.debug("HTTP request: %s %s" % (method.value, url))
         for h, v in hds.items():
             if h == 'X-Rucio-Auth-Token':
                 v = "[hidden]"
             self.logger.debug("HTTP header:  %s: %s" % (h, v))
-        if type_ != "GET" and data:
+        if method != HTTPMethod.GET and data:
             text = self._reduce_data(data)
             self.logger.debug("Request data (length=%d): [%s]" % (len(data), text))
 
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
             try:
-                if type_ == 'GET':
+                if method == HTTPMethod.GET:
                     result = self.session.get(url, headers=hds, verify=verify, timeout=self.timeout, params=params, stream=True, cert=cert, auth=auth)
-                elif type_ == 'PUT':
+                elif method == HTTPMethod.PUT:
                     result = self.session.put(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
-                elif type_ == 'POST':
+                elif method == HTTPMethod.POST:
                     result = self.session.post(url, headers=hds, data=data, verify=verify, timeout=self.timeout, stream=stream)
-                elif type_ == 'DEL':
+                elif method == HTTPMethod.DELETE:
                     result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
-                    self.logger.debug("Unknown request type %s. Request was not sent" % (type_,))
+                    self.logger.debug("Unknown request type %s. Request was not sent" % (method,))
                     return None
                 self.logger.debug("HTTP Response: %s %s" % (result.status_code, result.reason))
                 if result.status_code in STATUS_CODES_TO_RETRY:
@@ -692,7 +692,7 @@ class BaseClient:
             # getting the login URL and logging in the user
             login_url = auth_res.url
             start = time.time()
-            result = self._send_request(login_url, type_='POST', data=userpass)
+            result = self._send_request(login_url, method=HTTPMethod.POST, data=userpass)
 
             # if the Rucio OIDC Client configuration does not match the one registered at the Identity Provider
             # the user will get an OAuth error
@@ -714,7 +714,7 @@ class BaseClient:
                 self.logger.warning('Automatically authorising request of the following info on behalf of user: %s',
                                     str(form_data))
                 # authorizing info request on behalf of the user until he/she revokes this authorization !
-                result = self._send_request(result.url, type_='POST', data=form_data)
+                result = self._send_request(result.url, method=HTTPMethod.POST, data=form_data)
 
         if not result:
             self.logger.error('Cannot retrieve authentication token!')
@@ -880,7 +880,7 @@ class BaseClient:
         if saml_auth_result.headers['X-Rucio-Auth-Token']:
             return saml_auth_result.headers['X-Rucio-Auth-Token']
         saml_auth_url = saml_auth_result.headers['X-Rucio-SAML-Auth-URL']
-        result = self._send_request(saml_auth_url, type_='POST', data=userpass, verify=False)
+        result = self._send_request(saml_auth_url, method=HTTPMethod.POST, data=userpass, verify=False)
         result = self._send_request(url, get_token=True)
 
         if not result:
