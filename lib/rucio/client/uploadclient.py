@@ -43,7 +43,6 @@ from rucio.common.exception import (
     RSEOperationNotSupported,
     RSEWriteBlocked,
     RucioException,
-    ScopeNotFound,
     ServiceUnavailable,
 )
 from rucio.common.utils import execute, generate_uuid, make_valid_did, retry, send_trace
