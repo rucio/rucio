@@ -75,7 +75,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         # Check if we're running in a dev environment with IAM profile available
         dev_profiles = environ.get('DEV_PROFILES', '').split(',')
         dev_profiles = [profile.strip() for profile in dev_profiles if profile.strip()]
-        
+
         if 'iam' not in dev_profiles:
             pytest.skip("Test requires IAM profile - start dev environment with: --profile iam")
 
@@ -402,15 +402,16 @@ def _get_db_session_from_request(request: pytest.FixtureRequest) -> Optional["Se
         db_session = request.getfixturevalue('db_write_session')
     return db_session
 
+
 @pytest.fixture
 def rse_factory(
-    request: pytest.FixtureRequest,
-    vo: str,
-    function_scope_prefix: str
+        request: pytest.FixtureRequest,
+        vo: str,
+        function_scope_prefix: str
 ) -> "Iterator[TemporaryRSEFactory]":
     from .temp_factories import TemporaryRSEFactory
 
-    db_session=_get_db_session_from_request(request)
+    db_session = _get_db_session_from_request(request)
 
     with TemporaryRSEFactory(vo=vo, name_prefix=function_scope_prefix, db_session=db_session) as factory:
         yield factory
