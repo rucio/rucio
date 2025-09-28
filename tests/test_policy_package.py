@@ -121,7 +121,7 @@ class TestPolicyPackage:
 
         # call it to check we get the expected result
         assert algo('did') == 'Default scope algorithm loaded correctly!'
-        
+
         # restore original policy package environment variable
         if old_pp_env is not None:
             os.environ['RUCIO_POLICY_PACKAGE'] = old_pp_env

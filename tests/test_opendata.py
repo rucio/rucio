@@ -296,6 +296,7 @@ class TestOpenDataCore:
         assert opendata_did_public_new["name"] == did_public_name, "Name does not match"
         assert opendata_did_public_new["state"] == OpenDataDIDState.PUBLIC, "State does not match"
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:
     def test_opendata_dids_list_client(self, mock_scope, rucio_client):
@@ -383,6 +384,7 @@ class TestOpenDataClient:
         meta = opendata_did["meta"]
         assert meta == {}, "'meta' should be empty"
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataAPI:
     api_endpoint = '/opendata/dids'
@@ -450,6 +452,7 @@ class TestOpenDataAPI:
             headers=request_headers,
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCLI:
