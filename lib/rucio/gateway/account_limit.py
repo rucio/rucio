@@ -239,6 +239,7 @@ def get_local_account_usage(
     rse: Optional[str],
     issuer: str,
     vo: str = DEFAULT_VO,
+    unique: bool = False,
 ) -> list[dict[str, Any]]:
     """
     Get the account usage and connect it with (if available) the account limits of the account.
@@ -247,6 +248,8 @@ def get_local_account_usage(
     :param rse:      The rse to read (If none, get all).
     :param issuer:   The issuer account.
     :param vo:       The VO to act on.
+    :param unique:   If True, return unique usage by querying replicas directly rather than using counters.
+                     This gives accurate usage when replicas have multiple locks from the same account.
 
     :returns:        List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
@@ -266,7 +269,7 @@ def get_local_account_usage(
         if not account_exists(account=internal_account, session=session):
             raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)]
+        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, unique=unique, session=session)]
 
 
 def get_global_account_usage(
