@@ -153,17 +153,9 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     except (NoOptionError, NoSectionError, RuntimeError):
         logging.log(
             logging.ERROR,
-            "Option rses not found in automatix section. Trying the legacy sites option",
+            "Option rses not found in automatix section",
         )
-        try:
-            rses = config_get_list("automatix", "sites")
-            logging.log(
-                logging.WARNING,
-                "Option sites found in automatix section. This option will be deprecated soon. Please update your config to use rses.",
-            )
-        except (NoOptionError, NoSectionError, RuntimeError):
-            logger(logging.ERROR, "Could not load sites from configuration")
-            return True
+        return True
 
     set_metadata = config_get_bool(
         "automatix", "set_metadata", raise_exception=False, default=True
