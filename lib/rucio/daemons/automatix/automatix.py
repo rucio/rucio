@@ -206,7 +206,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
             filesize = 1_000_000
             logger(
                 logging.WARNING,
-                "No filesize defined in the configuration, will use 1M files",
+                "No filesize defined in the configuration, will use 1 MB files",
             )
         dsn = generate_didname(metadata, None, "dataset")
         fnames = []
