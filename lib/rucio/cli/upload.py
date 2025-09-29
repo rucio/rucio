@@ -37,7 +37,7 @@ from rucio.common.config import config_get_float
 @click.option("-r", "--recursive", is_flag=True, default=False, help="Convert recursively the folder structure into collections")
 @click.option("--new-file", is_flag=True, default=False, help="Assume DID does not already exist")
 @click.pass_context
-def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, no_register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive, new_file):
+def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, no_register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive, new_file: bool):
     """Upload file(s) to a Rucio RSE"""
     args = Arguments(
         {
