@@ -28,12 +28,14 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import FileToUploadDict, InternalScope, LoggerFunction
 from rucio.common.utils import execute, generate_uuid
 from rucio.core.monitor import MetricManager
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.scope import list_scopes
 from rucio.core.vo import map_vo
 from rucio.daemons.common import HeartbeatHandler, run_daemon
@@ -151,9 +153,13 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     _, _, logger = heartbeat_handler.live()
 
     try:
-        rses = config_get_list("automatix", "rses")
+        rse_expr = config_get("automatix", "rses")
+        rses = sorted([rse['rse'] for rse in parse_expression(rse_expr)])
     except (NoOptionError, NoSectionError, RuntimeError):
         logger(logging.ERROR, "Option rses not found in automatix section")
+        return True
+    except InvalidRSEExpression:
+        logger(logging.ERROR, "Option rses does not contain a valid RSE expression")
         return True
     set_metadata = config_get_bool(
         "automatix", "set_metadata", raise_exception=False, default=True
