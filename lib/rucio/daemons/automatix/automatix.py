@@ -151,10 +151,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     try:
         rses = config_get_list("automatix", "rses")
     except (NoOptionError, NoSectionError, RuntimeError):
-        logging.log(
-            logging.ERROR,
-            "Option rses not found in automatix section",
-        )
+        logger(logging.ERROR, "Option rses not found in automatix section")
         return True
 
     set_metadata = config_get_bool(
