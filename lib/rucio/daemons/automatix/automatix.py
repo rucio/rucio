@@ -200,7 +200,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
         try:
             filesize = dic["filesize"]
         except KeyError:
-            filesize = 1000000
+            filesize = 1_000_000
             logger(
                 logging.WARNING,
                 "No filesize defined in the configuration, will use 1M files",
