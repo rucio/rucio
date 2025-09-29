@@ -237,7 +237,8 @@ class TestCoreAccountLimitsUnique:
         account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=1000000, session=db_session)
         
         # Create scope first
-        scope = InternalScope('test', vo=account.vo)
+        scope_name = 'test_%s' % str(uuid.uuid4())[:8]
+        scope = InternalScope(scope_name, vo=account.vo)
         try:
             scope_core.add_scope(scope, account, session=db_session)
         except Exception:
@@ -315,7 +316,8 @@ class TestCoreAccountLimitsUnique:
         account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=1000000, session=db_session)
         
         # Create scope first
-        scope = InternalScope('test', vo=account.vo)
+        scope_name = 'test_%s' % str(uuid.uuid4())[:8]
+        scope = InternalScope(scope_name, vo=account.vo)
         try:
             scope_core.add_scope(scope, account, session=db_session)
         except Exception:
@@ -374,7 +376,7 @@ class TestCoreAccountLimitsUnique:
         
         # Clean up
         account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=db_session)
-        
+
     def test_local_account_usage_unique_multiple_rses(self, account, rse_factory, db_session):
         """ ACCOUNT_LIMIT (CORE): Get unique local account usage for multiple RSEs """
         _, rse1_id = rse_factory.make_mock_rse()
