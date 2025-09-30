@@ -636,6 +636,13 @@ class TestDIDClients:
         with pytest.raises(UnsupportedOperation):
             did_client.attach_dids_to_dids([{'scope': 'mock', 'name': cnt_name, 'rse': tmp_rse, 'dids': attachment['dids']}])
 
+        nonexistent_file = did_name_generator('file')
+        with pytest.raises(DataIdentifierNotFound):
+            did_client.attach_dids_to_dids([{'scope': tmp_scope, 'name': dsns[0]['name'], 'dids': [{'scope': tmp_scope, 'name': nonexistent_file}]}])
+        nonexistent_dataset = did_name_generator('dataset')
+        with pytest.raises(DataIdentifierNotFound):
+            did_client.attach_dids_to_dids([{'scope': tmp_scope, 'name': cnt_name, 'dids': [{'scope': tmp_scope, 'name': nonexistent_dataset}]}])
+
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')
     def test_add_files_to_datasets(self, did_client, rse_factory):
