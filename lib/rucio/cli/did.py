@@ -35,7 +35,7 @@ def did():
     """,
 )  # TODO Shorten this help and make supplying this easier
 @click.option("--short", is_flag=True, default=False, help="Just dump the list of DIDs.")
-@click.argument("did-pattern", nargs=-1)
+@click.argument("did-pattern", nargs=-1, required=True)
 @click.option("--parent", default=False, is_flag=True, help="List the parents of the DID - must use a full DID scope and name")
 @click.pass_context
 def list_(ctx, did_pattern, recursive, filter_, short, parent):
