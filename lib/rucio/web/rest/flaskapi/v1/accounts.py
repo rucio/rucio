@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from flask import Flask, Response, jsonify, redirect, request
 
-from rucio.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
+from rucio.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidAccountType, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.account import add_account, add_account_attribute, del_account, del_account_attribute, get_account_info, get_usage_history, list_account_attributes, list_accounts, list_identities, update_account
 from rucio.gateway.account_limit import get_global_account_limit, get_global_account_usage, get_local_account_limit, get_local_account_usage
@@ -447,7 +447,7 @@ class AccountParameter(ErrorHandlingMethodView):
             return generate_http_error_flask(409, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
-        except InvalidObject as error:
+        except (InvalidObject, InvalidAccountType) as error:
             return generate_http_error_flask(400, error)
 
         return 'Created', 201
