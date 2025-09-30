@@ -724,7 +724,7 @@ def __add_collections_to_container(
     for row in session.execute(stmt):
 
         if row.did_scope is None:
-            raise exception.DataIdentifierNotFound("Data identifier '%(scope)s:%(name)s' not found" % row)
+            raise exception.DataIdentifierNotFound(f"Data identifier '{row.scope}:{row.name}' not found")
 
         if row.did_type == DIDType.FILE:
             raise exception.UnsupportedOperation("Adding a file (%s:%s) to a container (%s:%s) is forbidden" % (row.scope, row.name, parent_did.scope, parent_did.name))
