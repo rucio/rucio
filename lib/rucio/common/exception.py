@@ -1271,3 +1271,13 @@ class InvalidPolicyPackageAlgorithmType(RucioException):
         super(InvalidPolicyPackageAlgorithmType, self).__init__(*args)
         self._message = f"Invalid policy package algorithm type '{param}'."
         self.error_code = 120
+
+
+class InvalidAccountType(RucioException):
+    """
+    Thrown when an account is created with an invalid type
+    """
+    def __init__(self, *args):
+        super(InvalidAccountType, self).__init__(*args)
+        self._message = "Cannot create an account with an invalid type."
+        self.error_code = 121
