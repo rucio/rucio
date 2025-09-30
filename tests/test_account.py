@@ -17,7 +17,7 @@ from json import loads
 import pytest
 
 from rucio.common.config import config_get
-from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject
+from rucio.common.exception import AccountNotFound, Duplicate, InvalidAccountType, InvalidObject
 from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, del_account_attribute, list_account_attributes, list_identities
@@ -37,6 +37,11 @@ class TestAccountCoreGateway:
         assert account_exists(usr, vo=vo)
         assert not account_exists(invalid_usr, vo=vo)
         del_account(usr, 'root', vo=vo)
+
+        second_invalid_usr = account_name_generator()
+        with pytest.raises(InvalidAccountType):
+            add_account(second_invalid_usr, 'FAKEFAKEFAKEFAKE', 'rucio@email.com', 'root', vo=vo)
+        assert not account_exists(second_invalid_usr, vo=vo)
 
     def test_update_account(self, vo):
         """ ACCOUNT (CORE): Test changing and querying account parameters """
@@ -86,6 +91,11 @@ def test_create_user_failure(rest_client, auth_token):
     assert response.status_code in (201, 409)
     response = rest_client.post('/accounts/jdoe', headers=headers(auth(auth_token)), json=data)
     assert response.status_code == 409
+
+    account_name = account_name_generator()
+    data = {'type': "NOTATYPE", 'email': 'rucio@email.com'}
+    response = rest_client.post(f'/accounts/{account_name}', headers=headers(auth(auth_token)), json=data)
+    assert response.status_code == 400
 
 
 def test_create_user_non_json_body(rest_client, auth_token):
@@ -293,6 +303,10 @@ class TestAccountClient:
 
         with pytest.raises(InvalidObject):
             account_client.add_account('toooooooloooooonaccounnnnnnnntnammmmme', type_, email)
+
+        invalid_account = account_name_generator()
+        with pytest.raises(InvalidAccountType):
+            account_client.add_account(invalid_account, "FAKEFAKEFAKEFAKE", email)
 
         acc_info = account_client.get_account(account)
         assert acc_info['account'] == account
