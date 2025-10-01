@@ -475,7 +475,7 @@ def _get_local_account_usage_unique(account: "InternalAccount", rse_id: Optional
         if usage['bytes'] > 0 or usage['files'] > 0 or limit > 0:
             result_list.append({
                 'rse_id': rse_id,
-                'rse': get_rse_name(rse_id=rse_id_iter, session=session),
+                'rse': get_rse_name(rse_id=rse_id, session=session),
                 'bytes': usage['bytes'],
                 'files': usage['files'],
                 'bytes_limit': limit,
