@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Optional
+
 import click
 
 from rucio.cli.bin_legacy.rucio import list_account_usage
@@ -146,7 +148,7 @@ def limit():
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
 @click.option("--unique", is_flag=True, default=False, help="Count unique replicas to avoid double-counting when multiple locks exist.")
 @click.pass_context
-def limit_list(ctx, account_name, rse, unique):
+def limit_list(ctx: click.Context, account_name: str, rse: Optional[str], unique: bool) -> None:
     """List the limits and current usage for an account"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "usage_account": account_name, "rse": rse, "unique": unique})
     list_account_usage(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
