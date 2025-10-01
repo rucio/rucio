@@ -458,7 +458,10 @@ class AccountClient(BaseClient):
         rse :
             The rse name.
         unique :
+            unique :
             If True, count unique replicas to avoid double-counting when multiple locks exist.
+            Warning: This is computationally expensive as it queries replicas directly rather
+            than using cached counters. Use sparingly, especially for accounts with many replicas.
         """
         if rse:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local', rse])
