@@ -974,7 +974,7 @@ class LocalUsage(ErrorHandlingMethodView):
       406:
         description: "Not acceptable"
     """
-    unique = request.args.get('unique', 'false').lower() == 'true'
+    unique = request.args.get('unique', 'false').lower() in ['true', '1']
     
     try:
         def generate(issuer: str, vo: str) -> "Iterator[str]":
