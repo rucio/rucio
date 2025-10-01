@@ -335,8 +335,8 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
     
     result_list = []
 
-    for rse_id_iter in set(limits).union(counters):
-        counter = counters.get(rse_id_iter)
+    for rse_id in set(limits).union(counters):
+        counter = counters.get(rse_id)
         if counter:
             counter_files = counter.files
             counter_bytes = counter.bytes
@@ -344,14 +344,14 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
             counter_files = 0
             counter_bytes = 0
 
-        if counter_bytes > 0 or counter_files > 0 or rse_id_iter in limits.keys():
+        if counter_bytes > 0 or counter_files > 0 or rse_id in limits.keys():
             result_list.append({
-                'rse_id': rse_id_iter,
-                'rse': get_rse_name(rse_id=rse_id_iter, session=session),
+                'rse_id': rse_id,
+                'rse': get_rse_name(rse_id=rse_id, session=session),
                 'bytes': counter_bytes,
                 'files': counter_files,
-                'bytes_limit': limits.get(rse_id_iter, 0),
-                'bytes_remaining': limits.get(rse_id_iter, 0) - counter_bytes,
+                'bytes_limit': limits.get(rse_id, 0),
+                'bytes_remaining': limits.get(rse_id, 0) - counter_bytes,
             })
     return result_list
 
@@ -467,14 +467,14 @@ def _get_local_account_usage_unique(account: "InternalAccount", rse_id: Optional
     # Combine usage and limits
     all_rse_ids = set(usage_dict.keys()).union(set(limits.keys()) if limits else set())
     
-    for rse_id_iter in all_rse_ids:
-        usage = usage_dict.get(rse_id_iter, {'files': 0, 'bytes': 0})
-        limit = limits.get(rse_id_iter, 0) if limits else 0
+    for rse_id in all_rse_ids:
+        usage = usage_dict.get(rse_id, {'files': 0, 'bytes': 0})
+        limit = limits.get(rse_id, 0) if limits else 0
         
         # Include RSE if it has usage or a limit set
         if usage['bytes'] > 0 or usage['files'] > 0 or limit > 0:
             result_list.append({
-                'rse_id': rse_id_iter,
+                'rse_id': rse_id,
                 'rse': get_rse_name(rse_id=rse_id_iter, session=session),
                 'bytes': usage['bytes'],
                 'files': usage['files'],
