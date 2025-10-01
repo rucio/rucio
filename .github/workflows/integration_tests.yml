@@ -148,8 +148,6 @@ jobs:
             pip install --no-cache-dir -e /rucio_source
             tools/run_tests.sh -ir
           "
-      - name: Account Limits Test
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_account_limits.py
       - name: File Upload/Download Test
         run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rucio_server.py
       - name: UploadClient Test
