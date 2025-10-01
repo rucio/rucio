@@ -144,12 +144,12 @@ def limit():
 @limit.command("list", help="Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
+@click.option("--unique", is_flag=True, default=False, help="Count unique replicas to avoid double-counting when multiple locks exist.")
 @click.pass_context
-def limit_list(ctx, account_name, rse):
+def limit_list(ctx, account_name, rse, unique):
     """List the limits and current usage for an account"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "usage_account": account_name, "rse": rse})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "usage_account": account_name, "rse": rse, "unique": unique})
     list_account_usage(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
-
 
 @limit.command("add")
 @click.argument(
