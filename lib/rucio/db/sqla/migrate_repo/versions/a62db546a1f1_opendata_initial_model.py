@@ -74,7 +74,11 @@ def upgrade():
 
 def downgrade():
     op.drop_table('dids_opendata_meta')
+
+    op.drop_index('OPENDATA_DOI_CREATED_AT_IDX', table_name='dids_opendata_doi')
+    op.drop_index('OPENDATA_DOI_UPDATED_AT_IDX', table_name='dids_opendata_doi')
     op.drop_table('dids_opendata_doi')
+
     op.drop_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', table_name='dids_opendata')
     op.drop_index('OPENDATA_DID_STATE_IDX', table_name='dids_opendata')
     op.drop_index('OPENDATA_DID_CREATED_AT_IDX', table_name='dids_opendata')
