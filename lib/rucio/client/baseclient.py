@@ -113,25 +113,25 @@ class BaseClient:
 
         Parameters
         ----------
-        rucio_host : Optional[str]
+        rucio_host :
             The address of the rucio server, if None it is read from the config file.
-        auth_host : Optional[str]
+        auth_host :
             The address of the rucio authentication server, if None it is read from the config file.
-        account : Optional[str]
+        account :
             The account to authenticate to rucio.
-        ca_cert : Optional[str]
+        ca_cert :
             The path to the rucio server certificate.
-        auth_type : Optional[str]
+        auth_type :
             The type of authentication (e.g.: 'userpass', 'kerberos' ...)
-        creds : Optional[dict[str, Any]]
+        creds :
             Dictionary with credentials needed for authentication.
-        timeout : Optional[int]
+        timeout :
             Timeout for requests.
-        user_agent : str
+        user_agent :
             Indicates the client.
-        vo : Optional[str]
+        vo :
             The VO to authenticate into.
-        logger : Logger
+        logger :
             Logger object to use. If None, use the default LOG created by the module.
         """
         
@@ -169,7 +169,7 @@ class BaseClient:
         
         Parameters
         ----------
-        user_agent : str
+        user_agent :
             Base user agent string (e.g. 'rucio-clients')
         """
         self.session = Session()
@@ -191,9 +191,9 @@ class BaseClient:
         
         Parameters
         ----------
-        rucio_host : Optional[str]
+        rucio_host :
             Rucio server address, if None reads from config
-        auth_host : Optional[str]
+        auth_host :
             Authentication server address, if None reads from config
             
         Raises
@@ -218,14 +218,14 @@ class BaseClient:
         
         Parameters
         ----------
-        section : str
+        section :
             Configuration section name
-        option : str
+        option :
             Configuration option name
             
         Returns
         -------
-        str
+
             Configuration value
             
         Raises
@@ -252,9 +252,9 @@ class BaseClient:
         
         Parameters
         ----------
-        account : Optional[str]
+        account :
             Rucio account name
-        vo : Optional[str]
+        vo :
             Virtual Organization name
         """
         self.account = account or environ.get('RUCIO_ACCOUNT') or self._get_optional_config('client', 'account')
@@ -276,14 +276,14 @@ class BaseClient:
         
         Parameters
         ----------
-        section : str
+        section :
             Configuration section name
-        option : str
+        option :
             Configuration option name
             
         Returns
         -------
-        Optional[str]
+
             Configuration value or None if not found
         """
         try:
@@ -334,9 +334,9 @@ class BaseClient:
         
         Parameters
         ----------
-        host : str
+        host :
             URL to validate
-        allowed_schemes : list[str]
+        allowed_schemes :
             List of allowed URL schemes (e.g., ['http', 'https'])
             
         Raises
@@ -363,7 +363,7 @@ class BaseClient:
         
         Returns
         -------
-        Any
+
             Path to CA certificate file, directory, or True for default certifi bundle
         """
         self.logger.debug('HTTPS is required, but no ca_cert was passed. Trying to get it from X509_CERT_DIR.')
@@ -785,7 +785,7 @@ class BaseClient:
         
         Returns
         -------
-        bool
+
             True if the token was successfully received, False otherwise
         """
         auth_url = self._request_oidc_auth_url()
@@ -811,7 +811,7 @@ class BaseClient:
         
         Returns
         -------
-        Optional[str]
+
             Authorization URL from the identity provider, or None if request failed
         """
         headers = self._build_oidc_request_headers()
@@ -838,7 +838,7 @@ class BaseClient:
         
         Returns
         -------
-        dict[str, str]
+
             Dictionary of HTTP headers for OIDC request
         """
         headers = {
@@ -865,12 +865,12 @@ class BaseClient:
         
         Parameters
         ----------
-        auth_url : str
+        auth_url :
             Authorization URL for the user to visit in their browser
             
         Returns
         -------
-        Optional[Response]
+
             Response object containing auth token if successful, None otherwise
         """
         self._display_polling_instructions(auth_url)
@@ -896,12 +896,12 @@ class BaseClient:
         
         Parameters
         ----------
-        auth_url : str
+        auth_url :
             Authorization URL for the user to visit in their browser
             
         Returns
         -------
-        Optional[Response]
+
             Response object containing auth token if successful, None otherwise
         """
         self._display_manual_instructions(auth_url)
@@ -931,12 +931,12 @@ class BaseClient:
         
         Parameters
         ----------
-        auth_url : str
+        auth_url :
             Authorization URL for authentication
             
         Returns
         -------
-        Optional[Response]
+
             Response object containing auth token if successful, None otherwise
         """
         self.logger.warning("Automatic OIDC authentication shares credentials with 3rd party. "
@@ -966,12 +966,12 @@ class BaseClient:
         
         Parameters
         ----------
-        url : str
+        url :
             Authorization form URL
             
         Returns
         -------
-        Response
+
             Response object from the authorization request
         """
         form_data = {f"scope_{scope}": scope for scope in self.creds['oidc_scope'].split()}
@@ -993,12 +993,12 @@ class BaseClient:
         
         Parameters
         ----------
-        result : Optional[Response]
+        result :
             Response object from OIDC authentication flow
             
         Returns
         -------
-        bool
+
             True if token was successfully extracted and stored, False otherwise
             
         Raises
@@ -1032,7 +1032,7 @@ class BaseClient:
         
         Parameters
         ----------
-        auth_url : str
+        auth_url :
             URL the user should visit to authenticate
         """
         print(f"\nPlease use your internet browser and go to:\n\n    {auth_url}\n")
@@ -1046,7 +1046,7 @@ class BaseClient:
         
         Parameters
         ----------
-        auth_url : str
+        auth_url :
             URL the user should visit to authenticate
         """
         print(f"\nPlease use your internet browser and go to:\n\n    {auth_url}\n")
