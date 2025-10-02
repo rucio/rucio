@@ -204,11 +204,9 @@ class BaseClient:
         self.host = rucio_host or self._get_config_value('client', 'rucio_host')
         self.auth_host = auth_host or self._get_config_value('client', 'auth_host')
         
-        try:
-            self.trace_host = config_get('trace', 'trace_host')
-        except (NoOptionError, NoSectionError, ConfigNotFound):
-            self.trace_host = self.host
-            self.logger.debug('No trace_host passed. Using rucio_host instead')
+        self.trace_host = self._get_optional_config('trace', 'trace_host') or self.host
+        if self.trace_host == self.host:
+            self.logger.debug('No trace_host configured. Using rucio_host instead')
         
         self.list_hosts = [self.host]
 
