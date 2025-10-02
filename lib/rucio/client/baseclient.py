@@ -170,12 +170,16 @@ class BaseClient:
         Parameters
         ----------
         user_agent : str
-            Base user agent string (e.g., 'rucio-clients')
+            Base user agent string (e.g. 'rucio-clients')
         """
         self.session = Session()
         self.user_agent = f"{user_agent}/{version.version_string()}"
-        sys.argv[0] = sys.argv[0].split('/')[-1]
-        self.script_id = '::'.join(sys.argv[0:2]) or 'python'
+        
+        if sys.argv:
+            sys.argv[0] = sys.argv[0].split('/')[-1]
+            self.script_id = '::'.join(sys.argv[0:2]) or 'python'
+        else:
+            self.script_id = 'python'
 
     def _configure_hosts(self, rucio_host: Optional[str], auth_host: Optional[str]) -> None:
         """
