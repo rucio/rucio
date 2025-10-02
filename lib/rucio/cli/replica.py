@@ -129,11 +129,13 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
     """Mark a replica bad"""
     args = {"reason": reason, "allow_collection": collection, "scope": scope, "rse": rse}
     if as_file:
-        args["inputfile"] = replicas
+        # For file input, expect a single filename
+        args["inputfile"] = replicas[0] if replicas else None
     elif lfn:
         if (scope is None) or (rse is None):
             raise ValueError("Scope and RSE are required when using LFNs")
-        args["lfns"] = replicas
+        # For LFN file input, expect a single filename
+        args["lfns"] = replicas[0] if replicas else None
     else:
         args["listbadfiles"] = replicas
     declare_bad_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -149,7 +151,8 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
     """Declare a replica unavailable"""
     args = {"reason": reason, "duration": duration}
     if as_file:
-        args["inputfile"] = replicas
+        # For file input, expect a single filename
+        args["inputfile"] = replicas[0] if replicas else None
     else:
         args["listbadfiles"] = replicas
     declare_temporary_unavailable_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -164,7 +167,8 @@ def update_quarantine(ctx, replicas, as_file, rse):
     """Quarantine a replica"""
     args = {"rse": rse}
     if as_file:
-        args["paths_file"] = replicas
+        # For file input, expect a single filename
+        args["paths_file"] = replicas[0] if replicas else None
     else:
         args["paths_list"] = replicas
 
