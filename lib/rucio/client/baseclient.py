@@ -201,42 +201,21 @@ class BaseClient:
         MissingClientParameter
             If required host configuration cannot be found
         """
-        self.host = rucio_host or self._get_config_value('client', 'rucio_host')
-        self.auth_host = auth_host or self._get_config_value('client', 'auth_host')
+        try:
+            self.host = rucio_host or config_get('client', 'rucio_host')
+        except (NoOptionError, NoSectionError) as error:
+            raise MissingClientParameter(f"Section client and Option '{error.args[0]}' cannot be found in config file")
         
-        self.trace_host = self._get_optional_config('trace', 'trace_host') or self.host
+        try:
+            self.auth_host = auth_host or config_get('client', 'auth_host')
+        except (NoOptionError, NoSectionError) as error:
+            raise MissingClientParameter(f"Section client and Option '{error.args[0]}' cannot be found in config file")
+        
+        self.trace_host = config_get('trace', 'trace_host', raise_exception=False, default=self.host)
         if self.trace_host == self.host:
             self.logger.debug('No trace_host configured. Using rucio_host instead')
         
         self.list_hosts = [self.host]
-
-    def _get_config_value(self, section: str, option: str) -> str:
-        """
-        Get a required configuration value or raise an error.
-        
-        Parameters
-        ----------
-        section :
-            Configuration section name
-        option :
-            Configuration option name
-            
-        Returns
-        -------
-
-            Configuration value
-            
-        Raises
-        ------
-        MissingClientParameter
-            If the configuration option cannot be found
-        """
-        try:
-            return config_get(section, option)
-        except (NoOptionError, NoSectionError) as error:
-            raise MissingClientParameter(
-                f"Section {section} and Option '{error.args[0]}' cannot be found in config file"
-            )
 
     def _configure_account_and_vo(self, account: Optional[str], vo: Optional[str]) -> None:
         """
@@ -255,39 +234,22 @@ class BaseClient:
         vo :
             Virtual Organization name
         """
-        self.account = account or environ.get('RUCIO_ACCOUNT') or self._get_optional_config('client', 'account')
+        self.account = (
+            account 
+            or environ.get('RUCIO_ACCOUNT') 
+            or config_get('client', 'account', raise_exception=False, default=None)
+        )
         
         if vo is not None:
             self.vo = vo
         else:
             self.vo = (
                 environ.get('RUCIO_VO')
-                or self._get_optional_config('client', 'vo')
+                or config_get('client', 'vo', raise_exception=False, default=None)
                 or DEFAULT_VO
             )
             if self.vo == DEFAULT_VO:
                 self.logger.debug('No VO found. Using default VO.')
-
-    def _get_optional_config(self, section: str, option: str) -> Optional[str]:
-        """
-        Get optional configuration value, returning None if not found.
-        
-        Parameters
-        ----------
-        section :
-            Configuration section name
-        option :
-            Configuration option name
-            
-        Returns
-        -------
-
-            Configuration value or None if not found
-        """
-        try:
-            return config_get(section, option)
-        except (NoOptionError, NoSectionError, ConfigNotFound):
-            return None
 
     def _setup_oidc_config(self) -> None:
         """

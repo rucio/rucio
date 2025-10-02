@@ -69,16 +69,29 @@ class TestBaseClientHelperMethods:
         mock_client_partial._get_config_value.assert_not_called()
 
     @patch('rucio.client.baseclient.config_get')
-    def test_configure_hosts_falls_back_to_config(self, mock_config, mock_client_partial):
+    def test_configure_hosts_falls_back_to_config(self, mock_config_get, mock_client_partial):
         """Test _configure_hosts reads from config when hosts not provided."""
-        mock_config.side_effect = lambda section, option: f'https://{option}.cern.ch'
-        mock_client_partial._get_config_value = Mock(side_effect=lambda s, o: f'https://{o}.cern.ch')
+        mock_client_partial.logger = Mock()
         
-        with patch('rucio.client.baseclient.config_get', mock_config):
-            mock_client_partial._configure_hosts(None, None)
+        # Mock config_get to return appropriate values based on option
+        def config_get_side_effect(section, option, raise_exception=True, default=None):
+            if option == 'rucio_host':
+                return 'https://rucio_host.cern.ch'
+            elif option == 'auth_host':
+                return 'https://auth_host.cern.ch'
+            elif option == 'trace_host':
+                if not raise_exception:
+                    return default
+                raise NoSectionError(section)
+            return f'https://{option}.cern.ch'
         
-        assert 'rucio_host' in mock_client_partial.host
-        assert 'auth_host' in mock_client_partial.auth_host
+        mock_config_get.side_effect = config_get_side_effect
+        
+        mock_client_partial._configure_hosts(None, None)
+        
+        assert mock_client_partial.host == 'https://rucio_host.cern.ch'
+        assert mock_client_partial.auth_host == 'https://auth_host.cern.ch'
+        assert mock_client_partial.trace_host == 'https://rucio_host.cern.ch'  # Falls back to host
 
     @patch.dict(os.environ, {'RUCIO_ACCOUNT': 'env_account', 'RUCIO_VO': 'env_vo'})
     def test_configure_account_and_vo_from_environment(self, mock_client_partial):
@@ -92,23 +105,36 @@ class TestBaseClientHelperMethods:
 
     @patch.dict(os.environ, {}, clear=True)
     @patch('rucio.client.baseclient.config_get')
-    def test_configure_account_and_vo_from_config(self, mock_config, mock_client_partial):
+    def test_configure_account_and_vo_from_config(self, mock_config_get, mock_client_partial):
         """Test _configure_account_and_vo reads from config file."""
         mock_client_partial.logger = Mock()
-        mock_client_partial._get_optional_config = Mock(side_effect=lambda s, o: f'config_{o}')
+        
+        # Mock config_get to return different values based on the option parameter
+        def config_get_side_effect(section, option, raise_exception=True, default=None):
+            if option == 'account':
+                return 'config_account'
+            elif option == 'vo':
+                return 'config_vo'
+            return default
+        
+        mock_config_get.side_effect = config_get_side_effect
         
         mock_client_partial._configure_account_and_vo(None, None)
         
         assert mock_client_partial.account == 'config_account'
         assert mock_client_partial.vo == 'config_vo'
 
+
     @patch.dict(os.environ, {}, clear=True)
-    def test_configure_account_and_vo_defaults_vo(self, mock_client_partial):
+    @patch('rucio.client.baseclient.config_get')
+    def test_configure_account_and_vo_defaults_vo(self, mock_config_get, mock_client_partial):
         """Test _configure_account_and_vo uses DEFAULT_VO as fallback."""
         from rucio.common.constants import DEFAULT_VO
         
         mock_client_partial.logger = Mock()
-        mock_client_partial._get_optional_config = Mock(return_value=None)
+        
+        # Mock config_get to return None for both account and vo
+        mock_config_get.return_value = None
         
         mock_client_partial._configure_account_and_vo(None, None)
         
