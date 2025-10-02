@@ -819,24 +819,11 @@ class BaseClient:
         return headers
 
     def _handle_oidc_polling_flow(self, auth_url: str) -> Optional[Response]:
-        """
-        Handle OIDC authentication with polling flow.
-        
-        Displays instructions to the user to authenticate in their browser, then
-        polls the Rucio auth server at regular intervals for a token. Continues
-        polling until a token is received or timeout is reached.
-        
-        Parameters
-        ----------
-        auth_url :
-            Authorization URL for the user to visit in their browser
-            
-        Returns
-        -------
-
-            Response object containing auth token if successful, None otherwise
-        """
-        self._display_polling_instructions(auth_url)
+        """Handle OIDC authentication with polling flow."""
+        print(f"\nPlease use your internet browser and go to:\n\n    {auth_url}\n")
+        print("and authenticate with your Identity Provider.")
+        print(f"\nRucio Client will poll the auth server for {OIDC_POLLING_TIMEOUT_SECONDS // 60} minutes.")
+        print("----------------------------------------------")
         
         headers = {'X-Rucio-Client-Fetch-Token': 'True'}
         start_time = time.time()
@@ -850,24 +837,10 @@ class BaseClient:
         return None
 
     def _handle_oidc_manual_code_flow(self, auth_url: str) -> Optional[Response]:
-        """
-        Handle OIDC authentication with manual code entry flow.
-        
-        Displays instructions to the user to authenticate in their browser and copy
-        a code. Prompts the user to enter the code and exchanges it for an auth token.
-        Allows up to OIDC_MAX_CODE_ATTEMPTS attempts.
-        
-        Parameters
-        ----------
-        auth_url :
-            Authorization URL for the user to visit in their browser
-            
-        Returns
-        -------
-
-            Response object containing auth token if successful, None otherwise
-        """
-        self._display_manual_instructions(auth_url)
+        """Handle OIDC authentication with manual code entry flow."""
+        print(f"\nPlease use your internet browser and go to:\n\n    {auth_url}\n")
+        print("and authenticate with your Identity Provider.")
+        print("\nCopy paste the code from the browser to the terminal and press enter:")
         
         headers = {'X-Rucio-Client-Fetch-Token': 'True'}
         
@@ -948,27 +921,7 @@ class BaseClient:
         return self._send_request(url, type_='POST', data=form_data)
 
     def _finalize_oidc_token(self, result: Optional[Response]) -> bool:
-        """
-        Extract and store OIDC auth token from response.
-        
-        Validates the response, extracts the auth token, and stores it.
-        If OIDC refresh is enabled, also handles token expiration tracking.
-        
-        Parameters
-        ----------
-        result :
-            Response object from OIDC authentication flow
-            
-        Returns
-        -------
-
-            True if token was successfully extracted and stored, False otherwise
-            
-        Raises
-        ------
-        RucioException
-            If response indicates an error (non-200 status code)
-        """
+        """Extract and store OIDC auth token from response."""
         if not result:
             self.logger.error('Cannot retrieve authentication token!')
             return False
@@ -984,52 +937,16 @@ class BaseClient:
         self.auth_token = result.headers['x-rucio-auth-token']
         
         if self.auth_oidc_refresh_active:
-            self._reset_token_expiration()
+            self.logger.debug("Resetting token expiration epoch file.")
+            self.token_exp_epoch = None
+            file_d, file_n = mkstemp(dir=self.token_path)
+            with fdopen(file_d, "w") as f_exp_epoch:
+                f_exp_epoch.write(str(self.token_exp_epoch))
+            move(file_n, self.token_exp_epoch_file)
+            
             self.__refresh_token_oidc()
         
         return True
-
-    def _display_polling_instructions(self, auth_url: str) -> None:
-        """
-        Display user instructions for polling-based OIDC authentication.
-        
-        Parameters
-        ----------
-        auth_url :
-            URL the user should visit to authenticate
-        """
-        print(f"\nPlease use your internet browser and go to:\n\n    {auth_url}\n")
-        print("and authenticate with your Identity Provider.")
-        print(f"\nRucio Client will poll the auth server for {OIDC_POLLING_TIMEOUT_SECONDS // 60} minutes.")
-        print("----------------------------------------------")
-
-    def _display_manual_instructions(self, auth_url: str) -> None:
-        """
-        Display user instructions for manual code-based OIDC authentication.
-        
-        Parameters
-        ----------
-        auth_url :
-            URL the user should visit to authenticate
-        """
-        print(f"\nPlease use your internet browser and go to:\n\n    {auth_url}\n")
-        print("and authenticate with your Identity Provider.")
-        print("\nCopy paste the code from the browser to the terminal and press enter:")
-
-    def _reset_token_expiration(self) -> None:
-        """
-        Reset token expiration file for new OIDC authentication.
-        
-        Clears the token expiration epoch and writes it to the expiration file.
-        This is called at the start of new CLI OIDC authentication to ensure
-        clean state for token refresh tracking.
-        """
-        self.logger.debug("Resetting token expiration epoch file.")
-        self.token_exp_epoch = None
-        file_d, file_n = mkstemp(dir=self.token_path)
-        with fdopen(file_d, "w") as f_exp_epoch:
-            f_exp_epoch.write(str(self.token_exp_epoch))
-        move(file_n, self.token_exp_epoch_file)
 
     def __get_token_x509(self) -> bool:
         """
