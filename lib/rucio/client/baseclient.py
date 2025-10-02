@@ -317,25 +317,27 @@ class BaseClient:
         ClientProtocolNotSupported
             If URL scheme is not in allowed list
         """
-        self._validate_url_scheme(self.host, ['http', 'https'])
-        self._validate_url_scheme(self.auth_host, ['http', 'https'])
-        
-        rucio_scheme = urlparse(self.host).scheme
-        auth_scheme = urlparse(self.auth_host).scheme
+        rucio_scheme = self._get_valid_url_scheme(self.host, ['http', 'https'])
+        auth_scheme = self._get_valid_url_scheme(self.auth_host, ['http', 'https'])
         
         if (rucio_scheme == 'https' or auth_scheme == 'https') and self.ca_cert is None:
             self.ca_cert = self._discover_ca_cert()
 
-    def _validate_url_scheme(self, host: str, allowed_schemes: list[str]) -> None:
+    def _get_valid_url_scheme(self, host: str, allowed_schemes: list[str]) -> str:
         """
-        Validate that a host URL has an allowed scheme.
+        Validate and return the URL scheme.
         
         Parameters
         ----------
         host :
             URL to validate
         allowed_schemes :
-            List of allowed URL schemes (e.g., ['http', 'https'])
+            List of allowed URL schemes
+            
+        Returns
+        -------
+        
+            The validated URL scheme
             
         Raises
         ------
@@ -349,6 +351,7 @@ class BaseClient:
             raise ClientProtocolNotFound(host=host, protocols_allowed=allowed_schemes)
         if scheme not in allowed_schemes:
             raise ClientProtocolNotSupported(host=host, protocol=scheme, protocols_allowed=allowed_schemes)
+        return scheme
 
     def _discover_ca_cert(self) -> Any:
         """

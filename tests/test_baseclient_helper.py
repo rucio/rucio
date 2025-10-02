@@ -115,18 +115,19 @@ class TestBaseClientHelperMethods:
         assert mock_client_partial.vo == DEFAULT_VO
 
     @pytest.mark.parametrize("url", ["https://example.com", "http://example.com"])
-    def test_validate_url_scheme_accepts_valid_schemes(self, mock_client_partial, url):
-        """Test _validate_url_scheme accepts allowed protocols."""
-        mock_client_partial._validate_url_scheme(url, ['http', 'https'])
+    def test_get_valid_url_scheme_accepts_valid_schemes(self, mock_client_partial, url):
+        """Test _get_valid_url_scheme accepts allowed protocols and returns scheme."""
+        result = mock_client_partial._get_valid_url_scheme(url, ['http', 'https'])
+        assert result in ['http', 'https']
 
     @pytest.mark.parametrize("url,exception", [
         ("example.com", ClientProtocolNotFound),
         ("ftp://example.com", ClientProtocolNotSupported)
     ])
-    def test_validate_url_scheme_rejects_invalid(self, mock_client_partial, url, exception):
-        """Test _validate_url_scheme raises on invalid protocols."""
+    def test_get_valid_url_scheme_rejects_invalid(self, mock_client_partial, url, exception):
+        """Test _get_valid_url_scheme raises on invalid protocols."""
         with pytest.raises(exception):
-            mock_client_partial._validate_url_scheme(url, ['http', 'https'])
+            mock_client_partial._get_valid_url_scheme(url, ['http', 'https'])
 
     @pytest.mark.parametrize("env_var,expected_path", [
         ({'X509_CERT_DIR': '/test/certs'}, '/test/certs'),
