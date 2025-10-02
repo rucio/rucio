@@ -90,7 +90,7 @@ class ConfigClient(BaseClient):
         Note:
         ------
         The format of the /config endpoint was recently changed. We migrated from performing a PUT on
-        "/config/<section>/<option>/<value>" to sending the parameters using a json-encoded body.
+        "/config/{section}/{option}/{value}" to sending the parameters using a json-encoded body.
         This was done to fix multiple un-wanted side effects related to how the middleware treats
         values encoded in a path.
         For a smooth transition, we allow both cases for now, but we should migrate to only passing
