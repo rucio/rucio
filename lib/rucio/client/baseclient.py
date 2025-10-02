@@ -235,8 +235,8 @@ class BaseClient:
             Virtual Organization name
         """
         self.account = (
-            account 
-            or environ.get('RUCIO_ACCOUNT') 
+            account
+            or environ.get('RUCIO_ACCOUNT')
             or config_get('client', 'account', raise_exception=False, default=None)
         )
         
