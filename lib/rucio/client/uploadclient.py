@@ -43,7 +43,6 @@ from rucio.common.exception import (
     RSEOperationNotSupported,
     RSEWriteBlocked,
     RucioException,
-    ScopeNotFound,
     ServiceUnavailable,
 )
 from rucio.common.utils import execute, generate_uuid, make_valid_did, retry, send_trace
@@ -130,7 +129,8 @@ class UploadClient:
             summary_file_path: Optional[Union[str, os.PathLike[str]]] = None,
             traces_copy_out: Optional[list["TraceBaseDict"]] = None,
             ignore_availability: bool = False,
-            activity: Optional[str] = None
+            activity: Optional[str] = None,
+            new_file: bool = False
     ) -> int:
         """
         Uploads one or more files to an RSE (Rucio Storage Element) and optionally registers them.
@@ -279,6 +279,9 @@ class UploadClient:
             _**Note:**_ If your files are uploaded into a dataset, the dataset’s replication
             rule does not use this activity parameter.
 
+        new_file
+            If set to True, the DID is assumed not to already exist.
+
         Returns
         -------
         int
@@ -353,7 +356,10 @@ class UploadClient:
         rse_expression = None
         for file in files:
             rse_expression = file['rse']
-            rse = self.rse_expressions.setdefault(rse_expression, _pick_random_rse(rse_expression))
+
+            if rse_expression not in self.rse_expressions:
+                self.rse_expressions[rse_expression] = _pick_random_rse(rse_expression)
+            rse = self.rse_expressions[rse_expression]
 
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
@@ -378,6 +384,7 @@ class UploadClient:
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
+        rse_attribute_cache = {}
         for file in files:
             basename = file['basename']
             logger(logging.INFO, 'Preparing upload for file %s' % basename)
@@ -416,11 +423,15 @@ class UploadClient:
 
             # resolving local area networks
             domain = 'wan'
-            rse_attributes = {}
-            try:
-                rse_attributes = self.client.list_rse_attributes(rse)
-            except Exception:
-                logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+            if rse in rse_attribute_cache:
+                rse_attributes = rse_attribute_cache[rse]
+            else:
+                rse_attributes = {}
+                try:
+                    rse_attributes = self.client.list_rse_attributes(rse)
+                except Exception:
+                    logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+                rse_attribute_cache[rse] = rse_attributes
             if self.client_location and 'lan' in rse_settings['domain'] and RseAttr.SITE in rse_attributes:
                 if self.client_location['site'] == rse_attributes[RseAttr.SITE]:
                     domain = 'lan'
@@ -436,7 +447,8 @@ class UploadClient:
                 self._register_file(file,
                                     registered_dataset_dids,
                                     ignore_availability=ignore_availability,
-                                    activity=activity)
+                                    activity=activity,
+                                    new_file=new_file)
 
             # if register_after_upload, the file should be overwritten if it is not registered,
             # otherwise if the file already exists on RSE we're done
@@ -564,7 +576,8 @@ class UploadClient:
                         self._register_file(file,
                                             registered_dataset_dids,
                                             ignore_availability=ignore_availability,
-                                            activity=activity)
+                                            activity=activity,
+                                            new_file=new_file)
                     else:
                         replica_for_api = self._convert_file_for_api(file)
                         try:
@@ -654,7 +667,8 @@ class UploadClient:
             file: "Mapping[str, Any]",
             registered_dataset_dids: set[str],
             ignore_availability: bool = False,
-            activity: Optional[str] = None
+            activity: Optional[str] = None,
+            new_file: bool = False
     ) -> None:
         """
         Register a single file DID in Rucio, optionally creating its parent dataset if needed.
@@ -678,6 +692,9 @@ class UploadClient:
         activity
             Specifies the transfer activity (e.g., 'User Subscriptions') for the replication rule.
 
+        new_file
+            If True, the file DID is assumed not to exist already.
+
         Raises
         ------
         InputValidationError
@@ -687,16 +704,6 @@ class UploadClient:
         """
         logger = self.logger
         logger(logging.DEBUG, 'Registering file')
-
-        # verification whether the scope exists
-        account_scopes = []
-        try:
-            account_scopes = self.client.list_scopes_for_account(self.client.account)
-        except ScopeNotFound:
-            pass
-        if account_scopes and file['did_scope'] not in account_scopes:
-            logger(logging.WARNING,
-                   'Scope {} not found for the account {}.'.format(file['did_scope'], self.client.account))
 
         rse = file['rse']
         dataset_did_str = file.get('dataset_did_str')
@@ -726,23 +733,28 @@ class UploadClient:
         file_name = file['did_name']
         file_did = {'scope': file_scope, 'name': file_name}
         replica_for_api = self._convert_file_for_api(file)
-        try:
-            # if the remote checksum is different, this DID must not be used
-            meta = self.client.get_metadata(file_scope, file_name)
-            logger(logging.INFO, 'File DID already exists')
-            logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
 
-            if str(meta['adler32']).lstrip('0') != str(file['adler32']).lstrip('0'):
-                logger(logging.ERROR,
+        if not new_file:
+            try:
+                # if the remote checksum is different, this DID must not be used
+                meta = self.client.get_metadata(file_scope, file_name)
+                logger(logging.INFO, 'File DID already exists')
+                logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
+
+                if str(meta['adler32']).lstrip('0') != str(file['adler32']).lstrip('0'):
+                    logger(logging.ERROR,
                        'Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
-                raise DataIdentifierAlreadyExists
+                    raise DataIdentifierAlreadyExists
 
-            # add the file to rse if it is not registered yet
-            replicastate = list(self.client.list_replicas([file_did], all_states=True))
-            if rse not in replicastate[0]['rses']:
-                self.client.add_replicas(rse=rse, files=[replica_for_api])
-                logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
-        except DataIdentifierNotFound:
+                # add the file to rse if it is not registered yet
+                replicastate = list(self.client.list_replicas([file_did], all_states=True))
+                if rse not in replicastate[0]['rses']:
+                    self.client.add_replicas(rse=rse, files=[replica_for_api])
+                    logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
+            except DataIdentifierNotFound:
+                new_file = True
+
+        if new_file:
             logger(logging.DEBUG, 'File DID does not exist')
             self.client.add_replicas(rse=rse, files=[replica_for_api])
             if config_get_bool('client', 'register_bittorrent_meta', default=False):
