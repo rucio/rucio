@@ -17,7 +17,7 @@ from copy import deepcopy
 import pytest
 
 from rucio.client.didclient import DIDClient
-from rucio.common.exception import KeyNotFound, InvalidMetadata
+from rucio.common.exception import InvalidMetadata, KeyNotFound
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, get_metadata_bulk, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
