@@ -1831,7 +1831,7 @@ class Tombstone(ErrorHandlingMethodView):
 
 class ReplicaExists(ErrorHandlingMethodView):
 
-    def get(self, scope_name):
+    def get(self, scope_name: str):
         """
         ---
         summary: Check replica existence
@@ -1861,7 +1861,7 @@ class ReplicaExists(ErrorHandlingMethodView):
         try:
             scope, name = parse_scope_name(scope_name, request.environ['vo'])
             did = { 'scope': scope, 'name': name }
-            rse = request.args.get('rse', default=False)
+            rse = request.args.get('rse', default='')
             if not replica_exists(
                     did=did,
                     rse=rse,
