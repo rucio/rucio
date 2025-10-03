@@ -62,6 +62,7 @@ def get_opendata_did(
         include_files: bool = True,
         include_metadata: bool = False,
         include_doi: bool = True,
+        include_record_id: bool = True,
         vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
@@ -74,6 +75,7 @@ def get_opendata_did(
         include_files: Whether to include files in the result.
         include_metadata: Whether to include metadata in the result.
         include_doi: Whether to include DOI information in the result.
+        include_record_id: Whether to include the record ID in the result.
         vo: The virtual organization.
 
     Returns:
@@ -93,6 +95,7 @@ def get_opendata_did(
                                            include_files=include_files,
                                            include_metadata=include_metadata,
                                            include_doi=include_doi,
+                                           include_record_id=include_record_id,
                                            session=session)
         return gateway_update_return_dict(result, session=session)
 
@@ -150,6 +153,7 @@ def update_opendata_did(
         state: Optional["OPENDATA_DID_STATE_LITERAL"] = None,
         meta: Optional[dict] = None,
         doi: Optional[str] = None,
+        record_id: Optional[int] = None,
         vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
@@ -161,6 +165,7 @@ def update_opendata_did(
         state: Optional new state for the DID.
         meta: Optional metadata dictionary or JSON string.
         doi: Optional DOI string.
+        record_id: Optional record ID
         vo: The virtual organization.
 
     Returns:
@@ -187,4 +192,5 @@ def update_opendata_did(
                                             state=state_enum,
                                             meta=meta,
                                             doi=doi,
+                                            record_id=record_id,
                                             session=session)
