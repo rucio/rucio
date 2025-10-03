@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import json
 import operator
-import jsonschema
+import os
 from typing import TYPE_CHECKING, Any, Optional
 
+import jsonschema
 import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
@@ -28,8 +28,6 @@ from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 
 if TYPE_CHECKING:
-    from typing import Optional
-
     from sqlalchemy.orm import Session
 
 
@@ -211,7 +209,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                 with open(schema_path, 'r') as f:
                     schema = json.load(f)
                 return schema
-            except (json.JSONDecodeError, IOError) as e:
+            except (json.JSONDecodeError, OSError) as e:
                 raise exception.ConfigurationError(f"Invalid JSON schema file: {e}")
         else:
             return None
@@ -263,7 +261,15 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
-    def set_metadata_bulk(self, scope, name, metadata, recursive=False, *, session: "Optional[Session]" = None):
+    def set_metadata_bulk(
+        self,
+        scope: InternalScope,
+        name: str,
+        metadata: dict[str, Any],
+        recursive: bool = False,
+        *,
+        session: "Optional[Session]" = None,
+    ) -> None:
         """
         Bulk set metadata keys.
 
@@ -375,7 +381,12 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                     ignore_dids.add(did)
                     yield row['name']
 
-    def manages_key(self, key, *, session: "Optional[Session]" = None):
+    def manages_key(
+        self,
+        key: str,
+        *,
+        session: "Optional[Session]" = None,
+    ) -> bool:
         if self.metadata_schema:
             if key in self.metadata_schema.get("properties", {}):
                 return True
