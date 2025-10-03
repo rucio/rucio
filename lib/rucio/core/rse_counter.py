@@ -21,6 +21,7 @@ from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
+
     from sqlalchemy.orm import Session
 
 
