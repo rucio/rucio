@@ -28,12 +28,14 @@ import rucio.db.sqla.util
 from rucio.client import Client
 from rucio.client.uploadclient import UploadClient
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import FileToUploadDict, InternalScope, LoggerFunction
 from rucio.common.utils import execute, generate_uuid
 from rucio.core.monitor import MetricManager
+from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.scope import list_scopes
 from rucio.core.vo import map_vo
 from rucio.daemons.common import HeartbeatHandler, run_daemon
@@ -146,25 +148,17 @@ def automatix(inputfile: str, sleep_time: int, once: bool = False) -> None:
 
 
 def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> bool:
-
     _, _, logger = heartbeat_handler.live()
-    try:
-        rses = config_get_list("automatix", "rses")
-    except (NoOptionError, NoSectionError, RuntimeError):
-        logging.log(
-            logging.ERROR,
-            "Option rses not found in automatix section. Trying the legacy sites option",
-        )
-        try:
-            rses = config_get_list("automatix", "sites")
-            logging.log(
-                logging.WARNING,
-                "Option sites found in automatix section. This option will be deprecated soon. Please update your config to use rses.",
-            )
-        except (NoOptionError, NoSectionError, RuntimeError):
-            logger(logging.ERROR, "Could not load sites from configuration")
-            return True
 
+    try:
+        rse_expr = config_get("automatix", "rses")
+        rses = sorted([rse['rse'] for rse in parse_expression(rse_expr)])
+    except (NoOptionError, NoSectionError, RuntimeError):
+        logger.log(logging.ERROR, "Option rses not found in automatix section")
+        return True
+    except InvalidRSEExpression:
+        logger.log(logging.ERROR, "Option rses does not contain a valid RSE expression")
+        return True
     set_metadata = config_get_bool(
         "automatix", "set_metadata", raise_exception=False, default=True
     )
@@ -173,6 +167,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     )
     account = config_get("automatix", "account", raise_exception=False, default="root")
     scope = config_get("automatix", "scope", raise_exception=False, default="test")
+
     client = Client(account=account)
     vo = map_vo(client.vo)  # type: ignore
     filters = {"scope": InternalScope("*", vo=vo)}
@@ -205,10 +200,10 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
         try:
             filesize = dic["filesize"]
         except KeyError:
-            filesize = 1000000
+            filesize = 1_000_000
             logger(
                 logging.WARNING,
-                "No filesize defined in the configuration, will use 1M files",
+                "No filesize defined in the configuration, will use 1 MB files",
             )
         dsn = generate_didname(metadata, None, "dataset")
         fnames = []
