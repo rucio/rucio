@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, render_json
 
 if TYPE_CHECKING:
@@ -81,7 +82,7 @@ class LifetimeClient(BaseClient):
             params['states'] = exception_id
         url = build_url(choice(self.list_hosts), path=path, params=params)
 
-        result = self._send_request(url)
+        result = self._send_request(url, method=HTTPMethod.GET)
         if result.status_code == codes.ok:
             lifetime_exceptions = self._load_json_data(result)
             return lifetime_exceptions
@@ -133,7 +134,7 @@ class LifetimeClient(BaseClient):
         path = self.LIFETIME_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
         data = {'dids': dids, 'account': account, 'pattern': pattern, 'comments': comments, 'expires_at': expires_at}
-        result = self._send_request(url, type_='POST', data=render_json(**data))
+        result = self._send_request(url, method=HTTPMethod.POST, data=render_json(**data))
         if result.status_code == codes.created:
             return loads(result.text)
         exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)

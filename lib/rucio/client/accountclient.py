@@ -19,6 +19,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -59,7 +60,7 @@ class AccountClient(BaseClient):
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type_='POST', data=data)
+        res = self._send_request(url, method=HTTPMethod.POST, data=data)
         if res.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -88,7 +89,7 @@ class AccountClient(BaseClient):
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type_='DEL')
+        res = self._send_request(url, method=HTTPMethod.DELETE)
 
         if res.status_code == codes.ok:
             return True
@@ -118,7 +119,7 @@ class AccountClient(BaseClient):
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url)
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             acc = self._load_json_data(res)
             return next(acc)
@@ -152,7 +153,7 @@ class AccountClient(BaseClient):
         path = '/'.join([self.ACCOUNTS_BASEURL, account])
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type_='PUT', data=data)
+        res = self._send_request(url, method=HTTPMethod.PUT, data=data)
 
         if res.status_code == codes.ok:
             return True
@@ -199,7 +200,7 @@ class AccountClient(BaseClient):
             for key in filters:
                 params[key] = filters[key]
 
-        res = self._send_request(url, params=params)
+        res = self._send_request(url, method=HTTPMethod.GET, params=params)
 
         if res.status_code == codes.ok:
             accounts = self._load_json_data(res)
@@ -263,7 +264,7 @@ class AccountClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type_='POST', data=data)
+        res = self._send_request(url, method=HTTPMethod.POST, data=data)
 
         if res.status_code == codes.created:
             return True
@@ -300,7 +301,7 @@ class AccountClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path)
 
-        res = self._send_request(url, type_='DEL', data=data)
+        res = self._send_request(url, method=HTTPMethod.DELETE, data=data)
 
         if res.status_code == codes.ok:
             return True
@@ -319,7 +320,7 @@ class AccountClient(BaseClient):
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'identities'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url)
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             identities = self._load_json_data(res)
             return identities
@@ -340,7 +341,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -385,7 +386,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global', quote_plus(rse_expression)])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -403,7 +404,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'global'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -421,7 +422,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'local'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -441,7 +442,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'limits', 'local', rse])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
@@ -463,7 +464,7 @@ class AccountClient(BaseClient):
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -486,7 +487,7 @@ class AccountClient(BaseClient):
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'global'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -506,7 +507,7 @@ class AccountClient(BaseClient):
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage/history', rse])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return next(self._load_json_data(res))
         else:
@@ -524,7 +525,7 @@ class AccountClient(BaseClient):
         """
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='GET')
+        res = self._send_request(url, method=HTTPMethod.GET)
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
@@ -548,7 +549,7 @@ class AccountClient(BaseClient):
         data = dumps({'key': key, 'value': value})
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='POST', data=data)
+        res = self._send_request(url, method=HTTPMethod.POST, data=data)
         if res.status_code == codes.created:
             return True
         else:
@@ -569,7 +570,7 @@ class AccountClient(BaseClient):
 
         path = '/'.join([self.ACCOUNTS_BASEURL, account, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, type_='DEL', data=None)
+        res = self._send_request(url, method=HTTPMethod.DELETE, data=None)
         if res.status_code == codes.ok:
             return True
         else:

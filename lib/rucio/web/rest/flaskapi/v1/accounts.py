@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from flask import Flask, Response, jsonify, redirect, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, AccountNotFound, CounterNotFound, Duplicate, IdentityError, InvalidAccountType, InvalidObject, RSENotFound, RuleNotFound, ScopeNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.account import add_account, add_account_attribute, del_account, del_account_attribute, get_account_info, get_usage_history, list_account_attributes, list_accounts, list_identities, update_account
@@ -1047,44 +1048,44 @@ def blueprint(with_doc: bool = False) -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('accounts', __name__, url_prefix='/accounts')
 
     attributes_view = Attributes.as_view('attributes')
-    bp.add_url_rule('/<account>/attr/', view_func=attributes_view, methods=['get', ])
-    bp.add_url_rule('/<account>/attr/<key>', view_func=attributes_view, methods=['post', 'delete'])
+    bp.add_url_rule('/<account>/attr/', view_func=attributes_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/attr/<key>', view_func=attributes_view, methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     scopes_view = Scopes.as_view('scopes')
-    bp.add_url_rule('/<account>/scopes/', view_func=scopes_view, methods=['get', ])
-    bp.add_url_rule('/<account>/scopes/<scope>', view_func=scopes_view, methods=['post', ])
+    bp.add_url_rule('/<account>/scopes/', view_func=scopes_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/scopes/<scope>', view_func=scopes_view, methods=[HTTPMethod.POST.value])
     local_account_limits_view = LocalAccountLimits.as_view('local_account_limit')
-    bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, methods=['get', ])
-    bp.add_url_rule('/<account>/limits', view_func=local_account_limits_view, methods=['get', ])
-    bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=['get', ])
-    bp.add_url_rule('/<account>/limits/<rse>', view_func=local_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/local', view_func=local_account_limits_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/limits', view_func=local_account_limits_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/limits/local/<rse>', view_func=local_account_limits_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/limits/<rse>', view_func=local_account_limits_view, methods=[HTTPMethod.GET.value])
     global_account_limits_view = GlobalAccountLimits.as_view('global_account_limit')
-    bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=['get', ])
-    bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=['get', ])
+    bp.add_url_rule('/<account>/limits/global', view_func=global_account_limits_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/limits/global/<rse_expression>', view_func=global_account_limits_view, methods=[HTTPMethod.GET.value])
     identities_view = Identities.as_view('identities')
-    bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=['get', 'post', 'delete'])
+    bp.add_url_rule('/<account>/identities', view_func=identities_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     rules_view = Rules.as_view('rules')
-    bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=['get', ])
+    bp.add_url_rule('/<account>/rules', view_func=rules_view, methods=[HTTPMethod.GET.value])
     usagehistory_view = UsageHistory.as_view('usagehistory')
-    bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage/history/<rse>', view_func=usagehistory_view, methods=[HTTPMethod.GET.value])
     usage_view = LocalUsage.as_view('usage')
-    bp.add_url_rule('/<account>/usage/local', view_func=usage_view, methods=['get', ])
-    bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage/local', view_func=usage_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/usage', view_func=usage_view, methods=[HTTPMethod.GET.value])
     if not with_doc:
         # for backwards-compatibility
         # rule without trailing slash needs to be added before rule with trailing slash
-        bp.add_url_rule('/<account>/usage/', view_func=usage_view, methods=['get', ])
-    bp.add_url_rule('/<account>/usage/local/<rse>', view_func=usage_view, methods=['get', ])
-    bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=['get', ])
+        bp.add_url_rule('/<account>/usage/', view_func=usage_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/usage/local/<rse>', view_func=usage_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/usage/<rse>', view_func=usage_view, methods=[HTTPMethod.GET.value])
     global_usage_view = GlobalUsage.as_view('global_usage')
-    bp.add_url_rule('/<account>/usage/global', view_func=global_usage_view, methods=['get', ])
-    bp.add_url_rule('/<account>/usage/global/<rse_expression>', view_func=global_usage_view, methods=['get', ])
+    bp.add_url_rule('/<account>/usage/global', view_func=global_usage_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/usage/global/<rse_expression>', view_func=global_usage_view, methods=[HTTPMethod.GET.value])
     account_parameter_view = AccountParameter.as_view('account_parameter')
-    bp.add_url_rule('/<account>', view_func=account_parameter_view, methods=['get', 'put', 'post', 'delete'])
+    bp.add_url_rule('/<account>', view_func=account_parameter_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value, HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     account_view = Account.as_view('account')
     if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
-        bp.add_url_rule('', view_func=account_view, methods=['get', ])
-    bp.add_url_rule('/', view_func=account_view, methods=['get', ])
+        bp.add_url_rule('', view_func=account_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/', view_func=account_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

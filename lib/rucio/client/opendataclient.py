@@ -20,6 +20,7 @@ from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.config import config_get
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, render_json
 
 if TYPE_CHECKING:
@@ -85,7 +86,7 @@ class OpenDataClient(BaseClient):
             raise ValueError('state and public cannot be provided at the same time.')
 
         url = build_url(self.get_opendata_host(public=public), path=path)
-        r = self._send_request(url, type_='GET', params=params)
+        r = self._send_request(url, method=HTTPMethod.GET, params=params)
         if r.status_code == codes.ok:
             return json.loads(r.content.decode('utf-8'))
         else:
@@ -115,7 +116,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        r = self._send_request(url, type_='POST')
+        r = self._send_request(url, method=HTTPMethod.POST)
 
         if r.status_code == codes.created:
             return True
@@ -146,7 +147,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.no_content:
             return True
@@ -198,7 +199,7 @@ class OpenDataClient(BaseClient):
         if doi is not None:
             data['doi'] = doi
 
-        r = self._send_request(url, type_='PUT', data=render_json(**data))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=render_json(**data))
 
         if r.status_code == codes.ok:
             return json.loads(r.content.decode('utf-8'))
@@ -236,7 +237,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=public), path=path)
 
-        r = self._send_request(url, type_='GET', params={
+        r = self._send_request(url, method=HTTPMethod.GET, params={
             'files': 1 if include_files else 0,
             'meta': 1 if include_metadata else 0,
             'doi': 1 if include_doi else 0,

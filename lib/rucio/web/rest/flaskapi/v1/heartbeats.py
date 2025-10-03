@@ -16,6 +16,7 @@ import json
 
 from flask import Flask, Response, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, KeyNotFound, UnsupportedKeyType, UnsupportedValueType
 from rucio.common.utils import APIEncoder
 from rucio.gateway.heartbeat import create_heartbeat, list_heartbeats
@@ -114,7 +115,7 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('heartbeats', __name__, url_prefix='/heartbeats')
 
     heartbeat_view = Heartbeat.as_view('heartbeat')
-    bp.add_url_rule('', view_func=heartbeat_view, methods=['get', 'post'])
+    bp.add_url_rule('', view_func=heartbeat_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp

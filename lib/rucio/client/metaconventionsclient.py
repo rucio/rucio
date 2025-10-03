@@ -19,6 +19,7 @@ from urllib.parse import quote_plus
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -63,7 +64,7 @@ class MetaConventionClient(BaseClient):
                       'value_regexp': value_regexp,
                       'key_type': key_type})
 
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
 
         if r.status_code == codes.created:
             return True
@@ -81,7 +82,7 @@ class MetaConventionClient(BaseClient):
         """
         path = self.META_BASEURL + '/'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url)
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             keys = loads(r.text)
             return keys
@@ -99,7 +100,7 @@ class MetaConventionClient(BaseClient):
         """
         path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url)
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             values = loads(r.text)
             return values
@@ -131,7 +132,7 @@ class MetaConventionClient(BaseClient):
         path = '/'.join([self.META_BASEURL, quote_plus(key)]) + '/'
         data = dumps({'value': value})
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='POST', data=data)
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
         if r.status_code == codes.created:
             return True
         else:
