@@ -1281,3 +1281,13 @@ class InvalidAccountType(RucioException):
         super(InvalidAccountType, self).__init__(*args)
         self._message = "Cannot create an account with an invalid type."
         self.error_code = 121
+
+class OpenDataDuplicateRecordID(OpenDataError):
+    """
+    Throws when a data identifier with the same Record ID already exists in the open data catalog.
+    """
+
+    def __init__(self, record_id: int, *args):
+        super(OpenDataDuplicateRecordID, self).__init__(*args)
+        self._message = f"Data identifier with the same Record ID ({record_id}) already exists in the open data catalog."
+        self.error_code = 123
