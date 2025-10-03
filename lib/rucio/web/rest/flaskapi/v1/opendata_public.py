@@ -108,6 +108,14 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
               enum: ['0', '1']
             required: false
             style: form
+          - name: record_id
+            in: query
+            description: "Whether to include the record ID. '1' to include, '0' to exclude. Default is '1'."
+            schema:
+              type: string
+              enum: ['0', '1']
+            required: false
+            style: form
         responses:
           200:
             description: "Successful retrieval of Opendata DID information."

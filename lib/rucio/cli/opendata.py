@@ -166,11 +166,15 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
 @click.option("--state", type=click.Choice(OPENDATA_DID_STATE_LITERAL_LIST, case_sensitive=False), required=False,
               help="State of the Opendata DID")
 @click.option("--doi", required=False,
-              help="Digital Object Identifier (DOI) for the Opendata DID (e.g., 10.1234/foo.bar)")
+              help="Digital Object Identifier (DOI) for the Opendata DID (e.g., 10.1234/foo.bar). Must be unique between all Opendata DIDs")
+@click.option("--record-id", type=int, required=False,
+              help="Record ID to associate with the Opendata DID. Must be unique between all Opendata DIDs")
 @click.pass_context
 def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
                         state: Optional["OPENDATA_DID_STATE_LITERAL"],
-                        doi: Optional[str]) -> None:
+                        doi: Optional[str],
+                        record_id: Optional[int]
+                        ) -> None:
     """
     Update an existing Opendata DID in the Opendata catalog.
     """
@@ -198,3 +202,5 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
     else:
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
         print(tabulate(table, tablefmt='plain', disable_numparse=True))
+
+    client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi, record_id=record_id)
