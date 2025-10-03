@@ -17,7 +17,7 @@ from copy import deepcopy
 import pytest
 
 from rucio.client.didclient import DIDClient
-from rucio.common.exception import KeyNotFound
+from rucio.common.exception import KeyNotFound, InvalidMetadata
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, delete_dids, get_metadata_bulk, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
@@ -488,6 +488,58 @@ class TestDidMetaExternalPostgresJSON:
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
+    
+    def test_did_set_metadata_json_schema(self, mock_scope, root_account, postgres_json_meta):
+        #Define a simple JSON schema
+        schema = {
+            "type": "object",
+            "properties": {
+                "meta_key3": {"type": "integer"},
+                "meta_key4": {"type": "string"},
+                "meta_key5": {"type": "string"}
+            },
+            "required": ["meta_key3"],
+            "additionalProperties": False
+        }
+        # Assign schema to the instance
+        postgres_json_meta.metadata_schema = schema
+        did_name = f'dataset_{uuid4()}'
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+
+        # Valid metadata according to schema
+        valid_metadata = {
+            "meta_key3": randint(1, 100),
+            "meta_key4": f"value_{uuid4()}",
+            "meta_key5": f"value_{uuid4()}"
+        }
+        # This should succeed
+        postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=valid_metadata)
+        for meta_key, meta_value in valid_metadata.items():
+            assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key] == meta_value
+
+        # Invalid metadata (meta_key3 missing)
+        invalid_metadata = {
+            "meta_key4": "invalid_value"
+        }
+        with pytest.raises(InvalidMetadata):
+            postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=invalid_metadata)
+        
+        # Invalid metadata (meta_key3 type check failed)
+        invalid_metadata_type = {
+            "meta_key3": "not-an-integer",
+            "meta_key4": "some string"
+        }
+        with pytest.raises(InvalidMetadata):
+            postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=invalid_metadata_type)
+        
+        # Invalid metadata (unknown_key check failed)
+        invalid_extra_key = {
+            "meta_key3": 42,
+            "meta_key4": "valid",
+            "unknown_key": "should not be allowed"
+        }
+        with pytest.raises(InvalidMetadata):
+            postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=invalid_extra_key)
 
 
 class TestDidMetaClient:

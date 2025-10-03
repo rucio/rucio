@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import json
 import operator
-from typing import TYPE_CHECKING
+import jsonschema
+from typing import TYPE_CHECKING, Any, Optional
 
 import psycopg
 from psycopg import sql
@@ -39,7 +41,7 @@ class ExternalPostgresDidMeta(DidMetaPlugin):
 class ExternalPostgresJSONDidMeta(DidMetaPlugin):
     def __init__(self, host=None, port=None, db=None, user=None, password=None, db_schema=None, table=None,
                  table_is_managed=None, table_column_vo=None, table_column_scope=None, table_column_name=None,
-                 table_column_data=None):
+                 table_column_data=None, json_schema=None):
         super(ExternalPostgresJSONDidMeta, self).__init__()
         if host is None:
             host = config.config_get('metadata', 'postgres_service_host')
@@ -65,6 +67,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
             table_column_name = config.config_get('metadata', 'postgres_table_column_name', default='name')
         if table_column_data is None:
             table_column_data = config.config_get('metadata', 'postgres_table_column_data', default='data')
+        if not json_schema:
+            json_schema = config.config_get('metadata', 'postgres_json_schema_path', default=None)
+            self.metadata_schema = self._load_json_schema(json_schema)
 
         self.fixed_table_columns = {
             'vo': table_column_vo,
@@ -191,6 +196,34 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         )
         cur.close()
         self.client.commit()
+    
+    def _load_json_schema(self, schema_path: Optional[str]) -> Optional[dict[str, Any]]:
+        """Load JSON schema from the exact file path provided.
+
+        :param schema_path: path to the JSON schema file.
+        :return: Parsed JSON schema dictionary, or None if not found.
+        """
+        if not schema_path:
+            return None
+
+        if os.path.exists(schema_path):
+            try:
+                with open(schema_path, 'r') as f:
+                    schema = json.load(f)
+                return schema
+            except (json.JSONDecodeError, IOError) as e:
+                raise exception.ConfigurationError(f"Invalid JSON schema file: {e}")
+        else:
+            return None
+    
+    def _validate_metadata(self, metadata: dict[str, Any]) -> None:
+        """Validate metadata against JSON schema if available"""
+        if self.metadata_schema:
+            try:
+                jsonschema.validate(instance=metadata, schema=self.metadata_schema)
+            except jsonschema.ValidationError as e:
+                raise exception.InvalidMetadata(
+                    f"Metadata validation failed: {e.message} at {'.'.join(str(x) for x in e.path)}"
 
     def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
         """
@@ -240,6 +273,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param recursive: recurse into DIDs (not supported)
         :param session: The database session in use
         """
+
+        self._validate_metadata(metadata)
+
         # upsert metadata
         statement = sql.SQL(
             "INSERT INTO {} (scope, name, vo, data) VALUES ({}, {}, {}, {}) "  # type: ignore
@@ -340,6 +376,11 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                     yield row['name']
 
     def manages_key(self, key, *, session: "Optional[Session]" = None):
+        if self.metadata_schema:
+            if key in self.metadata_schema.get("properties", {}):
+                return True
+            else:
+                return False
         return True
 
     def get_plugin_name(self):
