@@ -232,6 +232,39 @@ def get_opendata_doi(
     else:
         return result["doi"]
 
+def get_opendata_record_id(
+        *,
+        scope: "InternalScope",
+        name: str,
+        session: "Session",
+) -> Optional[int]:
+    """
+    Retrieve the record ID associated with an Opendata DID.
+
+    Parameters:
+        scope: The scope of the Opendata DID.
+        name: The name of the Opendata DID.
+        session: SQLAlchemy session to use for the query.
+
+    Returns:
+        The Record ID associated with the Opendata DID, or None if not found.
+    """
+
+    query = select(
+        models.OpenDataRecord.record_id,
+    ).where(
+        and_(
+            models.OpenDataRecord.name == name,
+            models.OpenDataRecord.scope == scope,
+        )
+    )
+
+    result = session.execute(query).mappings().fetchone()
+
+    if not result:
+        return None
+    else:
+        return int(result["record_id"])
 
 def get_opendata_did_files(
         *,
@@ -300,6 +333,7 @@ def get_opendata_did(
         include_files: bool = True,
         include_metadata: bool = False,
         include_doi: bool = True,
+        include_record_id: bool = True,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -312,6 +346,7 @@ def get_opendata_did(
         include_files: If True, include a list of associated files. Defaults to True.
         include_metadata: If True, include extended metadata. Defaults to False.
         include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
+        include_record_id: If True, include the record ID of the DID. Defaults to True.
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -343,6 +378,8 @@ def get_opendata_did(
 
     if include_doi:
         result["doi"] = get_opendata_doi(scope=scope, name=name, session=session)
+    if include_record_id:
+        result["record_id"] = get_opendata_record_id(scope=scope, name=name, session=session)
     if include_metadata:
         result["meta"] = get_opendata_meta(scope=scope, name=name, session=session)
     if include_files:
@@ -507,6 +544,7 @@ def update_opendata_did(
         state: Optional[OpenDataDIDState] = None,
         meta: Optional[Union[dict, str]] = None,
         doi: Optional[str] = None,
+        record_id: Optional[int] = None,
         session: "Session",
 ) -> None:
     """
@@ -518,6 +556,7 @@ def update_opendata_did(
         state: The new state to set for the DID.
         meta: Metadata to update for the DID. Must be a valid JSON object or string.
         doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar").
+        record_id: The record ID of the DID to update. This can be used to cross-reference with external systems.
         session: SQLAlchemy session to use for the operation.
 
     Raises:
@@ -527,9 +566,9 @@ def update_opendata_did(
         ValueError: If there is an error during the update process.
     """
 
-    if state is None and meta is None and doi is None:
+    if state is None and meta is None and doi is None and record_id is None:
         raise exception.InputValidationError(
-            "Either 'state', 'meta', or 'doi' must be provided to update the Opendata DID.")
+            "Either 'state', 'meta', 'doi', or 'record_id' must be provided to update the Opendata DID.")
     if not _check_opendata_did_exists(scope=scope, name=name, session=session):
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
@@ -541,6 +580,9 @@ def update_opendata_did(
 
     if doi is not None:
         update_opendata_doi(scope=scope, name=name, doi=doi, session=session)
+
+    if record_id is not None:
+        update_opendata_record_id(scope=scope, name=name, record_id=record_id, session=session)
 
 
 def update_opendata_meta(
@@ -739,6 +781,60 @@ def update_opendata_doi(
 
         if result.rowcount == 0:
             raise ValueError(f"Error updating Opendata DOI for DID '{scope}:{name}'.")
+
+    except DataError as error:
+        raise exception.InputValidationError(f"Invalid data: {error}")
+
+def update_opendata_record_id(
+        *,
+        scope: "InternalScope",
+        name: str,
+        record_id: int,
+        session: "Session",
+) -> None:
+    """
+    Update the Record ID associated with an Opendata DID.
+
+    Parameters:
+        scope: The scope under which the Opendata DID is registered.
+        name: The name of the Opendata DID.
+        record_id: The new Record ID to associate with the Opendata DID. Must be a valid integer.
+        session: SQLAlchemy session to use for the operation.
+
+    Raises:
+        InputValidationError: If the provided DOI is not a valid string or does not match the expected format.
+        OpenDataDataIdentifierNotFound: If the Opendata DID does not exist.
+        ValueError: If there is an error during the update process.
+    """
+
+    if not _check_opendata_did_exists(scope=scope, name=name, session=session):
+        raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
+
+    if not isinstance(record_id, int) or record_id < 0:
+        raise exception.InputValidationError("DOI must be a positive integer.")
+
+    # insert on the table if it does not exist, otherwise update it
+    record_id_before = session.execute(select(models.OpenDataRecord.record_id).where(
+        and_(
+            models.OpenDataRecord.scope == scope,
+            models.OpenDataRecord.name == name
+        )
+    )).scalar()
+    if record_id_before is None:
+        update_query = insert(models.OpenDataRecord).values(scope=scope, name=name, record_id=record_id)
+    else:
+        update_query = update(models.OpenDataRecord).where(
+            and_(
+                models.OpenDataRecord.scope == scope,
+                models.OpenDataRecord.name == name
+            )
+        ).values(record_id=record_id)
+
+    try:
+        result = session.execute(update_query)
+
+        if result.rowcount == 0:
+            raise ValueError(f"Error updating Opendata Record ID for DID '{scope}:{name}'.")
 
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")

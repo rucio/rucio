@@ -162,6 +162,7 @@ class OpenDataClient(BaseClient):
             state: Optional["OPENDATA_DID_STATE_LITERAL"] = None,
             meta: Optional[dict] = None,
             doi: Optional[str] = None,
+            record_id: Optional[int] = None,
     ) -> bool:
         """
         Update an existing Opendata DID in the Opendata catalog.
@@ -171,7 +172,8 @@ class OpenDataClient(BaseClient):
             name: The name of the DID.
             state: The new state to set for the DID.
             meta: Metadata to update for the DID. Must be a valid JSON object.
-            doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar").
+            doi: DOI to associate with the DID. Must be a valid DOI string (e.g., "10.1234/foo.bar") and unique across all DIDs.
+            record_id: The record ID of the DID to update. This can be used to cross-reference with external systems. Must be unique across all DIDs.
 
         Returns:
             True if the update was successful.
@@ -184,8 +186,8 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        if not any([meta, state, doi]):
-            raise ValueError("Either 'meta', 'state', or 'doi' must be provided.")
+        if not any([meta, state, doi, record_id]):
+            raise ValueError("Either 'meta', 'state', 'doi' or 'record_id' must be provided.")
 
         data: dict[str, Any] = {}
 
@@ -197,6 +199,9 @@ class OpenDataClient(BaseClient):
 
         if doi is not None:
             data['doi'] = doi
+
+        if record_id is not None:
+            data['record_id'] = record_id
 
         r = self._send_request(url, type_='PUT', data=render_json(**data))
 
@@ -214,6 +219,7 @@ class OpenDataClient(BaseClient):
             include_files: bool = False,
             include_metadata: bool = False,
             include_doi: bool = True,
+            include_record_id: bool = True,
             public: bool = False,
     ) -> dict[str, Any]:
         """
@@ -225,6 +231,7 @@ class OpenDataClient(BaseClient):
             include_files: If True, include a list of associated files. Defaults to False.
             include_metadata: If True, include extended metadata. Defaults to False.
             include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
+            include_record_id: If True, include the record ID of the DID. Defaults to True.
             public: If True, only return data if the DID is publicly accessible. Defaults to False.
 
         Returns:
@@ -240,6 +247,7 @@ class OpenDataClient(BaseClient):
             'files': 1 if include_files else 0,
             'meta': 1 if include_metadata else 0,
             'doi': 1 if include_doi else 0,
+            'record_id': 1 if include_record_id else 0,
         })
 
         if r.status_code == codes.ok:
