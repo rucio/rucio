@@ -106,11 +106,13 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             include_files = request.args.get("files", default="0").lower() == "1"
             include_metadata = request.args.get("meta", default="0").lower() == "1"
             include_doi = request.args.get("doi", default="1").lower() == "1"
+            include_record_id = request.args.get("record_id", default="1").lower() == "1"
             result = opendata.get_opendata_did(scope=scope, name=name, vo=vo,
                                                state=state,
                                                include_files=include_files,
                                                include_metadata=include_metadata,
                                                include_doi=include_doi,
+                                               include_record_id=include_record_id,
                                                )
 
             result = render_json(**result)
@@ -164,6 +166,14 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
           - name: doi
             in: query
             description: "Whether to include the Digital Object Identifier (DOI). '1' to include, '0' to exclude. Default is '1'."
+            schema:
+              type: string
+              enum: ['0', '1']
+            required: false
+            style: form
+          - name: record_id
+            in: query
+            description: "Whether to include the record ID. '1' to include, '0' to exclude. Default is '1'."
             schema:
               type: string
               enum: ['0', '1']
@@ -289,6 +299,10 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
                       type: string
                       description: "Digital Object Identifier (DOI) for the DID.
                       example: '10.1234/abcd.efgh'."
+                    record_id:
+                      type: integer
+                      description: "Record ID for the DID."
+                      example: 123456
         responses:
           200:
             description: "Opendata DID successfully updated."
@@ -310,11 +324,13 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             state = param_get(parameters, 'state', default=None)
             meta = param_get(parameters, 'meta', default=None)
             doi = param_get(parameters, 'doi', default=None)
+            record_id = param_get(parameters, 'record_id', default=None, type_=int)
             result = opendata.update_opendata_did(scope=scope,
                                          name=name,
                                          state=state,
                                          meta=meta,
                                          doi=doi,
+                                         record_id=record_id,
                                          vo=request.environ.get("vo", DEFAULT_VO),
                                          )
         except AccessDenied as error:
