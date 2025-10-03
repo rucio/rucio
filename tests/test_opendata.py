@@ -17,7 +17,7 @@ import re
 import pytest
 
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataInvalidStateUpdate
+from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
@@ -246,6 +246,68 @@ class TestOpenDataCore:
 
         assert doi_after == doi, "DOI should be updated"
 
+    def test_opendata_record_id_update(self, mock_scope, root_account, db_write_session):
+        name = did_name_generator(did_type="dataset")
+
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                session=db_write_session)
+        opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        record_id_first = 12345
+
+        opendata.update_opendata_did(scope=mock_scope, name=name, record_id=record_id_first, session=db_write_session)
+
+        db_write_session.commit()
+
+        record_id_after = opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)["record_id"]
+
+        assert record_id_after == record_id_first, f"Record ID should be updated to {record_id_first}, fetched from `get_opendata_did`"
+
+        db_write_session.commit()
+
+        record_id_after = opendata.get_opendata_record_id(scope=mock_scope, name=name, session=db_write_session)
+
+        assert record_id_after == record_id_first, f"Record ID should be updated to {record_id_first}, fetched from `get_opendata_record_id`"
+
+        record_id_second = 54321
+        opendata.update_opendata_record_id(scope=mock_scope, name=name, record_id=record_id_second, session=db_write_session)
+
+        db_write_session.commit()
+
+        record_id_after = opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)["record_id"]
+
+        assert record_id_after == record_id_second, f"Record ID should be updated (second time) to {record_id_second}, fetched from `get_opendata_did`"
+
+        opendata.delete_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        db_write_session.commit()
+
+    def test_opendata_record_id_duplicate(self, mock_scope, root_account, db_write_session):
+        name_first = did_name_generator(did_type="dataset")
+        name_second = did_name_generator(did_type="dataset")
+
+        for name in [name_first, name_second]:
+            add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                    session=db_write_session)
+            opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        record_id = 1337
+
+        opendata.update_opendata_did(scope=mock_scope, name=name_first, record_id=record_id, session=db_write_session)
+
+        db_write_session.commit()
+
+        # opendata.update_opendata_did(scope=mock_scope, name=name_second, record_id=record_id, session=db_write_session)
+
+        opendata.delete_opendata_did(scope=mock_scope, name=name_first, session=db_write_session)
+
+        db_write_session.commit()
+
+        opendata.update_opendata_did(scope=mock_scope, name=name_second, record_id=record_id, session=db_write_session)
+
+        opendata.delete_opendata_did(scope=mock_scope, name=name_second, session=db_write_session)
+
+
     def test_opendata_dids_list(self, mock_scope, root_account, db_write_session):
         dids = [
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
@@ -373,12 +435,15 @@ class TestOpenDataClient:
 
         # Here we also test that doi is returned as key by default because `include_doi` is True by default
         assert opendata_did["doi"] is None, "DOI should be None"
+        assert opendata_did["record_id"] is None, "Record ID should be None"
         assert "files" not in opendata_did, "Files should not be present in the response"
         assert "meta" not in opendata_did, "Meta should not be present in the response"
 
         opendata_did = rucio_client.get_opendata_did(scope=scope, name=name,
-                                                     include_files=True, include_metadata=True, include_doi=True)
+                                                     include_files=True, include_metadata=True,
+                                                     include_doi=True, include_record_id=True)
         assert opendata_did["doi"] is None, "DOI should still be None"
+        assert opendata_did["record_id"] is None, "Record ID should still be None"
         assert "files" in opendata_did, "Files should be present in the response"
         assert "meta" in opendata_did, "Meta should be present in the response"
         meta = opendata_did["meta"]
@@ -500,7 +565,7 @@ class TestOpenDataCLI:
         ("add", {"--help"}),
         ("list", {"--help", "--state", "--public", "--short"}),
         ("show", {"--help", "--meta", "--files", "--public"}),
-        ("update", {"--help", "--meta", "--state", "--doi"}),
+        ("update", {"--help", "--meta", "--state", "--doi", "--record-id"}),
         ("remove", {"--help"}),
     ])
     def test_opendata_cli_options(self, subcommand, expected_options):
