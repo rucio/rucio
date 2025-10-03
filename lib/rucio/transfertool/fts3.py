@@ -76,7 +76,6 @@ BULK_QUERY_COUNTER = METRICS.counter(name='{host}.bulk_query.{state}',
 QUERY_DETAILS_COUNTER = METRICS.counter(name='{host}.query_details.{state}',
                                         documentation='Number of detailed status queries', labelnames=('state', 'host'))
 
-REWRITE_HTTPS_TO_DAVS = config_get_bool('transfers', 'rewrite_https_to_davs', default=False)
 VO_CERTS_PATH = config_get('conveyor', 'vo_certs_path', False, None)
 
 # https://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
@@ -1072,24 +1071,6 @@ class FTS3Transfertool(Transfertool):
         for transfer_file in files:
             if not transfer_file['sources'] or transfer_file['sources'] == []:
                 raise Exception('No sources defined')
-
-            # TODO: remove the following logic in rucio 1.31
-            if REWRITE_HTTPS_TO_DAVS:
-                new_src_urls = []
-                new_dst_urls = []
-                for url in transfer_file['sources']:
-                    if url.startswith('https'):
-                        new_src_urls.append(':'.join(['davs'] + url.split(':')[1:]))
-                    else:
-                        new_src_urls.append(url)
-                for url in transfer_file['destinations']:
-                    if url.startswith('https'):
-                        new_dst_urls.append(':'.join(['davs'] + url.split(':')[1:]))
-                    else:
-                        new_dst_urls.append(url)
-
-                transfer_file['sources'] = new_src_urls
-                transfer_file['destinations'] = new_dst_urls
 
         transfer_id = None
         expected_transfer_id = None
