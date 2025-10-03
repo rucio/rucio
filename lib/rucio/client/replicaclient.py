@@ -152,7 +152,7 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
-    def replica_exists(self, scope: str, name: str, rse: str):
+    def replica_exists(self, scope: str, name: str, rse: str) -> bool:
         """
         Checks whether a replica of the specified file exists on the specified RSE.
 
