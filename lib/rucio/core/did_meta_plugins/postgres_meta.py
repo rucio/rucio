@@ -223,7 +223,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                 jsonschema.validate(instance=metadata, schema=self.metadata_schema)
             except jsonschema.ValidationError as e:
                 raise exception.InvalidMetadata(
-                    f"Metadata validation failed: {e.message} at {'.'.join(str(x) for x in e.path)}"
+                    f"Metadata validation failed: {e.message} at {'.'.join(str(x) for x in e.path)}")
 
     def get_metadata(self, scope, name, *, session: "Optional[Session]" = None):
         """
