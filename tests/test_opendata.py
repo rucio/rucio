@@ -19,7 +19,7 @@ import pytest
 
 from rucio.common.config import config_add_section, config_get_bool, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataInvalidStateUpdate
+from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
@@ -249,6 +249,22 @@ class TestOpenDataCore:
         doi_after = opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)["doi"]
 
         assert doi_after == doi, "DOI should be updated"
+
+    def test_opendata_doi_duplicate(self, mock_scope, root_account, doi_factory, db_write_session):
+        name_first = did_name_generator(did_type="dataset")
+        name_second = did_name_generator(did_type="dataset")
+
+        doi = doi_factory()
+
+        for name in [name_first, name_second]:
+            add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                    session=db_write_session)
+            opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        opendata.update_opendata_doi(scope=mock_scope, name=name_first, doi=doi, session=db_write_session)
+
+        with pytest.raises(OpenDataDuplicateDOI):
+            opendata.update_opendata_doi(scope=mock_scope, name=name_second, doi=doi, session=db_write_session)
 
     def test_opendata_dids_list(self, mock_scope, root_account, db_write_session):
         dids = [
