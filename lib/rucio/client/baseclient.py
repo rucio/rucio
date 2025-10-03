@@ -553,7 +553,7 @@ class BaseClient:
         :param reason: the reason to backoff which will be shown to the user
         """
         sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
-        self.logger.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
+        self.logger.warning("Waiting %ss due to reason: %s", sleep_time, reason)
         time.sleep(sleep_time)
 
     def _send_request(self, url, headers=None, type_='GET', data=None, params=None, stream=False, get_token=False,
@@ -780,9 +780,9 @@ class BaseClient:
         headers = self._build_oidc_request_headers()
         request_auth_url = build_url(self.auth_host, path='auth/oidc')
         
-        self.logger.debug(f"Initial auth URL request headers {headers}")
+        self.logger.debug("Initial auth URL request headers %s", headers)
         oidc_auth_res = self._send_request(request_auth_url, headers=headers, get_token=True)
-        self.logger.debug(f"Response headers {oidc_auth_res.headers} and text {oidc_auth_res.text}")
+        self.logger.debug("Response headers %s and text %s", oidc_auth_res.headers, oidc_auth_res.text)
         
         if 'X-Rucio-OIDC-Auth-URL' not in oidc_auth_res.headers:
             self.logger.error("Failed to get AuthN/Z URL from Rucio Auth Server. "
