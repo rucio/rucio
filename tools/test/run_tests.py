@@ -334,16 +334,31 @@ def run_with_httpd(
 
         rdbms = caseenv.get('RDBMS', '')
         project = os.urandom(8).hex()
+        compose_env = os.environ.copy()
+        compose_env.update(namespace_env)
+        rucio_container = f'{project}-rucio-1'
+        compose_env['RUCIO_HTTPD_CONTAINER_NAME'] = rucio_container
+        compose_env['RUCIO_INFLUXDB_CONTAINER_NAME'] = f'{project}-influxdb-1'
+        compose_env['RUCIO_GRAPHITE_CONTAINER_NAME'] = f'{project}-graphite-1'
+        compose_env['RUCIO_ELASTICSEARCH_CONTAINER_NAME'] = f'{project}-elasticsearch-1'
+        compose_env['RUCIO_ACTIVEMQ_CONTAINER_NAME'] = f'{project}-activemq-1'
+        compose_env['RUCIO_WEB1_CONTAINER_NAME'] = f'{project}-web1-1'
+        rdbms_container_env = {
+            'postgres14': 'RUCIO_POSTGRES14_CONTAINER_NAME',
+            'mysql8': 'RUCIO_MYSQL8_CONTAINER_NAME',
+            'oracle': 'RUCIO_ORACLE_CONTAINER_NAME',
+        }
+        rdbms_env = rdbms_container_env.get(rdbms)
+        if rdbms_env:
+            compose_env[rdbms_env] = f'{project}-{rdbms}-1'
         up_down_args = (
             '--file', 'etc/docker/dev/docker-compose.yml',
             '--file', compose_override_file.name,
             '--profile', rdbms,
         )
-
-        rucio_container = 'dev-rucio-1'
         try:
             # Start docker compose
-            run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d')
+            run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d', env=compose_env)
 
             # Install Rucio directly from the mounted source
             run('docker', *namespace_args, 'exec', rucio_container, 'pip', 'install', '--no-cache-dir', '-e', '/rucio_source')
@@ -384,14 +399,14 @@ def run_with_httpd(
                         file=sys.stderr,
                         flush=True,
                     )
-            run('docker', 'compose', '-p', project, *up_down_args, 'down', '-t', '30', check=False)
+            run('docker', 'compose', '-p', project, *up_down_args, 'down', '-t', '30', check=False, env=compose_env)
         return False
 
 
 def main():
     obj = json.load(sys.stdin)
     cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
-    
+
     # Use runtime images if provided
     if "runtime_images" in obj:
         images = {}
@@ -402,7 +417,7 @@ def main():
     else:
         # Fallback to old behavior (Keeping this here in case we need to change testing startegy in the future)
         images = obj["images"]
-    
+
     run_tests(cases, images)
 
 
