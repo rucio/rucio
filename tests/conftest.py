@@ -99,10 +99,15 @@ def pytest_configure(config: pytest.Config) -> None:
                 purge_db()
                 print("[pytest_configure] Database purge completed")
             except Exception as e:
-                print(f"[pytest_configure] Database purge failed: {e}")
-                import traceback
-                traceback.print_exc()
-                raise RuntimeError("Failed to purge database") from e
+                # Check if error is because schema doesn't exist (fresh database)
+                error_str = str(e).lower()
+                if 'does not exist' in error_str or 'invalidschemaname' in error_str:
+                    print(f"[pytest_configure] Schema doesn't exist (fresh database), skipping purge")
+                else:
+                    print(f"[pytest_configure] Database purge failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise RuntimeError("Failed to purge database") from e
 
             # Fix SQLite permissions if database exists
             for db_path in sqlite_paths:
