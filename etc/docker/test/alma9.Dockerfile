@@ -86,13 +86,6 @@ FROM python as mod_wsgi
 
 FROM python as rucio-runtime
     WORKDIR /usr/local/src/rucio
-    COPY tools tools
-    COPY bin bin
-    COPY lib lib
-    COPY etc etc
-    COPY tests tests
-    COPY requirements requirements
-    COPY .pep8 .pycodestyle pyproject.toml setup.py setup_rucio.py setup_rucio_client.py setup_webui.py setuputil.py ./
 
     RUN dnf install -y epel-release.noarch && \
         dnf install -y 'dnf-command(config-manager)' && \
@@ -108,6 +101,14 @@ FROM python as rucio-runtime
         gfal2-devel \
         nodejs npm \
         glibc-langpack-en
+
+    COPY tools tools
+    COPY bin bin
+    COPY lib lib
+    COPY etc etc
+    COPY tests tests
+    COPY requirements requirements
+    COPY .pep8 .pycodestyle pyproject.toml setup.py setup_rucio.py setup_rucio_client.py setup_webui.py setuputil.py ./
 
     RUN mkdir -p /var/log/rucio/trace && \
         chmod -R 777 /var/log/rucio && \
