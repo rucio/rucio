@@ -884,7 +884,7 @@ def database_setup(request: pytest.FixtureRequest, test_environment_setup) -> No
     import os
     from alembic import command
     from alembic.config import Config
-    from rucio.db.sqla.util import build_database, create_base_vo, create_root_account, drop_orm_tables
+    from rucio.db.sqla.util import purge_db
     
     suite = request.config.getoption("--suite")
     keep_db = request.config.getoption("--keep-db")
@@ -906,56 +906,44 @@ def database_setup(request: pytest.FixtureRequest, test_environment_setup) -> No
         
         # Reset database using direct function calls
         try:
-            print("Dropping existing database tables")
-            drop_orm_tables()
-            
-            print("Building database schema")
-            build_database()
-            
-            print("Creating base VO and root account")
-            create_base_vo()
-            create_root_account()
-            
-            print("Database reset completed")
+            print("Purging database (dropping tables and PostgreSQL types)")
+            purge_db()
+
+            print("Database purge completed")
         except Exception as e:
-            print(f"Database reset failed: {e}")
+            print(f"Database purge failed: {e}")
             import traceback
             traceback.print_exc()
-            pytest.fail("Failed to reset database")
-        
+            pytest.fail("Failed to purge database")
+
         # Fix SQLite permissions if database exists
         for db_path in sqlite_paths:
             if os.path.exists(db_path):
                 print(f"Setting SQLite database permissions: {db_path}")
                 os.chmod(db_path, 0o666)
-    
-    # Run Alembic migrations using Python API
+
+    # Use Alembic to create the schema
+    # Let tests create their own data (VO, root account, etc.)
     try:
         rucio_home = os.environ.get('RUCIO_HOME', '/opt/rucio')
         alembic_cfg_path = f"{rucio_home}/etc/alembic.ini"
-        
-        print("Running Alembic migrations")
+
+        print("Creating database schema via Alembic")
         print(f"Using Alembic config: {alembic_cfg_path}")
-        
+
         # Create Alembic configuration
         alembic_cfg = Config(alembic_cfg_path)
-        
-        # Run the migration sequence like alembic_migration.sh
-        print("Downgrading database to base")
-        command.downgrade(alembic_cfg, "base")
-        
-        print("Upgrading database to head-1")
-        command.upgrade(alembic_cfg, "head-1")
-        
+
+        # Upgrade to head to create all tables
         print("Upgrading database to head")
         command.upgrade(alembic_cfg, "head")
-        
-        print("Alembic migration completed")
+
+        print("Alembic schema creation completed")
     except Exception as e:
-        print(f"Alembic migration failed: {e}")
+        print(f"Alembic schema creation failed: {e}")
         import traceback
         traceback.print_exc()
-        pytest.fail("Failed to run Alembic migrations")
+        pytest.fail("Failed to create schema via Alembic")
 
 
 @pytest.fixture(scope="session", autouse=True)

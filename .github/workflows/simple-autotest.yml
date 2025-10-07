@@ -115,7 +115,6 @@ jobs:
               -r fExX \
               --log-level=DEBUG \
               -v --tb=short \
-              -p xdist --numprocesses=3 \
               tests/
           "
 
