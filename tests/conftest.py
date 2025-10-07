@@ -71,6 +71,67 @@ def pytest_configure(config: pytest.Config) -> None:
         from .ruciopytest import xdist_noparallel_scheduler
         config.pluginmanager.register(xdist_noparallel_scheduler)
 
+    # Initialize database before test collection to avoid import-time database connection failures
+    suite = config.getoption("--suite", default=None)
+    keep_db = config.getoption("--keep-db", default=False)
+
+    if suite and suite != "client":
+        import os
+        from alembic import command
+        from alembic.config import Config
+        from rucio.db.sqla.util import purge_db
+
+        print(f"\n[pytest_configure] Setting up database for suite: {suite}")
+
+        if not keep_db:
+            print("[pytest_configure] Resetting database tables")
+
+            # Remove old SQLite databases
+            sqlite_paths = ['/tmp/rucio.db']
+            for db_path in sqlite_paths:
+                if os.path.exists(db_path):
+                    print(f"[pytest_configure] Removing old SQLite database: {db_path}")
+                    os.remove(db_path)
+
+            # Reset database using direct function calls
+            try:
+                print("[pytest_configure] Purging database (dropping tables and PostgreSQL types)")
+                purge_db()
+                print("[pytest_configure] Database purge completed")
+            except Exception as e:
+                print(f"[pytest_configure] Database purge failed: {e}")
+                import traceback
+                traceback.print_exc()
+                raise RuntimeError("Failed to purge database") from e
+
+            # Fix SQLite permissions if database exists
+            for db_path in sqlite_paths:
+                if os.path.exists(db_path):
+                    print(f"[pytest_configure] Setting SQLite database permissions: {db_path}")
+                    os.chmod(db_path, 0o666)
+
+        # Use Alembic to create the schema
+        try:
+            rucio_home = os.environ.get('RUCIO_HOME', '/opt/rucio')
+            alembic_cfg_path = f"{rucio_home}/etc/alembic.ini"
+
+            print("[pytest_configure] Creating database schema via Alembic")
+            print(f"[pytest_configure] Using Alembic config: {alembic_cfg_path}")
+
+            # Create Alembic configuration
+            alembic_cfg = Config(alembic_cfg_path)
+
+            # Upgrade to head to create all tables
+            print("[pytest_configure] Upgrading database to head")
+            command.upgrade(alembic_cfg, "head")
+
+            print("[pytest_configure] Alembic schema creation completed\n")
+        except Exception as e:
+            print(f"[pytest_configure] Alembic schema creation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError("Failed to create schema via Alembic") from e
+
 
 def pytest_make_parametrize_id(
         config: pytest.Config,
@@ -878,72 +939,18 @@ def test_environment_setup(request: pytest.FixtureRequest) -> None:
 @pytest.fixture(scope="session", autouse=True)
 def database_setup(request: pytest.FixtureRequest, test_environment_setup) -> None:
     """
-    Session-level database setup and reset.
-    Only runs for server test suites that need database access.
+    Session-level database setup marker.
+    The actual database initialization is done in pytest_configure hook
+    to ensure it happens before test collection.
+    This fixture now only serves as a dependency marker for other fixtures.
     """
-    import os
-    from alembic import command
-    from alembic.config import Config
-    from rucio.db.sqla.util import purge_db
-    
     suite = request.config.getoption("--suite")
-    keep_db = request.config.getoption("--keep-db")
-    
+
     if suite == "client":
         pytest.skip("Client tests don't need database setup")
-    
-    print("Setting up database for suite:", suite)
-    
-    if not keep_db:
-        print("Resetting database tables")
-        
-        # Remove old SQLite databases
-        sqlite_paths = ['/tmp/rucio.db']
-        for db_path in sqlite_paths:
-            if os.path.exists(db_path):
-                print(f"Removing old SQLite database: {db_path}")
-                os.remove(db_path)
-        
-        # Reset database using direct function calls
-        try:
-            print("Purging database (dropping tables and PostgreSQL types)")
-            purge_db()
 
-            print("Database purge completed")
-        except Exception as e:
-            print(f"Database purge failed: {e}")
-            import traceback
-            traceback.print_exc()
-            pytest.fail("Failed to purge database")
-
-        # Fix SQLite permissions if database exists
-        for db_path in sqlite_paths:
-            if os.path.exists(db_path):
-                print(f"Setting SQLite database permissions: {db_path}")
-                os.chmod(db_path, 0o666)
-
-    # Use Alembic to create the schema
-    # Let tests create their own data (VO, root account, etc.)
-    try:
-        rucio_home = os.environ.get('RUCIO_HOME', '/opt/rucio')
-        alembic_cfg_path = f"{rucio_home}/etc/alembic.ini"
-
-        print("Creating database schema via Alembic")
-        print(f"Using Alembic config: {alembic_cfg_path}")
-
-        # Create Alembic configuration
-        alembic_cfg = Config(alembic_cfg_path)
-
-        # Upgrade to head to create all tables
-        print("Upgrading database to head")
-        command.upgrade(alembic_cfg, "head")
-
-        print("Alembic schema creation completed")
-    except Exception as e:
-        print(f"Alembic schema creation failed: {e}")
-        import traceback
-        traceback.print_exc()
-        pytest.fail("Failed to create schema via Alembic")
+    # Database is already initialized in pytest_configure
+    print("[database_setup] Database already initialized in pytest_configure")
 
 
 @pytest.fixture(scope="session", autouse=True)
