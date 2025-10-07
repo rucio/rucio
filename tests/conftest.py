@@ -115,27 +115,18 @@ def pytest_configure(config: pytest.Config) -> None:
                     print(f"[pytest_configure] Setting SQLite database permissions: {db_path}")
                     os.chmod(db_path, 0o666)
 
-        # Use Alembic to create the schema
+        # Build the database schema and tables
         try:
-            rucio_home = os.environ.get('RUCIO_HOME', '/opt/rucio')
-            alembic_cfg_path = f"{rucio_home}/etc/alembic.ini"
+            from rucio.db.sqla.util import build_database
 
-            print("[pytest_configure] Creating database schema via Alembic")
-            print(f"[pytest_configure] Using Alembic config: {alembic_cfg_path}")
-
-            # Create Alembic configuration
-            alembic_cfg = Config(alembic_cfg_path)
-
-            # Upgrade to head to create all tables
-            print("[pytest_configure] Upgrading database to head")
-            command.upgrade(alembic_cfg, "head")
-
-            print("[pytest_configure] Alembic schema creation completed\n")
+            print("[pytest_configure] Building database schema and tables")
+            build_database()
+            print("[pytest_configure] Database build completed\n")
         except Exception as e:
-            print(f"[pytest_configure] Alembic schema creation failed: {e}")
+            print(f"[pytest_configure] Database build failed: {e}")
             import traceback
             traceback.print_exc()
-            raise RuntimeError("Failed to create schema via Alembic") from e
+            raise RuntimeError("Failed to build database") from e
 
 
 def pytest_make_parametrize_id(
