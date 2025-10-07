@@ -86,34 +86,42 @@ def pytest_configure(config: pytest.Config) -> None:
         if not keep_db:
             print("[pytest_configure] Resetting database tables")
 
+            # Check if we're using SQLite
+            from rucio.db.sqla.session import get_engine
+            engine = get_engine()
+            is_sqlite = 'sqlite' in str(engine.url).lower()
+
             # Remove old SQLite databases
             sqlite_paths = ['/tmp/rucio.db']
-            for db_path in sqlite_paths:
-                if os.path.exists(db_path):
-                    print(f"[pytest_configure] Removing old SQLite database: {db_path}")
-                    os.remove(db_path)
+            if is_sqlite:
+                for db_path in sqlite_paths:
+                    if os.path.exists(db_path):
+                        print(f"[pytest_configure] Removing old SQLite database: {db_path}")
+                        os.remove(db_path)
+                print("[pytest_configure] SQLite database file deleted, skipping purge_db()")
+            else:
+                # For PostgreSQL/Oracle, use purge_db to handle schemas
+                try:
+                    print("[pytest_configure] Purging database (dropping tables and PostgreSQL types)")
+                    purge_db()
+                    print("[pytest_configure] Database purge completed")
+                except Exception as e:
+                    # Check if error is because schema doesn't exist (fresh database)
+                    error_str = str(e).lower()
+                    if 'does not exist' in error_str or 'invalidschemaname' in error_str:
+                        print(f"[pytest_configure] Schema doesn't exist (fresh database), skipping purge")
+                    else:
+                        print(f"[pytest_configure] Database purge failed: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        raise RuntimeError("Failed to purge database") from e
 
-            # Reset database using direct function calls
-            try:
-                print("[pytest_configure] Purging database (dropping tables and PostgreSQL types)")
-                purge_db()
-                print("[pytest_configure] Database purge completed")
-            except Exception as e:
-                # Check if error is because schema doesn't exist (fresh database)
-                error_str = str(e).lower()
-                if 'does not exist' in error_str or 'invalidschemaname' in error_str:
-                    print(f"[pytest_configure] Schema doesn't exist (fresh database), skipping purge")
-                else:
-                    print(f"[pytest_configure] Database purge failed: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    raise RuntimeError("Failed to purge database") from e
-
-            # Fix SQLite permissions if database exists
-            for db_path in sqlite_paths:
-                if os.path.exists(db_path):
-                    print(f"[pytest_configure] Setting SQLite database permissions: {db_path}")
-                    os.chmod(db_path, 0o666)
+            # Fix SQLite permissions if database exists (after build)
+            if is_sqlite:
+                for db_path in sqlite_paths:
+                    if os.path.exists(db_path):
+                        print(f"[pytest_configure] Setting SQLite database permissions: {db_path}")
+                        os.chmod(db_path, 0o666)
 
         # Build the database schema and tables
         try:
