@@ -117,16 +117,47 @@ def pytest_configure(config: pytest.Config) -> None:
 
         # Build the database schema and tables
         try:
-            from rucio.db.sqla.util import build_database
+            from rucio.db.sqla.util import build_database, create_root_account, create_base_vo
 
             print("[pytest_configure] Building database schema and tables")
             build_database()
-            print("[pytest_configure] Database build completed\n")
+            print("[pytest_configure] Database build completed")
+
+            # Create base VO and root account
+            print("[pytest_configure] Creating base VO and root account")
+            create_base_vo()
+            create_root_account()
+            print("[pytest_configure] Base VO and root account created")
         except Exception as e:
             print(f"[pytest_configure] Database build failed: {e}")
             import traceback
             traceback.print_exc()
             raise RuntimeError("Failed to build database") from e
+
+        # Restart Apache httpd so it picks up the new database
+        try:
+            import subprocess
+            subprocess.run(['httpd', '-k', 'graceful'], check=True, capture_output=True)
+            print("[pytest_configure] Apache httpd restarted")
+            # Give httpd a moment to restart
+            import time
+            time.sleep(2)
+        except subprocess.CalledProcessError as e:
+            print(f"[pytest_configure] Warning: Could not restart Apache: {e}")
+        except FileNotFoundError:
+            print("[pytest_configure] Warning: httpd not found, skipping Apache restart")
+
+        # Bootstrap test data (create root account, etc.) before test collection
+        # This is needed because some test modules instantiate clients at module level
+        try:
+            print("[pytest_configure] Bootstrapping test data (root account, etc.)")
+            _run_bootstrap_tests()
+            print("[pytest_configure] Test data bootstrap completed\n")
+        except Exception as e:
+            print(f"[pytest_configure] Bootstrap failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError("Failed to bootstrap test data") from e
 
 
 def pytest_make_parametrize_id(
@@ -977,27 +1008,10 @@ def rucio_bootstrap(request: pytest.FixtureRequest, database_setup, test_environ
             print(f"Copied client config from {client_cfg} to {target_cfg}")
         return
     
-    print("Server suite: full bootstrap")
-    
-    # Restart Apache httpd
-    try:
-        subprocess.run(['httpd', '-k', 'graceful'], check=True, capture_output=True)
-        print("Apache httpd restarted")
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: Could not restart Apache: {e}")
-    except FileNotFoundError:
-        print("Warning: httpd not found, skipping Apache restart")
-    
-    # Bootstrap test data - execute the bootstrap logic directly
-    try:
-        print("Bootstrapping test data")
-        _run_bootstrap_tests()
-        print("Test data bootstrap completed")
-    except Exception as e:
-        print(f"Bootstrap failed: {e}")
-        import traceback
-        traceback.print_exc()
-        pytest.fail("Failed to bootstrap test data")
+    print("[rucio_bootstrap] Server suite: full bootstrap")
+
+    # httpd restart and bootstrap are already done in pytest_configure
+    print("[rucio_bootstrap] httpd and test data already initialized in pytest_configure")
     
     # Sync RSE repository - execute sync logic directly
     try:
