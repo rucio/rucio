@@ -654,7 +654,7 @@ def test_list_did_recursive(did_factory, mock_scope, rucio_client):
     rucio_client.attach_dids(scope, tmp_container_2['name'], [tmp_container_3])
 
     # All attached DIDs are expected
-    cmd = f'rucio list-dids {scope}:{tmp_container_1["name"]} --recursive'
+    cmd = f'rucio -v list-dids {scope}:{tmp_container_1["name"]} --recursive'
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert tmp_container_1['name'] in out

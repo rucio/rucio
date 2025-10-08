@@ -757,8 +757,8 @@ class TestMultiVoClients:
         scope_client.add_scope('root', shr)
         add_scope(new, 'root', 'root', vo=second_vo)
         add_scope(shr, 'root', 'root', vo=second_vo)
-        scope_list_tst = list(scope_client.list_scopes())
-        scope_list_new = list(list_scopes(filter_={}, vo=second_vo))
+        scope_list_tst = [s['scope'] for s in scope_client.list_scopes()]
+        scope_list_new = [s['scope'] for s in list_scopes(filter_={}, vo=second_vo)]
         assert tst in scope_list_tst
         assert new not in scope_list_tst
         assert shr in scope_list_tst
