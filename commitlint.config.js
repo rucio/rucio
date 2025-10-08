@@ -2,8 +2,7 @@ const rucioComponents = [
   'Core',
   'Clients', 
   'Database',
-  'Authentication',
-  'Authorisation',
+  'Authentication & Authorisation',
   'Consistency',
   'Deletion',
   'Metadata',
@@ -25,16 +24,21 @@ const rucioComponents = [
 ];
 
 const rucioTypes = [
+  // Functional changes
   'feat',     // New feature
   'fix',      // Bug fix
+  'perf',     // Code change that improves performance
+
+  // Non-functional changes
   'docs',     // Documentation only changes
   'style',    // Changes that do not affect the meaning of the code
   'refactor', // Code change that neither fixes a bug nor adds a feature
-  'perf',     // Code change that improves performance
   'test',     // Adding missing tests or correcting existing tests
   'build',    // Changes that affect the build system or external dependencies
   'ci',       // Changes to CI configuration files and scripts
   'chore',    // Other changes that don't modify src or test files
+
+  // Miscellaneous
   'revert',   // Reverts a previous commit
   'patch'     // Small fixes or improvements
 ];
@@ -51,11 +55,7 @@ const gitTrailerPlugin = {
       
       // Issue-related trailer tokens (case-insensitive)
       const issueTrailerTokens = [
-        'issue-id', 'issue', 'issues',
-        'closes', 'close', 'closed',
-        'fixes', 'fix', 'fixed',
-        'resolves', 'resolve', 'resolved',
-        'refs', 'ref', 'references', 'reference'
+        'issue','closes' 
       ];
       
       // Create pattern for issue-related trailers: "Token: Value" or "Token #Value"
