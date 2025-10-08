@@ -170,3 +170,16 @@ class TestScopeClient:
         rucio_client.add_account(account, 'USER', 'rucio@email.com')
         with pytest.raises(ScopeNotFound):
             rucio_client.list_scopes_for_account(account)
+
+    def test_list_all_scopes(self, scope_factory, random_account_factory, rucio_client, vo):
+        """SCOPE (CLIENTS): List all scopes and verify they have the correct account associated"""
+
+        n_scopes = 5
+        accounts = [random_account_factory().external for _ in range(n_scopes)]
+        scopes = [scope_factory(vos=[vo], account_name=account)[0] for account in accounts]
+
+        listed_scopes = [i for i in rucio_client.list_scopes()]
+        for scope, account in zip(scopes, accounts):
+            item = list(filter(lambda d: d['scope'] == scope, listed_scopes))[0]
+            assert item['scope'] == scope
+            assert item['account'] == account

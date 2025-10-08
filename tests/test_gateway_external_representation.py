@@ -407,7 +407,7 @@ class TestGatewayExternalRepresentation:
     def test_gateway_scope(self, vo, vo2, account_name, scope_name, scope):
         """ SCOPE (Gateway): Test external representation of scopes """
 
-        out = list_scopes()
+        out = [s['scope'] for s in list_scopes()]
         assert scope_name in out
         if vo2:
             assert scope.internal not in out
