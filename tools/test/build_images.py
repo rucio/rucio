@@ -49,6 +49,9 @@ def build_images(matrix, script_args):
                               itertools.groupby(sorted(matrix, key=lambda d: d[DIST_KEY]), lambda d: d[DIST_KEY])}
     use_podman = 'USE_PODMAN' in os.environ and os.environ['USE_PODMAN'] == '1'
     images = dict()
+
+    reuse_images = os.environ.get('RUCIO_AUTOTEST_REUSE_IMAGES') == '1'
+
     for dist, buildargs_list in distribution_buildargs.items():
         for buildargs in buildargs_list:
             filtered_buildargs = buildargs._asdict()
@@ -65,6 +68,27 @@ def build_images(matrix, script_args):
             imagetag = f'rucio-{image_identifier}:{dist.lower()}{buildargs_tags}'
             if script_args.cache_repo:
                 imagetag = script_args.cache_repo.lower() + '/' + imagetag
+
+            # add image to output so that callers can use it even if we skip
+            images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
+
+            # Skip pulling/building if the image is already available locally and
+            # the developer requested to reuse it. This speeds up local
+            # development but does not affect CI where the env var is unset.
+            if reuse_images:
+                result = subprocess.run(
+                    ('docker', 'image', 'inspect', imagetag),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                if result.returncode == 0:
+                    print(
+                        f"Image {imagetag} already present locally, skipping build/download",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    continue
+
             cache_args = ()
             if script_args.build_no_cache:
                 cache_args = ('--no-cache', '--pull-always' if use_podman else '--pull')
@@ -73,15 +97,12 @@ def build_images(matrix, script_args):
                 print("Running", " ".join(args), file=sys.stderr, flush=True)
                 subprocess.run(args, stdout=sys.stderr, check=False)
 
-            # add image to output
-            images[imagetag] = {DIST_KEY: dist, **buildargs._asdict()}
-
             if script_args.download_only:
                 # skip building
                 continue
 
-            args = ()
-            env = {"DOCKER_BUILDKIT": "1"}
+            env = os.environ.copy()
+            env["DOCKER_BUILDKIT"] = "1"
             if buildargs.IMAGE_IDENTIFIER == 'integration-test':
                 buildfile = pathlib.Path(script_args.buildfiles_dir) / 'alma9.Dockerfile'
                 args = (
