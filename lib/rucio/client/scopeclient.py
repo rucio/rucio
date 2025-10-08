@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from json import loads
+from typing import TYPE_CHECKING, Any, Literal, Union
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -20,6 +21,9 @@ from requests.status_codes import codes
 from rucio.client.baseclient import BaseClient, choice
 from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class ScopeClient(BaseClient):
@@ -64,7 +68,7 @@ class ScopeClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
-    def list_scopes(self) -> list[str]:
+    def list_scopes(self) -> "Union[list[str], Iterator[dict[Literal['scope', 'account'], Any]]]":
         """
         Sends the request to list all scopes.
 

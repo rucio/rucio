@@ -1856,7 +1856,9 @@ class DownloadClient:
             did_name = did[1]
         elif len(did) == 1:
             if self.extract_scope_convention == 'belleii':
-                scopes = [scope for scope in self.client.list_scopes()]
+                scopes = self.client.list_scopes()
+                if not isinstance(scopes, list):
+                    scopes = [scope['scope'] for scope in scopes]
                 did_scope, did_name = extract_scope(did[0], scopes)
             else:
                 did = did_str.split('.')
