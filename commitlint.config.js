@@ -2,7 +2,7 @@ const rucioComponents = [
   'Core',
   'Clients', 
   'Database',
-  'Authentication & Authorisation',
+  'Auth',
   'Consistency',
   'Deletion',
   'Metadata',
@@ -40,7 +40,7 @@ const rucioTypes = [
 
   // Miscellaneous
   'revert',   // Reverts a previous commit
-  'patch'     // Small fixes or improvements
+  'patch'     // Used for small enhancements or tweaks that slightly improve functionality without fixing a bug or adding a new feature or style changes.
 ];
 
 const gitTrailerPlugin = {
