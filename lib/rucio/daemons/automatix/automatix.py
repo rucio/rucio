@@ -177,6 +177,8 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     vo = map_vo(client.vo)  # type: ignore
     filters = {"scope": InternalScope("*", vo=vo)}
     scopes = list_scopes(filter_=filters)
+    if not isinstance(scopes[0], str):   # TODO Backwards Compat - Remove in v40, #ISSUEPLACEHOLDER
+        scopes = [scope['scope'] for scope in scopes]
     if InternalScope(scope, vo=vo) not in scopes:
         logger(logging.ERROR, "Scope %s does not exist. Exiting", scope)
         return True
