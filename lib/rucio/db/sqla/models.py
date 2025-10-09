@@ -877,6 +877,28 @@ class RSE(BASE, SoftModelBase):
                    CheckConstraint('RSE_TYPE IS NOT NULL', name='RSES_TYPE_NN'),
                    ForeignKeyConstraint(['vo'], ['vos.vo'], name='RSES_VOS_FK'), )
 
+    @staticmethod
+    def from_str(key: str, value: str) -> Any:
+        """Parses str value to key-specific database type."""
+
+        if key in ['deterministic', 'volatile', 'staging_area', 'availability_read', 'availability_write', 'availability_delete']:
+            # boolean types
+            if value == '1' or value.casefold() == 'true'.casefold():
+                return True
+            elif value == '0' or value.casefold() == 'false'.casefold():
+                return False
+            else:
+                raise ValueError(f'Invalid boolean value: {value}')
+
+        elif key == 'rse_type':
+            try:
+                return RSEType[value]
+            except KeyError:
+                raise ValueError(f'Invalid rse_type: {value}')
+
+        else:
+            return value
+
 
 class RSELimit(BASE, ModelBase):
     """Represents RSE limits"""
