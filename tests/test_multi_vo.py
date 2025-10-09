@@ -956,29 +956,25 @@ class TestMultiVOBinRucio:
         fake_vo = 'fke'
 
         cmd = 'rucio-admin --vo %s rse list' % long_vo
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, )
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
         cmd = 'rucio-admin --vo %s rse list' % second_vo
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, )
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst not in out
         assert self.rse_new in out
 
         cmd = 'rucio-admin --vo %s rse list' % fake_vo
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
+        assert exitcode != 0, f"Command should have failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio-admin rse list'
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, )
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
@@ -987,29 +983,25 @@ class TestMultiVOBinRucio:
         fake_vo = 'fke'
 
         cmd = 'rucio --vo %s list-rses' % long_vo
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, )
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
         cmd = 'rucio --vo %s list-rses' % second_vo
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, )
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst not in out
         assert self.rse_new in out
 
         cmd = 'rucio --vo %s list-rses' % fake_vo
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, err)
+        assert exitcode != 0, f"Command should have failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert 'Details: CannotAuthenticate' in err
 
         cmd = 'rucio list-rses'
-        print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
-        print(out, )
+        assert exitcode == 0, f"Command failed : {self.marker + cmd}. Error: {err}. Output: {out}"
         assert self.rse_tst in out
         assert self.rse_new not in out
 
