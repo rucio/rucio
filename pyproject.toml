@@ -24,6 +24,7 @@ exclude_also = [
 
 [tool.ruff]
 line-length = 256
+target-version = "py39"
 
 extend-include = [
     "bin/*",
