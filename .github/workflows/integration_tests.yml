@@ -142,7 +142,15 @@ jobs:
           docker exec -t dev-rucio-1 bash -c "
             set -e
             cd /rucio_source
-            cp etc/rse-accounts.cfg.template etc/rse-accounts.cfg
+            cp etc/rse-accounts.cfg.template /opt/rucio/etc/rse-accounts.cfg
+            cp etc/rse-accounts.cfg.template /opt/rucio/etc/rse-accounts.cfg.template
+            cp etc/rse_repository.json /opt/rucio/etc/rse_repository.json
+            cp etc/rclone-init.cfg /opt/rucio/etc/rclone-init.cfg
+
+            # Create symlinks to the mounted SSH keys in standard locations
+            ln -sf /root/.ssh/ruciouser_sshkey /root/.ssh/id_rsa 2>/dev/null || true
+            ln -sf /root/.ssh/ruciouser_sshkey.pub /root/.ssh/id_rsa.pub 2>/dev/null || true
+
             pip install --no-cache-dir -e /rucio_source
             tools/run_tests.sh -ir
           "

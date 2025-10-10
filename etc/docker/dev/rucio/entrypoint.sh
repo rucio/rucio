@@ -64,4 +64,9 @@ fi
 
 update-ca-trust
 
+# Create python symlink for gfal-rm compatibility
+if [ ! -f /usr/bin/python ] && [ -f /usr/bin/python3 ]; then
+    ln -sf /usr/bin/python3 /usr/bin/python
+fi
+
 exec "$@"
