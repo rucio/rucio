@@ -52,7 +52,7 @@ def add_files(
 
     with db_session(DatabaseOperationType.WRITE) as session:
         filter_ = {'scope': InternalScope(scope='*', vo=vo)}
-        scopes = [scope.external for scope in list_scopes(filter_=filter_, session=session)]
+        scopes = [scope['scope'].external for scope in list_scopes(filter_=filter_, session=session)]
         dids = []
         rses = {}
         for lfn in lfns:
