@@ -920,7 +920,7 @@ def upload(args, client, logger, console, spinner):
     from rucio.client.uploadclient import UploadClient
     upload_client = UploadClient(client, logger=logger)
     summary_file_path = 'rucio_upload.json' if args.summary else None
-    upload_client.upload(items=items, summary_file_path=summary_file_path, new_file=args.new_file)
+    upload_client.upload(items=items, summary_file_path=summary_file_path)
     return SUCCESS
 
 
@@ -2445,7 +2445,6 @@ You can filter by key/value, e.g.::
     upload_parser.add_argument('--transfer-timeout', dest='transfer_timeout', type=float, action='store', default=config_get_float('upload', 'transfer_timeout', False, 360), help='Transfer timeout (in seconds).')
     upload_parser.add_argument(dest='args', action='store', nargs='+', help='files and datasets.')
     upload_parser.add_argument('--recursive', dest='recursive', action='store_true', default=False, help='Convert recursively the folder structure into collections')
-    upload_parser.add_argument('--new-file', dest='new_file', action='store_true', default=False, help='Assume DID does not already exist')
 
     # The download and get subparser
     get_parser = subparsers.add_parser('get', help='Download method (synonym for download)')

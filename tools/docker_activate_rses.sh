@@ -121,10 +121,10 @@ dd if=/dev/urandom of=file2 bs=10M count=1
 dd if=/dev/urandom of=file3 bs=10M count=1
 dd if=/dev/urandom of=file4 bs=10M count=1
 
-XrdSecGSISRVNAMES=xrd1 rucio upload --new-file --rse XRD1 --scope test file1
-XrdSecGSISRVNAMES=xrd1 rucio upload --new-file --rse XRD1 --scope test file2
-XrdSecGSISRVNAMES=xrd2 rucio upload --new-file --rse XRD2 --scope test file3
-XrdSecGSISRVNAMES=xrd2 rucio upload --new-file --rse XRD2 --scope test file4
+XrdSecGSISRVNAMES=xrd1 rucio upload --rse XRD1 --scope test file1
+XrdSecGSISRVNAMES=xrd1 rucio upload --rse XRD1 --scope test file2
+XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file3
+XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file4
 
 rucio did add --type dataset test:dataset1
 rucio did content add test:file1 test:file2 --to-did
