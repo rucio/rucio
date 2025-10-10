@@ -45,9 +45,11 @@ class TestScopeCoreApi:
         """ SCOPE (CORE): Give the scope a different owner"""
         scope = InternalScope(scope_name_generator(), vo=vo)
         add_scope(scope=scope, account=jdoe_account)
+        assert is_scope_owner(scope, account=jdoe_account)
 
         update_scope(scope=scope, account=random_account)
         assert is_scope_owner(scope, account=random_account)
+        assert not is_scope_owner(scope, account=jdoe_account)
 
         account = InternalAccount(account_name_generator())
         with pytest.raises(AccountNotFound):
@@ -101,7 +103,7 @@ def test_scope_change_ownership(rest_client, auth_token, random_account_factory)
 
     new_owner = random_account_factory()
     response = rest_client.put(f"/scopes/{new_owner}/{scope}", headers=headers(auth(auth_token)))
-    assert response.status_code == 201
+    assert response.status_code == 200
 
     # Try to do it without sufficient permissions
     new_owner = random_account_factory()
