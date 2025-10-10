@@ -1,26 +1,36 @@
+// NOTE: Any changes to this list should also be applied to the [GitHub labels](https://github.com/rucio/rucio/issues/labels) and the [documentation](https://rucio.cern.ch/documentation/contributing/)
 const rucioComponents = [
-  'Core',
-  'Clients', 
+  'Auth', // Authentication & Authorisation
+  'CI', // Continuous Integration
+  'Clients',
+  'Consistency', // Consistency checks
+  'Core', // Core & Internals
   'Database',
-  'Auth',
-  'Consistency',
+  'DatasetDeletion', // Dataset deletion
   'Deletion',
-  'Metadata',
-  'Monitoring',
-  'Traces',
-  'Messaging',
-  'Policies',
-  'Docker',
-  'Kubernetes',
-  'Documentation',
   'DIRAC',
-  'MultiVO',
-  'Lifetime',
-  'Overview',
-  'Dependencies',
-  'GitHubActions',
-  'Opendata',
-  'CI'
+  'Docker', // Docker
+  'Documentation',
+  'Kubernetes', // Kubernetes
+  'Lifetime', // Life time model
+  'Messaging',
+  'Metadata',
+  'Monitoring', // Monitoring & Traces
+  'MultiVO', // Multi VO
+  'Opendata', // Open data
+  'Policies',
+  'Probes', // Probes & Alarms
+  'Protocols',
+  'Rebalancing',
+  'Recovery',
+  'Replicas',
+  'REST', // REST & API
+  'Rules',
+  'Subscriptions',
+  'Testing',
+  'Traces', // Monitoring & Traces
+  'Transfers',
+  'WebUI'
 ];
 
 const rucioTypes = [
@@ -40,7 +50,6 @@ const rucioTypes = [
 
   // Miscellaneous
   'revert',   // Reverts a previous commit
-  'patch'     // Used for small enhancements or tweaks that slightly improve functionality without fixing a bug or adding a new feature or style changes.
 ];
 
 const gitTrailerPlugin = {
@@ -63,7 +72,7 @@ const gitTrailerPlugin = {
       const issueTrailerPattern = new RegExp(`^(${tokenPattern})\\s*[:#]\\s*.+$`, 'im');
       
       if (!issueTrailerPattern.test(fullMessage)) {
-        return [false, 'Commit message must include an issue-related Git trailer (e.g., "Issue-Id: #123", "Closes: #456", "Fixes: #789", "Refs: #101"). You can add a trailer using: git commit -m "message" --trailer "Fixes: #123"'];
+        return [false, 'Commit message must include an issue-related Git trailer (e.g., "Issue: #123", "Closes: #456"). You can add a trailer using: git commit -m "message" --trailer "Fixes: #123"'];
       }
       
       return [true];
