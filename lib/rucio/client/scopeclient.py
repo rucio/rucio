@@ -115,7 +115,7 @@ class ScopeClient(BaseClient):
 
         path = '/'.join(['scopes', account, scope])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, type_='PUT')
+        r = self._send_request(url, method=HTTPMethod.PUT)
         if r.status_code == codes.created:
             return True
         else:
