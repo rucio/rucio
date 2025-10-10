@@ -61,6 +61,8 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "flaky(reruns, reruns_delay): mark test as flaky and rerun on failure"
     )
+    config.addinivalue_line('markers', 'integration: marks tests as integration tests')
+    config.addinivalue_line('markers', 'external: tests that verify external service behavior without invoking internal Rucio functions')
 
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
