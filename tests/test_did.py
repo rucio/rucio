@@ -39,6 +39,7 @@ from rucio.core.did import (
     set_new_dids,
     set_status,
     touch_dids,
+    list_content_history
 )
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
@@ -68,6 +69,11 @@ class TestDIDCore:
         for dsn in dsns:
             add_did(scope=mock_scope, name=dsn['name'], did_type='DATASET', account=root_account)
         delete_dids(dids=dsns, account=root_account)
+
+    def test_list_content_history(self, mock_scope):
+        """ DATA IDENTIFIERS (CORE): List Content History """
+        for d in list_content_history(scope=mock_scope):
+            print(d)
 
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch DIDs accessed_at timestamp"""
