@@ -72,7 +72,8 @@ class TestDIDCore:
 
     def test_list_content_history(self, mock_scope):
         """ DATA IDENTIFIERS (CORE): List Content History """
-        for d in list_content_history(scope=mock_scope):
+        tmp_dsn1 = did_name_generator('dataset')
+        for d in list_content_history(scope=mock_scope, name=tmp_dsn1):
             print(d)
 
     def test_touch_dids_atime(self, mock_scope, root_account):
