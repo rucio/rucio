@@ -19,7 +19,7 @@ from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifi
 from rucio.common.utils import parse_response
 from rucio.gateway.dirac import add_files
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, response_headers
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, generate_http_error_flask, json_parameters, param_get, param_get_bool, response_headers
 
 
 class AddFiles(ErrorHandlingMethodView):
@@ -78,7 +78,7 @@ class AddFiles(ErrorHandlingMethodView):
         """
         parameters = json_parameters(parse_response)
         lfns = param_get(parameters, 'lfns')
-        ignore_availability = param_get(parameters, 'ignore_availability', default=False)
+        ignore_availability = param_get_bool(parameters, 'ignore_availability', default=False)
         parents_metadata = param_get(parameters, 'parents_metadata', default=None)
         try:
             add_files(lfns=lfns, issuer=request.environ['issuer'], ignore_availability=ignore_availability,

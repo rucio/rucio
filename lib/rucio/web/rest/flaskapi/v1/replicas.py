@@ -62,7 +62,7 @@ from rucio.gateway.replica import (
     update_replicas_states,
 )
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
     from rucio.common.types import IPDict
@@ -361,7 +361,7 @@ class Replicas(ErrorHandlingMethodView):
                 files=files,
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],
-                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+                ignore_availability=param_get_bool(parameters, 'ignore_availability', default=False),
             )
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
@@ -468,6 +468,7 @@ class Replicas(ErrorHandlingMethodView):
                         name:
                           description: "The name of the replica."
                           type: string
+
         responses:
           200:
             description: "OK"
@@ -488,7 +489,7 @@ class Replicas(ErrorHandlingMethodView):
                 files=files,
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],
-                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+                ignore_availability=param_get_bool(parameters, 'ignore_availability', default=False),
             )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
@@ -674,18 +675,18 @@ class ListReplicas(ErrorHandlingMethodView):
         dids = param_get(parameters, 'dids', default=[])
         schemes = param_get(parameters, 'schemes', default=None)
         select = param_get(parameters, 'sort', default=None)
-        unavailable = param_get(parameters, 'unavailable', default=False)
-        ignore_availability = param_get(parameters, 'ignore_availability', default='unavailable' in parameters)
+        unavailable = param_get_bool(parameters, 'unavailable', default=False)
+        ignore_availability = param_get_bool(parameters, 'ignore_availability', default='unavailable' in parameters)
         rse_expression = param_get(parameters, 'rse_expression', default=None)
-        all_states = param_get(parameters, 'all_states', default=False)
+        all_states = param_get_bool(parameters, 'all_states', default=False)
         domain = param_get(parameters, 'domain', default=None)
         if 'signature_lifetime' in parameters:
             signature_lifetime = param_get(parameters, 'signature_lifetime')
         else:
             # hardcoded default of 10 minutes if config is not parseable
             signature_lifetime = config_get_int('credentials', 'signature_lifetime', raise_exception=False, default=600)
-        resolve_archives = param_get(parameters, 'resolve_archives', default=True)
-        resolve_parents = param_get(parameters, 'resolve_parents', default=False)
+        resolve_archives = param_get_bool(parameters, 'resolve_archives', default=True)
+        resolve_parents = param_get_bool(parameters, 'resolve_parents', default=False)
         updated_after = param_get(parameters, 'updated_after', default=None)
         if updated_after is not None:
             if isinstance(updated_after, (int, float)):
@@ -878,7 +879,7 @@ class BadReplicas(ErrorHandlingMethodView):
         parameters = json_parameters()
         replicas = param_get(parameters, 'replicas', default=[]) or param_get(parameters, 'pfns', default=[])
         reason = param_get(parameters, 'reason', default=None)
-        force = param_get(parameters, 'force', default=False)
+        force = param_get_bool(parameters, 'force', default=False)
 
         try:
             not_declared_files = declare_bad_file_replicas(replicas, reason=reason,
@@ -1377,7 +1378,7 @@ class DatasetReplicas(ErrorHandlingMethodView):
                 for row in list_dataset_replicas(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            deep = request.args.get('deep', default=False)
+            deep = param_get_bool(request.args, 'deep', default=False)
 
             return try_stream(generate(_deep=deep, vo=request.environ['vo']))
         except ValueError as error:
@@ -1527,7 +1528,7 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
                 for row in list_dataset_replicas_vp(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            deep = request.args.get('deep', default=False)
+            deep = param_get_bool(request.args, 'deep', default=False)
 
             return try_stream(generate(_deep=deep, vo=request.environ['vo']))
         except ValueError as error:

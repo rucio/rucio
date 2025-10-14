@@ -18,7 +18,7 @@ from rucio.common.constants import HTTPMethod
 from rucio.common.utils import render_json
 from rucio.gateway.exporter import export_data
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, param_get_bool, response_headers
 
 
 class Export(ErrorHandlingMethodView):
@@ -52,7 +52,7 @@ class Export(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
-        distance = request.args.get('distance', default='True') == 'True'
+        distance = param_get_bool(request.args, 'distance', default=True)
         return Response(render_json(**export_data(issuer=request.environ['issuer'], distance=distance, vo=request.environ['vo'])), content_type='application/json')
 
 

@@ -425,6 +425,48 @@ def param_get(parameters: dict[str, Any], name: str, **kwargs) -> Any:
         return parameters[name]
 
 
+def param_get_bool(parameters: dict[str, Any], name: str, **kwargs) -> bool:
+    """
+        Get a boolean parameter from the passed parameters. Converts to True/False.
+    """
+    def _str_to_bool(option: Union[str, bool]) -> bool:
+        # TODO remove warning and replace with error in v40 - #8156
+        try:
+            int(option)
+            logging.warning("Booleans should only accept true/false. Please change 0/1 to true/false.")
+        except (TypeError, ValueError):
+            pass
+
+        if isinstance(option, int):
+            option = f"{option}"
+
+        if isinstance(option, bool):
+            return option
+        elif option.lower() in ['true', '1']:
+            return True
+        elif option.lower() in ['false', '0']:
+            return False
+        else:
+            flask.abort(
+                generate_http_error_flask(
+                    status_code=400,
+                    exc=TypeError.__name__,
+                    exc_msg=f"'{name}' must be a boolean type."
+                )
+            )
+    default = kwargs.get('default', None)
+    value = parameters.get(name, default)
+    if value is None:
+        flask.abort(
+                generate_http_error_flask(
+                    status_code=400,
+                    exc=KeyError.__name__,
+                    exc_msg=f"'{name}' not defined"
+                )
+            )
+    return _str_to_bool(value)
+
+
 def extract_vo(headers: Headers) -> str:
     """ Extract the VO name from the given request.headers object and
         does any name mapping. Returns the short VO name or raise a
