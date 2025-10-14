@@ -53,7 +53,7 @@ from rucio.gateway.rule import (
     update_replication_rule,
 )
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, parse_scope_name, response_headers, try_stream
 
 
 class Rule(ErrorHandlingMethodView):
@@ -384,19 +384,19 @@ class AllRule(ErrorHandlingMethodView):
                 lifetime=param_get(parameters, 'lifetime', default=None),
                 grouping=param_get(parameters, 'grouping', default='DATASET'),
                 account=account,
-                locked=param_get(parameters, 'locked', default=False),
+                locked=param_get_bool(parameters, 'locked', default=False),
                 subscription_id=param_get(parameters, 'subscription_id', default=None),
                 source_replica_expression=param_get(parameters, 'source_replica_expression', default=None),
                 activity=param_get(parameters, 'activity', default=None),
                 notify=param_get(parameters, 'notify', default=None),
-                purge_replicas=param_get(parameters, 'purge_replicas', default=False),
-                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+                purge_replicas=param_get_bool(parameters, 'purge_replicas', default=False),
+                ignore_availability=param_get_bool(parameters, 'ignore_availability', default=False),
                 comment=param_get(parameters, 'comment', default=None),
-                ask_approval=param_get(parameters, 'ask_approval', default=False),
-                asynchronous=param_get(parameters, 'asynchronous', default=False),
+                ask_approval=param_get_bool(parameters, 'ask_approval', default=False),
+                asynchronous=param_get_bool(parameters, 'asynchronous', default=False),
                 delay_injection=param_get(parameters, 'delay_injection', default=None),
                 priority=param_get(parameters, 'priority', default=3),
-                split_container=param_get(parameters, 'split_container', default=False),
+                split_container=param_get_bool(parameters, 'split_container', default=False),
                 meta=param_get(parameters, 'meta', default=None),
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],

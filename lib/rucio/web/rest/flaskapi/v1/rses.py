@@ -66,7 +66,7 @@ from rucio.gateway.rse import (
 )
 from rucio.rse import rsemanager
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, response_headers, try_stream
 
 if TYPE_CHECKING:
     from rucio.common.types import LFNDict
@@ -1478,7 +1478,7 @@ class Usage(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
-        per_account = request.args.get('per_account') == 'True'
+        per_account = param_get_bool(request.args, 'per_account', default=False)
         try:
             def generate(issuer, source, per_account, vo):
                 for usage in get_rse_usage(rse, issuer=issuer, source=source, per_account=per_account, vo=vo):

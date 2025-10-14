@@ -72,7 +72,7 @@ from rucio.gateway.did import (
 )
 from rucio.gateway.rule import list_associated_replication_rules_for_file, list_replication_rules
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_list, json_parameters, json_parse, param_get, param_get_bool, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
 
@@ -149,7 +149,7 @@ class Scope(ErrorHandlingMethodView):
                 for did in scope_list(scope=scope, name=name, recursive=recursive, vo=vo):
                     yield render_json(**did) + '\n'
 
-            recursive = request.args.get('recursive', 'false').lower() in ['true', '1']
+            recursive = param_get_bool(request.args, 'recursive', default=False)
 
             return try_stream(
                 generate(
@@ -275,8 +275,8 @@ class Search(ErrorHandlingMethodView):
 
         did_type = request.args.get('type', default='collection')
         limit = request.args.get('limit', type=int, default=None)
-        long = request.args.get('long', type=['True', '1'].__contains__, default=False)
-        recursive = request.args.get('recursive', type='True'.__eq__, default=False)
+        long = param_get_bool(request.args, 'long', default=False)
+        recursive = param_get_bool(request.args, 'recursive', default=False)
         try:
             def generate(vo):
                 for did in list_dids(scope=scope,
@@ -469,7 +469,7 @@ class Attachments(ErrorHandlingMethodView):
             ignore_duplicate = False
         elif isinstance(parameters, dict):
             attachments = param_get(parameters, 'attachments')
-            ignore_duplicate = param_get(parameters, 'ignore_duplicate', default=False)
+            ignore_duplicate = param_get_bool(parameters, 'ignore_duplicate', default=False)
         else:
             return generate_http_error_flask(406, exc="Invalid attachment format.")
 
@@ -1519,7 +1519,7 @@ class Meta(ErrorHandlingMethodView):
                     key=key,
                     value=value,
                     issuer=request.environ['issuer'],
-                    recursive=param_get(parameters, 'recursive', default=False),
+                    recursive=param_get_bool(parameters, 'recursive', default=False),
                     vo=vo
                 )
             except DataIdentifierNotFound as error:
@@ -1536,7 +1536,7 @@ class Meta(ErrorHandlingMethodView):
                     name=name,
                     meta=meta,
                     issuer=request.environ['issuer'],
-                    recursive=param_get(parameters, 'recursive', default=False),
+                    recursive=param_get_bool(parameters, 'recursive', default=False),
                     vo=vo,
                 )
             except DataIdentifierNotFound as error:
@@ -1908,7 +1908,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
     def _handle_get(self) -> 'ResponseReturnValue':
         params = json_parameters()
         dids = param_get(params, "dids")
-        inherit = param_get(params, "inherit", default=False)
+        inherit = param_get_bool(params, "inherit", default=False)
         plugin = param_get(params, "plugin", default="JSON")
 
         try:
