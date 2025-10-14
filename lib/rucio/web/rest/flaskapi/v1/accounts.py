@@ -27,7 +27,7 @@ from rucio.gateway.identity import add_account_identity, del_account_identity
 from rucio.gateway.rule import list_replication_rules
 from rucio.gateway.scope import add_scope, get_scopes
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, response_headers, try_stream
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -692,7 +692,7 @@ class Identities(ErrorHandlingMethodView):
                 email=email,
                 password=param_get(parameters, 'password', default=None),
                 issuer=issuer,
-                default=param_get(parameters, 'default', default=False),
+                default=param_get_bool(parameters, 'default', default=False),
                 vo=vo,
             )
         except AccessDenied as error:

@@ -19,7 +19,7 @@ from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, Uns
 from rucio.common.utils import render_json
 from rucio.gateway.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, response_headers, try_stream
 
 
 class VOs(ErrorHandlingMethodView):
@@ -233,7 +233,7 @@ class RecoverVO(ErrorHandlingMethodView):
         authtype = param_get(parameters, 'authtype')
         email = param_get(parameters, 'email')
         password = param_get(parameters, 'password', default=None)
-        default = param_get(parameters, 'default', default=False)
+        default = param_get_bool(parameters, 'default', default=False)
 
         try:
             recover_vo_root_identity(
