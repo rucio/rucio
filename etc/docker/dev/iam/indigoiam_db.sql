@@ -1,8 +1,9 @@
--- MariaDB dump 10.19  Distrib 10.11.6-MariaDB, for debian-linux-gnu (x86_64)
+/*M!999999\- enable the sandbox mode */
+-- MariaDB dump 10.19  Distrib 10.11.14-MariaDB, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: indigoiam
 -- ------------------------------------------------------
--- Server version	10.11.6-MariaDB-1:10.11.6+maria~ubu2204
+-- Server version	10.11.14-MariaDB-ubu2204
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -29,7 +30,7 @@ USE `indigoiam`;
 
 DROP TABLE IF EXISTS `access_token`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `access_token` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `token_value` varchar(4096) DEFAULT NULL,
@@ -45,7 +46,7 @@ CREATE TABLE `access_token` (
   KEY `at_tv_idx` (`token_value`(767)),
   KEY `at_exp_idx` (`expiration`),
   KEY `at_ahi_idx` (`auth_holder_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=181 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -54,6 +55,9 @@ CREATE TABLE `access_token` (
 
 LOCK TABLES `access_token` WRITE;
 /*!40000 ALTER TABLE `access_token` DISABLE KEYS */;
+INSERT INTO `access_token` VALUES
+(37,'eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJpc3MiOiJodHRwczpcL1wvaW5kaWdvaWFtXC8iLCJhdWQiOiI4NWU2ZjdhNS01ODBiLTRhMWMtYTZkMi0zOTA1NTE0MzA2M2QiLCJpYXQiOjE3NTgxOTkwNTAsImp0aSI6IjMxMGMzNDkxLWJjY2QtNDg4Ni1iMGU0LTA0NDc0NDcwNTYyNSJ9.OoWvvn7ipKq-ySaQFtZq2dSaEcgGUFe99x2aMhZQ75ohg9yLLNgbYIz8b9DKLKi3Wh9nf5CC-aP-wfinnOcsQPZSVCF0hCjs3ZySNdJvpNJvT9By6q9qjRzaPuH6Zrt47lMtkbJpr26SySMmOPA4PCQ0KNgt3rICkTJ2H7WuSh4',NULL,'Bearer',NULL,2,37,NULL,NULL),
+(38,'eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJpc3MiOiJodHRwczpcL1wvaW5kaWdvaWFtXC8iLCJhdWQiOiIxMTAzNDY2Ny01YzUwLTRjOWEtOGY0My02YTQ4MDkwZGNlZDIiLCJpYXQiOjE3NTgyMDI3MjAsImp0aSI6ImY5MjM4ZTZhLWVmMmItNDNmZS04MDI0LTBmYjJiZGZhMzQ1YSJ9.iDQgj6w4K4VwDRMRyTbRim5-hGiQN8bJbX4aqWW3vIpxD6VEx0RH_FcV_VbHjXbcXXwo1BNT9Rxn-GEnr2YGsxvwG7rOuGpZPUn1ZuLLpSQEOIKW2Pbw77qnh-SG3GDfcO1dqbsK4R6qUW6amyHX8q2BJfKZG2_HQXeNdvQm7XY',NULL,'Bearer',NULL,9,38,NULL,NULL);
 /*!40000 ALTER TABLE `access_token` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -63,7 +67,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `access_token_permissions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `access_token_permissions` (
   `access_token_id` bigint(20) NOT NULL,
   `permission_id` bigint(20) NOT NULL
@@ -85,7 +89,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `address`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `address` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `formatted` varchar(256) DEFAULT NULL,
@@ -113,7 +117,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `approved_site`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `approved_site` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `user_id` varchar(256) DEFAULT NULL,
@@ -123,7 +127,7 @@ CREATE TABLE `approved_site` (
   `timeout_date` timestamp NULL DEFAULT NULL,
   `whitelisted_site_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -132,6 +136,8 @@ CREATE TABLE `approved_site` (
 
 LOCK TABLES `approved_site` WRITE;
 /*!40000 ALTER TABLE `approved_site` DISABLE KEYS */;
+INSERT INTO `approved_site` VALUES
+(1,'admin','85e6f7a5-580b-4a1c-a6d2-39055143063d','2025-09-18 12:16:21','2025-09-25 08:36:37',NULL,NULL);
 /*!40000 ALTER TABLE `approved_site` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -141,7 +147,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `approved_site_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `approved_site_scope` (
   `owner_id` bigint(20) DEFAULT NULL,
   `scope` varchar(256) DEFAULT NULL
@@ -154,6 +160,9 @@ CREATE TABLE `approved_site_scope` (
 
 LOCK TABLES `approved_site_scope` WRITE;
 /*!40000 ALTER TABLE `approved_site_scope` DISABLE KEYS */;
+INSERT INTO `approved_site_scope` VALUES
+(1,'openid'),
+(1,'profile');
 /*!40000 ALTER TABLE `approved_site_scope` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -163,7 +172,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `user_auth_id` bigint(20) DEFAULT NULL,
@@ -171,7 +180,7 @@ CREATE TABLE `authentication_holder` (
   `redirect_uri` varchar(2048) DEFAULT NULL,
   `client_id` varchar(256) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=320 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -180,6 +189,9 @@ CREATE TABLE `authentication_holder` (
 
 LOCK TABLES `authentication_holder` WRITE;
 /*!40000 ALTER TABLE `authentication_holder` DISABLE KEYS */;
+INSERT INTO `authentication_holder` VALUES
+(37,NULL,1,NULL,'85e6f7a5-580b-4a1c-a6d2-39055143063d'),
+(38,NULL,1,NULL,'11034667-5c50-4c9a-8f43-6a48090dced2');
 /*!40000 ALTER TABLE `authentication_holder` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -189,7 +201,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder_authority`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder_authority` (
   `owner_id` bigint(20) DEFAULT NULL,
   `authority` varchar(256) DEFAULT NULL,
@@ -203,6 +215,9 @@ CREATE TABLE `authentication_holder_authority` (
 
 LOCK TABLES `authentication_holder_authority` WRITE;
 /*!40000 ALTER TABLE `authentication_holder_authority` DISABLE KEYS */;
+INSERT INTO `authentication_holder_authority` VALUES
+(37,'ROLE_CLIENT'),
+(38,'ROLE_CLIENT');
 /*!40000 ALTER TABLE `authentication_holder_authority` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -212,7 +227,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder_extension`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder_extension` (
   `owner_id` bigint(20) DEFAULT NULL,
   `extension` varchar(2048) DEFAULT NULL,
@@ -236,7 +251,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder_request_parameter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder_request_parameter` (
   `owner_id` bigint(20) DEFAULT NULL,
   `param` varchar(2048) DEFAULT NULL,
@@ -260,7 +275,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder_resource_id`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder_resource_id` (
   `owner_id` bigint(20) DEFAULT NULL,
   `resource_id` varchar(2048) DEFAULT NULL,
@@ -283,7 +298,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder_response_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder_response_type` (
   `owner_id` bigint(20) DEFAULT NULL,
   `response_type` varchar(2048) DEFAULT NULL,
@@ -306,7 +321,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authentication_holder_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authentication_holder_scope` (
   `owner_id` bigint(20) DEFAULT NULL,
   `scope` varchar(2048) DEFAULT NULL,
@@ -320,6 +335,9 @@ CREATE TABLE `authentication_holder_scope` (
 
 LOCK TABLES `authentication_holder_scope` WRITE;
 /*!40000 ALTER TABLE `authentication_holder_scope` DISABLE KEYS */;
+INSERT INTO `authentication_holder_scope` VALUES
+(37,'registration-token'),
+(38,'registration-token');
 /*!40000 ALTER TABLE `authentication_holder_scope` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -329,7 +347,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `authorization_code`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `authorization_code` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `code` varchar(256) DEFAULT NULL,
@@ -337,7 +355,7 @@ CREATE TABLE `authorization_code` (
   `expiration` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ac_ahi_idx` (`auth_holder_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=140 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -355,7 +373,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `blacklisted_site`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `blacklisted_site` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `uri` varchar(2048) DEFAULT NULL,
@@ -378,7 +396,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `claim`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `claim` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(256) DEFAULT NULL,
@@ -404,7 +422,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `claim_issuer`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `claim_issuer` (
   `owner_id` bigint(20) NOT NULL,
   `issuer` varchar(1024) DEFAULT NULL
@@ -426,7 +444,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `claim_to_permission_ticket`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `claim_to_permission_ticket` (
   `permission_ticket_id` bigint(20) NOT NULL,
   `claim_id` bigint(20) NOT NULL
@@ -448,7 +466,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `claim_to_policy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `claim_to_policy` (
   `policy_id` bigint(20) NOT NULL,
   `claim_id` bigint(20) NOT NULL
@@ -470,7 +488,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `claim_token_format`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `claim_token_format` (
   `owner_id` bigint(20) NOT NULL,
   `claim_token_format` varchar(1024) DEFAULT NULL
@@ -492,7 +510,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_authority`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_authority` (
   `owner_id` bigint(20) DEFAULT NULL,
   `authority` varchar(256) DEFAULT NULL
@@ -508,7 +526,8 @@ LOCK TABLES `client_authority` WRITE;
 INSERT INTO `client_authority` VALUES
 (2,'ROLE_CLIENT'),
 (7,'ROLE_CLIENT'),
-(8,'ROLE_CLIENT');
+(8,'ROLE_CLIENT'),
+(9,'ROLE_CLIENT');
 /*!40000 ALTER TABLE `client_authority` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -518,7 +537,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_claims_redirect_uri`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_claims_redirect_uri` (
   `owner_id` bigint(20) DEFAULT NULL,
   `redirect_uri` varchar(2048) DEFAULT NULL
@@ -540,7 +559,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_contact`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_contact` (
   `owner_id` bigint(20) DEFAULT NULL,
   `contact` varchar(256) DEFAULT NULL
@@ -553,6 +572,8 @@ CREATE TABLE `client_contact` (
 
 LOCK TABLES `client_contact` WRITE;
 /*!40000 ALTER TABLE `client_contact` DISABLE KEYS */;
+INSERT INTO `client_contact` VALUES
+(9,'admin@iam.test');
 /*!40000 ALTER TABLE `client_contact` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -562,7 +583,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_default_acr_value`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_default_acr_value` (
   `owner_id` bigint(20) DEFAULT NULL,
   `default_acr_value` varchar(2000) DEFAULT NULL
@@ -584,7 +605,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_details`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_details` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `client_description` varchar(1024) DEFAULT NULL,
@@ -628,7 +649,7 @@ CREATE TABLE `client_details` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `client_id` (`client_id`),
   KEY `cd_ci_idx` (`client_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -640,7 +661,8 @@ LOCK TABLES `client_details` WRITE;
 INSERT INTO `client_details` VALUES
 (2,NULL,0,0,1,600,'85e6f7a5-580b-4a1c-a6d2-39055143063d','AIYIneAVGs9PTVvQnxNGqDmh3rNTsyFOrrwRIqy1Zc6ngPN9hQe6I2VzDzN2uGLCPsvQI8nhYxf_V09NHk-yv7o',3600,2592000,NULL,'rucio','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2023-12-12 07:32:39',NULL,0,NULL,NULL,NULL,NULL,600),
 (7,NULL,0,0,1,600,'9841f5c5-fb77-454c-a4a5-acd220e0faf2','ALORjpM78x3jvUzPZxJJw94Uu6tFu55dYf7NbQ97uNpbF-32Sxb0bprsUSqSrzWgZzLK64cqVlNwya6i3nvU_LU',3600,2592000,NULL,'web1','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2023-12-23 06:08:01',NULL,0,NULL,NULL,NULL,NULL,600),
-(8,NULL,0,0,1,600,'d6dad80f-11f7-4cf4-a4ef-fbd081ec7f98','AJWL5JZtM6I2iaj7XHYq98kPGo6-8Wde2ScSHJhHNvCLeKppTj9fBmeq2xGWi3RCFlj6cPJFjz-BxXIBva4kDYo',3600,2592000,NULL,'fts3','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2024-01-11 15:15:44',NULL,0,NULL,NULL,NULL,NULL,600);
+(8,NULL,0,0,1,600,'d6dad80f-11f7-4cf4-a4ef-fbd081ec7f98','AJWL5JZtM6I2iaj7XHYq98kPGo6-8Wde2ScSHJhHNvCLeKppTj9fBmeq2xGWi3RCFlj6cPJFjz-BxXIBva4kDYo',3600,2592000,NULL,'fts3','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2024-01-11 15:15:44',NULL,0,NULL,NULL,NULL,NULL,600),
+(9,NULL,0,0,1,600,'11034667-5c50-4c9a-8f43-6a48090dced2','eIcPpu5HbjuECyTVUB0iBAwPgIDEaJUm8T4xpsn5tyWH53CTxoG9cH2Vo6etYMWegPeWffdbrEPwwkOJZCHUgQ',3600,2592000,NULL,'rucio_scim','SECRET_BASIC',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,'2025-09-18 11:38:08',NULL,0,NULL,NULL,NULL,NULL,600);
 /*!40000 ALTER TABLE `client_details` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -650,7 +672,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_grant_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_grant_type` (
   `owner_id` bigint(20) DEFAULT NULL,
   `grant_type` varchar(2000) DEFAULT NULL
@@ -670,7 +692,11 @@ INSERT INTO `client_grant_type` VALUES
 (2,'refresh_token'),
 (8,'client_credentials'),
 (8,'refresh_token'),
-(8,'urn:ietf:params:oauth:grant-type:token-exchange');
+(8,'urn:ietf:params:oauth:grant-type:token-exchange'),
+(2,'password'),
+(2,'implicit'),
+(2,'authorization_code'),
+(9,'client_credentials');
 /*!40000 ALTER TABLE `client_grant_type` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -680,7 +706,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_post_logout_redirect_uri`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_post_logout_redirect_uri` (
   `owner_id` bigint(20) DEFAULT NULL,
   `post_logout_redirect_uri` varchar(2000) DEFAULT NULL
@@ -702,7 +728,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_redirect_uri`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_redirect_uri` (
   `owner_id` bigint(20) DEFAULT NULL,
   `redirect_uri` varchar(2048) DEFAULT NULL
@@ -716,7 +742,11 @@ CREATE TABLE `client_redirect_uri` (
 LOCK TABLES `client_redirect_uri` WRITE;
 /*!40000 ALTER TABLE `client_redirect_uri` DISABLE KEYS */;
 INSERT INTO `client_redirect_uri` VALUES
-(7,'https://localhost:9000/oidc_redirect');
+(7,'https://localhost:9000/oidc_redirect'),
+(2,'https://rucio/auth/oidc_token'),
+(9,'https://rucio/auth/oidc_token'),
+(2,'https://rucio/auth/oidc_redirect'),
+(2,'https://rucio/auth/oidc_code');
 /*!40000 ALTER TABLE `client_redirect_uri` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -726,7 +756,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_request_uri`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_request_uri` (
   `owner_id` bigint(20) DEFAULT NULL,
   `request_uri` varchar(2000) DEFAULT NULL
@@ -748,7 +778,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_resource`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_resource` (
   `owner_id` bigint(20) DEFAULT NULL,
   `resource_id` varchar(256) DEFAULT NULL
@@ -770,7 +800,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_response_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_response_type` (
   `owner_id` bigint(20) DEFAULT NULL,
   `response_type` varchar(2000) DEFAULT NULL
@@ -792,7 +822,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `client_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `client_scope` (
   `owner_id` bigint(20) DEFAULT NULL,
   `scope` varchar(2048) DEFAULT NULL
@@ -822,7 +852,15 @@ INSERT INTO `client_scope` VALUES
 (8,'email'),
 (8,'offline_access'),
 (8,'storage.read:/'),
-(8,'storage.modify:/');
+(8,'storage.modify:/'),
+(2,'scim:read'),
+(9,'address'),
+(9,'phone'),
+(9,'openid'),
+(9,'profile'),
+(9,'scim:read'),
+(9,'email'),
+(2,'ruciodev');
 /*!40000 ALTER TABLE `client_scope` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -832,7 +870,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `device_code`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `device_code` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `device_code` varchar(1024) DEFAULT NULL,
@@ -860,7 +898,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `device_code_request_parameter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `device_code_request_parameter` (
   `owner_id` bigint(20) DEFAULT NULL,
   `param` varchar(2048) DEFAULT NULL,
@@ -883,7 +921,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `device_code_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `device_code_scope` (
   `owner_id` bigint(20) NOT NULL,
   `scope` varchar(256) NOT NULL
@@ -905,7 +943,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_account`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_account` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `active` tinyint(1) NOT NULL DEFAULT 0,
@@ -939,7 +977,7 @@ CREATE TABLE `iam_account` (
 LOCK TABLES `iam_account` WRITE;
 /*!40000 ALTER TABLE `iam_account` DISABLE KEYS */;
 INSERT INTO `iam_account` VALUES
-(1,1,'2023-12-12 09:27:37','2023-12-12 09:27:37','$2a$10$LRFsDuz9axhOskRfNH5jR.cyUpP463400pY5S6BDelKakdzI6mJ9W','admin','73f16d93-2441-4a50-88ff-85360d78c6b5',1,NULL,NULL,0,'2023-12-18 09:51:47',NULL);
+(1,1,'2023-12-12 09:27:37','2023-12-12 09:27:37','$2a$10$LRFsDuz9axhOskRfNH5jR.cyUpP463400pY5S6BDelKakdzI6mJ9W','admin','73f16d93-2441-4a50-88ff-85360d78c6b5',1,NULL,NULL,0,'2025-09-25 10:36:36',NULL);
 /*!40000 ALTER TABLE `iam_account` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -949,7 +987,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_account_attrs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_account_attrs` (
   `NAME` varchar(64) NOT NULL,
   `val` varchar(256) DEFAULT NULL,
@@ -976,7 +1014,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_account_authority`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_account_authority` (
   `account_id` bigint(20) NOT NULL,
   `authority_id` bigint(20) NOT NULL,
@@ -1005,7 +1043,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_account_client`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_account_client` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `creation_time` datetime NOT NULL,
@@ -1034,7 +1072,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_account_group`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_account_group` (
   `account_id` bigint(20) NOT NULL,
   `group_id` bigint(20) NOT NULL,
@@ -1062,7 +1100,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_account_labels`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_account_labels` (
   `NAME` varchar(64) NOT NULL,
   `PREFIX` varchar(256) DEFAULT NULL,
@@ -1090,7 +1128,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_address`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_address` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `COUNTRY` varchar(2) DEFAULT NULL,
@@ -1118,7 +1156,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_aup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_aup` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `creation_time` datetime NOT NULL,
@@ -1148,7 +1186,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_aup_signature`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_aup_signature` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `signature_time` datetime NOT NULL,
@@ -1177,7 +1215,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_authority`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_authority` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `auth` varchar(128) NOT NULL,
@@ -1205,7 +1243,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_email_notification`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_email_notification` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `UUID` varchar(36) NOT NULL,
@@ -1238,7 +1276,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_exchange_policy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_exchange_policy` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `creation_time` datetime NOT NULL,
@@ -1270,7 +1308,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_exchange_scope_policies`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_exchange_scope_policies` (
   `param` varchar(256) DEFAULT NULL,
   `rule` varchar(6) NOT NULL,
@@ -1296,7 +1334,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_ext_authn`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_ext_authn` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `authentication_time` datetime NOT NULL,
@@ -1323,7 +1361,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_ext_authn_attr`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_ext_authn_attr` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
@@ -1350,7 +1388,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_group`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_group` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `CREATIONTIME` datetime NOT NULL,
@@ -1383,7 +1421,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_group_attrs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_group_attrs` (
   `NAME` varchar(64) NOT NULL,
   `val` varchar(256) DEFAULT NULL,
@@ -1410,7 +1448,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_group_labels`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_group_labels` (
   `NAME` varchar(64) NOT NULL,
   `PREFIX` varchar(256) DEFAULT NULL,
@@ -1438,7 +1476,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_group_request`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_group_request` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `UUID` varchar(36) NOT NULL,
@@ -1473,7 +1511,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_notification_receiver`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_notification_receiver` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `NOTIFICATION_ID` bigint(20) DEFAULT NULL,
@@ -1499,7 +1537,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_oidc_id`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_oidc_id` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `ISSUER` varchar(256) NOT NULL,
@@ -1526,7 +1564,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_reg_request`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_reg_request` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `UUID` varchar(36) NOT NULL,
@@ -1557,7 +1595,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_reg_request_labels`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_reg_request_labels` (
   `NAME` varchar(64) NOT NULL,
   `PREFIX` varchar(256) DEFAULT NULL,
@@ -1585,7 +1623,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_saml_id`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_saml_id` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `IDPID` varchar(256) NOT NULL,
@@ -1614,7 +1652,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_scope_policy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_scope_policy` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `creation_time` datetime NOT NULL,
@@ -1649,7 +1687,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_scope_policy_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_scope_policy_scope` (
   `policy_id` bigint(20) DEFAULT NULL,
   `scope` varchar(256) DEFAULT NULL,
@@ -1674,7 +1712,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_ssh_key`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_ssh_key` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `fingerprint` varchar(48) NOT NULL,
@@ -1706,7 +1744,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_totp_mfa`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_totp_mfa` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `active` tinyint(1) NOT NULL DEFAULT 0,
@@ -1735,7 +1773,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_totp_recovery_code`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_totp_recovery_code` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `code` varchar(255) NOT NULL,
@@ -1761,7 +1799,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_user_info`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_user_info` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `BIRTHDATE` varchar(255) DEFAULT NULL,
@@ -1806,7 +1844,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_x509_cert`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_x509_cert` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `subject_dn` varchar(256) DEFAULT NULL,
@@ -1843,7 +1881,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `iam_x509_proxy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `iam_x509_proxy` (
   `ID` bigint(20) NOT NULL AUTO_INCREMENT,
   `CHAIN` longtext NOT NULL,
@@ -1868,7 +1906,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `pairwise_identifier`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `pairwise_identifier` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `identifier` varchar(256) DEFAULT NULL,
@@ -1893,7 +1931,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `permission` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `resource_set_id` bigint(20) DEFAULT NULL,
@@ -1916,7 +1954,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `permission_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `permission_scope` (
   `owner_id` bigint(20) NOT NULL,
   `scope` varchar(256) NOT NULL
@@ -1938,7 +1976,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `permission_ticket`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `permission_ticket` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `ticket` varchar(256) NOT NULL,
@@ -1963,7 +2001,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `policy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `policy` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(1024) DEFAULT NULL,
@@ -1987,7 +2025,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `policy_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `policy_scope` (
   `owner_id` bigint(20) NOT NULL,
   `scope` varchar(256) NOT NULL
@@ -2009,7 +2047,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `refresh_token`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `refresh_token` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `token_value` varchar(4096) DEFAULT NULL,
@@ -2036,7 +2074,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `resource_set`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `resource_set` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(1024) NOT NULL,
@@ -2064,7 +2102,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `resource_set_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `resource_set_scope` (
   `owner_id` bigint(20) NOT NULL,
   `scope` varchar(256) NOT NULL
@@ -2086,7 +2124,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `saved_registered_client`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `saved_registered_client` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `issuer` varchar(1024) DEFAULT NULL,
@@ -2110,14 +2148,14 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `saved_user_auth`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `saved_user_auth` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(1024) DEFAULT NULL,
   `authenticated` tinyint(1) DEFAULT NULL,
   `source_class` varchar(2048) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=286 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -2135,7 +2173,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `saved_user_auth_authority`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `saved_user_auth_authority` (
   `owner_id` bigint(20) DEFAULT NULL,
   `authority` varchar(256) DEFAULT NULL,
@@ -2158,7 +2196,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `saved_user_auth_info`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `saved_user_auth_info` (
   `owner_id` bigint(20) DEFAULT NULL,
   `info_key` varchar(256) DEFAULT NULL,
@@ -2182,7 +2220,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `schema_version`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `schema_version` (
   `installed_rank` int(11) NOT NULL,
   `version` varchar(50) DEFAULT NULL,
@@ -2264,7 +2302,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `system_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `system_scope` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `scope` varchar(256) NOT NULL,
@@ -2317,7 +2355,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `token_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `token_scope` (
   `owner_id` bigint(20) DEFAULT NULL,
   `scope` varchar(2048) DEFAULT NULL,
@@ -2331,6 +2369,9 @@ CREATE TABLE `token_scope` (
 
 LOCK TABLES `token_scope` WRITE;
 /*!40000 ALTER TABLE `token_scope` DISABLE KEYS */;
+INSERT INTO `token_scope` VALUES
+(37,'registration-token'),
+(38,'registration-token');
 /*!40000 ALTER TABLE `token_scope` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -2340,7 +2381,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `user_info`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `user_info` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `sub` varchar(256) DEFAULT NULL,
@@ -2383,7 +2424,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `whitelisted_site`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `whitelisted_site` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `creator_user_id` varchar(256) DEFAULT NULL,
@@ -2407,7 +2448,7 @@ UNLOCK TABLES;
 
 DROP TABLE IF EXISTS `whitelisted_site_scope`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `whitelisted_site_scope` (
   `owner_id` bigint(20) DEFAULT NULL,
   `scope` varchar(256) DEFAULT NULL
@@ -2432,4 +2473,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2023-12-23  9:33:58
+-- Dump completed on 2025-09-25 13:47:20
