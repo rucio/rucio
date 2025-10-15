@@ -81,7 +81,7 @@ class MongoDidMeta(DidMetaPlugin):
         self.db = self.client[con_params['mongo_db']]
         self.col = self.db[con_params['mongo_collection']]
 
-        self.plugin_name = "MONGO"
+        self._plugin_name = "MONGO"
 
     def drop_database(self):
         self.client.drop_database(self.db.name)
@@ -188,9 +188,8 @@ class MongoDidMeta(DidMetaPlugin):
         if recursive:
             # TODO: possible, but requires retrieving the results of a concurrent sqla query to call list_content on for datasets and containers
             raise exception.UnsupportedOperation(
-                "'{}' metadata module does not currently support recursive searches".format(
-                    self.plugin_name.lower()
-                ))
+                "'{}' metadata module does not currently support recursive searches".format(self.name)
+            )
 
         if long:
             query_result = self.col.find(mongo_query_str)
@@ -219,11 +218,3 @@ class MongoDidMeta(DidMetaPlugin):
 
     def manages_key(self, key, *, session: "Optional[Session]" = None):
         return True
-
-    def get_plugin_name(self):
-        """
-        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
-
-        :returns: The name of the plugin
-        """
-        return self.plugin_name
