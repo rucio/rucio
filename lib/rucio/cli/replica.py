@@ -129,11 +129,15 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
     """Mark a replica bad"""
     args = {"reason": reason, "allow_collection": collection, "scope": scope, "rse": rse}
     if as_file:
-        args["inputfile"] = replicas
+        if len(replicas) != 1:
+            raise ValueError("Exactly one positional argument expected in case as-file")
+        args["inputfile"] = replicas[0]
     elif lfn:
         if (scope is None) or (rse is None):
             raise ValueError("Scope and RSE are required when using LFNs")
-        args["lfns"] = replicas
+        if len(replicas) != 1:
+            raise ValueError("Exactly one positional argument expected in case of LFN list")
+        args["lfns"] = replicas[0]
     else:
         args["listbadfiles"] = replicas
     declare_bad_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
