@@ -91,7 +91,7 @@ class ElasticDidMeta(DidMetaPlugin):
                 })
 
         self.client = Elasticsearch(**self.es_config)
-        self.plugin_name = "ELASTIC"
+        self._plugin_name = "ELASTIC"
 
     def drop_index(self) -> None:
         self.client.indices.delete(index=self.index)
@@ -188,7 +188,7 @@ class ElasticDidMeta(DidMetaPlugin):
             raise exception.RucioException(err)
 
         if recursive:
-            raise exception.UnsupportedOperation(f"'{self.plugin_name.lower()}' metadata module does not currently support recursive inserts of metadata")
+            raise exception.UnsupportedOperation(f"'{self.name}' metadata module does not currently support recursive inserts of metadata")
 
     def delete_metadata(
         self,
@@ -330,7 +330,7 @@ class ElasticDidMeta(DidMetaPlugin):
             self.client.close_point_in_time(body={"id": pit_id})
 
         if recursive:
-            raise exception.UnsupportedOperation(f"'{self.plugin_name.lower()}' metadata module does not currently support recursive searches")
+            raise exception.UnsupportedOperation(f"'{self.name}' metadata module does not currently support recursive searches")
 
     def on_delete(
         self,
@@ -397,11 +397,3 @@ class ElasticDidMeta(DidMetaPlugin):
         session: "Optional[Session]" = None
     ) -> bool:
         return True
-
-    def get_plugin_name(self) -> str:
-        """
-        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
-
-        :returns: The name of the plugin
-        """
-        return self.plugin_name

@@ -96,8 +96,9 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
         return all_metadata
     else:
         for metadata_plugin in METADATA_PLUGIN_MODULES:
-            if metadata_plugin.get_plugin_name().lower() == plugin.lower():
+            if metadata_plugin.is_named(plugin):
                 return metadata_plugin.get_metadata(scope, name, session=session)
+
     raise exception.UnsupportedMetadataPlugin(f'Metadata plugin "{plugin}" is not enabled on the server.')
 
 
