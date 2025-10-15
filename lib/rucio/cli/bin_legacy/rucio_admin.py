@@ -780,7 +780,7 @@ def list_scopes(args, client, logger, console, spinner):
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
     else:
-        if isinstance(scopes[0], str):  # TODO: Backwards compatibility - remove in v40 issue #PLACEHOLDER
+        if isinstance(scopes[0], str):  # TODO: Backwards compatibility - remove in v40 issue #8125
             for scope in scopes:
                 print(scope)
         elif args.csv:

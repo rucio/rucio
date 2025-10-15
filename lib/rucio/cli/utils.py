@@ -265,7 +265,7 @@ class JSONType(click.ParamType):
 
 def scope_exists(client: 'Client', scope: str) -> None:
     possible_scopes = client.list_scopes()
-    if isinstance(possible_scopes[0], str):  # type: ignore  #TODO Backwards Compat - Remove in v40, #ISSUEPLACEHOLDER
+    if isinstance(possible_scopes[0], str):  # type: ignore  #TODO Backwards Compat - Remove in v40, #8125
         scopes = possible_scopes
     else:
         scopes = [s['scope'] for s in possible_scopes]  # type: ignore
