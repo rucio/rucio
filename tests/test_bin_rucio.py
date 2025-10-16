@@ -1350,3 +1350,24 @@ def test_cli_declare_bad_replicas(cli, lfn, rse_factory, mock_scope, did_factory
 
     replicas = next(rucio_client.list_replicas([did], rse_expression=rse, all_states=True))
     assert replicas["states"][rse] == "BAD"
+
+
+def test_cli_declare_bad_replicas_invalid_usage():
+    """CLIENT(USER): Rucio declare bad replica invalid argument handling"""
+    base_cmd = ["rucio", "replica", "state", "update", "bad"]
+
+    def run(expected_error, args=None, expected_code=1):
+        args = args or []
+        cmd = shlex.join(base_cmd + args)
+        code, stdout, stderr = execute(cmd)
+
+        assert code == expected_code, f"Running {cmd} did not fail as expected. out:\n{stdout}\nerr\n{stderr}"
+        assert expected_error in stderr, f"Expected error message not found in stderr:\n{stderr}"
+
+    run("Missing option '--reason'", expected_code=2)
+
+    args = ["--reason", "test", "--lfn", "foo"]
+    run("Scope and RSE are required", args=args, expected_code=1)
+
+    args = ["--reason", "test", "--scope", "test", "--rse", "test", "--lfn", "foo", "bar"]
+    run("Exactly one", args=args, expected_code=1)
