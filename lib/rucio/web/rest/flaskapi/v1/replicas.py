@@ -62,7 +62,7 @@ from rucio.gateway.replica import (
     update_replicas_states,
 )
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, parse_scope_name, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
     from rucio.common.types import IPDict
@@ -361,7 +361,7 @@ class Replicas(ErrorHandlingMethodView):
                 files=files,
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],
-                ignore_availability=param_get(parameters, 'ignore_availability', default=False),
+                ignore_availability=bool(param_get_bool(parameters, 'ignore_availability', default=False)),
             )
         except InvalidPath as error:
             return generate_http_error_flask(400, error)
@@ -1527,7 +1527,7 @@ class DatasetReplicasVP(ErrorHandlingMethodView):
                 for row in list_dataset_replicas_vp(scope=scope, name=name, deep=_deep, vo=vo):
                     yield dumps(row, cls=APIEncoder) + '\n'
 
-            deep = request.args.get('deep', default=False)
+            deep = param_get_bool(request.args, 'deep', default=False)
 
             return try_stream(generate(_deep=deep, vo=request.environ['vo']))
         except ValueError as error:
