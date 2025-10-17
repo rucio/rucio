@@ -46,7 +46,8 @@ class DidColumnMeta(DidMetaPlugin):
     def __init__(self) -> None:
         """Initialize the DID column metadata plugin."""
         super(DidColumnMeta, self).__init__()
-        self.plugin_name = "DID_COLUMN"
+
+        self._plugin_name = "DID_COLUMN"
 
     @read_session
     def get_metadata(
@@ -477,12 +478,3 @@ class DidColumnMeta(DidMetaPlugin):
         hardcoded_keys = list(set(all_did_table_columns) - set(exclude_did_table_columns)) + additional_keys
 
         return key in hardcoded_keys
-
-    def get_plugin_name(
-            self
-    ) -> str:
-        """
-        Return a unique identifier for this plugin.
-        :returns: The name of the plugin.
-        """
-        return self.plugin_name

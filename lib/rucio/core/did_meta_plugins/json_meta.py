@@ -38,7 +38,8 @@ class JSONDidMeta(DidMetaPlugin):
 
     def __init__(self):
         super(JSONDidMeta, self).__init__()
-        self.plugin_name = "JSON"
+
+        self._plugin_name = "JSON"
 
     @read_session
     def get_metadata(self, scope, name, *, session: "Session"):
@@ -231,10 +232,3 @@ class JSONDidMeta(DidMetaPlugin):
     @read_session
     def manages_key(self, key, *, session: "Session"):
         return json_implemented(session=session)
-
-    def get_plugin_name(self):
-        """
-        Returns a unique identifier for this plugin. This can be later used for filtering down results to this plugin only.
-        :returns: The name of the plugin.
-        """
-        return self.plugin_name
