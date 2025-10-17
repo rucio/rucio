@@ -127,7 +127,7 @@ XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file3
 XrdSecGSISRVNAMES=xrd2 rucio upload --rse XRD2 --scope test file4
 
 rucio did add --type dataset test:dataset1
-rucio did content add test:file1 test:file2 --to-did
+rucio did content add test:file1 test:file2 --to-did test:dataset1
 
 rucio did add --type dataset test:dataset2
 rucio did content add test:file3 test:file4 --to-did test:dataset2
