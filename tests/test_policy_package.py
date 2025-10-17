@@ -21,6 +21,7 @@ import rucio.common.exception
 import rucio.common.schema
 import rucio.core.permission
 from rucio.common.constants import DEFAULT_VO
+from rucio.common.didtype import DID
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount
 
@@ -127,3 +128,29 @@ class TestPolicyPackage:
             os.environ['RUCIO_POLICY_PACKAGE'] = old_pp_env
         else:
             del os.environ['RUCIO_POLICY_PACKAGE']
+
+
+@pytest.mark.noparallel(reason='Changes scope extraction policies')
+@pytest.mark.parametrize("file_config_mock", [
+        {"overrides": [("common", "extract_scope", "my_extraction_algo")]},
+    ], indirect=True)
+def test_change_scope_extraction(file_config_mock, did_factory, scope_factory, vo, rse_factory):
+
+    rse, _ = rse_factory.make_posix_rse()
+    mock_scope, _ = scope_factory(vos=[vo])
+
+    def extract_scope(did, scopes, *args, **kwargs):
+        return mock_scope, did.split(":")[-1]
+
+    from rucio.common.utils import ScopeExtractionAlgorithms
+    ScopeExtractionAlgorithms.register("my_extraction_algo", extract_scope)
+
+    n_files = 3
+    did_names = [did['did_name'] for did in did_factory.upload_test_dataset(rse_name=rse, scope=mock_scope, nb_files=n_files)]
+
+    constucted_dids = [f"fake_scope:{did}" for did in did_names]
+
+    for did in constucted_dids:
+        derived_did = DID(did)
+        assert derived_did.scope == mock_scope
+        assert derived_did.name == did.split(':')[-1]
