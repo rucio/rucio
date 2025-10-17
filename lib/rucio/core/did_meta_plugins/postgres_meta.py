@@ -260,17 +260,19 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
     def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
-        Delete a key from metadata.
+        Delete a key from metadata of DID.
 
         :param scope: the scope of DID
         :param name: the name of the DID
         :param key: the key to be deleted
         :param session: the database session in use
         """
-        statement = sql.SQL("UPDATE {} SET data = {}.data - {}").format(
+        statement = sql.SQL("UPDATE {} SET data = {}.data - {} WHERE scope = {} AND name = {}").format(
             sql.Identifier(self.table),
             sql.Identifier(self.table),
-            sql.Literal(key)
+            sql.Literal(key),
+            sql.Literal(scope.internal),
+            sql.Literal(name)
         )
 
         cur = self.client.cursor()

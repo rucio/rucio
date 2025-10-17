@@ -432,6 +432,27 @@ class TestDidMetaExternalPostgresJSON:
         assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key] == meta_value
 
     @pytest.mark.dirty
+    def test_delete_metadata(self, mock_scope, root_account, postgres_json_meta):
+        """ DID Meta (POSTGRES_JSON): delete DID meta """
+
+        did_name = did_name_generator('dataset')
+        meta_key1 = 'my_key_%s' % generate_uuid()
+        meta_value1 = 'my_value_%s' % generate_uuid()
+        meta_key2 = 'my_key_%s' % generate_uuid()
+        meta_value2 = 'my_value_%s' % generate_uuid()
+        add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key1, value=meta_value1)
+        postgres_json_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key2, value=meta_value2)
+        
+        assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key1] == meta_value1
+        assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key2] == meta_value2
+       
+        postgres_json_meta.delete_metadata(scope=mock_scope, name=did_name, key=meta_key2)
+        metadata = postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)
+        assert metadata[meta_key1] == meta_value1
+        assert meta_key2 not in metadata
+
+    @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account, postgres_json_meta):
         """ DID Meta (POSTGRES_JSON): List DID meta """
 
