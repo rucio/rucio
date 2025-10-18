@@ -1624,6 +1624,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
 
 
 @skip_rse_tests_with_accounts
+@pytest.mark.skip(reason="Pending https://github.com/rucio/rucio/issues/8133")
 @pytest.mark.needs_iam
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("file_config_mock", [
