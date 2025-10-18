@@ -139,7 +139,8 @@ if __name__ == '__main__':
                                 ('CN=Thomas Beermann,CN=722011,CN=tbeerman,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'thomas.beermann@cern.ch'),
                                 ('CN=Robot: Rucio build bot,CN=692443,CN=ruciobuildbot,OU=Users,OU=Organic Units,DC=cern,DC=ch', 'x509', 'rucio.build.bot@cern.ch'),
                                 ('CN=docker client', 'x509', 'dummy@cern.ch'),
-                                ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch')]
+                                ('mlassnig@CERN.CH', 'GSS', 'mario.lassnig@cern.ch'),
+                                ("SUB=73f16d93-2441-4a50-88ff-85360d78c6b5, ISS=https://indigoiam/", "OIDC", "admin@iam.test")]
 
     for account in additional_test_accounts:
         try:
