@@ -119,6 +119,20 @@ class TestRSECoreApi:
 
         del_rse(rse_id)
 
+    def test_list_rse_string_bool_filter(self, vo):
+        """ RSE (CORE): Test the listing of RSE with column filters """
+        rse = rse_name_generator()
+        rse_id = add_rse(rse, vo=vo, rse_type=RSEType.TAPE, availability_read=True, availability_write=False)
+        assert rse_exists(rse=rse, vo=vo)
+        rses = list_rses(filters={'availability_read': '1', 'availability_write': False, 'rse_type': 'TAPE'})
+        assert (rse_id, rse) in [(r['id'], r['rse']) for r in rses]
+        rses = list_rses(filters={'availability_read': 'True', 'availability_write': 'false', 'rse_type': 'TAPE'})
+        assert (rse_id, rse) in [(r['id'], r['rse']) for r in rses]
+        rses = list_rses(filters={'availability_read': True, 'availability_write': '0', 'rse_type': RSEType.TAPE})
+        assert (rse_id, rse) in [(r['id'], r['rse']) for r in rses]
+
+        del_rse(rse_id)
+
     @pytest.mark.dirty
     def test_list_rse_attributes(self, vo):
         """ RSE (CORE): Test the listing of RSE attributes """

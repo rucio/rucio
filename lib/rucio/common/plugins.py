@@ -218,10 +218,6 @@ class PolicyPackageAlgorithms:
             if hasattr(module, 'get_algorithms'):
                 all_algorithms = module.get_algorithms()
 
-                # for backward compatibility, rename 'surl' to 'non_deterministic_pfn' here
-                if 'surl' in all_algorithms:
-                    all_algorithms['non_deterministic_pfn'] = all_algorithms['surl']
-
                 # check that the names are correctly prefixed for multi-VO
                 if vo:
                     for _, algorithms in all_algorithms.items():

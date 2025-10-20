@@ -23,8 +23,9 @@ import rucio.core.account_counter as account_counter
 import rucio.gateway.account_limit as gateway_acc_lim
 import rucio.gateway.rse as gateway_rse
 from rucio.common.config import config_get_bool
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import gateway_update_return_dict, generate_uuid
+from rucio.core.request import queue_requests
 from rucio.core.vo import add_vo, vo_exists
 from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
@@ -35,7 +36,7 @@ from rucio.gateway.did import add_did, add_did_to_followed, attach_dids_to_dids,
 from rucio.gateway.exporter import export_data
 from rucio.gateway.identity import add_account_identity, list_accounts_for_identity
 from rucio.gateway.replica import add_replicas, get_did_from_pfns, list_replicas
-from rucio.gateway.request import get_request_by_did, list_requests, queue_requests
+from rucio.gateway.request import get_request_by_did, list_requests
 from rucio.gateway.rule import add_replication_rule
 from rucio.gateway.scope import add_scope, get_scopes, list_scopes
 from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions
@@ -299,8 +300,8 @@ class TestGatewayExternalRepresentation:
             'request_type': constants.RequestType.TRANSFER,
             'request_id': generate_uuid(),
             'name': did,
-            'scope': scope_name,
-            'account': account_name,
+            'scope': InternalScope(scope_name, vo=vo),
+            'account': InternalAccount(account_name, vo=vo),
             'rule_id': generate_uuid(),
             'retry_count': 1,
             'requested_at': datetime.utcnow(),
@@ -309,17 +310,13 @@ class TestGatewayExternalRepresentation:
                 'bytes': 10,
                 'md5': '',
                 'adler32': ''
-            }
+            },
+            'vo': vo
         }]
 
-        reqs = queue_requests(requests, issuer='root', vo=vo)  # this does not pass in the source rse
+        reqs = queue_requests(requests)  # this does not pass in the source rse
         reqs = list(reqs)
         assert 0 != len(reqs)
-        for r in reqs:
-            assert r['scope'] == scope_name
-            assert r['account'] == account_name
-            assert r['source_rse'] == rse1
-            assert r['dest_rse'] == rse2
 
         out = get_request_by_did(scope_name, did, rse2, issuer='root', vo=vo)
         assert out['scope'] == scope_name
@@ -410,7 +407,7 @@ class TestGatewayExternalRepresentation:
     def test_gateway_scope(self, vo, vo2, account_name, scope_name, scope):
         """ SCOPE (Gateway): Test external representation of scopes """
 
-        out = list_scopes()
+        out = [s['scope'] for s in list_scopes()]
         assert scope_name in out
         if vo2:
             assert scope.internal not in out

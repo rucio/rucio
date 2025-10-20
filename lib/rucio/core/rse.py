@@ -824,8 +824,12 @@ def list_rses(filters: Optional[dict[str, Any]] = None, *, session: "Session") -
 
         for (k, v) in filters.items():
             if hasattr(models.RSE, k):
-                if k == 'rse_type':
-                    stmt = stmt.where(getattr(models.RSE, k) == RSEType[v])
+                # API calls always provide str, but some core calls use the right type
+                if isinstance(v, str):
+                    try:
+                        stmt = stmt.where(getattr(models.RSE, k) == models.RSE.from_str(k, v))
+                    except ValueError as e:
+                        raise exception.InvalidObject(*e.args)
                 else:
                     stmt = stmt.where(getattr(models.RSE, k) == v)
             else:

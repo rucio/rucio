@@ -14,6 +14,7 @@
 
 from flask import Flask, jsonify, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import Duplicate, InvalidValueForKey, KeyNotFound, UnsupportedKeyType, UnsupportedValueType
 from rucio.gateway.meta_conventions import add_key, add_value, list_keys, list_values
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -208,10 +209,10 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('meta_conventions', __name__, url_prefix='/meta_conventions')
 
     meta_view = MetaConventions.as_view('meta_conventions')
-    bp.add_url_rule('/', view_func=meta_view, methods=['get', ])
-    bp.add_url_rule('/<key>', view_func=meta_view, methods=['post', ])
+    bp.add_url_rule('/', view_func=meta_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<key>', view_func=meta_view, methods=[HTTPMethod.POST.value])
     values_view = Values.as_view('values')
-    bp.add_url_rule('/<key>/', view_func=values_view, methods=['get', 'post'])
+    bp.add_url_rule('/<key>/', view_func=values_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
 
     bp.after_request(response_headers)
     return bp

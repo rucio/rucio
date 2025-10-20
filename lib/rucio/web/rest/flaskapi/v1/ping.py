@@ -18,6 +18,7 @@ from flask import Blueprint, Flask, jsonify, request
 from werkzeug.datastructures import Headers
 
 from rucio import version
+from rucio.common.constants import HTTPMethod
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
 
 if TYPE_CHECKING:
@@ -74,8 +75,8 @@ def blueprint(standalone=False, with_doc=False):
     ping_view = Ping.as_view('ping')
     if not with_doc:
         # rule without trailing slash needs to be added before rule with trailing slash
-        bp.add_url_rule('', view_func=ping_view, methods=['get', ])
-    bp.add_url_rule('/', view_func=ping_view, methods=['get', ])
+        bp.add_url_rule('', view_func=ping_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/', view_func=ping_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

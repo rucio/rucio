@@ -14,6 +14,7 @@
 
 from flask import Flask, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, AccountNotFound, Duplicate, UnsupportedOperation, VONotFound
 from rucio.common.utils import render_json
 from rucio.gateway.vo import add_vo, list_vos, recover_vo_root_identity, update_vo
@@ -259,11 +260,11 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('vos', __name__, url_prefix='/vos')
 
     recover_view = RecoverVO.as_view('recover')
-    bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=['post', ])
+    bp.add_url_rule('/<vo>/recover', view_func=recover_view, methods=[HTTPMethod.POST.value])
     vo_view = VO.as_view('vo')
-    bp.add_url_rule('/<vo>', view_func=vo_view, methods=['put', 'post'])
+    bp.add_url_rule('/<vo>', view_func=vo_view, methods=[HTTPMethod.PUT.value, HTTPMethod.POST.value])
     vos_view = VOs.as_view('vos')
-    bp.add_url_rule('/', view_func=vos_view, methods=['get', ])
+    bp.add_url_rule('/', view_func=vos_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

@@ -41,6 +41,7 @@ from rucio.common.exception import (
     RSENotFound,
     RucioException,
     RuleNotFound,
+    ScopeNotFound,
     UnsupportedOperation,
 )
 from rucio.common.utils import setup_logger
@@ -260,3 +261,13 @@ class JSONType(click.ParamType):
             return json.loads(value)
         except json.JSONDecodeError as e:
             self.fail(f"Invalid JSON: {e}", param, ctx)
+
+
+def scope_exists(client: 'Client', scope: str) -> None:
+    possible_scopes = client.list_scopes()
+    if isinstance(possible_scopes[0], str):  # type: ignore  #TODO Backwards Compat - Remove in v40, #8125
+        scopes = possible_scopes
+    else:
+        scopes = [s['scope'] for s in possible_scopes]  # type: ignore
+    if scope not in scopes:  # type: ignore - handled by the if isinstance
+        raise ScopeNotFound
