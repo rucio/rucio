@@ -998,7 +998,7 @@ class FTS3Transfertool(Transfertool):
         )
         return jobs
 
-    def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, str]) -> dict[str, Any]:
+    def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, Any]) -> dict[str, Any]:
         rws = transfer.rws
         checksum_to_use = _pick_fts_checksum(transfer, path_strategy=job_params['verify_checksum'])
         t_file = {
@@ -1054,7 +1054,7 @@ class FTS3Transfertool(Transfertool):
 
         return t_file
 
-    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
+    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, Any], timeout: Optional[int] = None) -> str:
         """
         Submit transfers to FTS3 via JSON.
 
@@ -1080,6 +1080,10 @@ class FTS3Transfertool(Transfertool):
             job_params["sid"] = files[0]['metadata']['request_id']
             expected_transfer_id = self.__get_deterministic_id(job_params["sid"])
             self.logger(logging.DEBUG, "Submit bulk transfers in deterministic mode, sid %s, expected transfer id: %s", job_params["sid"], expected_transfer_id)
+        # add unmanaged token option if true
+        # this tells FTS not to refresh transfer tokens
+        if self.token and config_get_bool('conveyor', 'fts_unmanaged_token', raise_exception=False, default=False):
+            job_params['unmanaged_tokens'] = True
 
         # bulk submission
         params_dict = {'files': files, 'params': job_params}

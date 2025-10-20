@@ -176,7 +176,7 @@ class Transfertool(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def submit(self, transfers: "Iterable[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
+    def submit(self, transfers: "Iterable[DirectTransfer]", job_params: dict[str, Any], timeout: Optional[int] = None) -> str:
         """
         Submit transfers to the transfertool.
 
