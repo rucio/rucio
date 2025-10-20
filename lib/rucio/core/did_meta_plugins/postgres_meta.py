@@ -66,7 +66,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         if table_column_data is None:
             table_column_data = config.config_get('metadata', 'postgres_table_column_data', default='data')
         if not json_schema:
-            json_schema = config.config_get('metadata', 'postgres_json_schema_path', default=None)
+            json_schema = config.config_get('metadata', 'postgres_json_schema_path', raise_exception=False, default=None)
             self.metadata_schema = self._load_json_schema(json_schema)
 
         self.fixed_table_columns = {

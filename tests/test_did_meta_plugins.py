@@ -488,8 +488,10 @@ class TestDidMetaExternalPostgresJSON:
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
-    
+
+    @pytest.mark.dirty
     def test_did_set_metadata_json_schema(self, mock_scope, root_account, postgres_json_meta):
+        """ DID Meta (POSTGRES_JSON): Set DID meta with JSON schema validation """
         #Define a simple JSON schema
         schema = {
             "type": "object",
@@ -503,14 +505,14 @@ class TestDidMetaExternalPostgresJSON:
         }
         # Assign schema to the instance
         postgres_json_meta.metadata_schema = schema
-        did_name = f'dataset_{uuid4()}'
+        did_name = did_name_generator('dataset')
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
 
         # Valid metadata according to schema
         valid_metadata = {
-            "meta_key3": randint(1, 100),
-            "meta_key4": f"value_{uuid4()}",
-            "meta_key5": f"value_{uuid4()}"
+            "meta_key3": 50,
+            "meta_key4": "value_{%s}" % generate_uuid(),
+            "meta_key5": "value_{%s}" % generate_uuid(),
         }
         # This should succeed
         postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=valid_metadata)
@@ -523,7 +525,7 @@ class TestDidMetaExternalPostgresJSON:
         }
         with pytest.raises(InvalidMetadata):
             postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=invalid_metadata)
-        
+
         # Invalid metadata (meta_key3 type check failed)
         invalid_metadata_type = {
             "meta_key3": "not-an-integer",
@@ -531,7 +533,7 @@ class TestDidMetaExternalPostgresJSON:
         }
         with pytest.raises(InvalidMetadata):
             postgres_json_meta.set_metadata_bulk(scope=mock_scope, name=did_name, metadata=invalid_metadata_type)
-        
+
         # Invalid metadata (unknown_key check failed)
         invalid_extra_key = {
             "meta_key3": 42,
