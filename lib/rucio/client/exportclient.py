@@ -17,6 +17,7 @@ from typing import Any
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url, parse_response
 
 
@@ -83,7 +84,7 @@ class ExportClient(BaseClient):
         path = '/'.join([self.EXPORT_BASEURL])
         url = build_url(choice(self.list_hosts), path=path, params=payload)
 
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return parse_response(r.text)
         else:

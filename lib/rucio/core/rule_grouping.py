@@ -690,7 +690,7 @@ def __repair_stuck_locks_with_none_grouping(datasetfiles, locks, replicas, sourc
                     associated_replica.lock_cnt = session.execute(stmt).scalar_one()
                     continue
                 # Check if this is a STUCK lock due to source_replica filtering
-                if source_rses:
+                if source_rses and not lock.repair_cnt:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eligible source replica for this lock
                     if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and (selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True) or rule.ignore_availability):
@@ -806,7 +806,7 @@ def __repair_stuck_locks_with_all_grouping(datasetfiles, locks, replicas, source
                     associated_replica.lock_cnt = session.execute(stmt).scalar_one()
                     continue
                 # Check if this is a STUCK lock due to source_replica filtering
-                if source_rses:
+                if source_rses and not lock.repair_cnt:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eligible source replica for this lock
                     if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and (selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True) or rule.ignore_availability):
@@ -891,7 +891,7 @@ def __repair_stuck_locks_with_dataset_grouping(datasetfiles, locks, replicas, so
                     associated_replica.lock_cnt = session.execute(stmt).scalar_one()
                     continue
                 # Check if this is a STUCK lock due to source_replica filtering
-                if source_rses:
+                if source_rses and not lock.repair_cnt:
                     associated_replica = [replica for replica in replicas[(file['scope'], file['name'])] if replica.rse_id == lock.rse_id][0]
                     # Check if there is an eligible source replica for this lock
                     if set(source_replicas.get((file['scope'], file['name']), [])).intersection(source_rses) and (selector_rse_dict.get(lock.rse_id, {}).get('availability_write', True) or rule.ignore_availability):

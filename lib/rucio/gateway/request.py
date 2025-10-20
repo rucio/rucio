@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import exception
 from rucio.common.constants import DEFAULT_VO, TransferLimitDirection
-from rucio.common.types import InternalAccount, InternalScope, RequestGatewayDict
+from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import request
 from rucio.core.rse import get_rse_id
@@ -31,122 +31,7 @@ from rucio.gateway import permission
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
 
-    from rucio.db.sqla.constants import RequestState, RequestType
-
-
-def queue_requests(
-    requests: "Iterable[RequestGatewayDict]",
-    issuer: str,
-    vo: str = DEFAULT_VO,
-) -> list[dict[str, Any]]:
-    """
-    Submit transfer or deletion requests on destination RSEs for data identifiers.
-
-    :param requests: List of dictionaries containing 'scope', 'name', 'dest_rse_id', 'request_type', 'attributes'
-    :param issuer: Issuing account as a string.
-    :param vo: The VO to act on.
-    :returns: List of Request-IDs as 32 character hex strings
-    """
-
-    kwargs = {'requests': requests, 'issuer': issuer}
-    with db_session(DatabaseOperationType.WRITE) as session:
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='queue_requests', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{issuer} can not queue request. {auth_result.message}')
-
-        for req in requests:
-            req['scope'] = InternalScope(req['scope'], vo=vo)  # type: ignore (type reassignment)
-            if 'account' in req:
-                req['account'] = InternalAccount(req['account'], vo=vo)  # type: ignore (type reassignment)
-
-        new_requests = request.queue_requests(requests, session=session)
-        return [gateway_update_return_dict(r, session=session) for r in new_requests]
-
-
-def cancel_request(
-    request_id: str,
-    issuer: str,
-    account: str,
-    vo: str = DEFAULT_VO,
-) -> None:
-    """
-    Cancel a request.
-
-    :param request_id: Request Identifier as a 32 character hex string.
-    :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :param vo: The VO to act on.
-    """
-
-    kwargs = {'account': account, 'issuer': issuer, 'request_id': request_id}
-    with db_session(DatabaseOperationType.WRITE) as session:
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_', kwargs=kwargs, session=session)
-    if not auth_result.allowed:
-        raise exception.AccessDenied('%s cannot cancel request %s. %s' % (account, request_id, auth_result.message))
-
-    raise NotImplementedError
-
-
-def cancel_request_did(
-    scope: str,
-    name: str,
-    dest_rse: str,
-    request_type: str,
-    issuer: str,
-    account: str,
-    vo: str = DEFAULT_VO,
-) -> dict[str, Any]:
-    """
-    Cancel a request based on a DID and request type.
-
-    :param scope: Data identifier scope as a string.
-    :param name: Data identifier name as a string.
-    :param dest_rse: RSE name as a string.
-    :param request_type: Type of the request as a string.
-    :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :param vo: The VO to act on.
-    """
-
-    with db_session(DatabaseOperationType.WRITE) as session:
-        dest_rse_id = get_rse_id(rse=dest_rse, vo=vo, session=session)
-
-        kwargs = {'account': account, 'issuer': issuer}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='cancel_request_did', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{account} cannot cancel {request_type} request for {scope}:{name}. {auth_result.message}')
-
-        internal_scope = InternalScope(scope, vo=vo)
-        return request.cancel_request_did(internal_scope, name, dest_rse_id, request_type, session=session)
-
-
-def get_next(
-    request_type: "RequestType",
-    state: "RequestState",
-    issuer: str,
-    account: str,
-    vo: str = DEFAULT_VO,
-) -> list[dict[str, Any]]:
-    """
-    Retrieve the next request matching the request type and state.
-
-    :param request_type: Type of the request as a string.
-    :param state: State of the request as a string.
-    :param issuer: Issuing account as a string.
-    :param account: Account identifier as a string.
-    :param vo: The VO to act on.
-    :returns: Request as a dictionary.
-    """
-
-    kwargs = {'account': account, 'issuer': issuer, 'request_type': request_type, 'state': state}
-
-    with db_session(DatabaseOperationType.WRITE) as session:
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_next', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{account} cannot get the next request of type {request_type} in state {state}. {auth_result.message}')
-
-        reqs = request.get_and_mark_next(request_type, state, session=session)
-        return [gateway_update_return_dict(r, session=session) for r in reqs]
+    from rucio.db.sqla.constants import RequestState
 
 
 def get_request_by_did(

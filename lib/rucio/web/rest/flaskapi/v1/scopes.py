@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, jsonify, request
 
-from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
-from rucio.gateway.scope import add_scope, get_scopes, list_scopes
+from flask import Flask, Response, jsonify, request
+
+from rucio.common.constants import HTTPMethod
+from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, VONotFound
+from rucio.gateway.scope import add_scope, get_scopes, list_scopes, update_scope
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
@@ -23,7 +25,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 class Scope(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self):
+    def get(self) -> Response:
         """
         ---
         summary: List Scopes
@@ -39,16 +41,27 @@ class Scope(ErrorHandlingMethodView):
                   description: "All scopes."
                   type: array
                   items:
-                    description: "A scope."
-                    type: string
+                    type: object
+                    properties:
+                      scope:
+                        description: "A scope."
+                        type: string
+                      account:
+                        description: "The owner account."
+                        type: string
+
           401:
             description: "Invalid Auth Token"
           406:
             description: "Not acceptable"
         """
-        return jsonify(list_scopes(vo=request.environ['vo']))
+        scopes = list_scopes(vo=request.environ['vo'])
+        res = []
+        for dictionary in scopes:
+            res.append(dictionary)
+        return jsonify(res)
 
-    def post(self, account, scope):
+    def post(self, account: str, scope: str) -> Response:
         """
         ---
         summary: Add Scope
@@ -90,13 +103,53 @@ class Scope(ErrorHandlingMethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
-        return 'Created', 201
+        return Response('Created', 201)
+
+    def put(self, account: str, scope: str) -> Response:
+        """
+        ---
+        summary: Change ownership of a scope.
+        description: "Changes ownership of a scope.."
+        tags:
+          - Scopes
+        parameters:
+        - name: account
+          in: path
+          description: "The new owner account"
+          schema:
+            type: string
+          style: simple
+        - name: scope
+          in: path
+          description: "The name of the scope."
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: "OK"
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['']
+          401:
+            description: "Invalid Auth Token"
+          403:
+            description: "Scope or already exists"
+        """
+        try:
+            update_scope(scope=scope, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except (ScopeNotFound, AccountNotFound, VONotFound) as error:
+            return generate_http_error_flask(404, error)
+
+        return Response("", 200)
 
 
 class AccountScopeList(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account):
+    def get(self, account: str) -> Response:
         """
         ---
         summary: List Account Scopes
@@ -143,10 +196,10 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('scopes', __name__, url_prefix='/scopes')
 
     scope_view = Scope.as_view('scope')
-    bp.add_url_rule('/', view_func=scope_view, methods=['get', ])
-    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=['post', ])
+    bp.add_url_rule('/', view_func=scope_view, methods=[HTTPMethod.GET.value])
+    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=[HTTPMethod.POST.value, HTTPMethod.PUT.value])
     account_scope_list_view = AccountScopeList.as_view('account_scope_list')
-    bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=['get', ])
+    bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -113,7 +114,7 @@ class DiracClient(BaseClient):
 
         r = self._send_request(
             url,
-            type_='POST',
+            method=HTTPMethod.POST,
             data=dumps({'lfns': lfns, 'ignore_availability': ignore_availability, 'parents_metadata': parents_metadata})
         )
 

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
@@ -78,7 +79,7 @@ class SubscriptionClient(BaseClient):
             raise TypeError('replication_rules should be a list')
         data = dumps({'options': {'filter': filter_, 'replication_rules': replication_rules, 'comments': comments,
                                   'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        result = self._send_request(url, type_='POST', data=data)
+        result = self._send_request(url, method=HTTPMethod.POST, data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return result.text
         else:
@@ -120,7 +121,7 @@ class SubscriptionClient(BaseClient):
         else:
             path += '/'
         url = build_url(choice(self.list_hosts), path=path)
-        result = self._send_request(url, type_='GET')
+        result = self._send_request(url, method=HTTPMethod.GET)
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
         if result.status_code == codes.not_found:
@@ -173,7 +174,7 @@ class SubscriptionClient(BaseClient):
             raise TypeError('replication_rules should be a list')
         data = dumps({'options': {'filter': filter_, 'replication_rules': replication_rules, 'comments': comments,
                                   'lifetime': lifetime, 'retroactive': retroactive, 'dry_run': dry_run, 'priority': priority}})
-        result = self._send_request(url, type_='PUT', data=data)
+        result = self._send_request(url, method=HTTPMethod.PUT, data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return True
         else:
@@ -203,7 +204,7 @@ class SubscriptionClient(BaseClient):
         path = self.SUB_BASEURL + '/' + account + '/' + name  # type: ignore
         url = build_url(choice(self.list_hosts), path=path)
         data = dumps({'options': {'state': 'I'}})
-        result = self._send_request(url, type_='PUT', data=data)
+        result = self._send_request(url, method=HTTPMethod.PUT, data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return True
         else:
@@ -228,7 +229,7 @@ class SubscriptionClient(BaseClient):
 
         path = '/'.join([self.SUB_BASEURL, account, name, 'rules'])
         url = build_url(choice(self.list_hosts), path=path)
-        result = self._send_request(url, type_='GET')
+        result = self._send_request(url, method=HTTPMethod.GET)
         if result.status_code == codes.ok:   # pylint: disable=no-member
             return self._load_json_data(result)
         else:

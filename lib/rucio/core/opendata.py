@@ -867,6 +867,19 @@ def update_opendata_doi(
         if result.rowcount == 0:
             raise ValueError(f"Error updating Opendata DOI for DID '{scope}:{name}'.")
 
+    except IntegrityError as error:
+        msg = str(error)
+
+        if (
+                search(r'ORA-00001: unique constraint \([^)]+\) violated', msg)
+                or search(r'UNIQUE constraint failed: dids_opendata_doi\.doi', msg)
+                or search(r'1062.*Duplicate entry.*for key', msg)
+                or search(r'duplicate key value violates unique constraint', msg)
+                or search(r'columns?.*not unique', msg)
+        ):
+            raise exception.OpenDataDuplicateDOI(doi=doi)
+
+        raise exception.OpenDataError()
     except DataError as error:
         raise exception.InputValidationError(f"Invalid data: {error}")
 

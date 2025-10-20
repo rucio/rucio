@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import enum
+import sys
 from collections import namedtuple
 from typing import Literal, get_args
 
@@ -224,3 +225,20 @@ OPENDATA_DID_STATE_LITERAL_LIST = list(get_args(OPENDATA_DID_STATE_LITERAL))
 
 POLICY_ALGORITHM_TYPES_LITERAL = Literal['non_deterministic_pfn', 'scope', 'lfn2pfn', 'pfn2lfn', 'fts3_tape_metadata_plugins', 'fts3_plugins_init', 'auto_approve']
 POLICY_ALGORITHM_TYPES = list(get_args(POLICY_ALGORITHM_TYPES_LITERAL))
+
+# https://github.com/rucio/rucio/issues/7958
+# When Python 3.11 is the minimum supported version, we can use the standard library enum and remove this logic
+if sys.version_info >= (3, 11):
+    from http import HTTPMethod
+else:
+    @enum.unique
+    class HTTPMethod(str, enum.Enum):
+        """HTTP verbs used in Rucio requests."""
+
+        HEAD = "HEAD"
+        OPTIONS = "OPTIONS"
+        PATCH = "PATCH"
+        GET = "GET"
+        POST = "POST"
+        PUT = "PUT"
+        DELETE = "DELETE"

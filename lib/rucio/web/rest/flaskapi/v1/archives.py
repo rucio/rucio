@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask, Response, request
 
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.gateway.did import list_archive_content
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, parse_scope_name, response_headers, try_stream
@@ -90,7 +90,7 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('archives', __name__, url_prefix='/archives')
 
     archive_view = Archive.as_view('archive')
-    bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=['get', ])
+    bp.add_url_rule('/<path:scope_name>/files', view_func=archive_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

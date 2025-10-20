@@ -14,6 +14,7 @@
 
 from flask import Flask, jsonify, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.gateway.identity import add_account_identity, add_identity, list_accounts_for_identity
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
@@ -266,13 +267,13 @@ def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('identities', __name__, url_prefix='/identities')
 
     userpass_view = UserPass.as_view('userpass')
-    bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=['put', ])
+    bp.add_url_rule('/<account>/userpass', view_func=userpass_view, methods=[HTTPMethod.PUT.value])
     x509_view = X509.as_view('x509')
-    bp.add_url_rule('/<account>/x509', view_func=x509_view, methods=['put', ])
+    bp.add_url_rule('/<account>/x509', view_func=x509_view, methods=[HTTPMethod.PUT.value])
     gss_view = GSS.as_view('gss')
-    bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=['put', ])
+    bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=[HTTPMethod.PUT.value])
     accounts_view = Accounts.as_view('accounts')
-    bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=['get', ])
+    bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

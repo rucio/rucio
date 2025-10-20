@@ -35,7 +35,7 @@ services:
       - RDBMS
 
   rucio:
-    container_name: dev-rucio-1
+    container_name: ${RUCIO_HTTPD_CONTAINER_NAME:-dev-rucio-1}
     image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev:${RUCIO_DEV_PREFIX:-}${RUCIO_TAG:-latest}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
@@ -100,7 +100,7 @@ services:
       retries: 10
 
   graphite:
-    container_name: dev-graphite-1
+    container_name: ${RUCIO_GRAPHITE_CONTAINER_NAME:-dev-graphite-1}
     image: docker.io/graphiteapp/graphite-statsd
     volumes:
       - vol-graphite-conf:/opt/graphite/conf
@@ -113,7 +113,7 @@ services:
       - vol-graphite-nginx:/etc/nginx
 
   influxdb:
-    container_name: dev-influxdb-1
+    container_name: ${RUCIO_INFLUXDB_CONTAINER_NAME:-dev-influxdb-1}
     image: docker.io/influxdb:latest
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
@@ -132,7 +132,7 @@ services:
       retries: 5
 
   elasticsearch:
-    container_name: dev-elasticsearch-1
+    container_name: ${RUCIO_ELASTICSEARCH_CONTAINER_NAME:-dev-elasticsearch-1}
     image: docker.io/elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
@@ -143,7 +143,7 @@ services:
       retries: 10
 
   activemq:
-    container_name: dev-activemq-1
+    container_name: ${RUCIO_ACTIVEMQ_CONTAINER_NAME:-dev-activemq-1}
     image: docker.io/apache/activemq-classic:5.18.7
     platform: linux/amd64
     volumes:
@@ -154,7 +154,7 @@ services:
       ACTIVEMQ_WEB_PASSWORD: supersecret
 
   postgres14:
-    container_name: dev-postgres14-1
+    container_name: ${RUCIO_POSTGRES14_CONTAINER_NAME:-dev-postgres14-1}
     image: docker.io/postgres:14
     profiles:
       - postgres14
@@ -173,7 +173,7 @@ services:
       retries: 10
 
   mysql8:
-    container_name: dev-mysql8-1
+    container_name: ${RUCIO_MYSQL8_CONTAINER_NAME:-dev-mysql8-1}
     image: docker.io/mysql:8.3
     profiles:
       - mysql8
@@ -190,7 +190,7 @@ services:
       - vol-mysql8-mysql:/var/lib/mysql
 
   oracle:
-    container_name: dev-oracle-1
+    container_name: ${RUCIO_ORACLE_CONTAINER_NAME:-dev-oracle-1}
     image: docker.io/gvenzl/oracle-xe:18.4.0
     platform: linux/amd64
     profiles:
@@ -346,7 +346,7 @@ services:
         hard: 10240
 
   web1:
-    container_name: dev-web1-1
+    container_name: ${RUCIO_WEB1_CONTAINER_NAME:-dev-web1-1}
     image: "docker.io/${DOCKER_REPO:-rucio}/test-webdav:latest"
     platform: linux/amd64
     environment:

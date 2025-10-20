@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 
 from flask import Flask, Response, request
 
+from rucio.common.constants import HTTPMethod
 from rucio.common.exception import (
     AccessDenied,
     DatabaseException,
@@ -1838,7 +1839,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
         # 0. Extract & validate the mode argument
         mode_opt = class_kwargs.pop("mode", None)
         if mode_opt not in (cls.MODE_SET, cls.MODE_GET):
-            raise ValueError("BulkDIDsMeta.as_view() needs mode='set' or mode='get'")
+            raise ValueError("BulkDIDsMeta.as_view() needs mode='set' or mode=HTTPMethod.GET.value")
 
         # Tell the type checker that `mode_opt` is definitely str here
         mode = cast('str', mode_opt)
@@ -2532,12 +2533,12 @@ def blueprint() -> AuthenticatedBlueprint:
     bp.add_url_rule(
         '/<path:scope_name>/status',
         view_func=dids_view,
-        methods=['put', 'get'],
+        methods=[HTTPMethod.PUT.value, HTTPMethod.GET.value],
     )
     bp.add_url_rule(
         '/<path:scope_name>',
         view_func=dids_view,
-        methods=['get', 'post'],
+        methods=[HTTPMethod.GET.value, HTTPMethod.POST.value],
     )
 
     meta_view = Meta.as_view('meta')
@@ -2545,126 +2546,126 @@ def blueprint() -> AuthenticatedBlueprint:
         '/<path:scope_name>/meta',
         defaults={'key': None},
         view_func=meta_view,
-        methods=['get', 'post', 'delete'],
+        methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.DELETE.value],
     )
     bp.add_url_rule(
         '/<path:scope_name>/meta/<key>',
         view_func=meta_view,
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         "/bulkdidsmeta",
         view_func=BulkDIDsMeta.as_view("bulkdidsmeta", mode=BulkDIDsMeta.MODE_SET),
-        methods=["post"],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         "/bulkmeta",
         view_func=BulkDIDsMeta.as_view("bulkmeta", mode=BulkDIDsMeta.MODE_GET),
-        methods=["post"],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/dids',
         view_func=Attachment.as_view('attachment'),
-        methods=['get', 'post', 'delete'],
+        methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.DELETE.value],
     )
 
     bp.add_url_rule(
         '/new',
         view_func=NewDIDs.as_view('new_dids'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '',
         view_func=BulkDIDS.as_view('bulkdids'),
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/dids/history',
         view_func=AttachmentHistory.as_view('attachment_history'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/attachments',
         view_func=Attachments.as_view('attachments'),
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         '/<scope>/dids/search',
         view_func=Search.as_view('search'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/<scope>/',
         view_func=Scope.as_view('scope'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/<guid>/guid',
         view_func=GUIDLookup.as_view('guid_lookup'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/files',
         view_func=Files.as_view('files'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/bulkfiles',
         view_func=BulkFiles.as_view('bulkfiles'),
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/rules',
         view_func=Rules.as_view('rules'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/parents',
         view_func=Parents.as_view('parents'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/associated_rules',
         view_func=AssociatedRules.as_view('associated_rules'),
-        methods=['get'],
+        methods=[HTTPMethod.GET.value],
     )
 
     bp.add_url_rule(
         '/<path:scope_name>/follow',
         view_func=Follow.as_view('follow'),
-        methods=['get', 'post', 'delete'],
+        methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.DELETE.value],
     )
 
     bp.add_url_rule(
         '/<input_scope>/<input_name>/<output_scope>/<output_name>/<nbfiles>/sample',
         view_func=SampleLegacy.as_view('sample'),
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         '/sample',
         view_func=Sample.as_view('sample_new'),
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.add_url_rule(
         '/resurrect',
         view_func=Resurrect.as_view('resurrect'),
-        methods=['post'],
+        methods=[HTTPMethod.POST.value],
     )
 
     bp.after_request(response_headers)
