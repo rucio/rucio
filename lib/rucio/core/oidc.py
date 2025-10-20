@@ -28,9 +28,8 @@ from dogpile.cache.api import NoValue
 from jwkest.jws import JWS
 from jwkest.jwt import JWT
 from oic import rndstr
-from oic.oauth2.message import CCAccessTokenRequest
 from oic.oic import REQUEST2ENDPOINT, Client, Grant, Token
-from oic.oic.message import AccessTokenResponse, AuthorizationResponse, Message, RegistrationResponse
+from oic.oic.message import AccessTokenResponse, AuthorizationResponse, RegistrationResponse
 from oic.utils import time_util
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import delete, null, or_, select, update
@@ -375,12 +374,6 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
                        defines which user's info the user allows to provide
                        to the Rucio Client.
     :param audience: audience for which tokens are requested (EXPECTED_OIDC_AUDIENCE is the default)
-    :param auto: If True, the function will return authorization URL to the Rucio Client
-                 which will log-in with user's IdP credentials automatically.
-                 Also it will instruct the IdP to return an AuthZ code to another Rucio REST
-                 endpoint /oidc_token. If False, the function will return a URL
-                 to be used by the user in the browser in order to authenticate via IdP
-                 (which will then return with AuthZ code to /oidc_code REST endpoint).
     :param polling: If True, '_polling' string will be appended to the access_msg
                     in the DB oauth_requests table to inform the authorization stage
                     that the Rucio Client is polling the server for a token
@@ -407,28 +400,19 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
     issuer_id = kwargs.get('issuer', ADMIN_ISSUER_ID)
     if not issuer_id:
         issuer_id = ADMIN_ISSUER_ID
-    auto = kwargs.get('auto', False)
     polling = kwargs.get('polling', False)
     refresh_lifetime = kwargs.get('refresh_lifetime', REFRESH_LIFETIME_H)
     ip = kwargs.get('ip', None)
-    webhome = kwargs.get('webhome', None)
-    # For webui a mock account will be used here and default account
-    # will be assigned to the identity during get_token_oidc
-    if account.external == 'webui':
-        pass
-    else:
-        # Make sure the account exists
-        if not account_exists(account, session=session):
-            logging.debug("Account %s does not exist.", account)
-            return None
+    # Make sure the account exists
+    if not account_exists(account, session=session):
+        logging.debug("Account %s does not exist.", account)
+        return None
 
     try:
         stopwatch = Stopwatch()
         # redirect_url needs to be specified & one of those defined
         # in the Rucio OIDC Client configuration
         redirect_to = "auth/oidc_code"
-        if auto:
-            redirect_to = "auth/oidc_token"
         # random strings in order to keep track of responses to outstanding requests (state)
         # and to associate a client session with an ID Token and to mitigate replay attacks (nonce).
         state, nonce = rndstr(50), rndstr(50)
@@ -439,14 +423,11 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
                                            scope=auth_scope, audience=audience, first_init=True)
         auth_url = oidc_dict['auth_url']
         redirect_url = oidc_dict['redirect']
-        # redirect code is put in access_msg and returned to the user (if auto=False)
+        # redirect code is put in access_msg and returned to the user
         access_msg = None
-        if not auto:
-            access_msg = rndstr(23)
-            if polling:
-                access_msg += '_polling'
-        if auto and webhome:
-            access_msg = str(webhome)
+        access_msg = rndstr(23)
+        if polling:
+            access_msg += '_polling'
         # Making sure refresh_lifetime is an integer or None.
         if refresh_lifetime:
             refresh_lifetime = int(refresh_lifetime)
@@ -465,12 +446,11 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
         _delete_oauth_request_by_account_and_expiration(account, session=session)
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
-        if not auto:
-            # the following takes into account deployments where the base url of the rucio server is
-            # not equivalent to the network location, e.g. if the server is proxied
-            auth_server = urlparse(redirect_url)
-            auth_url = build_url('https://' + auth_server.netloc, path='{}auth/oidc_redirect'.format(
-                auth_server.path.split('auth/')[0].lstrip('/')), params=access_msg)
+        # the following takes into account deployments where the base url of the rucio server is
+        # not equivalent to the network location, e.g. if the server is proxied
+        auth_server = urlparse(redirect_url)
+        auth_url = build_url('https://' + auth_server.netloc, path='{}auth/oidc_redirect'.format(
+            auth_server.path.split('auth/')[0].lstrip('/')), params=access_msg)
 
         METRICS.timer('IdP_authentication.request').observe(stopwatch.elapsed)
         return auth_url
@@ -495,9 +475,9 @@ def get_token_oidc(
     :param ip: IP address of the client as a string.
     :param session: The database session in use.
 
-    :returns: One of the following tuples: ("fetchcode", <code>); ("token", <token>);
+    :returns: One of the following tuples: ("fetchcode", <code>);
               ("polling", True); The result depends on the authentication strategy being used
-              (no auto, auto, polling).
+              (no polling, polling).
     """
     try:
         stopwatch = Stopwatch()
@@ -543,11 +523,6 @@ def get_token_oidc(
                                                         oidc_tokens['id_token']['iss'])
         jwt_row_dict['account'] = oauth_req_params.account
 
-        if jwt_row_dict['account'].external == 'webui':
-            try:
-                jwt_row_dict['account'] = get_default_account(jwt_row_dict['identity'], IdentityType.OIDC, True, session=session)
-            except Exception:
-                return {'webhome': None, 'token': None}
 
         # check if given account has the identity registered
         if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
@@ -631,8 +606,6 @@ def get_token_oidc(
             METRICS.timer('IdP_authorization').observe(stopwatch.elapsed)
             if '_polling' in oauth_req_params.access_msg:
                 return {'polling': True}
-            elif 'http' in oauth_req_params.access_msg:
-                return {'webhome': oauth_req_params.access_msg, 'token': new_token}
             else:
                 return {'fetchcode': fetchcode}
         else:

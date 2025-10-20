@@ -84,12 +84,6 @@ def get_auth_oidc(
                        defines which user's info the user allows to provide
                        to the Rucio Client.
     :param audience: audience for which tokens are requested ('rucio' is the default)
-    :param auto: If True, the function will return authorization URL to the Rucio Client
-                 which will log-in with user's IdP credentials automatically.
-                 Also it will instruct the IdP to return an AuthZ code to another Rucio REST
-                 endpoint /oidc_token. If False, the function will return a URL
-                 to be used by the user in the browser in order to authenticate via IdP
-                 (which will then return with AuthZ code to /oidc_code REST endpoint).
     :param polling: If True, '_polling' string will be appended to the access_msg
                     in the DB oauth_requests table to inform the authorization stage
                     that the Rucio Client is polling the server for a token
@@ -120,9 +114,9 @@ def get_token_oidc(
     :param auth_query_string: IdP redirection URL query string (AuthZ code & user session state).
     :param ip: IP address of the client as a string.
 
-    :returns: One of the following tuples: ("fetchcode", <code>); ("token", <token>);
+    :returns: One of the following tuples: ("fetchcode", <code>);
               ("polling", True); The result depends on the authentication strategy being used
-              (no auto, auto, polling).
+              (no polling, polling).
     """
     # no permission layer for the moment !
     with db_session(DatabaseOperationType.WRITE) as session:

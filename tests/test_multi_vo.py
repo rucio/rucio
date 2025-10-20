@@ -193,7 +193,7 @@ def account_new(usr_uuid, second_vo):
 class TestVORestAPI:
 
     @staticmethod
-    def auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_in, account_not_in, auto, polling):
+    def auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_in, account_not_in, polling):
         """
         Utility script to handle the REST calls with various urls and codes needed to authenticate via OIDC.
         IdP responses are faked using code from `test_oidc.py`.
@@ -202,8 +202,6 @@ class TestVORestAPI:
         :param vo: VO to authenticate
         :param account_in: A string (externally) representing an account we DO expect to find at the VO.
         :param account_not_in: A string (externally) representing an account we DO NOT expect to find at the VO.
-        :param auto: Boolean to specify whether we automatically submit userpass to the IdP as part of authentication.
-        :param auto: Boolean to specify whether we poll the IdP for a successful login as part of authentication.
         """
         mock_oidc_client.side_effect = get_mock_oidc_client
 
@@ -215,7 +213,6 @@ class TestVORestAPI:
         # Define headers
         headers_dict = {'X-Rucio-Account': 'root',
                         'X-Rucio-VO': long_vo,
-                        'X-Rucio-Client-Authorize-Auto': str(auto),
                         'X-Rucio-Client-Authorize-Polling': str(polling),
                         'X-Rucio-Client-Authorize-Scope': 'openid profile',
                         'X-Rucio-Client-Authorize-Refresh-Lifetime': '96',
@@ -224,23 +221,19 @@ class TestVORestAPI:
 
         response = rest_client.get('/auth/oidc', headers=headers(hdrdict(headers_dict)))
         assert response.status_code == 200
-        if auto:
-            # Get the auth_url without any redirect
-            auth_url = response.headers.get('X-Rucio-OIDC-Auth-URL')
+        # Get the redirect_url
+        redirect_url = response.headers.get('X-Rucio-OIDC-Auth-URL')
+        assert 'https://test_redirect_string/auth/oidc_redirect?' in redirect_url
+        if polling:
+            assert '_polling' in redirect_url
         else:
-            # Get the redirect_url
-            redirect_url = response.headers.get('X-Rucio-OIDC-Auth-URL')
-            assert 'https://test_redirect_string/auth/oidc_redirect?' in redirect_url
-            if polling:
-                assert '_polling' in redirect_url
-            else:
-                assert '_polling' not in redirect_url
-            redirect_url_parsed = urlparse(redirect_url)
+            assert '_polling' not in redirect_url
+        redirect_url_parsed = urlparse(redirect_url)
 
-            # Get the auth_url from the redirect_url
-            response = rest_client.get('/auth/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers(hdrdict(headers_dict)))
-            assert response.status_code == 303
-            auth_url = response.headers.get('location')
+        # Get the auth_url from the redirect_url
+        response = rest_client.get('/auth/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers(hdrdict(headers_dict)))
+        assert response.status_code == 303
+        auth_url = response.headers.get('location')
 
         assert 'https://test_auth_url_string?' in auth_url
         auth_url_parsed = urlparse(auth_url)
@@ -252,23 +245,18 @@ class TestVORestAPI:
         NEW_TOKEN_DICT['access_token'] = access_token
         NEW_TOKEN_DICT['id_token'] = {'sub': 'knownsub', 'iss': 'https://test_issuer/', 'nonce': auth_url_params['nonce'][0]}
         headers_dict['X-Rucio-Client-Fetch-Token'] = 'True'
-
-        if auto:
-            # Can get the token now
-            response = rest_client.get('/auth/oidc_token?state=%s&code=%s' % (auth_url_params['state'][0], code_response), headers=headers(hdrdict(headers_dict)))
+        # Get the html response
+        response = rest_client.get('/auth/oidc_code?state=%s&code=%s' % (auth_url_params['state'][0], code_response), headers=headers(hdrdict(headers_dict)))
+        assert response.status_code == 200
+        if polling:
+            assert 'Rucio Client should now be able to fetch your token automatically.' in response.get_data(as_text=True)
+            response = rest_client.get('/auth/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers(hdrdict(headers_dict)))
         else:
-            # Get the html response
-            response = rest_client.get('/auth/oidc_code?state=%s&code=%s' % (auth_url_params['state'][0], code_response), headers=headers(hdrdict(headers_dict)))
-            assert response.status_code == 200
-            if polling:
-                assert 'Rucio Client should now be able to fetch your token automatically.' in response.get_data(as_text=True)
-                response = rest_client.get('/auth/oidc_redirect?%s' % redirect_url_parsed.query, headers=headers(hdrdict(headers_dict)))
-            else:
-                # Get the fetch_code from the response, then submit it
-                fetch_code = search(r'<b>[a-zA-Z0-9]{50}</b>', response.get_data(as_text=True))
-                assert fetch_code is not None
-                fetch_code = fetch_code.group()[3:53]
-                response = rest_client.get('/auth/oidc_redirect?%s' % fetch_code, headers=headers(hdrdict(headers_dict)))
+            # Get the fetch_code from the response, then submit it
+            fetch_code = search(r'<b>[a-zA-Z0-9]{50}</b>', response.get_data(as_text=True))
+            assert fetch_code is not None
+            fetch_code = fetch_code.group()[3:53]
+            response = rest_client.get('/auth/oidc_redirect?%s' % fetch_code, headers=headers(hdrdict(headers_dict)))
 
         # Regardless of how we got it, check we have the token and that we only get results from our VO when using it
         assert response.status_code == 200
@@ -283,20 +271,14 @@ class TestVORestAPI:
     @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_auth_oidc(self, mock_oidc_client, vo, long_vo, second_vo, account_tst, account_new, rest_client):
         """ MULTI VO (REST): Test oidc authentication to multiple VOs """
-        self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, auto=False, polling=False)
-        self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, auto=False, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, polling=False)
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     def test_auth_oidc_polling(self, mock_oidc_client, vo, long_vo, second_vo, account_tst, account_new, rest_client):
         """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'polling' option """
-        self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, auto=False, polling=True)
-        self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, auto=False, polling=True)
-
-    @patch('rucio.core.oidc.__get_init_oidc_client')
-    def test_auth_oidc_auto(self, mock_oidc_client, vo, long_vo, second_vo, account_tst, account_new, rest_client):
-        """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'auto' option """
-        self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, auto=True, polling=False)
-        self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, auto=True, polling=False)
+        self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, polling=True)
+        self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, polling=True)
 
     def test_auth_gss(self, vo, second_vo, account_tst, account_new, rest_client):
         """ MULTI VO (REST): Test gss authentication to multiple VOs """
