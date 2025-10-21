@@ -592,9 +592,4 @@ networks:
     # which is not RFC 2396 compliant (due to the underscore);
     # this causes issues with the ActiveMQ library used by FTS.
     # To avoid this, the network name must be made RFC 2396 compliant.
-    name: testnetwork
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.19.0.0/16
-          gateway: 172.19.0.1
+    name: ${RUCIO_NETWORK_NAME:-ruciodevnetwork}
