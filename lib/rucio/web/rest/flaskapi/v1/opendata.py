@@ -48,10 +48,10 @@ class OpenDataView(ErrorHandlingMethodView):
     def get(self) -> "Response":
         """
         ---
-        summary: List Opendata DIDs
-        description: "Retrieves a list of Opendata Data Identifiers (DIDs). Supports optional query parameters for pagination and filtering by state."
+        summary: List Open Data DIDs
+        description: "Retrieves a list of Open Data DIDs. Supports optional query parameters for pagination and filtering by state."
         tags:
-          - Opendata
+          - Open Data
         parameters:
           - name: limit
             in: query
@@ -76,7 +76,7 @@ class OpenDataView(ErrorHandlingMethodView):
             style: form
         responses:
           200:
-            description: "Successful retrieval of the list of Opendata DIDs."
+            description: "Successful retrieval of the list of Open Data DIDs."
             content:
               application/json:
                 schema:
@@ -128,10 +128,10 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
     def get(self, scope: str, name: str) -> "Response":
         """
         ---
-        summary: Get Opendata DID Information
-        description: "Retrieves detailed Opendata information for the given scope and name. Supports optional query parameters to control the inclusion of files, metadata, and DOI information."
+        summary: Get Open Data DID Information
+        description: "Retrieves detailed Open Data information for the given scope and name. Supports optional query parameters to control the inclusion of files, metadata, and DOI information."
         tags:
-          - Opendata
+          - Open Data
         parameters:
           - name: scope
             in: path
@@ -188,7 +188,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             style: form
         responses:
           200:
-            description: "Successful retrieval of Opendata DID information."
+            description: "Successful retrieval of Open Data DID information."
             content:
               application/json:
                 schema:
@@ -205,10 +205,10 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
     def post(self, scope: str, name: str) -> "Response":
         """
         ---
-        summary: Register Opendata DID
-        description: "Registers an existing DID as Opendata."
+        summary: Register Open Data DID
+        description: "Registers an existing DID as Open Data."
         tags:
-          - Opendata
+          - Open Data
         parameters:
           - name: scope
             in: path
@@ -226,7 +226,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             style: simple
         responses:
           201:
-            description: "Opendata DID successfully registered."
+            description: "Open Data DID successfully registered."
             content:
               application/json:
                 schema:
@@ -239,7 +239,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
           404:
             description: "Data Identifier not found."
           409:
-            description: "Data Identifier already exists in the Opendata catalog."
+            description: "Data Identifier already exists in the Open Data catalog."
         """
         vo = request.environ.get("vo", DEFAULT_VO)
         try:
@@ -259,10 +259,10 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
     def put(self, scope: str, name: str) -> "Response":
         """
         ---
-        summary: Update Opendata DID
-        description: "Updates the properties of an existing Opendata DID."
+        summary: Update Open Data DID
+        description: "Updates the properties of an existing Open Data DID."
         tags:
-          - Opendata
+          - Open Data
         parameters:
           - name: scope
             in: path
@@ -305,7 +305,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
                       example: 123456
         responses:
           200:
-            description: "Opendata DID successfully updated."
+            description: "Open Data DID successfully updated."
             content:
               application/json:
                 schema:
@@ -345,10 +345,10 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
     def delete(self, scope: str, name: str) -> "Response":
         """
         ---
-        summary: Delete Opendata DID
-        description: "Deletes an entry in the Opendata catalog."
+        summary: Delete Open Data DID
+        description: "Deletes an entry in the Open Data catalog."
         tags:
-          - Opendata
+          - Open Data
         parameters:
           - name: scope
             in: path
@@ -366,7 +366,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             style: simple
         responses:
           204:
-            description: "Opendata DID successfully deleted. No content is returned."
+            description: "Open Data DID successfully deleted. No content is returned."
           400:
             description: "Invalid input: The provided scope/name is not valid."
           401:

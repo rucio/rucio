@@ -25,10 +25,10 @@ class OpenDataPublicView(ErrorHandlingMethodView):
     def get(self) -> "Response":
         """
         ---
-        summary: List Opendata DIDs marked as public
-        description: "Retrieves a list of public Opendata Data Identifiers (DIDs). Supports optional query parameters for pagination."
+        summary: List Open Data DIDs marked as public
+        description: "Retrieves a list of public Open Data DIDs. Supports optional query parameters for pagination."
         tags:
-          - Opendata Public
+          - Open Data Public
         parameters:
           - name: limit
             in: query
@@ -46,7 +46,7 @@ class OpenDataPublicView(ErrorHandlingMethodView):
             style: form
         responses:
           200:
-            description: "Successful retrieval of the list of Opendata DIDs."
+            description: "Successful retrieval of the list of Open Data DIDs."
             content:
               application/json:
                 schema:
@@ -65,10 +65,10 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
     def get(self, scope: str, name: str) -> "Response":
         """
         ---
-        summary: Get Opendata DID Information for public Opendata DIDs
-        description: "Retrieves detailed Opendata information for the given scope and name. Only works for public opendata DIDs. Supports optional query parameters to control the inclusion of files, metadata, and DOI information."
+        summary: Get Open Data DID Information for public Open Data DIDs
+        description: "Retrieves detailed Open Data information for the given scope and name. Only works for public opendata DIDs. Supports optional query parameters to control the inclusion of files, metadata, and DOI information."
         tags:
-          - Opendata Public
+          - Open Data Public
         parameters:
           - name: scope
             in: path
@@ -118,7 +118,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
             style: form
         responses:
           200:
-            description: "Successful retrieval of Opendata DID information."
+            description: "Successful retrieval of Open Data DID information."
             content:
               application/json:
                 schema:
