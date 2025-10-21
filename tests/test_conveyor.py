@@ -1664,7 +1664,6 @@ def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock, file_c
             RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.needs_iam
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
