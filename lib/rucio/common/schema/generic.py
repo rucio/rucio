@@ -168,7 +168,7 @@ SPLIT_CONTAINER = {"description": "Rule split container mode",
 TIME_ENTRY = {
     "description": "Datetime, ISO 8601",
     "type": "string",
-    "pattern": r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d*$'
+    "pattern": r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$'
 }
 
 IP = {
