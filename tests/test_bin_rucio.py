@@ -641,6 +641,23 @@ def test_move_rule_with_arguments(rse_factory, did_factory, rucio_client):
     assert new_rule_source_replica_expression == rule_info["source_replica_expression"]
 
 
+@pytest.mark.parametrize('cmd', ["rucio list-rules mock:file_*", "rucio rule list --did mock:file_*"])
+def test_list_rules_wildcard(cmd, rse_factory, did_factory, mock_scope, root_account, rucio_client):
+
+    rse, _ = rse_factory.make_posix_rse()
+    rse_1, _ = rse_factory.make_posix_rse()
+    n_files = 1
+    dataset = did_factory.upload_test_dataset(rse_name=rse, scope=mock_scope.external, size=1, nb_files=n_files)
+
+    [rule_id] = rucio_client.add_replication_rule(
+        dids=[{'scope': d['did_scope'], 'name': d['did_name']} for d in dataset], account=root_account.external, copies=1, rse_expression=rse_1)
+
+    exitcode, out, err = execute(cmd)
+    assert rule_id in out
+    assert 'ERROR' not in err
+    assert exitcode == 0
+
+
 def test_list_did_recursive(did_factory, mock_scope, rucio_client):
     """ CLIENT(USER): List did recursive """
     scope = mock_scope.external
