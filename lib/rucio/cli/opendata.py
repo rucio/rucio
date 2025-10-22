@@ -179,15 +179,15 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
     Update an existing Opendata DID in the Opendata catalog.
     """
 
-    if not any([meta, state, doi]):
-        raise ValueError("At least one of --meta, --state, or --doi must be provided.")
+    if not any([meta, state, doi, record_id]):
+        raise ValueError("At least one of --meta, --state, --doi or --record_id must be provided.")
 
     client = ctx.obj.client
     spinner = ctx.obj.spinner
     console = ctx.obj.console
 
     scope, name = extract_scope(did)
-    info = client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi)
+    info = client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi, record_id=record_id)
 
     if cli_config == 'rich':
         spinner.update(status='Fetching Opendata DID stats')
