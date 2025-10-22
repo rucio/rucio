@@ -741,3 +741,42 @@ class TestOpenDataCLI:
         assert all(state in stderr for state in valid_states), (
             f"Expected valid states {valid_states} in error message, got {stderr}"
         )
+
+    @skip_unsupported_dialect
+    def test_opendata_cli_update_delete(self, mock_scope, doi_factory):
+        name = did_name_generator(did_type="dataset")
+
+        # Add Rucio DID
+        exitcode, _, stderr = execute(f"rucio did add {mock_scope}:{name}")
+        assert exitcode == 0, f"Failed to add DID: {stderr.strip()}"
+
+        # Add DID to Open Data
+        exitcode, _, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
+        assert exitcode == 0, f"Failed to add Open Data DID: {stderr.strip()}"
+
+        # Update the Record ID (using a hash of the name to avoid collisions)
+        record_id = abs(hash(name)) % 10**8
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --record-id {record_id}")
+        assert exitcode == 0, f"Failed to update Open Data DID: {stderr.strip()}"
+
+        # Update the DOI
+        doi = doi_factory()
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --doi {doi}")
+        assert exitcode == 0, f"Failed to update Open Data DID DOI: {stderr.strip()}"
+
+        # Update the Open Data metadata
+        meta_json = '{"key": "value", "number": 123}'
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --meta '{meta_json}'")
+        assert exitcode == 0, f"Failed to update Open Data DID metadata: {stderr.strip()}"
+
+        # Close the DID before state updates
+        exitcode, _, stderr = execute(f"rucio did update {mock_scope}:{name} --close")
+        assert exitcode == 0, f"Failed to close DID: {stderr.strip()}"
+
+        # Update the state to public
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --state public")
+        assert exitcode == 0, f"Failed to update Open Data DID state to public: {stderr.strip()}"
+
+        # Update the state to suspended
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --state suspended")
+        assert exitcode == 0, f"Failed to update Open Data DID state to suspended: {stderr.strip()}"
