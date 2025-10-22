@@ -1015,6 +1015,14 @@ def list_rules(
                 value = DIDType(value)
             elif key == 'grouping' and isinstance(value, str):
                 value = RuleGrouping(value)
+            elif key == 'name':
+                # First check if it is a real DID or a wildcard
+                if "*" in value:
+                    # Get the matching dids
+                    value = value.replace('*', '%')
+                    stmt = stmt.where(models.ReplicationRule.name.like(value))
+                    continue
+
             stmt = stmt.where(getattr(models.ReplicationRule, key) == value)
 
     try:
