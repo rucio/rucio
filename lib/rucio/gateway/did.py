@@ -62,7 +62,7 @@ def list_dids(
         if 'account' in or_group:
             or_group['account'] = InternalAccount(or_group['account'], vo=vo)
         if 'scope' in or_group:
-            or_group['account'] = InternalScope(or_group['scope'], vo=vo)
+            or_group['scope'] = InternalScope(or_group['scope'], vo=vo)
 
     with db_session(DatabaseOperationType.READ) as session:
         result = did.list_dids(scope=internal_scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
