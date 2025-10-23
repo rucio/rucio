@@ -14,9 +14,7 @@
 
 import json
 import logging
-import time
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 from flask import Blueprint, Flask, Response, redirect, render_template, request
 from jinja2.exceptions import TemplateNotFound
@@ -24,7 +22,7 @@ from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
 from rucio.common.constants import HTTPMethod
-from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound, InvalidRequest
+from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound
 from rucio.common.extra import import_extras
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
@@ -298,10 +296,6 @@ class OIDC(ErrorHandlingMethodView):
           in: header
           schema:
             type: string
-        - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO
-          in: header
-          schema:
-            type: string
         - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER
           in: header
           schema:
@@ -340,11 +334,9 @@ class OIDC(ErrorHandlingMethodView):
         account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
         auth_scope = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
         audience = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
-        auto = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUTO', False)
         issuer = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', None)
         polling = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_POLLING', False)
         refresh_lifetime = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_REFRESH_LIFETIME', None)
-        auto = (auto == 'True' or auto == 'true')
         polling = (polling == 'True' or polling == 'true')
         if refresh_lifetime == 'None':
             refresh_lifetime = None
@@ -353,7 +345,6 @@ class OIDC(ErrorHandlingMethodView):
             kwargs = {'auth_scope': auth_scope,
                       'audience': audience,
                       'issuer': issuer,
-                      'auto': auto,
                       'polling': polling,
                       'refresh_lifetime': refresh_lifetime,
                       'ip': ip}
@@ -595,119 +586,6 @@ class CodeOIDC(ErrorHandlingMethodView):
         else:
             headers.extend(error_headers('InvalidRequest', 'Cannot recognize and process your request'))
             return render_template('auth_crash.html', crashtype='bad_request'), 400, headers
-
-
-class TokenOIDC(ErrorHandlingMethodView):
-    """
-    Authenticate a Rucio account temporarily via ID,
-    access (eventually save new refresh token)
-    received from an Identity Provider.
-    """
-
-    def get_headers(self) -> Headers:
-        headers = Headers()
-        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))  # type: ignore (value could be None)
-        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))  # type: ignore (value could be None)
-        headers.set('Access-Control-Allow-Methods', '*')
-        headers.set('Access-Control-Allow-Credentials', 'true')
-        return headers
-
-    def options(self) -> 'ResponseReturnValue':
-        """
-        ---
-        summary: TokenOIDC Allow cross-site scripting
-        description: "TokenOIDC Allow cross-site scripting. Explicit for Authentication."
-        tags:
-          - Auth
-        responses:
-          200:
-            description: "OK"
-            headers:
-              Access-Control-Allow-Origin:
-                schema:
-                  type: string
-              Access-Control-Allow-Headers:
-                schema:
-                  type: string
-              Access-Control-Allow-Methods:
-                schema:
-                  type: string
-                  enum: ['*']
-              Access-Control-Allow-Credentials:
-                schema:
-                  type: string
-                  enum: ['true']
-          404:
-            description: "Not found"
-        """
-        return '', 200, self.get_headers()
-
-    @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> 'ResponseReturnValue':
-        """
-        ---
-        summary: TokenOIDC
-        description: "Authenticate a Rucio account via TokenOIDC."
-        tags:
-          - Auth
-        parameters:
-        - name: X-Forwarded-For
-          in: header
-          schema:
-            type: string
-        responses:
-          200:
-            description: "OK"
-            headers:
-              X-Rucio-Auth-Token:
-                description: "The authentication token"
-                schema:
-                  type: string
-              X-Rucio-Auth-Token-Expires:
-                description: "The time when the token expires"
-                schema:
-                  type: string
-          401:
-            description: "Cannot authenticate"
-        """
-        headers = self.get_headers()
-
-        headers.set('Content-Type', 'application/octet-stream')
-        headers.set('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        headers.add('Cache-Control', 'post-check=0, pre-check=0')
-        headers.set('Pragma', 'no-cache')
-
-        query_string = request.query_string.decode(encoding='utf-8')
-        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
-        try:
-            result = get_token_oidc(query_string, ip)
-        except AccessDenied:
-            return generate_http_error_flask(401, CannotAuthorize.__name__, 'Cannot authorize token request.', headers=headers)
-
-        if not result:
-            return generate_http_error_flask(401, CannotAuthorize.__name__, 'Cannot authorize token request.', headers=headers)
-        if 'token' in result and 'webhome' not in result:
-            headers.set('X-Rucio-Auth-Token', result['token']['token'])
-            headers.set('X-Rucio-Auth-Token-Expires', date_to_str(result['token']['expires_at']))  # type: ignore (value could be None)
-            return '', 200, headers
-        elif 'webhome' in result:
-            webhome = result['webhome']
-            if webhome is None:
-                headers.extend(error_headers(CannotAuthenticate.__name__, 'Cannot find your OIDC identity linked to any Rucio account'))
-                headers.set('Content-Type', 'text/html')
-                return render_template('auth_crash.html', crashtype='unknown_identity'), 401, headers
-            # domain setting is necessary so that the token gets distributed also to the webui server
-            domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
-            response = redirect(webhome, code=303)
-            response.headers.extend(headers)
-            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
-            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
-            # response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
-            # response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
-            return response
-        else:
-            return generate_http_error_flask(status_code=400, exc=InvalidRequest.__name__, exc_msg="", headers=headers)
 
 
 class RefreshOIDC(ErrorHandlingMethodView):
@@ -1650,8 +1528,6 @@ def blueprint() -> Blueprint:
     bp.add_url_rule('/validate', view_func=validate_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     oidc_view = OIDC.as_view('oidc_view')
     bp.add_url_rule('/oidc', view_func=oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
-    token_oidc_view = TokenOIDC.as_view('token_oidc_view')
-    bp.add_url_rule('/oidc_token', view_func=token_oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     code_oidc_view = CodeOIDC.as_view('code_oidc_view')
     bp.add_url_rule('/oidc_code', view_func=code_oidc_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     redirect_oidc_view = RedirectOIDC.as_view('redirect_oidc_view')
