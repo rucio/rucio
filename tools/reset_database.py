@@ -33,6 +33,7 @@ Behavior
 ------------------------+-----------------------+---------------------------+
 """
 
+import logging
 import os.path
 import sys
 from argparse import ArgumentParser
@@ -42,6 +43,7 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
+from rucio.common.logging import setup_logging  # noqa: E402
 from rucio.db.sqla.util import (  # noqa: E402
     build_database,  # noqa: E402
     create_base_vo,  # noqa: E402
@@ -50,7 +52,11 @@ from rucio.db.sqla.util import (  # noqa: E402
     purge_db,  # noqa: E402
 )
 
+LOG = logging.getLogger(__name__)
+
 if __name__ == '__main__':
+
+    setup_logging(process_name='reset-database')
 
     parser = ArgumentParser(
         prog="reset_database.py",
@@ -69,6 +75,8 @@ if __name__ == '__main__':
         help="Purge EVERYTHING and stop – do NOT recreate schema or accounts.",
     )
     args = parser.parse_args()
+
+    LOG.debug('Parsed arguments: purge_build=%s purge=%s', args.purge_build, args.purge)
 
     # ------------------------------------------------------------------
     # 1. Decide how to reset
