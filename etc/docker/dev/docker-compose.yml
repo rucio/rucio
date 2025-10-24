@@ -584,3 +584,12 @@ volumes:
   vol-iam-db-mysql:
   vol-mysql8-mysql:
   vol-postgres-data:
+
+networks:
+  default:
+    driver: bridge
+    # The default Docker network name ends with '_default',
+    # which is not RFC 2396 compliant (due to the underscore);
+    # this causes issues with the ActiveMQ library used by FTS.
+    # To avoid this, the network name must be made RFC 2396 compliant.
+    name: ${RUCIO_NETWORK_NAME:-ruciodevnetwork}

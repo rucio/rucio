@@ -95,7 +95,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         else:                                       # managed by Rucio, create a metadata table if it doesn't exist
             self._try_create_metadata_table()
 
-        self.plugin_name = "POSTGRES_JSON"
+        self._plugin_name = "POSTGRES_JSON"
 
     def _try_create_metadata_table(self):
         """
@@ -260,17 +260,19 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
     def delete_metadata(self, scope, name, key, *, session: "Optional[Session]" = None):
         """
-        Delete a key from metadata.
+        Delete a key from metadata of DID.
 
         :param scope: the scope of DID
         :param name: the name of the DID
         :param key: the key to be deleted
         :param session: the database session in use
         """
-        statement = sql.SQL("UPDATE {} SET data = {}.data - {}").format(
+        statement = sql.SQL("UPDATE {} SET data = {}.data - {} WHERE scope = {} AND name = {}").format(
             sql.Identifier(self.table),
             sql.Identifier(self.table),
-            sql.Literal(key)
+            sql.Literal(key),
+            sql.Literal(scope.internal),
+            sql.Literal(name)
         )
 
         cur = self.client.cursor()
@@ -306,7 +308,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
             # TODO: possible, but requires retrieving the results of a concurrent sqla query to call list_content
             #       on for datasets and containers
             raise exception.UnsupportedOperation(
-                "'{}' metadata module does not currently support recursive searches".format(self.plugin_name.lower())
+                "'{}' metadata module does not currently support recursive searches".format(self.name)
             )
 
         statement = sql.SQL("SELECT * FROM {} WHERE {} {}").format(
@@ -341,12 +343,3 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
     def manages_key(self, key, *, session: "Optional[Session]" = None):
         return True
-
-    def get_plugin_name(self):
-        """
-        Returns a unique identifier for this plugin. This can be later used for filtering down results to this
-        plugin only.
-
-        :returns: The name of the plugin
-        """
-        return self.plugin_name

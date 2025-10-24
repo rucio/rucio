@@ -121,8 +121,8 @@ usercert = /opt/rucio/tools/x509up
 
 [messaging-fts3]
 port = 61123
-ssl_key_file = /home/mario/.ssh/hostkey.pem
-ssl_cert_file = /home/mario/.ssh/hostcert.pem
+ssl_key_file = /etc/grid-security/hostkey.pem
+ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/transfer.fts_monitoring_queue_state
 brokers = dashb-test-mb.cern.ch
 voname = atlas
@@ -199,7 +199,6 @@ account = cache_mb
 cacert = /opt/rucio/etc/web/ca.crt
 #cacert = /etc/pki/tls/certs/CERN-bundle.pem
 usercert = /opt/rucio/etc/web/usercert.pem
-#usercert = /home/mario/.ssh/usercert_with_key.pem
 
 [nagios]
 proxy = /opt/rucio/etc/ddmadmin.proxy.nagios

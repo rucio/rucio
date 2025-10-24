@@ -19,7 +19,7 @@ import pytest
 
 from rucio.common.config import config_add_section, config_get_bool, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataInvalidStateUpdate
+from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
@@ -266,6 +266,72 @@ class TestOpenDataCore:
         with pytest.raises(OpenDataDuplicateDOI):
             opendata.update_opendata_doi(scope=mock_scope, name=name_second, doi=doi, session=db_write_session)
 
+    def test_opendata_record_id_update(self, mock_scope, root_account, db_write_session):
+        name = did_name_generator(did_type="dataset")
+
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                session=db_write_session)
+        opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        record_id_first = 12345
+
+        opendata.update_opendata_did(scope=mock_scope, name=name, record_id=record_id_first, session=db_write_session)
+
+        db_write_session.commit()
+
+        record_id_after = opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)["record_id"]
+
+        assert record_id_after == record_id_first, f"Record ID should be updated to {record_id_first}, fetched from `get_opendata_did`"
+
+        db_write_session.commit()
+
+        record_id_after = opendata.get_opendata_record_id(scope=mock_scope, name=name, session=db_write_session)
+
+        assert record_id_after == record_id_first, f"Record ID should be updated to {record_id_first}, fetched from `get_opendata_record_id`"
+
+        record_id_second = 54321
+        opendata.update_opendata_record_id(scope=mock_scope, name=name, record_id=record_id_second, session=db_write_session)
+
+        db_write_session.commit()
+
+        record_id_after = opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)["record_id"]
+
+        assert record_id_after == record_id_second, f"Record ID should be updated (second time) to {record_id_second}, fetched from `get_opendata_did`"
+
+        opendata.delete_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        db_write_session.commit()
+
+    def test_opendata_record_id_duplicate(self, mock_scope, root_account, db_write_session):
+        name_first = did_name_generator(did_type="dataset")
+        name_second = did_name_generator(did_type="dataset")
+
+        for name in [name_first, name_second]:
+            add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                    session=db_write_session)
+            opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+        record_id = 1337
+
+        opendata.update_opendata_did(scope=mock_scope, name=name_first, record_id=record_id, session=db_write_session)
+
+        db_write_session.commit()
+
+        # delete it so we can use the record id in another did
+        opendata.delete_opendata_did(scope=mock_scope, name=name_first, session=db_write_session)
+
+        db_write_session.commit()
+
+        # set previously used record id to another did
+        opendata.update_opendata_did(scope=mock_scope, name=name_second, record_id=record_id, session=db_write_session)
+
+        # add back previously deleted did so we can test for duplicates
+        opendata.add_opendata_did(scope=mock_scope, name=name_first, session=db_write_session)
+
+        with pytest.raises(OpenDataDuplicateRecordID):
+            # using a record id that is in use by another open data did will throw
+            opendata.update_opendata_did(scope=mock_scope, name=name_first, record_id=record_id, session=db_write_session)
+
     def test_opendata_dids_list(self, mock_scope, root_account, db_write_session):
         dids = [
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
@@ -457,12 +523,15 @@ class TestOpenDataClient:
 
         # Here we also test that doi is returned as key by default because `include_doi` is True by default
         assert opendata_did["doi"] is None, "DOI should be None"
+        assert opendata_did["record_id"] is None, "Record ID should be None"
         assert "files" not in opendata_did, "Files should not be present in the response"
         assert "meta" not in opendata_did, "Meta should not be present in the response"
 
         opendata_did = rucio_client.get_opendata_did(scope=scope, name=name,
-                                                     include_files=True, include_metadata=True, include_doi=True)
+                                                     include_files=True, include_metadata=True,
+                                                     include_doi=True, include_record_id=True)
         assert opendata_did["doi"] is None, "DOI should still be None"
+        assert opendata_did["record_id"] is None, "Record ID should still be None"
         assert "files" in opendata_did, "Files should be present in the response"
         assert "meta" in opendata_did, "Meta should be present in the response"
         meta = opendata_did["meta"]
@@ -582,7 +651,7 @@ class TestOpenDataCLI:
         ("add", {"--help"}),
         ("list", {"--help", "--state", "--public", "--short"}),
         ("show", {"--help", "--meta", "--files", "--public"}),
-        ("update", {"--help", "--meta", "--state", "--doi"}),
+        ("update", {"--help", "--meta", "--state", "--doi", "--record-id"}),
         ("remove", {"--help"}),
     ])
     def test_opendata_cli_options(self, subcommand, expected_options):
@@ -672,3 +741,42 @@ class TestOpenDataCLI:
         assert all(state in stderr for state in valid_states), (
             f"Expected valid states {valid_states} in error message, got {stderr}"
         )
+
+    @skip_unsupported_dialect
+    def test_opendata_cli_update_delete(self, mock_scope, doi_factory):
+        name = did_name_generator(did_type="dataset")
+
+        # Add Rucio DID
+        exitcode, _, stderr = execute(f"rucio did add {mock_scope}:{name}")
+        assert exitcode == 0, f"Failed to add DID: {stderr.strip()}"
+
+        # Add DID to Open Data
+        exitcode, _, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
+        assert exitcode == 0, f"Failed to add Open Data DID: {stderr.strip()}"
+
+        # Update the Record ID (using a hash of the name to avoid collisions)
+        record_id = abs(hash(name)) % 10**8
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --record-id {record_id}")
+        assert exitcode == 0, f"Failed to update Open Data DID: {stderr.strip()}"
+
+        # Update the DOI
+        doi = doi_factory()
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --doi {doi}")
+        assert exitcode == 0, f"Failed to update Open Data DID DOI: {stderr.strip()}"
+
+        # Update the Open Data metadata
+        meta_json = '{"key": "value", "number": 123}'
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --meta '{meta_json}'")
+        assert exitcode == 0, f"Failed to update Open Data DID metadata: {stderr.strip()}"
+
+        # Close the DID before state updates
+        exitcode, _, stderr = execute(f"rucio did update {mock_scope}:{name} --close")
+        assert exitcode == 0, f"Failed to close DID: {stderr.strip()}"
+
+        # Update the state to public
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --state public")
+        assert exitcode == 0, f"Failed to update Open Data DID state to public: {stderr.strip()}"
+
+        # Update the state to suspended
+        exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --state suspended")
+        assert exitcode == 0, f"Failed to update Open Data DID state to suspended: {stderr.strip()}"

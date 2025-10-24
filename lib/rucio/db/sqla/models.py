@@ -517,6 +517,25 @@ class OpenDataDOI(BASE, ModelBase):
         Index('OPENDATA_DOI_CREATED_AT_IDX', 'created_at'),
     )
 
+class OpenDataRecord(BASE, ModelBase):
+    """Mapping between OpenData DIDs and Open Data Portal Record IDs"""
+    __tablename__ = 'dids_opendata_record'
+
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    record_id: Mapped[int] = mapped_column(Integer(), unique=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('scope', 'name', name='OPENDATA_RECORD_PK'),
+        ForeignKeyConstraint(
+            ['scope', 'name'],
+            ['dids_opendata.scope', 'dids_opendata.name'],
+            name='OPENDATA_RECORD_FK',
+            ondelete='CASCADE',
+        ),
+        Index('OPENDATA_RECORD_UPDATED_AT_IDX', 'updated_at'),
+        Index('OPENDATA_RECORD_CREATED_AT_IDX', 'created_at'),
+    )
 
 class OpenDataMeta(BASE, ModelBase):
     """Mapping between OpenData DIDs and DOIs"""

@@ -13,13 +13,11 @@
 # limitations under the License.
 
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Literal
-
-from rucio.db.sqla.session import transactional_session
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from typing import Any, Optional, Union
+    from typing import Any, Literal
 
     from sqlalchemy.orm import Session
 
@@ -35,7 +33,23 @@ class DidMetaPlugin(metaclass=ABCMeta):
         """
         Initializes the plugin
         """
-        pass
+        self._plugin_name = None
+
+    @property
+    def name(self) -> str:
+        """
+        The getter method for the plugin's name.
+
+        :returns: The standardized (casefolded) name of this plugin.
+        :raises AttributeError: If '_plugin_name' is not defined in the subclass.
+        """
+        if self._plugin_name:
+            return self._plugin_name.casefold()
+        raise AttributeError("Subclasses of DidMetaPlugin must define the '_plugin_name' attribute.")
+
+    def is_named(self, plugin_name: str) -> bool:
+        """Return whether the plugin matches the provided name using case-insensitive comparison."""
+        return self.name == plugin_name.casefold()
 
     @abstractmethod
     def get_metadata(
@@ -43,12 +57,12 @@ class DidMetaPlugin(metaclass=ABCMeta):
         scope: "InternalScope",
         name: str,
         *,
-        session: "Optional[Session]" = None
+        session: "Session | None" = None
     ) -> "Any":
         """
         Get data identifier metadata
 
-        :param scope: The scope name.
+        :param scope: The scope of the DID.
         :param name: The data identifier name.
         :param session: The database session in use.
         """
@@ -63,22 +77,21 @@ class DidMetaPlugin(metaclass=ABCMeta):
         value: str,
         recursive: bool = False,
         *,
-        session: "Optional[Session]" = None
+        session: "Session | None" = None
     ) -> None:
         """
         Add metadata to data identifier.
 
-        :param scope: The scope name.
+        :param scope: The scope of the DID.
         :param name: The data identifier name.
         :param key: the key.
         :param value: the value.
-        :param did: The data identifier info.
-        :param recursive: Option to propagate the metadata change to content.
+        :param recursive: Instruction to propagate the metadata change recursively to content (False by default).
         :param session: The database session in use.
         """
         pass
 
-    @transactional_session
+    @abstractmethod
     def set_metadata_bulk(
         self,
         scope: "InternalScope",
@@ -86,16 +99,16 @@ class DidMetaPlugin(metaclass=ABCMeta):
         meta: dict[str, "Any"],
         recursive: bool = False,
         *,
-        session: "Optional[Session]" = None
+        session: "Session | None" = None
     ) -> None:
         """
         Add metadata to data identifier in bulk.
 
-        :param scope: The scope name.
+        :param scope: The scope of the DID.
         :param name: The data identifier name.
         :param meta: all key-values to set.
         :type meta: dict
-        :param recursive: Option to propagate the metadata change to content.
+        :param recursive: Instruction to propagate the metadata change recursively to content (False by default).
         :param session: The database session in use.
         """
         for key, value in meta.items():
@@ -108,14 +121,14 @@ class DidMetaPlugin(metaclass=ABCMeta):
         name: str,
         key: str,
         *,
-        session: "Optional[Session]" = None
+        session: "Session | None" = None
     ) -> None:
         """
         Deletes the metadata stored for the given key.
 
         :param scope: The scope of the DID.
         :param name: The name of the DID.
-        :param key: Key of the metadata.
+        :param key: The key to be deleted.
         :param session: The database session in use.
         """
         pass
@@ -125,19 +138,19 @@ class DidMetaPlugin(metaclass=ABCMeta):
         self,
         scope: "InternalScope",
         filters: dict[str, "Any"],
-        did_type: Literal['all', 'collection', 'dataset', 'container', 'file'] = 'collection',
+        did_type: "Literal['all', 'collection', 'dataset', 'container', 'file']" = 'collection',
         ignore_case: bool = False,
-        limit: "Optional[int]" = None,
-        offset: "Optional[int]" = None,
+        limit: "int | None" = None,
+        offset: "int | None" = None,
         long: bool = False,
         recursive: bool = False,
         *,
-        session: "Optional[Session]" = None
-    ) -> "Iterator[Union[str, dict[str, Any]]]":
+        session: "Session | None" = None
+    ) -> "Iterator[str | dict[str, Any]]":
         """
         Search data identifiers
 
-        :param scope: the scope name.
+        :param scope: The scope of the DID.
         :param filters: dictionary of attributes by which the results should be filtered.
         :param did_type: the type of the DID: all(container, dataset, file), collection(dataset or container), dataset, container, file.
         :param ignore_case: ignore case distinctions.
@@ -154,12 +167,13 @@ class DidMetaPlugin(metaclass=ABCMeta):
         self,
         key: str,
         *,
-        session: "Optional[Session]" = None
+        session: "Session | None" = None
     ) -> bool:
         """
         Returns whether key is managed by this plugin or not.
+
         :param key: Key of the metadata.
         :param session: The database session in use.
-        :returns (Boolean)
+        :returns: (Boolean)
         """
         pass
