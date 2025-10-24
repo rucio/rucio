@@ -13,6 +13,9 @@
 # limitations under the License.
 
 from logging.config import fileConfig
+from pathlib import Path
+
+import logging
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -24,6 +27,38 @@ config = context.config
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
+
+log = logging.getLogger("alembic.runtime.migration")
+
+class _SuppressRunningLogFilter(logging.Filter):
+    """Filter out Alembic's default "Running ..." log entries."""
+
+    def filter(self, record):
+        message = record.getMessage()
+        return not (message.startswith("Running upgrade ") or message.startswith("Running downgrade "))
+
+
+log.addFilter(_SuppressRunningLogFilter())
+
+def _log_version_details(ctx, step, heads, run_args):
+    """Emit a precise log entry for each executed migration step."""
+
+    revision = step.up_revision
+    if revision is None:
+        return
+
+    operation = "upgrade" if step.is_upgrade else "downgrade"
+    source = ",".join(step.source_revision_ids) or "base"
+    destination = ",".join(step.destination_revision_ids) or "base"
+
+    script_path = Path(revision.path).resolve()
+    repo_root = Path(__file__).resolve().parent
+    try:
+        relative_path = script_path.relative_to(repo_root)
+    except ValueError:
+        relative_path = script_path
+
+    log.info(f"Executing {operation} {source} -> {destination} using {relative_path}::{operation}")
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -67,7 +102,9 @@ def run_migrations_offline():
         starting_rev=starting_rev,
         target_metadata=target_metadata,
         literal_binds=True,
-        include_schemas=True)
+        include_schemas=True,
+        on_version_apply=_log_version_details,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -98,7 +135,8 @@ def run_migrations_online():
             connection=conn,
             target_metadata=target_metadata,
             version_table_schema=params.get('version_table_schema', None),
-            include_schemas=True)
+            include_schemas=True,
+            on_version_apply=_log_version_details)
 
         with context.begin_transaction():
             context.run_migrations()
