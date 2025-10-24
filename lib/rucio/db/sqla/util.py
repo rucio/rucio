@@ -103,32 +103,38 @@ def purge_db() -> None:
     # the transaction only applies if the DB supports
     # transactional DDL, i.e. Postgresql, MS SQL Server
 
-    with engine.connect() as conn:
+    with engine.begin() as conn:
 
         inspector: Union["Inspector", PGInspector] = inspect(conn)
 
+        configured_schema = config_get('database', 'schema', raise_exception=False)
+        schema_filter = configured_schema or None
+
         for tname, fkcs in reversed(
-                inspector.get_sorted_table_and_fkc_names(schema='*')):
+                inspector.get_sorted_table_and_fkc_names(schema=schema_filter)):
             if tname:
-                drop_table_stmt = DropTable(Table(tname, MetaData(), schema='*'))
+                table_kwargs = {'schema': schema_filter} if schema_filter else {}
+                drop_table_stmt = DropTable(Table(tname, MetaData(), **table_kwargs))
                 conn.execute(drop_table_stmt)
             elif fkcs:
                 if not engine.dialect.supports_alter:
                     continue
                 for tname, fkc in fkcs:
                     fk_constraint = ForeignKeyConstraint((), (), name=fkc)
-                    Table(tname, MetaData(), fk_constraint)
+                    table_kwargs = {'schema': schema_filter} if schema_filter else {}
+                    Table(tname, MetaData(), fk_constraint, **table_kwargs)
                     drop_constraint_stmt = DropConstraint(fk_constraint)
                     conn.execute(drop_constraint_stmt)
 
-        schema = config_get('database', 'schema', raise_exception=False)
-        if schema:
-            conn.execute(DropSchema(schema, cascade=True))
+        if configured_schema:
+            schema_names = inspector.get_schema_names()
+            if configured_schema in schema_names:
+                conn.execute(DropSchema(configured_schema, cascade=True))
 
         if engine.dialect.name == 'postgresql':
             if not isinstance(inspector, PGInspector):
                 raise ValueError('expected a PGInspector')
-            for enum in inspector.get_enums(schema='*'):
+            for enum in inspector.get_enums(schema=schema_filter):
                 sqlalchemy.Enum(**enum).drop(bind=conn)
 
 
