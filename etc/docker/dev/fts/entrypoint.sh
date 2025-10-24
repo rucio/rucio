@@ -39,4 +39,5 @@ update-ca-trust
 /usr/sbin/fts_server               # main FTS server daemonizes
 /usr/sbin/fts_qos                  # for the stager tests
 /usr/sbin/fts_activemq             # daemon to send messages to activemq
+/usr/sbin/fts_token                # daemon to manage token
 /usr/sbin/httpd -DFOREGROUND       # FTS REST frontend & FTSMON
