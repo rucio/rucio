@@ -51,6 +51,8 @@ if TYPE_CHECKING:
     # TypeVar representing the DeclarativeObj class defined inside _create_temp_table
     DeclarativeObj = TypeVar('DeclarativeObj')
 
+LOG = logging.getLogger(__name__)
+
 REGION = MemcacheRegion(expiration_time=600, memcached_expire_time=3660)
 
 
@@ -99,22 +101,30 @@ def purge_db() -> None:
     Ref. https://github.com/sqlalchemy/sqlalchemy/wiki/DropEverything
     """
     engine = get_engine()
+    LOG.info('Purging database at %s', engine.url.render_as_string(hide_password=True))
 
     # the transaction only applies if the DB supports
     # transactional DDL, i.e. Postgresql, MS SQL Server
 
     with engine.begin() as conn:
+        LOG.debug('Opened connection to %s', conn.engine.url.render_as_string(hide_password=True))
 
         inspector: Union["Inspector", PGInspector] = inspect(conn)
 
         configured_schema = config_get('database', 'schema', raise_exception=False)
         schema_filter = configured_schema or None
 
+        if schema_filter:
+            LOG.info('Purging objects in schema %s', schema_filter)
+        else:
+            LOG.info('Purging objects in default schema')
+
         for tname, fkcs in reversed(
                 inspector.get_sorted_table_and_fkc_names(schema=schema_filter)):
             if tname:
                 table_kwargs = {'schema': schema_filter} if schema_filter else {}
                 drop_table_stmt = DropTable(Table(tname, MetaData(), **table_kwargs))
+                LOG.info('Dropping table %s', drop_table_stmt.element)
                 conn.execute(drop_table_stmt)
             elif fkcs:
                 if not engine.dialect.supports_alter:
@@ -124,17 +134,23 @@ def purge_db() -> None:
                     table_kwargs = {'schema': schema_filter} if schema_filter else {}
                     Table(tname, MetaData(), fk_constraint, **table_kwargs)
                     drop_constraint_stmt = DropConstraint(fk_constraint)
+                    LOG.info('Dropping foreign key %s on table %s', fkc, tname)
                     conn.execute(drop_constraint_stmt)
 
         if configured_schema:
             schema_names = inspector.get_schema_names()
             if configured_schema in schema_names:
+                LOG.info('Dropping schema %s', configured_schema)
                 conn.execute(DropSchema(configured_schema, cascade=True))
+            else:
+                LOG.info('Schema %s does not exist; skipping drop', configured_schema)
 
         if engine.dialect.name == 'postgresql':
             if not isinstance(inspector, PGInspector):
                 raise ValueError('expected a PGInspector')
             for enum in inspector.get_enums(schema=schema_filter):
+                enum_name = enum.get('name')
+                LOG.info('Dropping enum type %s', enum_name)
                 sqlalchemy.Enum(**enum).drop(bind=conn)
 
 
