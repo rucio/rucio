@@ -22,7 +22,7 @@ from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.rule import list_replication_rules
 from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, response_headers, try_stream
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, response_headers, try_stream
 
 
 class Subscription(ErrorHandlingMethodView):
@@ -295,8 +295,8 @@ class Subscription(ErrorHandlingMethodView):
         replication_rules = param_get(options, 'replication_rules')
         comments = param_get(options, 'comments')
         lifetime = param_get(options, 'lifetime')
-        retroactive = param_get(options, 'retroactive')
-        dry_run = param_get(options, 'dry_run', default=False)
+        retroactive = param_get_bool(options, 'retroactive')
+        dry_run = param_get_bool(options, 'dry_run', default=False)
         priority = param_get(options, 'priority', default=False)
         if not priority:
             priority = 3
