@@ -998,9 +998,14 @@ class FTS3Transfertool(Transfertool):
         )
         return jobs
 
-    def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, Any]) -> dict[str, Any]:
+    def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, Union[str, bool]]) -> dict[str, Any]:
         rws = transfer.rws
-        checksum_to_use = _pick_fts_checksum(transfer, path_strategy=job_params['verify_checksum'])
+        path_strategy = job_params.get('verify_checksum')
+
+        if isinstance(path_strategy, str):
+            checksum_to_use = _pick_fts_checksum(transfer, path_strategy=path_strategy)
+        else:
+            checksum_to_use = None
         t_file = {
             'sources': [transfer.source_url(s) for s in transfer.sources],
             'destinations': [transfer.dest_url],
@@ -1054,7 +1059,7 @@ class FTS3Transfertool(Transfertool):
 
         return t_file
 
-    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, Any], timeout: Optional[int] = None) -> str:
+    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, Union[str, bool]], timeout: Optional[int] = None) -> str:
         """
         Submit transfers to FTS3 via JSON.
 

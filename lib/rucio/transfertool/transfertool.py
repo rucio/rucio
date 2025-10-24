@@ -14,7 +14,7 @@
 
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.constants import SUPPORTED_PROTOCOLS
 from rucio.core.request import get_request
@@ -176,7 +176,7 @@ class Transfertool(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def submit(self, transfers: "Iterable[DirectTransfer]", job_params: dict[str, Any], timeout: Optional[int] = None) -> str:
+    def submit(self, transfers: "Iterable[DirectTransfer]", job_params: dict[str, Union[str, bool]], timeout: Optional[int] = None) -> str:
         """
         Submit transfers to the transfertool.
 
