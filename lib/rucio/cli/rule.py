@@ -118,7 +118,6 @@ def move(ctx, rule_id, rses, activity, source_rses):
 @click.option("--account", help="The account owning the rule")
 @click.option("--stuck", is_flag=True, default=False, help="Set state to STUCK.")
 @click.option('--suspend', is_flag=True, default=None, help='Set state to SUSPENDED.')
-@click.option("--activity", help="Activity of the rule.")
 @click.option("--cancel-requests", is_flag=True, default=False, help="Cancel requests when setting rules to stuck.")
 @click.option("--priority", help="Priority of the requests of the rule.")
 @click.option("--child-rule-id", help='Child rule id of the rule. Use "None" to remove an existing parent/child relationship.')
