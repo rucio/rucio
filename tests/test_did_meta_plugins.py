@@ -417,6 +417,7 @@ def postgres_json_meta():
 
 
 @pytest.mark.noparallel(reason='race condition on try-create table')
+@pytest.mark.needs_postgres
 @skip_rse_tests_with_accounts
 class TestDidMetaExternalPostgresJSON:
 

@@ -57,6 +57,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
     config.addinivalue_line('markers', 'needs_iam: requires the dev iam profile (OIDC/IdP)')
+    config.addinivalue_line('markers', 'needs_postgres: requires a dev postgres profile (postgres14 or externalmetadata)')
     config.addinivalue_line(
         "markers",
         "flaky(reruns, reruns_delay): mark test as flaky and rerun on failure"
@@ -70,6 +71,7 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_runtest_setup(item: pytest.Item) -> None:
     """
     Skip tests marked with 'needs_iam' if the IAM profile is not available in the dev environment.
+    Skip tests marked with 'needs_postgres' if the postgres profile is not available in the dev environment.
     """
     if item.get_closest_marker("needs_iam"):
         # Check if we're running in a dev environment with IAM profile available
@@ -78,6 +80,15 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
         if 'iam' not in dev_profiles:
             pytest.skip("Test requires IAM profile - start dev environment with: --profile iam")
+    
+    if item.get_closest_marker("needs_postgres"):
+        # Check if we're running in a dev environment with postgres profile available
+        dev_profiles = environ.get('DEV_PROFILES', '').split(',')
+        dev_profiles = [profile.strip() for profile in dev_profiles if profile.strip()]
+
+        # Check for either postgres14 (main database) or externalmetadata (external postgres service)
+        if 'postgres14' not in dev_profiles and 'externalmetadata' not in dev_profiles:
+            pytest.skip("Test requires postgres profile - start dev environment with: --profile postgres14 or --profile externalmetadata")
 
 
 def pytest_make_parametrize_id(
