@@ -20,3 +20,14 @@ repos:
   hooks:
     - id: ruff
       args: [ --fix ]
+- repo: https://github.com/seddonym/import-linter.git
+  rev: v2.5
+  hooks:
+    - id: import-linter
+      name: Import Dependency Check
+      args: [--config, .importlinter]
+      language: python
+      files: \.py$
+      require_serial: true
+      types: [python]
+      pass_filenames: false
