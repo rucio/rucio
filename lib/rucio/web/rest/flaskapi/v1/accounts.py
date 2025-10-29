@@ -654,7 +654,7 @@ class Identities(ErrorHandlingMethodView):
                     default: none
                   default:
                     description: "Should this be the default account?"
-                    type: string
+                    type: boolean
                     default: false
         responses:
           201:
