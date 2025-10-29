@@ -736,6 +736,7 @@ def add_rules(
 
                     # 5. Apply the replication rule to create locks, replicas and transfers
                     with METRICS.timer('add_rules.create_locks_replicas_transfers'):
+                        print('__create_locks_replicas_transfers - replicas:', replicas)
                         try:
                             __create_locks_replicas_transfers(datasetfiles=datasetfiles,
                                                               locks=locks,
@@ -1711,13 +1712,14 @@ def update_rule(
                     query = select(
                         models.RSEFileAssociation.md5,
                         models.RSEFileAssociation.bytes,
-                        models.RSEFileAssociation.adler32
+                        models.RSEFileAssociation.adler32,
+                        models.RSEFileAssociation.checksum
                     ).where(
                         models.RSEFileAssociation.scope == lock.scope,
                         models.RSEFileAssociation.name == lock.name,
                         models.RSEFileAssociation.rse_id == lock.rse_id
                     )
-                    md5, bytes_, adler32 = session.execute(query).one()
+                    md5, bytes_, adler32, checksum = session.execute(query).one()
                     session.flush()
 
                     requests = create_transfer_dict(
@@ -1730,6 +1732,7 @@ def update_rule(
                         bytes_=bytes_,
                         md5=md5,
                         adler32=adler32,
+                        checksum=checksum,
                         ds_scope=rule.scope,
                         ds_name=rule.name,
                         copy_pin_lifetime=None,
@@ -2661,9 +2664,10 @@ def update_rules_for_bad_replica(
             bytes_ = replica.bytes
             md5 = replica.md5
             adler32 = replica.adler32
+            checksum = replica.checksum
             request_core.queue_requests(requests=[create_transfer_dict(dest_rse_id=rse_id,
                                                                        request_type=RequestType.TRANSFER,
-                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32,
+                                                                       scope=scope, name=name, rule=rule, lock=lock, bytes_=bytes_, md5=md5, adler32=adler32, checksum=checksum,
                                                                        ds_scope=ds_scope, ds_name=ds_name, copy_pin_lifetime=None, activity='Recovery', session=session)], session=session)
         lock.state = LockState.REPLICATING
         if rule.state == RuleState.SUSPENDED:
@@ -3309,7 +3313,7 @@ def __find_missing_locks_and_create_them(
     logger(logging.DEBUG, "Finding missing locks for rule %s [%d/%d/%d]", str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
 
     mod_datasetfiles = []    # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
-    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':, 'checksum':}]
 
     for dataset in datasetfiles:
         mod_files = []
@@ -3888,7 +3892,7 @@ def __resolve_did_to_locks_and_replicas(
     """
 
     datasetfiles = []     # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
-    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':, 'checksum':}]
     locks = {}            # {(scope,name): [SQLAlchemy]}
     replicas = {}         # {(scope, name): [SQLAlchemy]}
     source_replicas = {}  # {(scope, name): [rse_id]
@@ -3900,7 +3904,8 @@ def __resolve_did_to_locks_and_replicas(
                                     'name': did.name,
                                     'bytes': did.bytes,
                                     'md5': did.md5,
-                                    'adler32': did.adler32}]}]
+                                    'adler32': did.adler32,
+                                    'checksum': did.checksum}]}]
         locks[(did.scope, did.name)] = rucio.core.lock.get_replica_locks(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
         replicas[(did.scope, did.name)] = rucio.core.replica.get_and_lock_file_replicas(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, session=session)
         if source_rses:
@@ -3911,7 +3916,7 @@ def __resolve_did_to_locks_and_replicas(
         locks = rucio.core.lock.get_files_and_replica_locks_of_dataset(scope=did.scope, name=did.name, nowait=nowait, restrict_rses=restrict_rses, only_stuck=True, session=session)
         for file in locks:
             file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
-            files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
+            files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32'], 'checksum': file_did['checksum']})
             replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
             if source_rses:
                 source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
@@ -3936,7 +3941,7 @@ def __resolve_did_to_locks_and_replicas(
             locks = dict(list(locks.items()) + list(tmp_locks.items()))
             for file in tmp_locks:
                 file_did = rucio.core.did.get_did(scope=file[0], name=file[1], session=session)
-                files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32']})
+                files.append({'scope': file[0], 'name': file[1], 'bytes': file_did['bytes'], 'md5': file_did['md5'], 'adler32': file_did['adler32'], 'checksum': file_did['checksum']})
                 replicas[(file[0], file[1])] = rucio.core.replica.get_and_lock_file_replicas(scope=file[0], name=file[1], nowait=nowait, restrict_rses=restrict_rses, session=session)
                 if source_rses:
                     source_replicas[(file[0], file[1])] = rucio.core.replica.get_source_replicas(scope=file[0], name=file[1], source_rses=source_rses, session=session)
@@ -3994,7 +3999,7 @@ def __resolve_dids_to_locks_and_replicas(
     """
 
     datasetfiles = []     # List of Datasets and their files in the Tree [{'scope':, 'name':, 'files': []}]
-    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+    # Files are in the format [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':, 'checksum':}]
     locks = {}            # {(scope,name): [SQLAlchemy]}
     replicas = {}         # {(scope, name): [SQLAlchemy]}
     source_replicas = {}  # {(scope, name): [rse_id]
@@ -4005,11 +4010,13 @@ def __resolve_dids_to_locks_and_replicas(
         # Prepare the datasetfiles
         files = []
         for did in dids:
+            print('DID loop: did checksum ', did.checksum)
             files.append({'scope': did.child_scope,
                           'name': did.child_name,
                           'bytes': did.bytes,
                           'md5': did.md5,
-                          'adler32': did.adler32})
+                          'adler32': did.adler32,
+                          'checksum': did.checksum})
             locks[(did.child_scope, did.child_name)] = []
             replicas[(did.child_scope, did.child_name)] = []
             source_replicas[(did.child_scope, did.child_name)] = []
@@ -4184,6 +4191,7 @@ def __create_locks_replicas_transfers(
                                                                                    preferred_rse_ids=preferred_rse_ids,
                                                                                    source_rses=source_rses,
                                                                                    session=session)
+    print('replicas to create:', replicas_to_create)
     # Add the replicas
     session.add_all([item for sublist in replicas_to_create.values() for item in sublist])
     session.flush()
