@@ -117,6 +117,7 @@ class RequestWithSources:
             name: str,
             md5: str,
             adler32: str,
+            checksum: dict[str, Any],
             byte_count: int,
             activity: str,
             attributes: Optional[Union[str, dict[str, Any]]],
@@ -135,6 +136,7 @@ class RequestWithSources:
         self.name = name
         self.md5 = md5
         self.adler32 = adler32
+        self.checksum = checksum
         self.byte_count = byte_count
         self.activity = activity
         self._dict_attributes = None
@@ -383,6 +385,7 @@ def queue_requests(
                        'bytes': request['attributes']['bytes'],
                        'md5': request['attributes']['md5'],
                        'adler32': request['attributes']['adler32'],
+                       'checksum': request['attributes']['checksum'],
                        'account': request.get('account', None),
                        'priority': request['attributes'].get('priority', None),
                        'requested_at': request.get('requested_at', None),
@@ -428,6 +431,7 @@ def queue_requests(
                    'bytes': request['attributes']['bytes'],
                    'checksum-md5': request['attributes']['md5'],
                    'checksum-adler': request['attributes']['adler32'],
+                   'checksum-dict': request['attributes']['checksum'],
                    'queued_at': str(datetime.datetime.utcnow())}
 
         messages.append({'event_type': transfer_status,
@@ -506,6 +510,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
         models.Request.name,
         models.Request.md5,
         models.Request.adler32,
+        models.Request.checksum,
         models.Request.bytes,
         models.Request.activity,
         models.Request.attributes,
@@ -597,6 +602,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
         sub_requests.c.name,
         sub_requests.c.md5,
         sub_requests.c.adler32,
+        sub_requests.c.checksum,
         sub_requests.c.bytes,
         sub_requests.c.activity,
         sub_requests.c.attributes,
@@ -662,13 +668,13 @@ def list_and_mark_transfer_requests_and_source_replicas(
         )
 
     requests_by_id = {}
-    for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
+    for (request_id, req_type, rule_id, scope, name, md5, adler32, checksum, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
          priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
 
         request = requests_by_id.get(request_id)
         if not request:
             request = RequestWithSources(id_=request_id, request_type=req_type, rule_id=rule_id, scope=scope, name=name,
-                                         md5=md5, adler32=adler32, byte_count=byte_count, activity=activity, attributes=attributes,
+                                         md5=md5, adler32=adler32, checksum=checksum, byte_count=byte_count, activity=activity, attributes=attributes,
                                          previous_attempt_id=previous_attempt_id, dest_rse=rse_collection[dest_rse_id],
                                          account=account, retry_count=retry_count, priority=priority, transfertool=transfertool,
                                          requested_at=requested_at)
@@ -1311,6 +1317,7 @@ def archive_request(
                                              bytes=req['bytes'],
                                              md5=req['md5'],
                                              adler32=req['adler32'],
+                                             checksum=req['checksum'],
                                              dest_url=req['dest_url'],
                                              requested_at=req['requested_at'],
                                              submitted_at=req['submitted_at'],
@@ -2866,6 +2873,7 @@ def add_monitor_message(
                'duration': -1,
                'checksum-adler': request.get('adler32', None),
                'checksum-md5': request.get('md5', None),
+               'checksum-dict': request.get('checksum', None),
                'file-size': request.get('bytes', None),
                'bytes': request.get('bytes', None),
                'guid': None,
