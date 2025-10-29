@@ -847,6 +847,7 @@ class UploadClient:
         new_item['bytes'] = os.stat(filepath).st_size
         new_item['adler32'] = adler32(filepath)
         new_item['md5'] = md5(filepath)
+        new_item['checksum'] = {'md5': md5(filepath), 'adler32': adler32(filepath)}
         new_item['meta'] = {'guid': self._get_file_guid(new_item)}
         new_item['state'] = 'C'
         if not new_item.get('did_scope'):
@@ -977,6 +978,7 @@ class UploadClient:
         replica['bytes'] = file['bytes']
         replica['adler32'] = file['adler32']
         replica['md5'] = file['md5']
+        replica['checksum'] = file['checksum']
         replica['meta'] = file['meta']
         replica['state'] = file['state']
         pfn = file.get('pfn')
