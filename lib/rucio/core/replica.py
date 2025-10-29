@@ -807,7 +807,7 @@ def _list_files_wo_replicas(
         files_wo_replica: "Iterable[dict[str, Any]]",
         *,
         session: "Session"
-) -> 'Iterator[tuple[str, str, int, str, str]]':
+) -> 'Iterator[tuple[str, str, int, str, str, str]]':
     if files_wo_replica:
         file_wo_clause = []
         for file in sorted(files_wo_replica, key=lambda f: (f['scope'], f['name'])):
@@ -818,7 +818,8 @@ def _list_files_wo_replicas(
             models.DataIdentifier.name,
             models.DataIdentifier.bytes,
             models.DataIdentifier.md5,
-            models.DataIdentifier.adler32
+            models.DataIdentifier.adler32,
+            models.DataIdentifier.checksum
         ).with_hint(
             models.DataIdentifier,
             'INDEX(DIDS DIDS_PK)',
@@ -827,8 +828,8 @@ def _list_files_wo_replicas(
             and_(models.DataIdentifier.did_type == DIDType.FILE,
                  or_(*file_wo_clause))
         )
-        for scope, name, bytes_, md5, adler32 in session.execute(stmt):
-            yield scope, name, bytes_, md5, adler32
+        for scope, name, bytes_, md5, adler32, checksum in session.execute(stmt):
+            yield scope, name, bytes_, md5, adler32, checksum
 
 
 def get_vp_endpoint() -> str:
@@ -1053,7 +1054,7 @@ def _list_replicas(
     for _, replica_group in groupby(replicas, key=lambda x: (x[0], x[1])):  # Group by scope/name
         file = {}
         pfns = {}
-        for scope, name, archive_scope, archive_name, bytes_, md5, adler32, path, state, rse_id, rse, rse_type, volatile in replica_group:
+        for scope, name, archive_scope, archive_name, bytes_, md5, adler32, checksum, path, state, rse_id, rse, rse_type, volatile in replica_group:
             if isinstance(archive_scope, str):
                 archive_scope = InternalScope(archive_scope, from_external=False)
 
@@ -1062,7 +1063,7 @@ def _list_replicas(
             # it is the first row in the scope/name group
             if not file:
                 file['scope'], file['name'] = scope, name
-                file['bytes'], file['md5'], file['adler32'] = bytes_, md5, adler32
+                file['bytes'], file['md5'], file['adler32'], file['checksum'] = bytes_, md5, adler32, checksum
                 file['pfns'], file['rses'], file['states'] = {}, {}, {}
                 if resolve_parents:
                     file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
@@ -1178,13 +1179,14 @@ def _list_replicas(
         if file:
             yield file
 
-    for scope, name, bytes_, md5, adler32 in _list_files_wo_replicas(files_wo_replica, session=session):
+    for scope, name, bytes_, md5, adler32, checksum in _list_files_wo_replicas(files_wo_replica, session=session):
         yield {
             'scope': scope,
             'name': name,
             'bytes': bytes_,
             'md5': md5,
             'adler32': adler32,
+            'checksum': checksum,
             'pfns': {},
             'rses': defaultdict(list)
         }
@@ -1247,6 +1249,7 @@ def list_replicas(
             models.RSEFileAssociation.bytes,
             models.RSEFileAssociation.md5,
             models.RSEFileAssociation.adler32,
+            models.RSEFileAssociation.checksum,
             models.RSE.id.label('rse_id'),
             models.RSE.rse.label('rse_name'),
             models.RSE.rse_type,
@@ -1330,6 +1333,7 @@ def list_replicas(
             replicas_subquery.c.bytes,
             replicas_subquery.c.md5,
             replicas_subquery.c.adler32,
+            replicas_subquery.c.checksum,
             replicas_subquery.c.path,
             replicas_subquery.c.state,
             replicas_subquery.c.rse_id,
@@ -1360,6 +1364,7 @@ def list_replicas(
             models.ConstituentAssociation.bytes,
             models.ConstituentAssociation.md5,
             models.ConstituentAssociation.adler32,
+            models.ConstituentAssociation.checksum,
             replicas_subquery.c.path,
             replicas_subquery.c.state,
             replicas_subquery.c.rse_id,
@@ -1402,6 +1407,7 @@ def list_replicas(
             models.DataIdentifier.bytes,
             models.DataIdentifier.md5,
             models.DataIdentifier.adler32,
+            models.DataIdentifier.checksum,
             replicas_subquery.c.path,
             replicas_subquery.c.state,
             replicas_subquery.c.rse_id,
@@ -1595,6 +1601,7 @@ def __bulk_add_new_file_dids(
                                         account=file.get('account') or account,
                                         did_type=DIDType.FILE, bytes=file['bytes'],
                                         md5=file.get('md5'), adler32=file.get('adler32'),
+                                        checksum=file.get('checksum'),
                                         is_new=None)
         new_did.save(session=session, flush=False)
 
@@ -1655,6 +1662,7 @@ def __bulk_add_file_dids(
         models.DataIdentifier.bytes,
         models.DataIdentifier.md5,
         models.DataIdentifier.adler32,
+        models.DataIdentifier.checksum,
     ).with_hint(
         models.DataIdentifier,
         'INDEX(DIDS DIDS_PK)',
@@ -1752,7 +1760,8 @@ def __bulk_add_replicas(
                                  'state': ReplicaState(file.get('state', 'A')),
                                  'md5': file.get('md5'), 'adler32': file.get('adler32'),
                                  'lock_cnt': file.get('lock_cnt', 0),
-                                 'tombstone': file.get('tombstone') or default_tombstone})
+                                 'tombstone': file.get('tombstone') or default_tombstone,
+                                 'checksum': file.get('checksum')})
     try:
         stmt = insert(
             models.RSEFileAssociation
@@ -1869,6 +1878,7 @@ def add_replica(
     meta: Optional[dict[str, Any]] = None,
     rules: Optional[list[dict[str, Any]]] = None,
     tombstone: "Optional[datetime]" = None,
+    checksum: Optional[dict[str, Any]] = None,
     *,
     session: "Session"
 ) -> list[dict[str, Any]]:
@@ -1893,7 +1903,7 @@ def add_replica(
     meta = meta or {}
     rules = rules or []
 
-    file = {'scope': scope, 'name': name, 'bytes': bytes_, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone}
+    file = {'scope': scope, 'name': name, 'bytes': bytes_, 'adler32': adler32, 'md5': md5, 'meta': meta, 'rules': rules, 'tombstone': tombstone, 'checksum': checksum}
     if pfn:
         file['pfn'] = pfn
     return add_replicas(rse_id=rse_id, files=[file, ], account=account, session=session)
@@ -2352,6 +2362,7 @@ def __cleanup_after_replica_deletion(
                 bytes=constituent.bytes,
                 adler32=constituent.adler32,
                 md5=constituent.md5,
+                checksum=constituent.checksum,
                 guid=constituent.guid,
                 length=constituent.length,
                 updated_at=constituent.updated_at,
@@ -3012,6 +3023,7 @@ def get_and_lock_file_replicas_for_dataset(
         models.DataIdentifierAssociation.bytes,
         models.DataIdentifierAssociation.md5,
         models.DataIdentifierAssociation.adler32,
+        models.DataIdentifierAssociation.checksum,
     ).where(
         and_(models.DataIdentifierAssociation.scope == scope,
              models.DataIdentifierAssociation.name == name)
@@ -3037,12 +3049,13 @@ def get_and_lock_file_replicas_for_dataset(
                                            thread_id=thread_id,
                                            hash_variable='child_name')
 
-        for child_scope, child_name, bytes_, md5, adler32 in session.execute(base_stmt).yield_per(1000):
+        for child_scope, child_name, bytes_, md5, adler32, checksum in session.execute(base_stmt).yield_per(1000):
             files[(child_scope, child_name)] = {'scope': child_scope,
                                                 'name': child_name,
                                                 'bytes': bytes_,
                                                 'md5': md5,
-                                                'adler32': adler32}
+                                                'adler32': adler32,
+                                                'checksum': checksum}
             replicas[(child_scope, child_name)] = []
 
         stmt = stmt.where(or_(*rse_clause))
@@ -3073,13 +3086,14 @@ def get_and_lock_file_replicas_for_dataset(
         of=models.RSEFileAssociation.lock_cnt
     )
 
-    for child_scope, child_name, bytes_, md5, adler32, replica in session.execute(stmt).yield_per(1000):
+    for child_scope, child_name, bytes_, md5, adler32, checksum, replica in session.execute(stmt).yield_per(1000):
         if (child_scope, child_name) not in files:
             files[(child_scope, child_name)] = {'scope': child_scope,
                                                 'name': child_name,
                                                 'bytes': bytes_,
                                                 'md5': md5,
-                                                'adler32': adler32}
+                                                'adler32': adler32,
+                                                'checksum': checksum}
 
         if (child_scope, child_name) in replicas:
             if replica is not None:

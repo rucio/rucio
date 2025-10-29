@@ -419,6 +419,7 @@ class FileToUploadWithCollectedInfoDict(FileToUploadDict):
     dirname: str
     upload_result: dict
     bytes: int
+    checksum: dict[str, Any]
 
 
 class FileToUploadWithCollectedAndDatasetInfoDict(FileToUploadWithCollectedInfoDict):
@@ -470,6 +471,7 @@ class RequestAttributesDict(TypedDict):
     bytes: int
     md5: str
     adler32: str
+    checksum: dict[str, Any]
     is_intermediate_hop: bool
 
 
