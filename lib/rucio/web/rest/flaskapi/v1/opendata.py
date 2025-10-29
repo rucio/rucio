@@ -324,15 +324,18 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             state = param_get(parameters, 'state', default=None)
             meta = param_get(parameters, 'meta', default=None)
             doi = param_get(parameters, 'doi', default=None)
-            record_id = param_get(parameters, 'record_id', default=None, type_=int)
-            result = opendata.update_opendata_did(scope=scope,
-                                         name=name,
-                                         state=state,
-                                         meta=meta,
-                                         doi=doi,
-                                         record_id=record_id,
-                                         vo=request.environ.get("vo", DEFAULT_VO),
-                                         )
+            record_id = param_get(parameters, 'record_id', default=None)
+            if record_id is not None:
+                record_id = int(record_id)
+            result = opendata.update_opendata_did(
+                scope=scope,
+                name=name,
+                state=state,
+                meta=meta,
+                doi=doi,
+                record_id=record_id,
+                vo=request.environ.get("vo", DEFAULT_VO),
+            )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except OpenDataDataIdentifierNotFound as error:

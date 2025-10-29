@@ -52,6 +52,7 @@ ResponseTypeVar = TypeVar('ResponseTypeVar', bound=flask.wrappers.Response)
 
 RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE = os.environ.get('RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE',
                                                        'false').lower() == 'true'
+_DEFAULT = object()
 
 
 class CORSMiddleware:
@@ -410,9 +411,9 @@ def json_parse(types: tuple, json_loads: "Callable[[str], Any]" = json.loads, **
         )
 
 
-def param_get(parameters: dict[str, Any], name: str, **kwargs) -> Any:
-    if 'default' in kwargs:
-        return parameters.get(name, kwargs['default'])
+def param_get(parameters: dict[str, Any], name: str, default: Optional[Any] = _DEFAULT) -> Any:
+    if default is not _DEFAULT:
+        return parameters.get(name, default)
     else:
         if name not in parameters:
             flask.abort(
@@ -425,7 +426,7 @@ def param_get(parameters: dict[str, Any], name: str, **kwargs) -> Any:
         return parameters[name]
 
 
-def param_get_bool(parameters: dict[str, Any], name: str, **kwargs) -> bool:
+def param_get_bool(parameters: dict[str, Any], name: str, default: Optional[bool] = None) -> bool:
     """
         Get a boolean parameter from the passed parameters. Converts to True/False.
     """
@@ -454,7 +455,6 @@ def param_get_bool(parameters: dict[str, Any], name: str, **kwargs) -> bool:
                     exc_msg=f"'{name}' must be a boolean type."
                 )
             )
-    default = kwargs.get('default', None)
     value = parameters.get(name, default)
     if value is None:
         flask.abort(
