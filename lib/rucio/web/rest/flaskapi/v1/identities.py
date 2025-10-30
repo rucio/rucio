@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 from rucio.common.constants import HTTPMethod
 from rucio.gateway.identity import add_account_identity, add_identity, list_accounts_for_identity
@@ -263,6 +263,60 @@ class Accounts(ErrorHandlingMethodView):
         return jsonify(accounts)
 
 
+class AccountsByIdentity(ErrorHandlingMethodView):
+    """ Retrieve list of accounts mapped to an identity using query parameters. """
+
+    @check_accept_header_wrapper_flask(['application/json'])
+    def get(self) -> Response:
+        """
+        ---
+        summary: List accounts by identity
+        description: "List all accounts mapped to an identity using query parameters. This endpoint supports identity keys containing special characters like slashes."
+        tags:
+          - Identity
+        parameters:
+        - name: identity_key
+          in: query
+          description: "Identity string. For OIDC identities, use format: SUB=<sub>, ISS=<issuer_url>"
+          schema:
+            type: string
+          required: true
+        - name: type
+          in: query
+          description: "Identity type (e.g., OIDC, X509, USERPASS, GSS)."
+          schema:
+            type: string
+          required: true
+        responses:
+          200:
+            description: "OK"
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    description: "Account for the identity."
+          400:
+            description: "Missing required parameter"
+          401:
+            description: "Invalid Auth Token"
+          406:
+            description: "Not acceptable"
+        """
+        identity_key = request.args.get('identity_key')
+        type_ = request.args.get('type')
+
+        if not identity_key:
+            return generate_http_error_flask(400, ValueError.__name__, 'identity_key parameter is required.')
+
+        if not type_:
+            return generate_http_error_flask(400, ValueError.__name__, 'type parameter is required.')
+
+        accounts = list_accounts_for_identity(identity_key, type_)
+        return jsonify(accounts)
+
+
 def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('identities', __name__, url_prefix='/identities')
 
@@ -274,6 +328,8 @@ def blueprint() -> AuthenticatedBlueprint:
     bp.add_url_rule('/<account>/gss', view_func=gss_view, methods=[HTTPMethod.PUT.value])
     accounts_view = Accounts.as_view('accounts')
     bp.add_url_rule('/<identity_key>/<type>/accounts', view_func=accounts_view, methods=[HTTPMethod.GET.value])
+    accounts_by_identity_view = AccountsByIdentity.as_view('accounts_by_identity')
+    bp.add_url_rule('/accounts', view_func=accounts_by_identity_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp
