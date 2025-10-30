@@ -12,10 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+from logging import LogRecord
 from logging.config import fileConfig
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+if TYPE_CHECKING:
+    from collections.abc import Collection, Mapping
+
+    from alembic.runtime.migration import MigrationContext, MigrationInfo
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,10 +34,51 @@ config = context.config
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
 
+log = logging.getLogger("alembic.runtime.migration")
+
+
+class _SuppressRunningLogFilter(logging.Filter):
+    """Filter out Alembic's default "Running ..." log entries."""
+
+    def filter(self, record: LogRecord) -> bool:
+        message = record.getMessage()
+        return not (message.startswith("Running upgrade ") or message.startswith("Running downgrade "))
+
+
+log.addFilter(_SuppressRunningLogFilter())
+
+
+def _log_version_details(
+        ctx: 'MigrationContext',
+        step: 'MigrationInfo',
+        heads: 'Collection[Any]',
+        run_args: 'Mapping[str, Any]',
+) -> None:
+    """Emit a precise log entry for each executed migration step."""
+
+    revision = step.up_revision
+    if revision is None:
+        return
+
+    operation = "upgrade" if step.is_upgrade else "downgrade"
+    source = ",".join(step.source_revision_ids) or "base"
+    destination = ",".join(step.destination_revision_ids) or "base"
+
+    script_path = Path(revision.path).resolve()
+    repo_root = Path(__file__).resolve().parent
+    try:
+        relative_path = script_path.relative_to(repo_root)
+    except ValueError:
+        relative_path = script_path
+
+    log.info(f"Executing {operation} {source} -> {destination} using {relative_path}::{operation}")
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
+
+
 target_metadata = None
 
 # other values from the config, defined by the needs of env.py,
@@ -37,7 +87,7 @@ target_metadata = None
 # ... etc.
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     """
     Run migrations in 'offline' mode.
 
@@ -67,13 +117,15 @@ def run_migrations_offline():
         starting_rev=starting_rev,
         target_metadata=target_metadata,
         literal_binds=True,
-        include_schemas=True)
+        include_schemas=True,
+        on_version_apply=_log_version_details,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
-def run_migrations_online():
+def run_migrations_online() -> None:
     """
     Run migrations in 'online' mode.
 
@@ -98,7 +150,8 @@ def run_migrations_online():
             connection=conn,
             target_metadata=target_metadata,
             version_table_schema=params.get('version_table_schema', None),
-            include_schemas=True)
+            include_schemas=True,
+            on_version_apply=_log_version_details)
 
         with context.begin_transaction():
             context.run_migrations()
