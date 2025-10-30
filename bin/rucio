@@ -114,7 +114,7 @@ if __name__ == "__main__":
     logger = setup_logger(module_name=__name__)
 
 
-    mutli_ri_commands = config_get('client', 'multi_ri_commands', raise_exception=False)
+    mutli_ri_commands = config_get('client', 'multi_ri_commands', raise_exception=False, default='')
     use_multi_ri = False
     if not "--config" in sys.argv:
         for arg in sys.argv:
