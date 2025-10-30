@@ -116,9 +116,10 @@ if __name__ == "__main__":
 
     mutli_ri_commands = config_get('client', 'multi_ri_commands', raise_exception=False)
     use_multi_ri = False
-    for arg in sys.argv:
-        if arg in [x.strip() for x in mutli_ri_commands.split(',')]:
-            use_multi_ri = True
+    if not "--config" in sys.argv:
+        for arg in sys.argv:
+            if arg in [x.strip() for x in mutli_ri_commands.split(',')]:
+                use_multi_ri = True
     if use_multi_ri:
         multi_ri_servers = config_get('client', 'multi_ri_servers')
         for host in [x.strip() for x in multi_ri_servers.split(',')]:
