@@ -1635,3 +1635,72 @@ def test_move_rule_invalid_argument(vo, rse_factory, did_factory, mock_scope, ro
 
     with pytest.raises(UnsupportedOperation):
         _ = move_rule(rule_id, new_rse, override={'xX_MyFirstStreetName_Xx': 17})
+
+
+def test_rule_did_matching(vo, rucio_client, rse_factory, did_factory, scope_factory, root_account):
+    """RULE (CLIENT): Make a rule for different DIDs using DID matching"""
+    rse, _ = rse_factory.make_posix_rse()
+    rse_1, _ = rse_factory.make_posix_rse()
+    scope, [_] = scope_factory(vos=[vo])
+    second_scope, [_] = scope_factory(vos=[vo])
+
+    n_files = 3
+    dataset = did_factory.upload_test_dataset(rse_name=rse, scope=scope, size=1, nb_files=n_files)
+    non_rule_dataset = did_factory.upload_test_dataset(rse_name=rse, scope=second_scope, size=1, nb_files=n_files)
+
+    rule_ids = rucio_client.add_replication_rule(
+        dids=[{'scope': d['did_scope'], 'name': d['did_name']} for d in dataset], account=root_account.external, copies=1, rse_expression=rse_1, activity='Staging')
+    second_rule = rucio_client.add_replication_rule(
+        dids=[{'scope': d['did_scope'], 'name': d['did_name']} for d in non_rule_dataset], account=root_account.external, copies=1, rse_expression=rse_1, activity='Staging')
+
+    did_expression = "file_*"
+    rules = [r['id'] for r in rucio_client.list_replication_rules(filters={"scope": scope, "name": did_expression})]
+    for rule_id in rule_ids:
+        assert rule_id in rules
+    for rule_id in second_rule:
+        assert rule_id not in rules
+
+    # works without the scope filter as well
+    rules = [r['id'] for r in rucio_client.list_replication_rules(filters={"name": did_expression})]
+    for rule_id in rule_ids:
+        assert rule_id in rules
+    for rule_id in second_rule:
+        assert rule_id in rules
+
+
+def test_rule_did_matching_across_accounts(rse_factory, scope_factory, vo, rucio_client, random_account_factory, did_factory):
+    """RULE (CLIENT): Make a rule with DIDs that belong to different accounts through DID matching"""
+    rse, _ = rse_factory.make_posix_rse()
+    rse_1, _ = rse_factory.make_posix_rse()
+
+    account1 = random_account_factory()
+    account2 = random_account_factory()
+    # Give these accounts quota
+    for account in [account1, account2]:
+        for rse in [rse, rse_1]:
+            rucio_client.set_account_limit(account=account.external, rse=rse, locality='local', bytes_=100)
+
+    scope1, [_] = scope_factory(vos=[vo], account_name=account1.external)
+    scope2, [_] = scope_factory(vos=[vo], account_name=account2.external)
+
+    n_files = 1
+    dataset_account1 = [
+        {'scope': d['did_scope'], 'name': d['did_name']}
+        for d
+        in did_factory.upload_test_dataset(rse_name=rse, scope=scope1, size=1, nb_files=n_files)
+    ]
+    dataset_account2 = [
+        {'scope': d['did_scope'], 'name': d['did_name']}
+        for d
+        in did_factory.upload_test_dataset(rse_name=rse, scope=scope2, size=1, nb_files=n_files)
+    ]
+
+    [rule_id1] = rucio_client.add_replication_rule(dids=dataset_account1, account=account1.external, copies=1, rse_expression=rse_1, activity='Staging')
+    [rule_id2] = rucio_client.add_replication_rule(dids=dataset_account2, account=account2.external, copies=1, rse_expression=rse_1, activity='Staging')
+
+    did_expression = 'file_*'
+    # "account" is not included, so it should show all the rules that impact either dataset
+    rules = [r['id'] for r in rucio_client.list_replication_rules(filters={'name': did_expression})]
+
+    assert rule_id1 in rules
+    assert rule_id2 in rules
