@@ -128,16 +128,16 @@ def protocols_setup(vo, root_account, mock_scope):
                                      'prefix': '//test/chamber/',
                                      'impl': 'rucio.rse.protocols.xrootd.Default',
                                      'domains': {
-                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                         'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                         'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                         'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_info[0]['id'], {'scheme': 'davs',
                                      'hostname': ('davs.%s' % base_rse_info[0]['address']),
                                      'port': 443,
                                      'prefix': '/test/chamber/',
                                      'impl': 'rucio.rse.protocols.gfal.Default',
                                      'domains': {
-                                         'lan': {'read': 2, 'write': 2, 'delete': 2},
-                                         'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                         'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_info[0]['id'], {'scheme': 'gsiftp',
                                      'hostname': ('gsiftp.%s' % base_rse_info[0]['address']),
                                      'port': 8446,
@@ -145,7 +145,7 @@ def protocols_setup(vo, root_account, mock_scope):
                                      'impl': 'rucio.rse.protocols.gfal.Default',
                                      'domains': {
                                          'lan': {'read': None, 'write': None, 'delete': None},
-                                         'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+                                         'wan': {'read': 2, 'write': 2, 'delete': 2}}})
 
     add_protocol(rse_info[1]['id'], {'scheme': 'gsiftp',
                                      'hostname': ('gsiftp.%s' % base_rse_info[1]['address']),
@@ -153,8 +153,8 @@ def protocols_setup(vo, root_account, mock_scope):
                                      'prefix': '/lambda/complex/',
                                      'impl': 'rucio.rse.protocols.gfal.Default',
                                      'domains': {
-                                         'lan': {'read': 2, 'write': 2, 'delete': 2},
-                                         'wan': {'read': 1, 'write': 1, 'delete': 1}}})
+                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
+                                         'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_info[1]['id'], {'scheme': 'davs',
                                      'hostname': ('davs.%s' % base_rse_info[1]['address']),
                                      'port': 443,
@@ -162,15 +162,15 @@ def protocols_setup(vo, root_account, mock_scope):
                                      'impl': 'rucio.rse.protocols.gfal.Default',
                                      'domains': {
                                          'lan': {'read': None, 'write': None, 'delete': None},
-                                         'wan': {'read': 2, 'write': 2, 'delete': 2}}})
+                                         'wan': {'read': 1, 'write': 1, 'delete': 1}}})
     add_protocol(rse_info[1]['id'], {'scheme': 'root',
                                      'hostname': ('root.%s' % base_rse_info[1]['address']),
                                      'port': 1409,
                                      'prefix': '//lambda/complex/',
                                      'impl': 'rucio.rse.protocols.xrootd.Default',
                                      'domains': {
-                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                         'wan': {'read': 3, 'write': 3, 'delete': 3}}})
+                                         'lan': {'read': 0, 'write': 0, 'delete': 0},
+                                         'wan': {'read': 2, 'write': 2, 'delete': 2}}})
 
     yield {'files': files, 'rse_info': rse_info}
 
