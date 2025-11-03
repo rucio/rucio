@@ -1,19 +1,19 @@
 # All dependencies needed to run rucio client should be defined here
-requests>=2.32.3                                            # Python HTTP for Humans.
-urllib3>=2.3.0                                              # HTTP library with thread-safe connection pooling, file post, etc.
+requests>=2.32.5                                            # Python HTTP for Humans.
+urllib3>=2.5.0                                              # HTTP library with thread-safe connection pooling, file post, etc.
 dogpile-cache>=1.2.2                                        # Caching API plugins (1.1.2 is the first version to support pymemcache)
 tabulate>=0.9.0                                             # Pretty-print tabular data
-jsonschema>=4.23.0                                          # For JSON schema validation (Policy modules)
-packaging>=24.2                                             # Packaging utilities
-rich>=13.9.4                                                # For Rich terminal display
-typing-extensions>=4.14.0                                   # Type annotations that are not yet supported in the `typing` module
-click>=8.1.7                                                # CLI engine
+jsonschema>=4.25.1                                          # For JSON schema validation (Policy modules)
+packaging>=25.0                                             # Packaging utilities
+rich>=14.2.0                                                # For Rich terminal display
+typing-extensions>=4.15.0                                   # Type annotations that are not yet supported in the `typing` module
+click>=8.3.0                                                # CLI engine
 
 # All dependencies needed in extras for rucio client should be defined here
-paramiko>=3.5.1                                             # ssh_extras; SSH2 protocol library (also needed in the server)
+paramiko>=4.0.0                                             # ssh_extras; SSH2 protocol library (also needed in the server)
 kerberos>=1.3.1                                             # kerberos_extras for client and server
 pykerberos>=1.2.4                                           # kerberos_extras for client and server
 requests-kerberos>=0.15.0                                   # kerberos_extras for client and server
-python-swiftclient>=4.7.0                                   # swift_extras
-argcomplete>=3.5.3                                          # argcomplete_extras; Bash tab completion for argparse
+python-swiftclient>=4.8.0                                   # swift_extras
+argcomplete>=3.6.3                                          # argcomplete_extras; Bash tab completion for argparse
 python-magic>=0.4.27                                        # dumper_extras; File type identification using libmagic
