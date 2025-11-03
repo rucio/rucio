@@ -1,19 +1,19 @@
 # All dependencies needed to develop/test rucio should be defined here
 -r requirements.server.txt
 pytest==7.4.3
-pytest-cov==5.0.0                                           # Test coverage
+pytest-cov==7.0.0                                           # Test coverage
 pytest-xdist==3.5.0, <3.6                                   # Used for parallel testing; config-related issues >= 3.6 (could be fixed in Python 3.10)
-pytest-rerunfailures==15.1
+pytest-rerunfailures==16.0.1                                # Rerun failed tests; 16.1 requires Python 3.10+
 pyflakes==3.1.0                                             # Passive checker of Python programs
 pycodestyle==2.11.0                                         # New package replacing pep8; python_version < '3.9'
-astroid==3.0.1
-xmltodict==0.13.0                                           # Makes working with XML feel like you are working with JSON
-pytz==2023.3.post1                                          # World timezone definitions, modern and historical
+astroid==3.3.11                                             # Version 4+ requires Python 3.10+
+xmltodict==1.0.2                                            # Makes working with XML feel like you are working with JSON
+pytz==2025.2                                                # World timezone definitions, modern and historical
 pydoc-markdown==4.8.2                                       # Used for generating Markdown documentation for docusaurus
-sh==2.0.7                                                   # Convenience library for running subprocesses in Python
-apispec==6.6.1                                              # Generate OpenApi definition out of pydoc comments
+sh==2.2.2                                                   # Convenience library for running subprocesses in Python
+apispec==6.8.4                                              # Generate OpenApi definition out of pydoc comments
 apispec-webframeworks                                       # Integration of apispec in Flask
-pip-tools==7.4.1                                            # Generate requirements files with pinned dependencies
-atlas-rucio-policy-package==0.5.0
+pip-tools==7.5.1                                            # Generate requirements files with pinned dependencies
+atlas-rucio-policy-package==0.8.3
 belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.1.1
-ruff==0.9.10                                                # Linter
+ruff==0.14.3                                                # Linter
