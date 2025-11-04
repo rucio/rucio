@@ -133,8 +133,7 @@ def has_permission(
         issuer: "InternalAccount",
         action: str,
         kwargs: dict[str, Any],
-        *,
-        session: "Optional[Session]" = None
+        session: "Session"
 ) -> PermissionResult:
     if issuer.vo not in permission_modules:
         load_permission_for_vo(issuer.vo)
