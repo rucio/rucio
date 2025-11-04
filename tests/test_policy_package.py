@@ -27,6 +27,8 @@ from rucio.common.didtype import DID
 from rucio.common.exception import DIDError
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 
 class TestPolicyPackageGeneric:
@@ -81,11 +83,13 @@ class TestPolicyPackage:
 
         # check that overridden action works as expected
         root_account = InternalAccount('root')
-        assert not rucio.core.permission.has_permission(root_account, 'add_account', {})
 
-        # check that omitted action falls back to generic module
-        # root should be allowed to add RSE
-        assert rucio.core.permission.has_permission(root_account, 'add_rse', {})
+        with db_session(DatabaseOperationType.READ) as session:
+            assert not rucio.core.permission.has_permission(root_account, 'add_account', {}, session=session)
+
+            # check that omitted action falls back to generic module
+            # root should be allowed to add RSE
+            assert rucio.core.permission.has_permission(root_account, 'add_rse', {}, session=session)
 
         # restore original permission module
         rucio.core.permission.permission_modules['def'] = old_module
