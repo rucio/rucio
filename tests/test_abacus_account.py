@@ -23,7 +23,8 @@ from rucio.daemons.abacus.account import account_update
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
 from rucio.db.sqla import models
-from rucio.db.sqla.session import get_session
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session, get_session
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests, updates account')
@@ -51,7 +52,8 @@ class TestAbacusAccount2:
         assert account_usage['files'] == nfiles
 
         # Update and check the account history with the core method
-        update_account_counter_history(account=root_account, rse_id=rse_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            update_account_counter_history(account=root_account, rse_id=rse_id, session=session)
         usage_history = get_usage_history(rse_id=rse_id, account=root_account)
         assert usage_history[-1]['bytes'] == nfiles * file_sizes
         assert usage_history[-1]['files'] == nfiles
