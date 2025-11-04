@@ -2505,7 +2505,10 @@ def update_rules_for_lost_replica(
             rule.locks_replicating_cnt -= 1
         elif lock.state == LockState.STUCK:
             rule.locks_stuck_cnt -= 1
-        account_counter.decrease(rse_id=rse_id, account=rule.account, files=1, bytes_=lock.bytes, session=session)
+        if lock.bytes:
+            account_counter.decrease(rse_id=rse_id, account=rule.account, files=1, bytes_=lock.bytes, session=session)
+        else:
+            raise ValueError('Lock %s has no bytes value associated to it: account_counter not decreased for RSE %s, account %s' % (lock, rse_id, rule.account))
         if rule.state == RuleState.SUSPENDED:
             pass
         elif rule.state == RuleState.STUCK:
