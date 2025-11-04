@@ -18,14 +18,12 @@ from sqlalchemy.exc import NoResultFound
 
 from rucio.common.exception import CounterNotFound
 from rucio.db.sqla import filter_thread_work, models
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@transactional_session
-def add_counter(rse_id, *, session: "Session"):
+def add_counter(rse_id, session: "Session"):
     """
     Creates the specified counter for a rse_id.
 
@@ -36,8 +34,7 @@ def add_counter(rse_id, *, session: "Session"):
         save(session=session)
 
 
-@transactional_session
-def increase(rse_id, files, bytes_, *, session: "Session"):
+def increase(rse_id, files, bytes_, session: "Session"):
     """
     Increments the specified counter by the specified amount.
 
@@ -50,8 +47,7 @@ def increase(rse_id, files, bytes_, *, session: "Session"):
         save(session=session)
 
 
-@transactional_session
-def decrease(rse_id, files, bytes_, *, session: "Session"):
+def decrease(rse_id, files, bytes_, session: "Session"):
     """
     Decreases the specified counter by the specified amount.
 
@@ -63,8 +59,7 @@ def decrease(rse_id, files, bytes_, *, session: "Session"):
     return increase(rse_id=rse_id, files=-files, bytes_=-bytes_, session=session)
 
 
-@transactional_session
-def del_counter(rse_id, *, session: "Session"):
+def del_counter(rse_id, session: "Session"):
     """
     Delete specified counter.
 
@@ -131,8 +126,7 @@ def get_updated_rse_counters(total_workers, worker_number, session: "Session"):
     return session.execute(stmt).scalars().all()
 
 
-@transactional_session
-def update_rse_counter(rse_id, *, session: "Session"):
+def update_rse_counter(rse_id, session: "Session"):
     """
     Read the updated_rse_counters and update the rse_counter.
 
@@ -169,8 +163,7 @@ def update_rse_counter(rse_id, *, session: "Session"):
         update.delete(flush=False, session=session)
 
 
-@transactional_session
-def fill_rse_counter_history_table(*, session: "Session"):
+def fill_rse_counter_history_table(session: "Session"):
     """
     Fill the RSE usage history table with the current usage.
 
