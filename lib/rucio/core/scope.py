@@ -14,7 +14,7 @@
 
 from re import match
 from traceback import format_exc
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -26,13 +26,18 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount, InternalScope
 
 
-def add_scope(scope, account, session: "Session"):
+def add_scope(
+        scope: "InternalScope",
+        account: "InternalAccount",
+        session: "Session"
+) -> None:
     """ add a scope for the given account name.
 
     :param scope: the name for the new scope.
@@ -69,7 +74,12 @@ def add_scope(scope, account, session: "Session"):
         raise RucioException(str(format_exc()))
 
 
-def bulk_add_scopes(scopes, account, session: "Session", skip_existing=False):
+def bulk_add_scopes(
+        scopes: "Iterable[InternalScope]",
+        account: "InternalAccount",
+        session: "Session",
+        skip_existing: bool = False
+) -> None:
     """ add a group of scopes, this call should not be exposed to users.
 
     :param scopes: a list of scopes to be added.
@@ -85,7 +95,7 @@ def bulk_add_scopes(scopes, account, session: "Session", skip_existing=False):
                 raise
 
 
-def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> "list[dict[Literal['scope', 'account'], Any]]":
+def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> "list[dict[str, Any]]":
     """
     Lists all scopes.
     :param session: The database session in use.
@@ -121,7 +131,10 @@ def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) ->
     return scopes
 
 
-def get_scopes(account, session: "Session"):
+def get_scopes(
+        account: "InternalAccount",
+        session: "Session"
+) -> "Sequence[InternalScope]":
     """ get all scopes defined for an account.
 
     :param account: the account name to list the scopes of.
@@ -148,7 +161,10 @@ def get_scopes(account, session: "Session"):
     return session.execute(stmt).scalars().all()
 
 
-def check_scope(scope_to_check, session: "Session"):
+def check_scope(
+        scope_to_check: "InternalScope",
+        session: "Session"
+) -> bool:
     """ check to see if scope exists.
 
     :param scope: the scope to check.
@@ -165,7 +181,11 @@ def check_scope(scope_to_check, session: "Session"):
     return bool(session.execute(stmt).scalar())
 
 
-def is_scope_owner(scope, account, session: "Session"):
+def is_scope_owner(
+        scope: "InternalScope",
+        account: "InternalAccount",
+        session: "Session"
+) -> bool:
     """ check to see if account owns the scope.
 
     :param scope: the scope to check.
