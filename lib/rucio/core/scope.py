@@ -24,7 +24,6 @@ from rucio.common.exception import AccountNotFound, Duplicate, RucioException, S
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
 
@@ -33,8 +32,7 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalAccount, InternalScope
 
 
-@transactional_session
-def add_scope(scope, account, *, session: "Session"):
+def add_scope(scope, account, session: "Session"):
     """ add a scope for the given account name.
 
     :param scope: the name for the new scope.
@@ -185,8 +183,7 @@ def is_scope_owner(scope, account, session: "Session"):
     return bool(session.execute(stmt).scalar())
 
 
-@transactional_session
-def update_scope(scope: "InternalScope", account: "InternalAccount", *, session: "Session") -> None:
+def update_scope(scope: "InternalScope", account: "InternalAccount", session: "Session") -> None:
     """ Give the scope a new owner
 
     :param scope: the name for the existing scope.
