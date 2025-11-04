@@ -105,9 +105,9 @@ class TestCoreAccountCounter:
             account_counter.add_counter(rse_id=rse_id, account=account, session=session)
 
         with db_session_context(DatabaseOperationType.READ) as session:
-            cnt = get_usage(rse_id=rse_id, account=account)
-            del cnt['updated_at']
-            assert cnt == {'files': 0, 'bytes': 0}
+            cnt = get_usage(rse_id=rse_id, account=account, session=session)
+        del cnt['updated_at']
+        assert cnt == {'files': 0, 'bytes': 0}
 
         count, sum_ = 0, 0
         for i in range(10):
