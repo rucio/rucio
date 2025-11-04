@@ -32,8 +32,8 @@ from rucio.core.rule import add_rule
 from rucio.core.scope import add_scope
 from rucio.daemons.transmogrifier.transmogrifier import get_subscriptions, run
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import AccountType, DIDType, RuleState
-from rucio.db.sqla.session import read_session
+from rucio.db.sqla.constants import AccountType, DatabaseOperationType, DIDType, RuleState
+from rucio.db.sqla.session import db_session, read_session
 from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
 from rucio.tests.common import auth, did_name_generator, headers, rse_name_generator
 
@@ -190,7 +190,8 @@ class TestSubscriptionCoreGateway:
     def test_list_rules_states(self, vo, rse_factory, root_account):
         """ SUBSCRIPTION (Gateway): Test listing of rule states for subscription """
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
         rse1, _ = rse_factory.make_mock_rse()
         rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
@@ -315,7 +316,8 @@ def test_update_nonexisting_subscription(rest_client, auth_token):
 def test_list_rules_states(vo, rse_factory, rest_client, auth_token, root_account):
     """ SUBSCRIPTION (REST): Test listing of rule states for subscription """
     tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-    add_scope(tmp_scope, root_account)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_scope(tmp_scope, root_account, session=session)
     activity = "Staging"
     rse1, _ = rse_factory.make_mock_rse()
     rse2, _ = rse_factory.make_mock_rse()
@@ -444,7 +446,8 @@ class TestSubscriptionClient:
         rse3, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s|%s' % (rse1, rse2, rse3)
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
@@ -471,7 +474,8 @@ class TestSubscriptionClient:
         rse3, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s|%s' % (rse1, rse2, rse3)
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
@@ -526,7 +530,8 @@ class TestDaemon:
             rses.append(rse)
         rse_expression = '%s|%s' % (rse1, rse2)
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
@@ -570,7 +575,8 @@ class TestDaemon:
         _, _ = rse_factory.make_mock_rse()
         rse_expression = rse_name_generator()
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
         dsn = '%sdataset-%s' % (dsn_prefix, uuid())
@@ -608,7 +614,8 @@ class TestDaemon:
             rses[rse_attribute].append(rse)
         rse_expression = rse_attribute
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
 
         # Check with split rule
         subscription_name = uuid()
@@ -827,7 +834,8 @@ class TestDaemon:
             dict_rse[rse] = {'rse_id': rse_id, 'rse_type': rse_type, 'site': site}
 
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
         subscription_name = uuid()
         dsn_prefix = did_name_generator('dataset')
 
@@ -889,7 +897,8 @@ class TestDaemon:
                 update_rse(rse_id, {'availability_write': False})
         rse_expression = rse_attribute
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
-        add_scope(tmp_scope, root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(tmp_scope, root_account, session=session)
 
         # Check with split rule
         subscription_name = uuid()
