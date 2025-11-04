@@ -40,37 +40,37 @@ class TestCoreRSECounter:
 
         count, sum_ = 0, 0
         for i in range(10):
-            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2.147e+9)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000)
             rse_update(once=True)
             count += 1
-            sum_ += 2.147e+9
+            sum_ += 2147000000
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(4):
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2.147e+9)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000)
             rse_update(once=True)
             count -= 1
-            sum_ -= 2.147e+9
+            sum_ -= 2147000000
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(5):
-            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2.147e+9)
+            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000)
             rse_update(once=True)
             count += 1
-            sum_ += 2.147e+9
+            sum_ += 2147000000
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(8):
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2.147e+9)
+            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000)
             rse_update(once=True)
             count -= 1
-            sum_ -= 2.147e+9
+            sum_ -= 2147000000
             cnt = rse_counter.get_counter(rse_id=rse_id)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
@@ -108,37 +108,37 @@ class TestCoreAccountCounter:
 
             count, sum_ = 0, 0
             for i in range(10):
-                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
                 account_update(once=True)
                 count += 1
-                sum_ += 2.147e+9
+                sum_ += 2147000000
                 cnt = get_usage(rse_id=rse_id, account=account)
                 del cnt['updated_at']
                 assert cnt == {'files': count, 'bytes': sum_}
 
             for i in range(4):
-                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
                 account_update(once=True)
                 count -= 1
-                sum_ -= 2.147e+9
+                sum_ -= 2147000000
                 cnt = get_usage(rse_id=rse_id, account=account)
                 del cnt['updated_at']
                 assert cnt == {'files': count, 'bytes': sum_}
 
             for i in range(5):
-                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
                 account_update(once=True)
                 count += 1
-                sum_ += 2.147e+9
+                sum_ += 2147000000
                 cnt = get_usage(rse_id=rse_id, account=account)
                 del cnt['updated_at']
                 assert cnt == {'files': count, 'bytes': sum_}
 
             for i in range(8):
-                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
                 account_update(once=True)
                 count -= 1
-                sum_ -= 2.147e+9
+                sum_ -= 2147000000
                 cnt = get_usage(rse_id=rse_id, account=account)
                 del cnt['updated_at']
                 assert cnt == {'files': count, 'bytes': sum_}
