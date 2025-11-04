@@ -19,6 +19,8 @@ from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetR
 from rucio.core.account_counter import increase, update_account_counter
 from rucio.core.account_limit import set_global_account_limit, set_local_account_limit
 from rucio.core.rse_selector import RSESelector
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 
 @pytest.fixture
@@ -48,8 +50,9 @@ class TestRSESelectorInit:
         copies = 2
         rses = [rse1, rse2]
         set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
-        increase(rse1_id, random_account, 10, 10)
-        update_account_counter(account=random_account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            increase(rse1_id, random_account, 10, 10, session=session)
+            update_account_counter(account=random_account, rse_id=rse1_id, session=session)
         with pytest.raises(InsufficientAccountLimit):
             RSESelector(random_account, rses, None, copies)
 
@@ -60,8 +63,9 @@ class TestRSESelectorInit:
         rses = [rse1, rse2]
         set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
         set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
-        increase(rse1_id, random_account, 10, 10)
-        update_account_counter(account=random_account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            increase(rse1_id, random_account, 10, 10, session=session)
+            update_account_counter(account=random_account, rse_id=rse1_id, session=session)
         with pytest.raises(InsufficientAccountLimit):
             RSESelector(random_account, rses, None, copies)
 
@@ -83,8 +87,9 @@ class TestRSESelectorInit:
         copies = 1
         rses = [rse1, rse2]
         set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
-        increase(rse1_id, random_account, 10, 10)
-        update_account_counter(account=random_account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            increase(rse1_id, random_account, 10, 10, session=session)
+            update_account_counter(account=random_account, rse_id=rse1_id, session=session)
         set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
         set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
         rse_selector = RSESelector(random_account, rses, None, copies)
@@ -97,8 +102,9 @@ class TestRSESelectorInit:
         copies = 1
         set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
         set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
-        increase(rse1_id, random_account, 10, 10)
-        update_account_counter(account=random_account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            increase(rse1_id, random_account, 10, 10, session=session)
+            update_account_counter(account=random_account, rse_id=rse1_id, session=session)
         set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10)
         set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10)
         rse_selector = RSESelector(random_account, rses, None, copies)
