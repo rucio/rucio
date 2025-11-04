@@ -27,6 +27,8 @@ from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.account_counter import fill_account_counter_history_table, get_updated_account_counters, update_account_counter
 from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -60,8 +62,10 @@ def run_once(
     worker_number, total_workers, logger = heartbeat_handler.live()
 
     start = time.time()  # NOQA
-    updated_account_counters = get_updated_account_counters(total_workers=total_workers,
-                                                            worker_number=worker_number)
+    with db_session(DatabaseOperationType.READ) as session:
+        updated_account_counters = get_updated_account_counters(total_workers=total_workers,
+                                                                worker_number=worker_number,
+                                                                session=session)
     logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(updated_account_counters)))
 
     # If the list is empty, sent the worker to sleep
