@@ -24,7 +24,7 @@ from rucio.common.exception import AccountNotFound, Duplicate, RucioException, S
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
 
@@ -71,8 +71,7 @@ def add_scope(scope, account, *, session: "Session"):
         raise RucioException(str(format_exc()))
 
 
-@read_session
-def bulk_add_scopes(scopes, account, skip_existing=False, *, session: "Session"):
+def bulk_add_scopes(scopes, account, session: "Session", skip_existing=False):
     """ add a group of scopes, this call should not be exposed to users.
 
     :param scopes: a list of scopes to be added.
@@ -88,12 +87,11 @@ def bulk_add_scopes(scopes, account, skip_existing=False, *, session: "Session")
                 raise
 
 
-@read_session
-def list_scopes(filter_: Optional[dict[str, Any]] = None, *, session: "Session") -> "list[dict[Literal['scope', 'account'], Any]]":
+def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> "list[dict[Literal['scope', 'account'], Any]]":
     """
     Lists all scopes.
-    :param filter_: Dictionary of attributes by which the input data should be filtered
     :param session: The database session in use.
+    :param filter_: Dictionary of attributes by which the input data should be filtered
 
     :returns: A list containing all scopes.
     """
@@ -125,8 +123,7 @@ def list_scopes(filter_: Optional[dict[str, Any]] = None, *, session: "Session")
     return scopes
 
 
-@read_session
-def get_scopes(account, *, session: "Session"):
+def get_scopes(account, session: "Session"):
     """ get all scopes defined for an account.
 
     :param account: the account name to list the scopes of.
@@ -153,8 +150,7 @@ def get_scopes(account, *, session: "Session"):
     return session.execute(stmt).scalars().all()
 
 
-@read_session
-def check_scope(scope_to_check, *, session: "Session"):
+def check_scope(scope_to_check, session: "Session"):
     """ check to see if scope exists.
 
     :param scope: the scope to check.
@@ -171,8 +167,7 @@ def check_scope(scope_to_check, *, session: "Session"):
     return bool(session.execute(stmt).scalar())
 
 
-@read_session
-def is_scope_owner(scope, account, *, session: "Session"):
+def is_scope_owner(scope, account, session: "Session"):
     """ check to see if account owns the scope.
 
     :param scope: the scope to check.
@@ -204,7 +199,7 @@ def update_scope(scope: "InternalScope", account: "InternalAccount", *, session:
 
     # Verify both the scope and account exist
     account_core.get_account(account, session=session)
-    if not check_scope(scope):
+    if not check_scope(scope, session=session):
         raise ScopeNotFound
 
     stmt = update(
