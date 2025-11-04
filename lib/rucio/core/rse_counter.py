@@ -18,7 +18,7 @@ from sqlalchemy.exc import NoResultFound
 
 from rucio.common.exception import CounterNotFound
 from rucio.db.sqla import filter_thread_work, models
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -83,8 +83,7 @@ def del_counter(rse_id, *, session: "Session"):
     session.execute(stmt)
 
 
-@read_session
-def get_counter(rse_id, *, session: "Session"):
+def get_counter(rse_id, session: "Session"):
     """
     Returns current values of the specified counter or raises CounterNotFound if the counter does not exist.
 
@@ -114,8 +113,7 @@ def get_counter(rse_id, *, session: "Session"):
         raise CounterNotFound()
 
 
-@read_session
-def get_updated_rse_counters(total_workers, worker_number, *, session: "Session"):
+def get_updated_rse_counters(total_workers, worker_number, session: "Session"):
     """
     Get updated rse_counters.
 
