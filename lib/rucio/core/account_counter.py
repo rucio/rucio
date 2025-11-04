@@ -18,7 +18,7 @@ from sqlalchemy import and_, delete, insert, literal, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.db.sqla import filter_thread_work, models
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -114,11 +114,9 @@ def del_counter(
     session.execute(stmt)
 
 
-@read_session
 def get_updated_account_counters(
     total_workers: int,
     worker_number: int,
-    *,
     session: "Session"
 ) -> list["RSEAccountCounterDict"]:
     """
