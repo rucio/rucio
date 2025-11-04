@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalAccount
 
 
-def has_permission(issuer, action, kwargs, *, session: "Optional[Session]" = None):
+def has_permission(issuer, action, kwargs, session: "Session"):
     """
     Checks if an account has the specified permission to
     execute an action with parameters.
