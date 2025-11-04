@@ -84,7 +84,7 @@ def add_scope(
 def get_scopes(
     account: str,
     vo: str = DEFAULT_VO,
-) -> list[str]:
+) -> list[Optional[str]]:
     """
     Gets a list of all scopes for an account.
 
