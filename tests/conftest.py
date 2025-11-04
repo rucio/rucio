@@ -464,6 +464,8 @@ def scope_factory() -> "Callable[[Iterable[str], Optional[str]], tuple[str, list
     from rucio.common.types import InternalAccount, InternalScope
     from rucio.common.utils import generate_uuid
     from rucio.core.scope import add_scope
+    from rucio.db.sqla.constants import DatabaseOperationType
+    from rucio.db.sqla.session import db_session
 
     def create_scopes(
             vos: "Iterable[str]",
@@ -474,7 +476,8 @@ def scope_factory() -> "Callable[[Iterable[str], Optional[str]], tuple[str, list
         created_scopes = []
         for vo in vos:
             scope = InternalScope(scope_name, vo=vo)
-            add_scope(scope, InternalAccount(account_name if account_name else 'root', vo=vo))
+            with db_session(DatabaseOperationType.WRITE) as session:
+                add_scope(scope, InternalAccount(account_name if account_name else 'root', vo=vo), session=session)
             created_scopes.append(scope)
         return scope_name, created_scopes
 
