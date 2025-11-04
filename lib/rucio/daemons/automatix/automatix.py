@@ -37,6 +37,8 @@ from rucio.core.monitor import MetricManager
 from rucio.core.scope import list_scopes
 from rucio.core.vo import map_vo
 from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -176,12 +178,13 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     client = Client(account=account)
     vo = map_vo(client.vo)  # type: ignore
     filters = {"scope": InternalScope("*", vo=vo)}
-    scopes = list_scopes(filter_=filters)
-    if not isinstance(scopes[0], str):   # TODO Backwards Compat - Remove in v40, #8125
-        scopes = [scope['scope'] for scope in scopes]
-    if InternalScope(scope, vo=vo) not in scopes:
-        logger(logging.ERROR, "Scope %s does not exist. Exiting", scope)
-        return True
+    with db_session(DatabaseOperationType.READ) as session:
+        scopes = list_scopes(session=session, filter_=filters)
+        if not isinstance(scopes[0], str):   # TODO Backwards Compat - Remove in v40, #8125
+            scopes = [scope['scope'] for scope in scopes]
+        if InternalScope(scope, vo=vo) not in scopes:
+            logger(logging.ERROR, "Scope %s does not exist. Exiting", scope)
+            return True
 
     logger(logging.INFO, "Getting data distribution")
     probabilities, data = get_data_distribution(inputfile)
