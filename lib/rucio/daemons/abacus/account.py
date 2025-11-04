@@ -38,6 +38,15 @@ graceful_stop = threading.Event()
 DAEMON_NAME = 'abacus-account'
 
 
+def _fill_account_counter_history_table() -> None:
+    """
+    Abacus wrapper to fill the account counter history table,
+    in order to create a session within the thread.
+    """
+    with db_session(DatabaseOperationType.WRITE) as session:
+        fill_account_counter_history_table(session=session)
+
+
 def account_update(
         once: bool = False,
         sleep_time: int = 10
@@ -78,7 +87,8 @@ def run_once(
         if graceful_stop.is_set():
             break
         start_time = time.time()
-        update_account_counter(account=account_counter['account'], rse_id=account_counter['rse_id'])
+        with db_session(DatabaseOperationType.WRITE) as session:
+            update_account_counter(account=account_counter['account'], rse_id=account_counter['rse_id'], session=session)
         logger(logging.DEBUG, 'update of account-rse counter "%s-%s" took %f' % (account_counter['account'], account_counter['rse_id'], time.time() - start_time))
 
 
@@ -112,7 +122,7 @@ def run(
         thread_list = [threading.Thread(target=account_update, kwargs={'once': once, 'sleep_time': sleep_time}) for i in
                        range(0, threads)]
         if fill_history_table:
-            thread_list.append(get_thread_with_periodic_running_function(3600, fill_account_counter_history_table, graceful_stop))
+            thread_list.append(get_thread_with_periodic_running_function(3600, _fill_account_counter_history_table, graceful_stop))
         [t.start() for t in thread_list]
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
