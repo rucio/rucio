@@ -694,7 +694,8 @@ class TestCore:
         """ REPLICATION RULE (CORE): Test if creating UNAVAILABLE replicas updates the RSE Counter correctly"""
 
         rse_update(once=True)
-        rse_counter_before = get_rse_counter(self.rse2_id)
+        with db_session(DatabaseOperationType.READ) as session:
+            rse_counter_before = get_rse_counter(self.rse2_id, session=session)
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=100)
         dataset = did_factory.random_dataset_did()
@@ -705,7 +706,8 @@ class TestCore:
 
         # Check if the rse has been updated correctly
         rse_update(once=True)
-        rse_counter_after = get_rse_counter(self.rse2_id)
+        with db_session(DatabaseOperationType.READ) as session:
+            rse_counter_after = get_rse_counter(self.rse2_id, session=session)
         assert (rse_counter_before['bytes'] + 3 * 100 == rse_counter_after['bytes'])
         assert (rse_counter_before['files'] + 3 == rse_counter_after['files'])
 
