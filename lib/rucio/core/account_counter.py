@@ -18,7 +18,6 @@ from sqlalchemy import and_, delete, insert, literal, select
 from sqlalchemy.exc import NoResultFound
 
 from rucio.db.sqla import filter_thread_work, models
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -28,11 +27,9 @@ if TYPE_CHECKING:
 MAX_COUNTERS = 10
 
 
-@transactional_session
 def add_counter(
     rse_id: str,
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> None:
     """
@@ -46,13 +43,11 @@ def add_counter(
     models.AccountUsage(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
 
 
-@transactional_session
 def increase(
     rse_id: str,
     account: "InternalAccount",
     files: int,
     bytes_: int,
-    *,
     session: "Session"
 ) -> None:
     """
@@ -67,13 +62,11 @@ def increase(
     models.UpdatedAccountCounter(account=account, rse_id=rse_id, files=files, bytes=bytes_).save(session=session)
 
 
-@transactional_session
 def decrease(
     rse_id: str,
     account: "InternalAccount",
     files: int,
     bytes_: int,
-    *,
     session: "Session"
 ) -> None:
     """
@@ -88,11 +81,9 @@ def decrease(
     return increase(rse_id=rse_id, account=account, files=-files, bytes_=-bytes_, session=session)
 
 
-@transactional_session
 def del_counter(
     rse_id: str,
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> None:
     """
@@ -139,11 +130,9 @@ def get_updated_account_counters(
     return [row._asdict() for row in session.execute(query).all()]  # type: ignore (pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
 
 
-@transactional_session
 def update_account_counter(
     account: "InternalAccount",
     rse_id: str,
-    *,
     session: "Session"
 ) -> None:
     """
@@ -182,11 +171,9 @@ def update_account_counter(
         update.delete(flush=False, session=session)
 
 
-@transactional_session
 def update_account_counter_history(
     account: "InternalAccount",
     rse_id: str,
-    *,
     session: "Session"
 ) -> None:
     """
@@ -209,8 +196,7 @@ def update_account_counter_history(
         models.AccountUsageHistory(rse_id=rse_id, account=account, files=0, bytes=0).save(session=session)
 
 
-@transactional_session
-def fill_account_counter_history_table(*, session: "Session") -> None:
+def fill_account_counter_history_table(session: "Session") -> None:
     """
     Make a snapshot of current counters
 
