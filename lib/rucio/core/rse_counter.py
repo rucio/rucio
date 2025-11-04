@@ -105,7 +105,6 @@ def get_counter(
 
     :param rse_id:           The id of the RSE.
     :param session:          The database session in use.
-    :returns:                A dictionary with total and bytes.
     :raises CounterNotFound: If the counter does not exist.
     :returns:                A dictionary with total and bytes.
     """
