@@ -33,46 +33,57 @@ class TestCoreRSECounter:
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
         _, rse_id = rse_factory.make_mock_rse()
         rse_update(once=True)
-        rse_counter.del_counter(rse_id=rse_id)
-        rse_counter.add_counter(rse_id=rse_id)
-        cnt = rse_counter.get_counter(rse_id=rse_id)
+        with db_session_context(DatabaseOperationType.WRITE) as session:
+            rse_counter.del_counter(rse_id=rse_id, session=session)
+            rse_counter.add_counter(rse_id=rse_id, session=session)
+
+        with db_session_context(DatabaseOperationType.READ) as session:
+            cnt = rse_counter.get_counter(rse_id=rse_id, session=session)
         del cnt['updated_at']
         assert cnt == {'files': 0, 'bytes': 0}
 
         count, sum_ = 0, 0
         for i in range(10):
-            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000)
+            with db_session_context(DatabaseOperationType.WRITE) as session:
+                rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
             rse_update(once=True)
             count += 1
             sum_ += 2147000000
-            cnt = rse_counter.get_counter(rse_id=rse_id)
+            with db_session_context(DatabaseOperationType.READ) as session:
+                cnt = rse_counter.get_counter(rse_id=rse_id, session=session)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(4):
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000)
+            with db_session_context(DatabaseOperationType.WRITE) as session:
+                rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
             rse_update(once=True)
             count -= 1
             sum_ -= 2147000000
-            cnt = rse_counter.get_counter(rse_id=rse_id)
+            with db_session_context(DatabaseOperationType.READ) as session:
+                cnt = rse_counter.get_counter(rse_id=rse_id, session=session)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(5):
-            rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000)
+            with db_session_context(DatabaseOperationType.WRITE) as session:
+                rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
             rse_update(once=True)
             count += 1
             sum_ += 2147000000
-            cnt = rse_counter.get_counter(rse_id=rse_id)
+            with db_session_context(DatabaseOperationType.READ) as session:
+                cnt = rse_counter.get_counter(rse_id=rse_id, session=session)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
         for i in range(8):
-            rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000)
+            with db_session_context(DatabaseOperationType.WRITE) as session:
+                rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
             rse_update(once=True)
             count -= 1
             sum_ -= 2147000000
-            cnt = rse_counter.get_counter(rse_id=rse_id)
+            with db_session_context(DatabaseOperationType.READ) as session:
+                cnt = rse_counter.get_counter(rse_id=rse_id, session=session)
             del cnt['updated_at']
             assert cnt == {'files': count, 'bytes': sum_}
 
@@ -81,7 +92,8 @@ class TestCoreRSECounter:
         stmt = delete(models.RSEUsageHistory)
         db_session.execute(stmt)
         db_session.commit()
-        rse_counter.fill_rse_counter_history_table()
+        with db_session_context(DatabaseOperationType.WRITE) as session:
+            rse_counter.fill_rse_counter_history_table(session=session)
         stmt = select(models.RSEUsageHistory)
         history_usage = [(usage['rse_id'], usage['files'], usage['source'], usage['used']) for usage in db_session.execute(stmt).scalars()]
         stmt = select(models.RSEUsage)
