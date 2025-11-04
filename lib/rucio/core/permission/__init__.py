@@ -16,17 +16,17 @@ import importlib
 import logging
 from configparser import NoOptionError, NoSectionError
 from os import environ
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.core.permission.generic
 from rucio.common import config, exception
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
 from rucio.common.policy import get_policy
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
-    from typing import Optional
-
     from sqlalchemy.orm import Session
 
     from rucio.common.types import InternalAccount
@@ -133,18 +133,37 @@ def has_permission(
         issuer: "InternalAccount",
         action: str,
         kwargs: dict[str, Any],
-        session: "Session"
+        session: Optional["Session"] = None  # TODO - make it a required parameter in v40: https://github.com/rucio/rucio/issues/8175
 ) -> PermissionResult:
     if issuer.vo not in permission_modules:
         load_permission_for_vo(issuer.vo)
-    try:
-        result = permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
-    except TypeError:
-        # will be thrown if policy package is missing the action in its perm dictionary
-        result = None
-    # if this permission is missing from the policy package, fallback to generic
-    if result is None:
-        result = rucio.core.permission.generic.has_permission(issuer, action, kwargs, session=session)
+
+    # TODO - remove this if statement: https://github.com/rucio/rucio/issues/8175,
+    # and only keep the path where session is passed
+    if not session:
+        LOGGER.warning("`session` argument nor provided to has_permission. "
+                       "`session` will become a required parameter from Rucio v40 onwards. "
+                       "For more information, see https://github.com/rucio/rucio/issues/8175")
+
+        with db_session(DatabaseOperationType.READ) as session:
+            try:
+                result = permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
+            except TypeError:
+                # will be thrown if policy package is missing the action in its perm dictionary
+                result = None
+            # if this permission is missing from the policy package, fallback to generic
+            if result is None:
+                result = rucio.core.permission.generic.has_permission(issuer, action, kwargs, session=session)
+    else:
+        try:
+            result = permission_modules[issuer.vo].has_permission(issuer, action, kwargs, session=session)
+        except TypeError:
+            # will be thrown if policy package is missing the action in its perm dictionary
+            result = None
+        # if this permission is missing from the policy package, fallback to generic
+        if result is None:
+            result = rucio.core.permission.generic.has_permission(issuer, action, kwargs, session=session)
+
     # continue to support policy packages that just return a boolean and no message
     if isinstance(result, bool):
         result = PermissionResult(result)
