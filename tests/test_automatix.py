@@ -25,6 +25,8 @@ from rucio.common.types import InternalScope
 from rucio.core.did import get_metadata, list_dids, list_files
 from rucio.core.scope import add_scope
 from rucio.daemons.automatix.automatix import automatix
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import scope_name_generator
 
@@ -33,7 +35,8 @@ from rucio.tests.common import scope_name_generator
 def test_automatix(vo, root_account, rse_factory):
     """Automatix: Test the automatix daemon"""
     scope = scope_name_generator()
-    add_scope(scope=InternalScope(scope, vo), account=root_account)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_scope(scope=InternalScope(scope, vo), account=root_account, session=session)
     if not config_has_section("automatix"):
         config_add_section("automatix")
     rse, rse_id = rse_factory.make_posix_rse()
