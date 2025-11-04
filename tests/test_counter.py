@@ -22,6 +22,7 @@ from rucio.core.account import get_usage
 from rucio.daemons.abacus.account import account_update
 from rucio.daemons.abacus.rse import rse_update
 from rucio.db.sqla import models
+from rucio.db.sqla.constants import DatabaseOperationType
 
 
 @pytest.mark.noparallel(reason='runs abacus daemons')
@@ -98,48 +99,49 @@ class TestCoreAccountCounter:
         _, rse_id = rse_factory.make_mock_rse(session=db_session)
         db_session.commit()
         account = jdoe_account
-        account_counter.del_counter(rse_id=rse_id, account=account)
-        account_counter.add_counter(rse_id=rse_id, account=account)
-        cnt = get_usage(rse_id=rse_id, account=account)
-        del cnt['updated_at']
-        assert cnt == {'files': 0, 'bytes': 0}
-
-        count, sum_ = 0, 0
-        for i in range(10):
-            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
-            count += 1
-            sum_ += 2.147e+9
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_counter.del_counter(rse_id=rse_id, account=account, session=session)
+            account_counter.add_counter(rse_id=rse_id, account=account, session=session)
             cnt = get_usage(rse_id=rse_id, account=account)
             del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum_}
+            assert cnt == {'files': 0, 'bytes': 0}
 
-        for i in range(4):
-            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
-            count -= 1
-            sum_ -= 2.147e+9
-            cnt = get_usage(rse_id=rse_id, account=account)
-            del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum_}
+            count, sum_ = 0, 0
+            for i in range(10):
+                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_update(once=True)
+                count += 1
+                sum_ += 2.147e+9
+                cnt = get_usage(rse_id=rse_id, account=account)
+                del cnt['updated_at']
+                assert cnt == {'files': count, 'bytes': sum_}
 
-        for i in range(5):
-            account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
-            count += 1
-            sum_ += 2.147e+9
-            cnt = get_usage(rse_id=rse_id, account=account)
-            del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum_}
+            for i in range(4):
+                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_update(once=True)
+                count -= 1
+                sum_ -= 2.147e+9
+                cnt = get_usage(rse_id=rse_id, account=account)
+                del cnt['updated_at']
+                assert cnt == {'files': count, 'bytes': sum_}
 
-        for i in range(8):
-            account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9)
-            account_update(once=True)
-            count -= 1
-            sum_ -= 2.147e+9
-            cnt = get_usage(rse_id=rse_id, account=account)
-            del cnt['updated_at']
-            assert cnt == {'files': count, 'bytes': sum_}
+            for i in range(5):
+                account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_update(once=True)
+                count += 1
+                sum_ += 2.147e+9
+                cnt = get_usage(rse_id=rse_id, account=account)
+                del cnt['updated_at']
+                assert cnt == {'files': count, 'bytes': sum_}
+
+            for i in range(8):
+                account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2.147e+9, session=session)
+                account_update(once=True)
+                count -= 1
+                sum_ -= 2.147e+9
+                cnt = get_usage(rse_id=rse_id, account=account)
+                del cnt['updated_at']
+                assert cnt == {'files': count, 'bytes': sum_}
 
         # check that the counters are correctly copied into the history table
         stmt = delete(models.AccountUsageHistory)
