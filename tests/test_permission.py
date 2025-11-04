@@ -16,6 +16,8 @@ from rucio.common.config import config_get
 from rucio.common.types import InternalScope
 from rucio.core.account import add_account_attribute
 from rucio.core.scope import add_scope
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
 from rucio.tests.common import scope_name_generator, skip_non_belleii
 
@@ -30,7 +32,8 @@ class TestPermissionCoreGateway:
     def test_permission_add_did(self, vo, root_account):
         """ PERMISSION(CORE): Check permission to add a DID"""
         scope = scope_name_generator()
-        add_scope(scope=InternalScope(scope, vo=vo), account=root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(scope=InternalScope(scope, vo=vo), account=root_account, session=session)
         assert has_permission(issuer='panda', action='add_did', kwargs={'scope': scope}, vo=vo)
         assert not has_permission(issuer='spock', action='add_did', kwargs={'scope': scope}, vo=vo)
 
