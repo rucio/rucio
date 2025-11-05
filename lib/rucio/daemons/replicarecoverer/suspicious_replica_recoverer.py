@@ -47,6 +47,8 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.db.sqla.util import get_db_time
 
 if TYPE_CHECKING:
@@ -184,13 +186,14 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
         vos = [DEFAULT_VO]
     else:
-        if vos:
-            invalid = set(vos) - set([v['vo'] for v in list_vos()])
-            if invalid:
-                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
-                raise VONotFound(msg)
-        else:
-            vos = [v['vo'] for v in list_vos()]
+        with db_session(DatabaseOperationType.READ) as session:
+            if vos:
+                invalid = set(vos) - set([v['vo'] for v in list_vos(session=session)])
+                if invalid:
+                    msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                    raise VONotFound(msg)
+            else:
+                vos = [v['vo'] for v in list_vos(session=session)]
         logger(logging.INFO, 'This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
     start = time.time()

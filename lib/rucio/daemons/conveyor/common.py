@@ -37,8 +37,8 @@ from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.transfer import build_transfer_paths
 from rucio.core.vo import list_vos
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import ReplicaState, RequestState
-from rucio.db.sqla.session import transactional_session
+from rucio.db.sqla.constants import DatabaseOperationType, ReplicaState, RequestState
+from rucio.db.sqla.session import db_session, transactional_session
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -520,13 +520,14 @@ def get_conveyor_rses(
             logger(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
         vos = [DEFAULT_VO]
     else:
-        if vos:
-            invalid = set(vos) - set([v['vo'] for v in list_vos()])
-            if invalid:
-                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
-                raise VONotFound(msg)
-        else:
-            vos = [v['vo'] for v in list_vos()]
+        with db_session(DatabaseOperationType.READ) as session:
+            if vos:
+                invalid = set(vos) - set([v['vo'] for v in list_vos(session=session)])
+                if invalid:
+                    msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                    raise VONotFound(msg)
+            else:
+                vos = [v['vo'] for v in list_vos(session=session)]
         logger(logging.INFO, 'This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
     working_rses = []
