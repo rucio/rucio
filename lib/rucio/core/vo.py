@@ -24,7 +24,7 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 # Format for long VO names
 LONG_VO_RE = re.compile(r"^[a-zA-Z0-9\.\-]+$")
@@ -33,8 +33,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@read_session
-def vo_exists(vo: str, *, session: "Session") -> bool:
+def vo_exists(vo: str, session: "Session") -> bool:
     """
     Verify that the vo exists.
 
@@ -93,8 +92,7 @@ def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None
         add_account_identity(identity=ident['identity'], type_=ident['type'], account=new_root, email='', session=session)
 
 
-@read_session
-def list_vos(*, session: "Session") -> list[dict[str, Any]]:
+def list_vos(session: "Session") -> list[dict[str, Any]]:
     """
     List all the VOs in the db.
 
