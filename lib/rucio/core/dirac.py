@@ -115,7 +115,7 @@ def add_files(
         lfn_scope, _ = extract_scope(filename, scopes, vo=vo)  # type: ignore (https://github.com/rucio/rucio/issues/8188)
         lfn_scope = InternalScope(lfn_scope, vo=vo)
 
-        exists, did_type = _exists(lfn_scope, filename)
+        exists, did_type = _exists(scope=lfn_scope, name=filename, session=session)
         if exists:
             continue
 
@@ -141,7 +141,7 @@ def add_files(
                     lifetime = lifetime_dict[pattern]
                     break
 
-        exists, did_type = _exists(dsn_scope, dsn_name)
+        exists, did_type = _exists(scope=dsn_scope, name=dsn_name, session=session)
         if exists and did_type == DIDType.CONTAINER:
             raise UnsupportedOperation('Cannot create %s as dataset' % dsn_name)
         if (dsn_name not in exist_lfn) and not exists:
@@ -207,7 +207,7 @@ def add_files(
         for lpn in lpns[1:]:
             child_scope, _ = extract_scope(lpn, scopes, vo=vo)  # type: ignore https://github.com/rucio/rucio/issues/8188
             child_scope = InternalScope(child_scope, vo=vo)
-            exists, did_type = _exists(child_scope, lpn)
+            exists, did_type = _exists(scope=child_scope, name=lpn, session=session)
             child_meta = parents_metadata.get(lpn, {})
             if exists and did_type == DIDType.DATASET:
                 raise UnsupportedOperation('Cannot create %s as container' % lpn)
