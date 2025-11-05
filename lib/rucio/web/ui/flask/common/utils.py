@@ -30,7 +30,8 @@ from rucio.common.extra import import_extras
 from rucio.common.policy import get_policy
 from rucio.core import identity as identity_core
 from rucio.core import vo as vo_core
-from rucio.db.sqla.constants import AccountType, IdentityType
+from rucio.db.sqla.constants import AccountType, DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session
 from rucio.gateway import authentication as auth
 from rucio.gateway import identity
 from rucio.gateway.account import account_exists, get_account_info, list_account_attributes
@@ -288,7 +289,8 @@ def get_vo_descriptions(vos):
     :param vos: List of 3 character VO strings
     :returns: List of tuples containing VO string, VO description
     """
-    all_vos = vo_core.list_vos()
+    with db_session(DatabaseOperationType.READ) as session:
+        all_vos = vo_core.list_vos(session=session)
     vos_with_desc = []
     for vo in all_vos:
         if vo['vo'] in vos:
@@ -557,7 +559,8 @@ def oidc_auth(account, issuer, ui_vo=None):
     if not account:
         account = 'webui'
     if ui_vo is None:
-        all_vos = [vo['vo'] for vo in vo_core.list_vos()]
+        with db_session(DatabaseOperationType.READ) as session:
+            all_vos = [vo['vo'] for vo in vo_core.list_vos(session=session)]
         valid_vos = []
         for vo in all_vos:
             if account_exists(account, vo):
