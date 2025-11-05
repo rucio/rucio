@@ -24,7 +24,6 @@ from rucio.common.cache import MemcacheRegion
 from rucio.common.exception import Duplicate, InvalidObject, RucioException
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -40,12 +39,10 @@ if TYPE_CHECKING:
 REGION = MemcacheRegion(expiration_time=900)
 
 
-@transactional_session
 def add_naming_convention(
     scope: "InternalScope",
     regexp: str,
     convention_type: KeyType,
-    *,
     session: "Session"
 ) -> None:
     """
@@ -96,7 +93,6 @@ def get_naming_convention(
     return session.execute(stmt).scalar()
 
 
-@transactional_session
 def delete_naming_convention(
     scope: "InternalScope",
     convention_type: KeyType,
