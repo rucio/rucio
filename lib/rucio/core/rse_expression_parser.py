@@ -22,7 +22,6 @@ from dogpile.cache.api import NoValue
 from rucio.common.cache import MemcacheRegion
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core.rse import get_rse_attribute, get_rses_with_attribute, list_rses
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -40,8 +39,7 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 REGION = MemcacheRegion(expiration_time=600)
 
 
-@transactional_session
-def parse_expression(expression, filter_=None, *, session: "Session"):
+def parse_expression(expression, session: "Session", filter_=None):
     """
     Parse a RSE expression and return the list of RSE dictionaries.
 
