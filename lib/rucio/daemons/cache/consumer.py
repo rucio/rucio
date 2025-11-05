@@ -32,6 +32,8 @@ from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -94,12 +96,13 @@ class AMQConsumer:
                 rse_vo_str = msg['rse']
                 if 'vo' in msg and msg['vo'] != 'def':
                     rse_vo_str = '{} on {}'.format(rse_vo_str, msg['vo'])
-                if msg['operation'] == 'add_replicas':
-                    self.__logger(logging.INFO, 'add_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
-                    add_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
-                elif msg['operation'] == 'delete_replicas':
-                    self.__logger(logging.INFO, 'delete_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
-                    delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'])
+                with db_session(DatabaseOperationType.WRITE) as session:
+                    if msg['operation'] == 'add_replicas':
+                        self.__logger(logging.INFO, 'add_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
+                        add_volatile_replicas(rse_id=rse_id, replicas=msg['files'], session=session)
+                    elif msg['operation'] == 'delete_replicas':
+                        self.__logger(logging.INFO, 'delete_replicas to RSE %s: %s ' % (rse_vo_str, str(msg['files'])))
+                        delete_volatile_replicas(rse_id=rse_id, replicas=msg['files'], session=session)
             else:
                 self.__logger(logging.DEBUG, 'Check failed: %s %s '
                               % (isinstance(msg, dict), 'operation' in msg.keys()))
