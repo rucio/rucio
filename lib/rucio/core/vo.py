@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
@@ -49,7 +49,7 @@ def vo_exists(vo: str, session: "Session") -> bool:
     return bool(session.execute(stmt).scalar())
 
 
-def add_vo(vo: str, description: str, email: str, session: "Session") -> None:
+def add_vo(vo: str, description: Optional[str], email: Optional[str], session: "Session") -> None:
     """
     Add a VO and setup a new root user.
     New root user will have account name 'root' and a userpass identity with username: 'root@<vo>' and password: 'password'
