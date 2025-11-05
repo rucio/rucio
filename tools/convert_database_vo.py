@@ -293,7 +293,7 @@ def convert_to_mvo(new_vo, description, email, create_super_root=False, commit_c
         return
 
     s = session.get_session()
-    vos = [vo['vo'] for vo in list_vos(session=s)]
+    vos = [vo['vo'] for vo in list_vos(session=s)]  # type: ignore
     if new_vo not in vos:
         insert_new_vo = True
     else:
@@ -325,7 +325,7 @@ def convert_to_svo(old_vo, delete_vos=False, commit_changes=False, skip_history=
     s = session.get_session()
     if delete_vos:
         success_all = True
-        for vo in list_vos(session=s):
+        for vo in list_vos(session=s):  # type: ignore
             if vo['vo'] != DEFAULT_VO:
                 success = remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history)
                 success_all = success_all and success
