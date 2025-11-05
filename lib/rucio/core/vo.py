@@ -24,7 +24,6 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.common.types import InternalAccount
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
-from rucio.db.sqla.session import transactional_session
 
 # Format for long VO names
 LONG_VO_RE = re.compile(r"^[a-zA-Z0-9\.\-]+$")
@@ -50,8 +49,7 @@ def vo_exists(vo: str, session: "Session") -> bool:
     return bool(session.execute(stmt).scalar())
 
 
-@transactional_session
-def add_vo(vo: str, description: str, email: str, *, session: "Session") -> None:
+def add_vo(vo: str, description: str, email: str, session: "Session") -> None:
     """
     Add a VO and setup a new root user.
     New root user will have account name 'root' and a userpass identity with username: 'root@<vo>' and password: 'password'
