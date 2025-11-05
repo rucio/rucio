@@ -17,19 +17,17 @@ from typing import TYPE_CHECKING, Any
 from rucio.common.constants import DEFAULT_VO
 from rucio.core import distance as distance_module
 from rucio.core import rse as rse_module
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@transactional_session
-def export_rses(vo: str = DEFAULT_VO, *, session: "Session") -> dict[str, dict[str, Any]]:
+def export_rses(session: "Session", vo: str = DEFAULT_VO) -> dict[str, dict[str, Any]]:
     """
     Export RSE data.
 
-    :param vo: The VO to export.
     :param session: database session in use.
+    :param vo: The VO to export.
     """
     data = {}
     for rse in rse_module.list_rses(filters={'vo': vo}, session=session):
@@ -39,8 +37,7 @@ def export_rses(vo: str = DEFAULT_VO, *, session: "Session") -> dict[str, dict[s
     return data
 
 
-@transactional_session
-def export_data(vo: str = DEFAULT_VO, distance: bool = True, *, session: "Session") -> dict[str, Any]:
+def export_data(session: "Session", vo: str = DEFAULT_VO, distance: bool = True) -> dict[str, Any]:
     """
     Export data.
 
