@@ -31,7 +31,8 @@ from rucio.core.identity import add_account_identity, add_identity, list_account
 from rucio.core.importer import import_data, import_rses
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse, export_rse, get_rse, get_rse_attribute, get_rse_id, get_rse_limits, get_rse_name, get_rse_protocols, list_rse_attributes, list_rses, set_rse_limits
 from rucio.db.sqla import models, session
-from rucio.db.sqla.constants import AccountStatus, AccountType, IdentityType, RSEType
+from rucio.db.sqla.constants import AccountStatus, AccountType, DatabaseOperationType, IdentityType, RSEType
+from rucio.db.sqla.session import db_session
 from rucio.tests.common import auth, hdrdict, headers, rse_name_generator
 
 
@@ -1218,8 +1219,9 @@ def distances_data(vo):
 @pytest.mark.noparallel(reason='modifies distance on pre-defined RSE')
 def test_export_core(vo, distances_data):
     """ EXPORT (CORE): Test the export of data."""
-    data = export_data(vo=vo)
-    assert data['rses'] == export_rses(vo=vo)
+    with db_session(DatabaseOperationType.READ) as session:
+        data = export_data(vo=vo, session=session)
+        assert data['rses'] == export_rses(vo=vo, session=session)
     distances_cmp = {
         distances_data['rse_1_id']: {
             distances_data['rse_2_id']: distances_data['distances']
@@ -1254,11 +1256,12 @@ def test_export_rest(vo, rest_client, auth_token, distances_data):
     """ EXPORT (REST): Test the export of data."""
     headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
 
-    rses = export_rses(vo=vo)
-    sanitised = {}
-    for rse_id in rses:
-        sanitised[get_rse_name(rse_id=rse_id)] = rses[rse_id]
-    rses = sanitised
+    with db_session(DatabaseOperationType.READ) as session:
+        rses = export_rses(vo=vo, session=session)
+        sanitised = {}
+        for rse_id in rses:
+            sanitised[get_rse_name(rse_id=rse_id, session=session)] = rses[rse_id]
+        rses = sanitised
 
     response = rest_client.get('/export/', headers=headers(auth(auth_token), hdrdict(headers_dict)))
     assert response.status_code == 200
