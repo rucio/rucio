@@ -22,7 +22,6 @@ from rucio.common import exception
 from rucio.core.rse import get_rse_name
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import ReplicaState
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -30,8 +29,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@transactional_session
-def add_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", *, session: "Session") -> None:
+def add_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", session: "Session") -> None:
     """
     Bulk add volatile replicas.
 
@@ -112,8 +110,7 @@ def add_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", *, 
             session.execute(stmt, new_replicas)
 
 
-@transactional_session
-def delete_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", *, session: "Session") -> None:
+def delete_volatile_replicas(rse_id: str, replicas: "Iterable[dict[str, Any]]", session: "Session") -> None:
     """
     Bulk delete volatile replicas.
 
