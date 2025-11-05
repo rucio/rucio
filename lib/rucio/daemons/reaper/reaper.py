@@ -33,6 +33,8 @@ from dogpile.cache.api import NoValue
 from sqlalchemy.exc import DatabaseError, IntegrityError
 
 import rucio.db.sqla.util
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import RseAttr, DEFAULT_VO
@@ -91,13 +93,14 @@ def get_rses_to_process(
             logging.log(logging.WARNING, 'Ignoring argument vos, this is only applicable in a multi-VO setup.')
         vos = [DEFAULT_VO]
     else:
-        if vos:
-            invalid = set(vos) - set([v['vo'] for v in list_vos()])
-            if invalid:
-                msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
-                raise VONotFound(msg)
-        else:
-            vos = [v['vo'] for v in list_vos()]
+        with db_session(DatabaseOperationType.READ) as session:
+            if vos:
+                invalid = set(vos) - set([v['vo'] for v in list_vos(session=session)])
+                if invalid:
+                    msg = 'VO{} {} cannot be found'.format('s' if len(invalid) > 1 else '', ', '.join([repr(v) for v in invalid]))
+                    raise VONotFound(msg)
+            else:
+                vos = [v['vo'] for v in list_vos(session=session)]
         logging.log(logging.INFO, 'Reaper: This instance will work on VO%s: %s' % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
 
     cache_key = 'rses_to_process_1%s2%s3%s' % (str(rses), str(include_rses), str(exclude_rses))
