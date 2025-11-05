@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 
 def _exists(
-    scope: str,
+    scope: InternalScope,
     name: str,
     session: "Session"
 ) -> tuple[bool, Optional[DIDType]]:
