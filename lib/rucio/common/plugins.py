@@ -195,8 +195,11 @@ class PolicyPackageAlgorithms:
             # on server, list all VOs and register their algorithms
             else:
                 from rucio.core.vo import list_vos
+                from rucio.db.sqla.constants import DatabaseOperationType
+                from rucio.db.sqla.session import db_session
                 # policy package per VO
-                vos = list_vos()
+                with db_session(DatabaseOperationType.READ) as session:
+                    vos = list_vos(session=session)
                 for vo in vos:
                     cls._try_importing_policy(vo['vo'])
 
