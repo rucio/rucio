@@ -31,7 +31,6 @@ from rucio.core.rule import add_rule, list_rules, update_rule
 from rucio.core.scope import list_scopes
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -67,15 +66,13 @@ def _exists(
         return False, None
 
 
-@transactional_session
 def add_files(
     lfns: "Iterable[dict[str, Any]]",
     account: str,
     ignore_availability: bool,
+    session: "Session",
     parents_metadata: Optional[dict[str, Any]] = None,
     vo: str = DEFAULT_VO,
-    *,
-    session: "Session"
 ) -> None:
     """
     Bulk add files :
