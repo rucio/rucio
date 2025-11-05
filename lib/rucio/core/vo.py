@@ -116,8 +116,7 @@ def list_vos(session: "Session") -> list[dict[str, Any]]:
     return vos
 
 
-@transactional_session
-def update_vo(vo: str, parameters: dict[str, Any], *, session: "Session") -> None:
+def update_vo(vo: str, parameters: dict[str, Any], session: "Session") -> None:
     """
     Update VO properties (email, description).
 
