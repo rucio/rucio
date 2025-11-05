@@ -31,7 +31,7 @@ from rucio.core.rule import add_rule, list_rules, update_rule
 from rucio.core.scope import list_scopes
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -39,11 +39,9 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@read_session
 def _exists(
     scope: str,
     name: str,
-    *,
     session: "Session"
 ) -> tuple[bool, Optional[DIDType]]:
     """
