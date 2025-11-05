@@ -174,7 +174,8 @@ def __resolve_primitive_expression(expression: str) -> tuple:
     :param expression:    String of the expression
     :returns:             Tuple of RSEAttribute, primitive expression
     """
-    primitiveexpression = re.match(PRIMITIVE, expression).group()
+    match = re.match(PRIMITIVE, expression)
+    primitiveexpression = match.group() if match else ""
     if ('=' in primitiveexpression):
         keyvalue = primitiveexpression.split("=")
         return (RSEAttributeEqualCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
