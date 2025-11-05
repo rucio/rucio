@@ -24,7 +24,7 @@ from rucio.common.cache import MemcacheRegion
 from rucio.common.exception import Duplicate, InvalidObject, RucioException
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import KeyType
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -73,11 +73,9 @@ def add_naming_convention(
         raise RucioException(str(format_exc()))
 
 
-@read_session
 def get_naming_convention(
     scope: "InternalScope",
     convention_type: KeyType,
-    *,
     session: "Session"
 ) -> Optional[str]:
     """
@@ -124,8 +122,7 @@ def delete_naming_convention(
     return session.execute(stmt).rowcount
 
 
-@read_session
-def list_naming_conventions(*, session: "Session") -> list["NamingConventionDict"]:
+def list_naming_conventions(session: "Session") -> list["NamingConventionDict"]:
     """
     List all naming conventions.
 
@@ -140,12 +137,10 @@ def list_naming_conventions(*, session: "Session") -> list["NamingConventionDict
     return [cast("NamingConventionDict", row._asdict()) for row in session.execute(stmt).all()]
 
 
-@read_session
 def validate_name(
     scope: "InternalScope",
     name: str,
     did_type: str,
-    *,
     session: "Session"
 ) -> Optional[dict[str, Any]]:
     """
@@ -154,7 +149,6 @@ def validate_name(
     :param scope: the name for the scope.
     :param name: the name.
     :param did_type: the type of did.
-
     :param session: The database session in use.
 
     :returns: a dictionary with metadata.
