@@ -556,7 +556,7 @@ def __add_files_to_dataset(
     """
     # Get metadata from dataset
     try:
-        dataset_meta = validate_name(scope=parent_did.scope, name=parent_did.name, did_type='D')
+        dataset_meta = validate_name(scope=parent_did.scope, name=parent_did.name, did_type='D', session=session)
     except Exception:
         dataset_meta = None
 
