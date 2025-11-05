@@ -24,6 +24,8 @@ from jsonschema import ValidationError, validate
 from rucio.common import config, exception
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -155,7 +157,8 @@ def get_scope_name_regexps() -> list[str]:
     if len(scope_name_regexps) == 0:
         # load schemas for all VOs here and add unique scope_name_regexps to list
         from rucio.core.vo import list_vos
-        vos = list_vos()
+        with db_session(DatabaseOperationType.READ) as session:
+            vos = list_vos(session=session)
         for vo in vos:
             if vo['vo'] not in schema_modules:
                 load_schema_for_vo(vo['vo'])
