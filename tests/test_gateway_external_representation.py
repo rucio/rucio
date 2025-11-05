@@ -31,6 +31,7 @@ from rucio.daemons.abacus import rse as abacus_rse
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper import reaper
 from rucio.db.sqla import constants
+from rucio.db.sqla.session import db_session
 from rucio.gateway.account import add_account, get_account_info, list_accounts
 from rucio.gateway.did import add_did, add_did_to_followed, attach_dids_to_dids, get_users_following_did, scope_list
 from rucio.gateway.exporter import export_data
@@ -47,8 +48,9 @@ from rucio.tests.common import did_name_generator, rse_name_generator
 def vo2():
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo2 = 'new'
-        if not vo_exists(vo=vo2):
-            add_vo(description='Test', email='rucio@email.com', vo=vo2)
+        with db_session(constants.DatabaseOperationType.WRITE) as session:
+            if not vo_exists(vo=vo2, session=session):
+                add_vo(description='Test', email='rucio@email.com', vo=vo2, session=session)
         return vo2
     else:
         return None
