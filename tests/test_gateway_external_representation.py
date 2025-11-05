@@ -48,8 +48,9 @@ from rucio.tests.common import did_name_generator, rse_name_generator
 def vo2():
     if config_get_bool('common', 'multi_vo', raise_exception=False, default=False):
         vo2 = 'new'
-        if not vo_exists(vo=vo2):
-            add_vo(description='Test', email='rucio@email.com', vo=vo2)
+        with db_session(constants.DatabaseOperationType.WRITE) as session:
+            if not vo_exists(vo=vo2, session=session):
+                add_vo(description='Test', email='rucio@email.com', vo=vo2, session=session)
         return vo2
     else:
         return None
