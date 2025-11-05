@@ -131,10 +131,10 @@ def add_did(
 
         if did_type == 'DATASET':
             # naming_convention validation
-            extra_meta = naming_convention.validate_name(scope=internal_scope, name=name, did_type='D', session=session)
+            extra_meta = naming_convention.validate_name(scope=internal_scope, name=name, did_type='D', session=session) or {}
 
             # merge extra_meta with meta
-            for k in extra_meta or {}:
+            for k in extra_meta:
                 if k not in meta:
                     meta[k] = extra_meta[k]
                 elif meta[k] != extra_meta[k]:
