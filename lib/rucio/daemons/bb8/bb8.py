@@ -31,6 +31,8 @@ from rucio.core.rse import get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import get_active_locks, rebalance_rse
 from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -108,7 +110,8 @@ def run_once(
     else:
         # List the RSEs represented by rse_expression
         try:
-            rses = [rse for rse in parse_expression(rse_expression)]
+            with db_session(DatabaseOperationType.READ) as session:
+                rses = [rse for rse in parse_expression(rse_expression, session=session)]
             list_rses2 = [rse["rse"] for rse in rses]
         except InvalidRSEExpression as err:
             logger(logging.ERROR, err)
@@ -117,7 +120,8 @@ def run_once(
         list_rses1 = []
         for rse_exp in payload_cnt:
             if rse_exp:
-                list_rses1 = [rse["rse"] for rse in parse_expression(rse_exp)]
+                with db_session(DatabaseOperationType.READ) as session:
+                    list_rses1 = [rse["rse"] for rse in parse_expression(rse_exp, session=session)]
         for rse in list_rses2:
             if rse in list_rses1:
                 logger(
