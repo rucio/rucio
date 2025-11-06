@@ -305,7 +305,8 @@ def importer_example_data(vo, jdoe_account):
 @pytest.mark.noparallel(reason='resets pre-defined RSE, changes global configuration value')
 def test_importer_core(vo, importer_example_data, reset_rses):
     """ IMPORTER (CORE): test import. """
-    import_data(data=deepcopy(importer_example_data.data1), vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        import_data(data=deepcopy(importer_example_data.data1), vo=vo, session=session)
 
     # RSE that had not existed before
     check_rse(importer_example_data.new_rse, importer_example_data.data1['rses'], vo=vo)
@@ -348,8 +349,11 @@ def test_importer_core(vo, importer_example_data, reset_rses):
     with pytest.raises(RSENotFound):
         get_rse(rse_id=importer_example_data.old_rse_id_4)
 
-    import_data(data=importer_example_data.data2, vo=vo)
-    import_data(data=importer_example_data.data3, vo=vo)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        import_data(data=importer_example_data.data2, vo=vo, session=session)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        import_data(data=importer_example_data.data3, vo=vo, session=session)
 
 
 @pytest.mark.noparallel(reason='resets pre-defined RSE, changes global configuration value')
@@ -545,7 +549,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='append', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='append', vo=vo, session=session)
 
         # Check RSE that did not exist before exists now
         check_rse(new_rse, data['rses'], vo=vo)
@@ -646,7 +651,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', vo=vo, session=session)
 
         # Check RSE that did not exist before exists now
         check_rse(new_rse, data['rses'], vo=vo)
@@ -703,7 +709,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='append', vo=vo, session=session)
 
         # Check that attributes were added for less_attr_rse
         assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
@@ -760,7 +767,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='edit', vo=vo, session=session)
 
         # Check that attributes were added for less_attr_rse
         assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
@@ -817,7 +825,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', attr_sync_method='hard', vo=vo, session=session)
 
         # Check that attributes were added for less_attr_rse
         assert get_rse_attribute(less_attr_rse_id, 'attr2', use_cache=False) == 'test_new'
@@ -930,7 +939,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='append', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='append', vo=vo, session=session)
 
         # Check that new protocol was added
         protocols = get_rse_protocols(less_prot_rse_id)
@@ -1053,7 +1063,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='edit', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='edit', vo=vo, session=session)
 
         # Check that new protocol was added
         protocols = get_rse_protocols(less_prot_rse_id)
@@ -1176,7 +1187,8 @@ class TestImporterSyncModes:
             }
         }
 
-        import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='hard', vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            import_rses(rses=deepcopy(data['rses']), rse_sync_method='edit', protocol_sync_method='hard', vo=vo, session=session)
 
         # Check that new protocol was added
         protocols = get_rse_protocols(less_prot_rse_id)
