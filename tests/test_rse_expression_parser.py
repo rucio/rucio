@@ -82,7 +82,7 @@ class TestRSEExpressionParserCore:
         with pytest.raises(InvalidRSEExpression):
             rse_expression_parser.parse_expression("TEST_RSE1|", **self.filter)
 
-    def test_wrong_parantheses(self):
+    def test_wrong_parentheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: wrong parentheses """
         with pytest.raises(InvalidRSEExpression):
             rse_expression_parser.parse_expression("TEST_RSE1)", **self.filter)
@@ -123,7 +123,7 @@ class TestRSEExpressionParserCore:
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
         assert value == expected
 
-    def test_parantheses(self):
+    def test_parentheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test parentheses """
         value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s)" % self.tag1, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])

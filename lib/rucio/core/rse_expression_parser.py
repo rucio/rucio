@@ -56,16 +56,16 @@ def parse_expression(
     result = REGION.get(sha256(expression.encode()).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
-        parantheses_open_count = 0
-        parantheses_close_count = 0
+        parentheses_open_count = 0
+        parentheses_close_count = 0
         for char in expression:
             if (char == '('):
-                parantheses_open_count += 1
+                parentheses_open_count += 1
             elif (char == ')'):
-                parantheses_close_count += 1
-            if (parantheses_close_count > parantheses_open_count):
+                parentheses_close_count += 1
+            if (parentheses_close_count > parentheses_open_count):
                 raise InvalidRSEExpression('Problem with parentheses.')
-        if (parantheses_open_count != parantheses_close_count):
+        if (parentheses_open_count != parentheses_close_count):
             raise InvalidRSEExpression('Problem with parentheses.')
 
         # Check the expression pattern
@@ -198,14 +198,14 @@ def __extract_term(expression: str) -> str:
     :param expression:  The expression starting with a '('
     :return:            The extracted term string
     """
-    open_parantheses = 0
+    open_parentheses = 0
     i = 0
     for char in expression:
         if (char == '('):
-            open_parantheses += 1
+            open_parentheses += 1
         elif (char == ')'):
-            open_parantheses -= 1
-        if (open_parantheses == 0):
+            open_parentheses -= 1
+        if (open_parentheses == 0):
             return expression[1:i]
         i = i + 1
     raise SystemError('This point in the code should not be reachable')
