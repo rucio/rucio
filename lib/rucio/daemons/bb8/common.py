@@ -477,18 +477,16 @@ def list_rebalance_rule_candidates(
     return list(session.execute(stmt).all())  # type: ignore (session could be None)
 
 
-@read_session
 def select_target_rse(
     parent_rule: "Mapping[str, Any]",
     current_rse_id: str,
     rse_expression: str,
     subscription_id: str,
     rse_attributes: "Mapping[str, Any]",
+    session: Session,
     other_rses: Optional["Sequence[str]"] = None,
     exclude_expression: Optional[str] = None,
-    force_expression: Optional[str] = None,
-    *,
-    session: Optional[Session] = None,
+    force_expression: Optional[str] = None
 ) -> str:
     """
     Select a new target RSE for a rebalanced rule.
@@ -497,10 +495,10 @@ def select_target_rse(
     :param rse_expression:       RSE Expression of the source rule.
     :param subscription_id:      Subscription ID of the source rule.
     :param rse_attributes:       The attributes of the source rse.
+    :param session:              The DB Session.
     :param other_rses:           Other RSEs with existing dataset replicas.
     :param exclude_expression:   Exclude this rse_expression from being target_rses.
     :param force_expression:     Force a specific rse_expression as target.
-    :param session:              The DB Session.
     :returns:                    New RSE expression.
     """
 
