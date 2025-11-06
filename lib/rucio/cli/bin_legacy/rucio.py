@@ -36,7 +36,7 @@ from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
-from rucio.cli.utils import exception_handler, get_client, scope_exists, setup_gfal2_logger, signal_handler
+from rucio.cli.utils import exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_float
@@ -48,6 +48,7 @@ from rucio.common.exception import (
     InvalidType,
     RSENotFound,
     RucioException,
+    ScopeNotFound,
     UnsupportedOperation,
 )
 from rucio.common.extra import import_extras
@@ -458,7 +459,8 @@ def list_dids(args, client, logger, console, spinner):
         scope = args.did[0]
         name = '*'
 
-    scope_exists(client, scope)
+    if scope not in client.list_scopes():
+        raise ScopeNotFound
 
     if args.recursive and '*' in name:
         raise InputValidationError('Option recursive cannot be used with wildcards.')
@@ -520,19 +522,12 @@ def list_scopes(args, client, logger, console, spinner):
         scopes = client.list_scopes()
     if (cli_config == 'rich') and (not args.csv):
         scopes = [[scope] for scope in sorted(scopes)]
-        table = generate_table(scopes, headers=['SCOPE', 'ACCOUNT'], col_alignments=['left'])
+        table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
     else:
-        if isinstance(scopes[0], str):  # TODO: Backwards compatibility - remove in v40 issue #8125
-            for scope in scopes:
-                print(scope)
-        elif args.csv:
-            for scope in scopes:
-                print(scope['scope'])
-        else:
-            scopes = [[s['scope'], s['account']] for s in scopes]
-            print(tabulate(scopes, tablefmt=tablefmt, headers=['SCOPE', 'ACCOUNT'], disable_numparse=True))
+        for scope in scopes:
+            print(scope)
     return SUCCESS
 
 

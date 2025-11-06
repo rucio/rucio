@@ -16,11 +16,10 @@ from re import match
 from traceback import format_exc
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 
-import rucio.core.account as account_core
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException, ScopeNotFound, VONotFound
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException, VONotFound
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
@@ -95,7 +94,7 @@ def bulk_add_scopes(
                 raise
 
 
-def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> "list[dict[str, Any]]":
+def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> list["InternalScope"]:
     """
     Lists all scopes.
     :param session: The database session in use.
@@ -105,8 +104,7 @@ def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) ->
     """
     filter_ = filter_ or {}
     stmt = select(
-        models.Scope.scope,
-        models.Scope.account
+        models.Scope.scope
     ).where(
         models.Scope.status != ScopeStatus.DELETED
     )
@@ -121,14 +119,8 @@ def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) ->
                 stmt = stmt.where(
                     models.Scope.scope == filter_['scope']
                 )
-    scopes = []
-    for scope, account in session.execute(stmt):
-        scopes.append({
-            "scope": scope,
-            "account": account
-        })
 
-    return scopes
+    return list(session.execute(stmt).scalars().all())
 
 
 def get_scopes(
@@ -201,32 +193,3 @@ def is_scope_owner(
              models.Scope.account == account)
     )
     return bool(session.execute(stmt).scalar())
-
-
-def update_scope(scope: "InternalScope", account: "InternalAccount", session: "Session") -> None:
-    """ Give the scope a new owner
-
-    :param scope: the name for the existing scope.
-    :param account: the account to add the scope to.
-    :param session: The database session in use.
-    """
-
-    if not vo_exists(vo=scope.vo, session=session):
-        raise VONotFound('VO {} not found'.format(scope.vo))
-
-    # Verify both the scope and account exist
-    account_core.get_account(account, session=session)
-    if not check_scope(scope, session=session):
-        raise ScopeNotFound
-
-    stmt = update(
-        models.Scope
-    ).where(
-        models.Scope.scope == scope
-    ).values({
-        models.Scope.account: account
-    })
-    try:
-        session.execute(stmt)
-    except Exception:
-        raise RucioException(str(format_exc()))

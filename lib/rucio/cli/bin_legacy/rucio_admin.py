@@ -780,15 +780,8 @@ def list_scopes(args, client, logger, console, spinner):
         spinner.stop()
         print_output(table, console=console, no_pager=args.no_pager)
     else:
-        if isinstance(scopes[0], str):  # TODO: Backwards compatibility - remove in v40 issue #8125
-            for scope in scopes:
-                print(scope)
-        elif args.csv:
-            for scope in scopes:
-                print(scope['scope'])
-        else:
-            scopes = [[s['scope'], s['account']] for s in scopes]
-            print(tabulate(scopes, tablefmt=tablefmt, headers=['SCOPE', 'ACCOUNT'], disable_numparse=True))
+        for scope in scopes:
+            print(scope)
     return SUCCESS
 
 
