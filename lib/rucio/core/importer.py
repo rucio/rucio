@@ -191,7 +191,7 @@ def import_identities(
         identities: 'Iterable[dict[str, Any]]',
         account_name: str,
         old_identities: 'Iterable[tuple[str, str]]',
-        old_identity_account: 'Sequence[Row[tuple[str, IdentityType, InternalAccount]]]',
+        old_identity_accounts: 'Sequence[Row[tuple[str, IdentityType, InternalAccount]]]',
         account_email: str,
         session: "Session"
 ) -> None:
@@ -201,7 +201,7 @@ def import_identities(
     :param identities: identities to be imported as an iterable of dictionaries.
     :param account_name: account name the identities are associated with.
     :param old_identities: existing identities in the system as an iterable of tuples (identity, type).
-    :param old_identity_account: existing identity-account associations as an iterable of tuples (identity, type, account name).
+    :param old_identity_accounts: existing identity-account associations as an iterable of tuples (identity, type, account name).
     :param account_email: email of the account.
     :param session: database session in use.
     """
@@ -209,8 +209,8 @@ def import_identities(
         identity['type'] = IdentityType[identity['type'].upper()]
 
     missing_identities = [identity for identity in identities if (identity['identity'], identity['type']) not in old_identities]
-    missing_identity_account = [identity for identity in identities if (identity['identity'], identity['type'], account_name) not in old_identity_account]
-    to_be_removed_identity_account = [old_identity for old_identity in old_identity_account if (old_identity[0], old_identity[1], old_identity[2]) not in
+    missing_identity_account = [identity for identity in identities if (identity['identity'], identity['type'], account_name) not in old_identity_accounts]
+    to_be_removed_identity_account = [old_identity for old_identity in old_identity_accounts if (old_identity[0], old_identity[1], old_identity[2]) not in
                                       [(identity['identity'], identity['type'], account_name) for identity in identities] and old_identity[2] == account_name]
 
     # add missing identities
@@ -255,7 +255,7 @@ def import_accounts(
         models.IdentityAccountAssociation.identity_type,
         models.IdentityAccountAssociation.account
     )
-    old_identity_account = session.execute(stmt).all()
+    old_identity_accounts = session.execute(stmt).all()
 
     # add missing accounts
     for account_dict in missing_accounts:
@@ -264,7 +264,7 @@ def import_accounts(
         account_module.add_account(account=account, type_=AccountType.USER, email=email, session=session)
         identities = account_dict.get('identities', [])
         if identities:
-            import_identities(identities, account, old_identities, old_identity_account, email, session=session)
+            import_identities(identities, account, old_identities, old_identity_accounts, email, session=session)
 
     # remove left over accounts
     for account in to_be_removed_accounts:
@@ -281,7 +281,7 @@ def import_accounts(
 
         identities = account_dict.get('identities', [])
         if identities:
-            import_identities(identities, account, old_identities, old_identity_account, email, session=session)
+            import_identities(identities, account, old_identities, old_identity_accounts, email, session=session)
 
 
 def import_data(
