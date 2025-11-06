@@ -18,9 +18,10 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 from rucio.common import exception
 from rucio.common.constants import DEFAULT_VO, SuspiciousAvailability
 from rucio.common.schema import validate_schema
-from rucio.common.types import InternalAccount, InternalScope, IPDict
+from rucio.common.types import InternalAccount, InternalScope, IPDict, ReplicaDict
 from rucio.common.utils import gateway_update_return_dict, invert_dict
 from rucio.core import replica
+from rucio.core.replica_sorter import site_selector
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus, DatabaseOperationType
 from rucio.db.sqla.session import db_session
@@ -621,3 +622,20 @@ def set_tombstone(
 
         internal_scope = InternalScope(scope, vo=vo)
         replica.set_tombstone(rse_id, internal_scope, name, session=session)
+
+
+def filter_replicas_by_site(
+        replicas: dict[str, ReplicaDict],
+        site: str,
+        vo: str
+) -> list[str]:
+    """
+    Return a list of replicas located on one site.
+    :param replicas: A dict with RSEs as values and replicas as keys (URIs).
+    :param site: The name of the site
+    :param vo: The vo within which to search for RSEs
+
+    :returns: List of replica URIs located on RSEs within the site
+    """
+    with db_session(DatabaseOperationType.READ) as session:
+        return site_selector(replicas, site, vo, session)
