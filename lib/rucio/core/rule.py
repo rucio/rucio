@@ -4354,7 +4354,7 @@ def __create_rule_approval_email(
 @transactional_session
 def _create_recipients_list(
     rse_expression: str,
-    filter_: Optional[str] = None,
+    filter_: Optional[dict[str, Any]] = None,
     *,
     session: "Session"
 ) -> list[tuple[str, Union[str, InternalAccount]]]:
