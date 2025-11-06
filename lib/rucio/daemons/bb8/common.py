@@ -574,9 +574,9 @@ def select_target_rse(
     )
 
 
-@transactional_session
 def rebalance_rse(
     rse_id: str,
+    session: Session,
     max_bytes: float = 1e9,
     max_files: Optional[int] = None,
     dry_run: bool = False,
@@ -586,13 +586,12 @@ def rebalance_rse(
     mode: Optional[str] = None,
     priority: int = 3,
     source_replica_expression: str = "*\\bb8-enabled=false",
-    *,
-    session: Optional[Session] = None,
     logger: "LoggerFunction" = logging.log,
 ) -> list[tuple]:
     """
     Rebalance data from an RSE
     :param rse_id:                     RSE to rebalance data from.
+    :param session:                    The database session.
     :param max_bytes:                  Maximum amount of bytes to rebalance.
     :param max_files:                  Maximum amount of files to rebalance.
     :param dry_run:                    Only run in dry-run mode.
@@ -602,7 +601,6 @@ def rebalance_rse(
     :param mode:                       BB8 mode to execute (None=normal, 'decomission'=Decomission mode)
     :param priority:                   Priority of the new created rules.
     :param source_replica_expression:  Source replica expression of the new created rules.
-    :param session:                    The database session.
     :param logger:                     Logger.
     :returns:                          List of rebalanced datasets.
     """
