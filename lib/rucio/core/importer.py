@@ -14,7 +14,7 @@
 
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import Row, select
 
 from rucio.common.config import config_get
 from rucio.common.constants import DEFAULT_VO, IMPORTER_SYNC_METHODS_LITERAL, RseAttr
@@ -28,7 +28,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType, RSEType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -190,8 +190,8 @@ def import_distances(
 def import_identities(
         identities: 'Iterable[dict[str, Any]]',
         account_name: str,
-        old_identities: 'Iterable[tuple]',
-        old_identity_account: tuple[str, str, str],
+        old_identities: 'Iterable[tuple[str, str]]',
+        old_identity_account: 'Sequence[Row[tuple[str, IdentityType, InternalAccount]]]',
         account_email: str,
         session: "Session"
 ) -> None:
