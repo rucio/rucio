@@ -42,7 +42,8 @@ def group_space(site: str) -> int:
     site_groupdisks = []
     group_total = 0
     try:
-        site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site)
+        with db_session(DatabaseOperationType.READ) as session:
+            site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site, session=session)
     except Exception:
         return group_total
 
@@ -54,7 +55,8 @@ def group_space(site: str) -> int:
 
 
 # Calculate the current ratios
-rses = parse_expression("datapolicynucleus=false&tier=2&type=DATADISK\\bb8-enabled=false")
+with db_session(DatabaseOperationType.READ) as session:
+    rses = parse_expression("datapolicynucleus=false&tier=2&type=DATADISK\\bb8-enabled=false", session=session)
 total_primary = 0
 total_secondary = 0
 total_total = 0
