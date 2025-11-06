@@ -37,6 +37,7 @@ from rucio.core.rse_expression_parser import parse_expression
 
 if TYPE_CHECKING:
     from _typeshed import StrPath
+    from sqlalchemy.orm import Session
 
     from rucio.common.types import IPDict, ReplicaDict
 
@@ -248,7 +249,8 @@ def __get_distance_custom(rse: Union[tuple, str], client_location: 'IPDict') -> 
 def site_selector(
         replicas: dict[str, 'ReplicaDict'],
         site: str,
-        vo: str
+        vo: str,
+        session: "Session"
 ) -> list[str]:
     """
     Return a list of replicas located on one site.
@@ -258,7 +260,7 @@ def site_selector(
     """
     result = []
     try:
-        rses = parse_expression("site=%s" % site, filter_={'vo': vo})
+        rses = parse_expression(expression="site=%s" % site, session=session, filter_={'vo': vo})
     except InvalidRSEExpression:
         return result
     except Exception:
