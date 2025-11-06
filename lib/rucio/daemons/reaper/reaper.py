@@ -126,11 +126,13 @@ def get_rses_to_process(
         rses_to_process = all_rses
 
     if include_rses:
-        included_rses = parse_expression(include_rses)
+        with db_session(DatabaseOperationType.READ) as session:
+            included_rses = parse_expression(include_rses, session=session)
         rses_to_process = [rse for rse in rses_to_process if rse in included_rses]
 
     if exclude_rses:
-        excluded_rses = parse_expression(exclude_rses)
+        with db_session(DatabaseOperationType.READ) as session:
+            excluded_rses = parse_expression(exclude_rses, session=session)
         rses_to_process = [rse for rse in rses_to_process if rse not in excluded_rses]
 
     REGION.set(cache_key, rses_to_process)
