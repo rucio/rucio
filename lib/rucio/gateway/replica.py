@@ -20,8 +20,7 @@ from rucio.common.constants import DEFAULT_VO, SuspiciousAvailability
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope, IPDict, ReplicaDict
 from rucio.common.utils import gateway_update_return_dict, invert_dict
-from rucio.core import replica
-from rucio.core.replica_sorter import site_selector
+from rucio.core import replica, replica_sorter
 from rucio.core.rse import get_rse_id, get_rse_name
 from rucio.db.sqla.constants import BadFilesStatus, DatabaseOperationType
 from rucio.db.sqla.session import db_session
@@ -638,4 +637,4 @@ def filter_replicas_by_site(
     :returns: List of replica URIs located on RSEs within the site
     """
     with db_session(DatabaseOperationType.READ) as session:
-        return site_selector(replicas, site, vo, session)
+        return replica_sorter.filter_replicas_by_site(replicas, site, vo, session)

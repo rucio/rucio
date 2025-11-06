@@ -246,7 +246,7 @@ def __get_distance_custom(rse: Union[tuple, str], client_location: 'IPDict') -> 
     return cache_val
 
 
-def site_selector(
+def filter_replicas_by_site(
         replicas: dict[str, 'ReplicaDict'],
         site: str,
         vo: str,
