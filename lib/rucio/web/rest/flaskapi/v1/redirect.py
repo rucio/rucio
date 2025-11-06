@@ -20,8 +20,8 @@ from werkzeug.datastructures import Headers
 
 from rucio.common.constants import HTTPMethod
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound, SortingAlgorithmNotSupported
-from rucio.core.replica_sorter import site_selector, sort_replicas
-from rucio.gateway.replica import list_replicas
+from rucio.core.replica_sorter import sort_replicas
+from rucio.gateway.replica import filter_replicas_by_site, list_replicas
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, parse_scope_name, try_stream
 
 if TYPE_CHECKING:
@@ -328,7 +328,7 @@ class HeaderRedirector(ErrorHandlingMethodView):
                             return 'no redirection possible - no valid RSE for HTTP redirection found', 404, headers
 
                         elif site:
-                            rep = site_selector(dictreplica, site, vo)
+                            rep = filter_replicas_by_site(dictreplica, site, vo)
                             if rep:
                                 selected_url = rep[0]
                             else:
