@@ -81,7 +81,6 @@ def add_files(
     - Create all the ascendants of the dataset if they do not exist
 
     :param lfns: List of lfn (dictionary {'lfn': <lfn>, 'rse': <rse>, 'bytes': <bytes>, 'adler32': <adler32>, 'guid': <guid>, 'pfn': <pfn>}
-    :param issuer: The issuer account.
     :param ignore_availability: A boolean to ignore blocklisted sites.
     :param parents_metadata: Metadata for selected hierarchy DIDs. (dictionary {'lpn': {key : value}})
     :param vo: The VO to act on
