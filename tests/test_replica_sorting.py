@@ -29,6 +29,8 @@ from rucio.common.utils import parse_replicas_from_string
 from rucio.core import replica_sorter, rse_expression_parser
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, add_rse, add_rse_attribute, del_rse, del_rse_attribute
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.tests.common import Mime, accept, auth, headers, rse_name_generator, vohdr
 
 from .inputs import GEOIP_LITE2_CITY_TEST_DB
@@ -118,7 +120,8 @@ def protocols_setup(vo, root_account, mock_scope):
 
     # check sites
     for idx in range(len(rse_info)):
-        site_rses = rse_expression_parser.parse_expression('site=' + base_rse_info[idx]['site'])
+        with db_session(DatabaseOperationType.READ) as session:
+            site_rses = rse_expression_parser.parse_expression('site=' + base_rse_info[idx]['site'], session=session)
         assert len(site_rses) > 0
         assert rse_info[idx]['id'] in [rse['id'] for rse in site_rses]
 
