@@ -148,7 +148,7 @@ def import_rses(
 
 
 def import_distances(
-        distances,
+        distances: dict[str, dict[str, dict[str, Any]]],
         session: "Session",
         vo: str = DEFAULT_VO
 ) -> None:
