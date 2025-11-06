@@ -294,14 +294,16 @@ def run_once(
                         vo_str,
                     )
                     expr = destination_rse["rse"]
-                    rebalance_rse(
-                        rse_id=source_rse["id"],
-                        max_bytes=available_target_rebalance_volume,
-                        dry_run=dry_run,
-                        comment="Background rebalancing",
-                        force_expression=expr,
-                        logger=logger,
-                    )
+                    with db_session(DatabaseOperationType.WRITE) as session:
+                        rebalance_rse(
+                            rse_id=source_rse["id"],
+                            session=session,
+                            max_bytes=available_target_rebalance_volume,
+                            dry_run=dry_run,
+                            comment="Background rebalancing",
+                            force_expression=expr,
+                            logger=logger,
+                        )
 
                     destination_rse[
                         "receive_volume"
