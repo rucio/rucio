@@ -19,6 +19,8 @@ import pytest
 
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core import rse, rse_expression_parser
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 
 def attribute_name_generator(size=10):
@@ -79,34 +81,40 @@ class TestRSEExpressionParserCore:
 
     def test_unconnected_operator(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: unconnected operator"""
-        with pytest.raises(InvalidRSEExpression):
-            rse_expression_parser.parse_expression("TEST_RSE1|", **self.filter)
+        with db_session(DatabaseOperationType.READ) as session:
+            with pytest.raises(InvalidRSEExpression):
+                rse_expression_parser.parse_expression("TEST_RSE1|", session=session, **self.filter)
 
     def test_wrong_parentheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test invalid rse expression: wrong parentheses """
-        with pytest.raises(InvalidRSEExpression):
-            rse_expression_parser.parse_expression("TEST_RSE1)", **self.filter)
+        with db_session(DatabaseOperationType.READ) as session:
+            with pytest.raises(InvalidRSEExpression):
+                rse_expression_parser.parse_expression("TEST_RSE1)", session=session, **self.filter)
 
     def test_unknown_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test unknown RSE """
-        with pytest.raises(InvalidRSEExpression):
-            rse_expression_parser.parse_expression("TEST_RSE999", **self.filter)
+        with db_session(DatabaseOperationType.READ) as session:
+            with pytest.raises(InvalidRSEExpression):
+                rse_expression_parser.parse_expression("TEST_RSE999", session=session, **self.filter)
 
     def test_simple_rse_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE reference """
-        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.rse1, **self.filter)]
+        with db_session(DatabaseOperationType.READ) as session:
+            value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.rse1, session=session, **self.filter)]
         assert value == [self.rse1_id]
 
     def test_attribute_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE attribute reference """
-        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s=uk" % self.attribute, **self.filter)]
+        with db_session(DatabaseOperationType.READ) as session:
+            value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s=uk" % self.attribute, session=session, **self.filter)]
         assert value == [self.rse4_id]
 
     def test_all_rse(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test reference on all RSE """
         all_rses = rse.list_rses(filters=self.filter['filter_'])
         rse_expression_parser.REGION.invalidate()
-        value = rse_expression_parser.parse_expression("*", **self.filter)
+        with db_session(DatabaseOperationType.READ) as session:
+            value = rse_expression_parser.parse_expression("*", session=session, **self.filter)
         for rse_ in self.already_existing_rses:
             if rse_ in all_rses:
                 all_rses.remove(rse_)
@@ -119,57 +127,67 @@ class TestRSEExpressionParserCore:
 
     def test_tag_reference(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test simple RSE tag reference """
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.tag1, **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression(self.tag1, session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
         assert value == expected
 
     def test_parentheses(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test parentheses """
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s)" % self.tag1, **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s)" % self.tag1, session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
         assert value == expected
 
     def test_union(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test union operator """
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2), **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s|%s" % (self.tag1, self.tag2), session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id, self.rse4_id, self.rse5_id])
         assert value == expected
 
     def test_complement(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test complement operator """
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3), **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s" % (self.tag1, self.rse3), session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id])
         assert value == expected
 
     def test_intersect(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test intersect operator """
-        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute), **self.filter)]
+        with db_session(DatabaseOperationType.READ) as session:
+            value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s&%s=uk" % (self.tag2, self.attribute), session=session, **self.filter)]
         assert value == [self.rse4_id]
 
     def test_order_of_operations(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test order of operations """
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute), **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\%s|%s=fr" % (self.tag1, self.rse3, self.attribute), session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
         assert value == expected
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute), **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s\\(%s|%s=fr)" % (self.tag1, self.rse3, self.attribute), session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id])
         assert value == expected
 
     def test_complicated_expression_1(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 1"""
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1), **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(%s|%s)\\%s|%s&%s" % (self.tag1, self.tag2, self.tag2, self.tag2, self.tag1), session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse3_id])
         assert value == expected
 
     def test_complicated_expression_2(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 2"""
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute), **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(((((%s))))|%s=us)&%s|(%s=at|%s=de)" % (self.tag1, self.attribute, self.tag2, self.attribute, self.attribute), session=session, **self.filter)])
         expected = sorted([self.rse1_id, self.rse2_id, self.rse5_id])
         assert value == expected
 
     def test_complicated_expression_3(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test some complicated expression 3"""
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(*)&%s=at" % self.attribute, **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("(*)&%s=at" % self.attribute, session=session, **self.filter)])
         expected = sorted([self.rse1_id])
         assert value == expected
 
@@ -186,31 +204,35 @@ class TestRSEExpressionParserCore:
         rse.update_rse(rsewrite_id, {'availability_write': True})
         rse.update_rse(rsenowrite_id, {'availability_write': False})
 
-        value = sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, session=session, **self.filter)])
         expected = sorted([rsewrite_id, rsenowrite_id])
         assert value == expected
 
         filters = self.filter
         filters['availability_write'] = True
-        value = sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, filters)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = sorted([item['id'] for item in rse_expression_parser.parse_expression("%s=de" % attribute, session=session, filter_=filters)])
         expected = sorted([rsewrite_id])
         assert value == expected
 
         filters['availability_write'] = False
-        pytest.raises(RSEWriteBlocked, rse_expression_parser.parse_expression, "%s=de" % attribute, filters)
+        with db_session(DatabaseOperationType.READ) as session:
+            pytest.raises(RSEWriteBlocked, rse_expression_parser.parse_expression, "%s=de" % attribute, session=session, filter_=filters)
 
     def test_numeric_operators(self):
         """ RSE_EXPRESSION_PARSER (CORE) Test RSE attributes with numeric operations """
-        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<11" % self.attribute_numeric, **self.filter)]
-        assert value == [self.rse1_id]
-        pytest.raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s<9" % self.attribute_numeric, **self.filter)
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<21" % self.attribute_numeric, **self.filter)])
-        expected = sorted([self.rse1_id, self.rse2_id])
-        assert value == expected
-        value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>49" % self.attribute_numeric, **self.filter)]
-        assert value == [self.rse5_id]
-        pytest.raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s>51" % self.attribute_numeric, **self.filter)
-        value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>30" % self.attribute_numeric, **self.filter)])
+        with db_session(DatabaseOperationType.READ) as session:
+            value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<11" % self.attribute_numeric, session=session, **self.filter)]
+            assert value == [self.rse1_id]
+            pytest.raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s<9" % self.attribute_numeric, session=session, **self.filter)
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s<21" % self.attribute_numeric, session=session, **self.filter)])
+            expected = sorted([self.rse1_id, self.rse2_id])
+            assert value == expected
+            value = [t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>49" % self.attribute_numeric, session=session, **self.filter)]
+            assert value == [self.rse5_id]
+            pytest.raises(InvalidRSEExpression, rse_expression_parser.parse_expression, "%s>51" % self.attribute_numeric, session=session, **self.filter)
+            value = sorted([t_rse['id'] for t_rse in rse_expression_parser.parse_expression("%s>30" % self.attribute_numeric, session=session, **self.filter)])
         expected = sorted([self.rse4_id, self.rse5_id])
         assert value == expected
 
