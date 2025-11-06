@@ -179,9 +179,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
     vo = map_vo(client.vo)  # type: ignore
     filters = {"scope": InternalScope("*", vo=vo)}
     with db_session(DatabaseOperationType.READ) as session:
-        raw_scopes = list_scopes(session=session, filter_=filters)
-        # TODO Backwards Compat - Remove in v40, #8125
-        scopes = [s['scope'] for s in raw_scopes] if (raw_scopes and not isinstance(raw_scopes[0], str)) else raw_scopes
+        scopes = list_scopes(filter_=filters, session=session)
         if InternalScope(scope, vo=vo) not in scopes:
             logger(logging.ERROR, "Scope %s does not exist. Exiting", scope)
             return True

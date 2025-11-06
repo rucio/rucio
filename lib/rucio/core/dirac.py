@@ -99,7 +99,7 @@ def add_files(
     # The list of scopes is necessary for the extract_scope
     filter_ = {'scope': InternalScope(scope='*', vo=vo)}
     scopes = list_scopes(filter_=filter_, session=session)
-    scopes = [scope['scope'].external for scope in scopes]
+    scopes = [scope.external for scope in scopes]
     exist_lfn = []
     try:
         config_lifetime: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
