@@ -114,7 +114,7 @@ def add_files(
     for lfn in lfns:
         # First check if the file exists
         filename = lfn['lfn']
-        lfn_scope, _ = extract_scope(filename, scopes, vo=vo)
+        lfn_scope, _ = extract_scope(filename, scopes, vo=vo)  # type: ignore (https://github.com/rucio/rucio/issues/8188)
         lfn_scope = InternalScope(lfn_scope, vo=vo)
 
         exists, did_type = _exists(lfn_scope, filename)
@@ -129,7 +129,7 @@ def add_files(
 
         # The parent must be a dataset. Register it as well as the rule
         dsn_name = lpns[0]
-        dsn_scope, _ = extract_scope(dsn_name, scopes, vo=vo)
+        dsn_scope, _ = extract_scope(dsn_name, scopes, vo=vo)  # type: ignore https://github.com/rucio/rucio/issues/8188
         dsn_scope = InternalScope(dsn_scope, vo=vo)
         dsn_meta = parents_metadata.get(dsn_name, {})
 
@@ -162,7 +162,7 @@ def add_files(
                     session=session)
             exist_lfn.append(dsn_name)
             parent_name = lpns[1]
-            parent_scope, _ = extract_scope(parent_name, scopes, vo=vo)
+            parent_scope, _ = extract_scope(parent_name, scopes, vo=vo)  # type: ignore https://github.com/rucio/rucio/issues/8188
             parent_scope = InternalScope(parent_scope, vo=vo)
             attachments.append({'scope': parent_scope, 'name': parent_name, 'dids': [{'scope': dsn_scope, 'name': dsn_name}]})
             rule_extension_list.append((dsn_scope, dsn_name))
@@ -207,7 +207,7 @@ def add_files(
 
         # Now loop over the ascendants of the dataset and created them
         for lpn in lpns[1:]:
-            child_scope, _ = extract_scope(lpn, scopes, vo=vo)
+            child_scope, _ = extract_scope(lpn, scopes, vo=vo)  # type: ignore https://github.com/rucio/rucio/issues/8188
             child_scope = InternalScope(child_scope, vo=vo)
             exists, did_type = _exists(child_scope, lpn)
             child_meta = parents_metadata.get(lpn, {})
@@ -228,7 +228,7 @@ def add_files(
                         session=session)
                 exist_lfn.append(lpn)
                 parent_name = lpns[lpns.index(lpn) + 1]
-                parent_scope, _ = extract_scope(parent_name, scopes, vo=vo)
+                parent_scope, _ = extract_scope(parent_name, scopes, vo=vo)  # type: ignore https://github.com/rucio/rucio/issues/8188
                 parent_scope = InternalScope(parent_scope, vo=vo)
                 attachments.append({'scope': parent_scope, 'name': parent_name, 'dids': [{'scope': child_scope, 'name': lpn}]})
     # Finally attach everything

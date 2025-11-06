@@ -24,7 +24,7 @@ from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 
 
-def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) -> list[str]:
+def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) -> list[Optional[str]]:
     """
     Lists all scopes.
 
