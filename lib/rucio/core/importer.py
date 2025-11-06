@@ -26,7 +26,6 @@ from rucio.core import identity as identity_module
 from rucio.core import rse as rse_module
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType, RSEType
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -34,8 +33,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-@transactional_session
-def import_rses(rses: dict[str, dict[str, Any]], rse_sync_method: str = 'edit', attr_sync_method: str = 'edit', protocol_sync_method: str = 'edit', vo: str = DEFAULT_VO, *, session: "Session") -> None:
+def import_rses(rses: dict[str, dict[str, Any]], session: "Session", rse_sync_method: str = 'edit', attr_sync_method: str = 'edit', protocol_sync_method: str = 'edit', vo: str = DEFAULT_VO) -> None:
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
@@ -142,8 +140,7 @@ def import_rses(rses: dict[str, dict[str, Any]], rse_sync_method: str = 'edit', 
                     pass
 
 
-@transactional_session
-def import_distances(distances, vo: str = DEFAULT_VO, *, session: "Session") -> None:
+def import_distances(distances, session: "Session", vo: str = DEFAULT_VO) -> None:
     for src_rse_name in distances:
         src = rse_module.get_rse_id(rse=src_rse_name, vo=vo, session=session)
         for dest_rse_name in distances[src_rse_name]:
@@ -162,8 +159,7 @@ def import_distances(distances, vo: str = DEFAULT_VO, *, session: "Session") -> 
                 distance_module.add_distance(src_rse_id=src, dest_rse_id=dest, distance=new_distance, session=session)
 
 
-@transactional_session
-def import_identities(identities: 'Iterable[dict[str, Any]]', account_name: str, old_identities: 'Iterable[tuple]', old_identity_account: tuple[str, str, str], account_email: str, *, session: "Session") -> None:
+def import_identities(identities: 'Iterable[dict[str, Any]]', account_name: str, old_identities: 'Iterable[tuple]', old_identity_account: tuple[str, str, str], account_email: str, session: "Session") -> None:
     for identity in identities:
         identity['type'] = IdentityType[identity['type'].upper()]
 
@@ -191,8 +187,7 @@ def import_identities(identities: 'Iterable[dict[str, Any]]', account_name: str,
         identity_module.del_account_identity(identity=identity[0], type_=identity[1], account=identity[2], session=session)
 
 
-@transactional_session
-def import_accounts(accounts: 'Iterable[dict[str, Any]]', vo: str = DEFAULT_VO, *, session: "Session") -> None:
+def import_accounts(accounts: 'Iterable[dict[str, Any]]', session: "Session", vo: str = DEFAULT_VO) -> None:
     vo_filter = {'account': InternalAccount(account='*', vo=vo)}
     old_accounts = {account['account']: account for account in account_module.list_accounts(filter_=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
@@ -233,8 +228,7 @@ def import_accounts(accounts: 'Iterable[dict[str, Any]]', vo: str = DEFAULT_VO, 
             import_identities(identities, account, old_identities, old_identity_account, email, session=session)
 
 
-@transactional_session
-def import_data(data: dict[str, Any], vo: str = DEFAULT_VO, *, session: "Session") -> None:
+def import_data(data: dict[str, Any], session: "Session", vo: str = DEFAULT_VO) -> None:
     """
     Import data to add and update records in Rucio.
 
