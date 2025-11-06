@@ -524,9 +524,10 @@ def add_rules(
             restrict_rses = list(set([rse['id'] for rse in restrict_rses]))
 
             for rule in rules:
-                if rule.get('source_replica_expression'):
+                src_rep_exp = rule.get('source_replica_expression')
+                if src_rep_exp:
                     vo = rule['account'].vo
-                    all_source_rses.extend(parse_expression(rule.get('source_replica_expression'), filter_={'vo': vo}, session=session))
+                    all_source_rses.extend(parse_expression(src_rep_exp, filter_={'vo': vo}, session=session))
             all_source_rses = list(set([rse['id'] for rse in all_source_rses]))
 
         for elem in dids:
@@ -637,8 +638,9 @@ def add_rules(
                             if list_rse_attributes(rse_id=rse['id'], session=session).get(RseAttr.BLOCK_MANUAL_APPROVAL, False):
                                 raise ManualRuleApprovalBlocked()
 
-                    if rule.get('source_replica_expression'):
-                        source_rses = parse_expression(rule.get('source_replica_expression'), filter_={'vo': vo}, session=session)
+                    src_rep_exp = rule.get('source_replica_expression')
+                    if src_rep_exp:
+                        source_rses = parse_expression(src_rep_exp, filter_={'vo': vo}, session=session)
                     else:
                         source_rses = []
 
