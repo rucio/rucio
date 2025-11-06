@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import select
 
 from rucio.common.config import config_get
-from rucio.common.constants import DEFAULT_VO, RseAttr
+from rucio.common.constants import DEFAULT_VO, IMPORTER_SYNC_METHODS_LITERAL, RseAttr
 from rucio.common.exception import RSEOperationNotSupported
 from rucio.common.types import InternalAccount
 from rucio.core import account as account_module
@@ -36,9 +36,9 @@ if TYPE_CHECKING:
 def import_rses(
         rses: dict[str, dict[str, Any]],
         session: "Session",
-        rse_sync_method: str = 'edit',
-        attr_sync_method: str = 'edit',
-        protocol_sync_method: str = 'edit',
+        rse_sync_method: IMPORTER_SYNC_METHODS_LITERAL = 'edit',
+        attr_sync_method: IMPORTER_SYNC_METHODS_LITERAL = 'edit',
+        protocol_sync_method: IMPORTER_SYNC_METHODS_LITERAL = 'edit',
         vo: str = DEFAULT_VO
 ) -> None:
     """
@@ -298,6 +298,11 @@ def import_data(
     rse_sync_method = config_get('importer', 'rse_sync_method', False, 'edit')
     attr_sync_method = config_get('importer', 'attr_sync_method', False, 'edit')
     protocol_sync_method = config_get('importer', 'rse_sync_method', False, 'edit')
+
+    # TODO - Pending: https://github.com/rucio/rucio/issues/8190
+    rse_sync_method = cast('IMPORTER_SYNC_METHODS_LITERAL', rse_sync_method)
+    attr_sync_method = cast('IMPORTER_SYNC_METHODS_LITERAL', attr_sync_method)
+    protocol_sync_method = cast('IMPORTER_SYNC_METHODS_LITERAL', protocol_sync_method)
 
     rses = data.get('rses')
     if rses:
