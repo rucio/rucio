@@ -41,6 +41,16 @@ def import_rses(
         protocol_sync_method: str = 'edit',
         vo: str = DEFAULT_VO
 ) -> None:
+    """
+    Import RSEs to add and update records in Rucio.
+
+    :param rses: RSEs to be imported as nested dictionary.
+    :param session: database session in use.
+    :param rse_sync_method: RSE synchronization method
+    :param attr_sync_method: RSE attribute synchronization method
+    :param protocol_sync_method: RSE protocol synchronization method
+    :param vo: VO to use.
+    """
     new_rses = []
     for rse_name in rses:
         rse = rses[rse_name]
@@ -152,6 +162,13 @@ def import_distances(
         session: "Session",
         vo: str = DEFAULT_VO
 ) -> None:
+    """
+    Import distances to add and update records in Rucio.
+
+    :param distances: distances to be imported as nested dictionary.
+    :param session: database session in use.
+    :param vo: VO to use.
+    """
     for src_rse_name in distances:
         src = rse_module.get_rse_id(rse=src_rse_name, vo=vo, session=session)
         for dest_rse_name in distances[src_rse_name]:
@@ -178,6 +195,16 @@ def import_identities(
         account_email: str,
         session: "Session"
 ) -> None:
+    """
+    Import identities to add and update records in Rucio.
+
+    :param identities: identities to be imported as an iterable of dictionaries.
+    :param account_name: account name the identities are associated with.
+    :param old_identities: existing identities in the system as an iterable of tuples (identity, type).
+    :param old_identity_account: existing identity-account associations as an iterable of tuples (identity, type, account name).
+    :param account_email: email of the account.
+    :param session: database session in use.
+    """
     for identity in identities:
         identity['type'] = IdentityType[identity['type'].upper()]
 
@@ -210,6 +237,13 @@ def import_accounts(
         session: "Session",
         vo: str = DEFAULT_VO
 ) -> None:
+    """
+    Import accounts to add and update records in Rucio.
+
+    :param accounts: accounts to be imported as an iterable of dictionaries.
+    :param session: database session in use.
+    :param vo: VO to use.
+    """
     vo_filter = {'account': InternalAccount(account='*', vo=vo)}
     old_accounts = {account['account']: account for account in account_module.list_accounts(filter_=vo_filter, session=session)}
     missing_accounts = [account for account in accounts if account['account'] not in old_accounts]
