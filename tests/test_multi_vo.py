@@ -736,11 +736,12 @@ class TestMultiVoClients:
         assert len(rses_new_2) != 0
 
         # check parse_expression
-        rses_tst_3 = parse_expression(shr, filter_={'vo': vo})
-        rses_tst_4 = parse_expression(tst, filter_={'vo': vo})
-        rses_new_3 = parse_expression(shr, filter_={'vo': second_vo})
-        with pytest.raises(InvalidRSEExpression):
-            parse_expression(tst, filter_={'vo': second_vo})
+        with db_session(DatabaseOperationType.READ) as session:
+            rses_tst_3 = parse_expression(shr, session=session, filter_={'vo': vo})
+            rses_tst_4 = parse_expression(tst, session=session, filter_={'vo': vo})
+            rses_new_3 = parse_expression(shr, session=session, filter_={'vo': second_vo})
+            with pytest.raises(InvalidRSEExpression):
+                parse_expression(tst, session=session, filter_={'vo': second_vo})
         assert len(rses_tst_3) == 1
         assert shr_id_tst == rses_tst_3[0]['id']
         assert len(rses_tst_4) == 1
