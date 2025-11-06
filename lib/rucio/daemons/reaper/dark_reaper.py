@@ -261,11 +261,13 @@ def run(
         rses = all_rses
 
     if exclude_rses:
-        excluded_rses = [rse['id'] for rse in parse_expression(exclude_rses)]
+        with db_session(DatabaseOperationType.READ) as session:
+            excluded_rses = [rse['id'] for rse in parse_expression(exclude_rses, session=session)]
         rses = [rse for rse in rses if rse not in excluded_rses]
 
     if include_rses:
-        included_rses = [rse['id'] for rse in parse_expression(include_rses)]
+        with db_session(DatabaseOperationType.READ) as session:
+            included_rses = [rse['id'] for rse in parse_expression(include_rses, session=session)]
         rses = [rse for rse in rses if rse in included_rses]
 
     if not rses:
