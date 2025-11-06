@@ -254,9 +254,13 @@ def site_selector(
 ) -> list[str]:
     """
     Return a list of replicas located on one site.
-    :param replicas : A dict with RSEs as values and replicas as keys (URIs).
-    :param site : The name of the site
-    :param vo : The vo within which to search for RSEs
+
+    :param replicas: A dict with RSEs as values and replicas as keys (URIs).
+    :param site: The name of the site
+    :param vo: The vo within which to search for RSEs
+    :param session: The database session in use
+
+    :returns: List of replica URIs located on RSEs within the site
     """
     result = []
     try:
