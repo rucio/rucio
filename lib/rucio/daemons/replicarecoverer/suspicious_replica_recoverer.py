@@ -242,7 +242,8 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
         if vo not in replicas_nattempts_1:
             replicas_nattempts_1[vo] = {}
 
-        rse_list = sorted([rse for rse in parse_expression('enable_suspicious_file_recovery=true') if rse['vo'] == vo], key=lambda k: k['rse'])
+        with db_session(DatabaseOperationType.READ) as session:
+            rse_list = sorted([rse for rse in parse_expression('enable_suspicious_file_recovery=true', session=session) if rse['vo'] == vo], key=lambda k: k['rse'])
 
         logger(logging.DEBUG, "List of RSEs with enable_suspicious_file_recovery = True: (total: %i)", len(rse_list))
         for i in rse_list:
