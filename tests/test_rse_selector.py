@@ -49,8 +49,8 @@ class TestRSESelectorInit:
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         copies = 2
         rses = [rse1, rse2]
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
         with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10, session=session)
             increase(rse1_id, random_account, 10, 10, session=session)
             update_account_counter(account=random_account, rse_id=rse1_id, session=session)
         with pytest.raises(InsufficientAccountLimit):
@@ -61,9 +61,9 @@ class TestRSESelectorInit:
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         copies = 2
         rses = [rse1, rse2]
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
         with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20, session=session)
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10, session=session)
             increase(rse1_id, random_account, 10, 10, session=session)
             update_account_counter(account=random_account, rse_id=rse1_id, session=session)
         with pytest.raises(InsufficientAccountLimit):
@@ -72,10 +72,11 @@ class TestRSESelectorInit:
     def test_4(self, random_account, test_rses):
         # enough RSEs, local and global quota -> 2 RSEs
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
-        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20, session=session)
+            set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20, session=session)
         copies = 2
         rses = [rse1, rse2]
         rse_selector = RSESelector(random_account, rses, None, copies)
@@ -86,12 +87,12 @@ class TestRSESelectorInit:
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         copies = 1
         rses = [rse1, rse2]
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
         with db_session(DatabaseOperationType.WRITE) as session:
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10, session=session)
             increase(rse1_id, random_account, 10, 10, session=session)
             update_account_counter(account=random_account, rse_id=rse1_id, session=session)
-        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+            set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20, session=session)
         rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
@@ -100,13 +101,13 @@ class TestRSESelectorInit:
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
         rses = [rse1, rse2]
         copies = 1
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
         with db_session(DatabaseOperationType.WRITE) as session:
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10, session=session)
             increase(rse1_id, random_account, 10, 10, session=session)
             update_account_counter(account=random_account, rse_id=rse1_id, session=session)
-        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10)
-        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10)
+            set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10, session=session)
+            set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10, session=session)
         rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
@@ -116,10 +117,11 @@ class TestRSESelectorDynamic:
     def test_1(self, random_account, test_rses):
         # enough RSEs and global quota, but not enough local quota after change -> 1 RSE
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
-        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10)
-        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20, session=session)
+            set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=10, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=10, session=session)
         copies = 2
         rses = [rse1, rse2]
         rse_selector = RSESelector(random_account, rses, None, copies)
@@ -132,10 +134,11 @@ class TestRSESelectorDynamic:
     def test_2(self, random_account, test_rses):
         # enough RSEs and global quota, but not enough global quota after change -> 1 RSE
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10)
-        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10)
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=10, session=session)
+            set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=10, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20, session=session)
         copies = 2
         rses = [rse1, rse2]
         rse_selector = RSESelector(random_account, rses, None, copies)
@@ -148,10 +151,11 @@ class TestRSESelectorDynamic:
     def test_3(self, random_account, test_rses):
         # enough RSEs and global quota, also after after change -> 2 RSE
         rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses
-        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
-        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
-        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20, session=session)
+            set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20, session=session)
+            set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20, session=session)
         copies = 2
         rses = [rse1, rse2]
         rse_selector = RSESelector(random_account, rses, None, copies)
