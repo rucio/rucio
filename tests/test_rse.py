@@ -45,7 +45,8 @@ from rucio.core.rse import (
 from rucio.core.rule import add_rule
 from rucio.daemons.abacus.account import account_update
 from rucio.db.sqla import models, session
-from rucio.db.sqla.constants import DIDType, RSEType
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, RSEType
+from rucio.db.sqla.session import db_session
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import auth, did_name_generator, hdrdict, headers, rse_name_generator
 
@@ -1418,7 +1419,8 @@ class TestRSEClient:
         usages = rucio_client.get_rse_usage(rse=rse)
         for usage in usages:
             assert 'account_usages' not in usage
-        account_usages = {u['account']: u for u in get_rse_account_usage(rse_id)}
+        with db_session(DatabaseOperationType.READ) as session:
+            account_usages = {u['account']: u for u in get_rse_account_usage(rse_id, session=session)}
         assert account_usages[jdoe_account]['quota_bytes'] == 10000
         assert account_usages[jdoe_account]['used_files'] == nfiles
         assert account_usages[jdoe_account]['used_bytes'] == nfiles * file_sizes
