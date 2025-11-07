@@ -149,14 +149,14 @@ class TestGatewayExternalRepresentation:
         assert rse1_id not in out
 
         out = gateway_acc_lim.get_global_account_limit(account_name, vo=vo)
-        assert rse_expr in out
+        assert rse_expr in out  # type: ignore
         if vo2:
-            assert 'vo={}&({})'.format(vo, rse_expr) not in out
+            assert 'vo={}&({})'.format(vo, rse_expr) not in out  # type: ignore
 
         out = gateway_acc_lim.get_global_account_limit(account_name, rse_expr, vo=vo)
-        assert rse_expr in out
+        assert rse_expr in out  # type: ignore
         if vo2:
-            assert 'vo={}&({})'.format(vo, rse_expr) not in out
+            assert 'vo={}&({})'.format(vo, rse_expr) not in out  # type: ignore
 
         out = gateway_acc_lim.get_local_account_usage(account_name, rse1, issuer='root', vo=vo)
         out = list(out)
