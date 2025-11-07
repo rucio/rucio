@@ -95,8 +95,12 @@ def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccoun
 
 
 @read_session
-def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_expression: Optional[str] = None, *,
-                             session: "Session") -> Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]:
+def get_global_account_limit(
+    account: Optional["InternalAccount"] = None,
+    rse_expression: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]:
     """
     Returns the global account limit for the given account and RSE expression.
     If no RSE expression is provided, returns all limits for the given account.
@@ -145,7 +149,12 @@ def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_ex
 
 
 @read_session
-def get_local_account_limit(account: "InternalAccount", rse_ids: Optional[Union[str, "Iterable[str]"]] = None, *, session: "Session") -> Optional[Union[int, float, dict[str, int]]]:
+def get_local_account_limit(
+    account: "InternalAccount",
+    rse_ids: Optional[Union[str, "Iterable[str]"]] = None,
+    *,
+    session: "Session"
+) -> Optional[Union[int, float, dict[str, int]]]:
     """
     Returns the local account limit for a given RSE or list of RSEs.
 
@@ -350,7 +359,12 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
 
 
 @transactional_session
-def get_global_account_usage(account: "InternalAccount", rse_expression: Optional[str] = None, *, session: "Session") -> list["RSEGlobalAccountUsageDict"]:
+def get_global_account_usage(
+    account: "InternalAccount",
+    rse_expression: Optional[str] = None,
+    *,
+    session: "Session"
+) -> list["RSEGlobalAccountUsageDict"]:
     """
     Read the account usage and connect it with the global account limits of the account.
 
