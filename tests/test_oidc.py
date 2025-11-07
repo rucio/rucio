@@ -32,8 +32,8 @@ from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.core.identity import add_account_identity
 from rucio.core.oidc import EXPECTED_OIDC_AUDIENCE, EXPECTED_OIDC_SCOPE, _token_cache_get, _token_cache_set, get_auth_oidc, get_token_for_account_operation, get_token_oidc, oidc_identity_string
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import AccountType, IdentityType
-from rucio.db.sqla.session import get_session
+from rucio.db.sqla.constants import AccountType, DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session, get_session
 from rucio.tests.common_server import get_vo
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',
@@ -294,11 +294,13 @@ class TestAuthCoreAPIoidc:
         self.adminClientSUB = str('adminclientSUB' + rndstr()).lower()
         self.adminClientSUB_otherISS = str('adminclientSUB_otherISS' + rndstr()).lower()
         try:
-            add_account(self.account, AccountType.USER, 'rucio@email.com', session=self.db_session)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                add_account(self.account, AccountType.USER, 'rucio@email.com', session=session)
         except Duplicate:
             pass
         try:
-            add_account(self.adminaccount, AccountType.SERVICE, 'rucio@email.com', session=self.db_session)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                add_account(self.adminaccount, AccountType.SERVICE, 'rucio@email.com', session=session)
         except Duplicate:
             pass
 
