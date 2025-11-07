@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from re import match
 from traceback import format_exc
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
@@ -29,7 +29,7 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
-from rucio.db.sqla.session import read_session, stream_session, transactional_session
+from rucio.db.sqla.session import stream_session, transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
@@ -71,10 +71,8 @@ def add_account(
         raise exception.Duplicate('Account ID \'%s\' already exists!' % account)
 
 
-@read_session
 def account_exists(
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> bool:
     """ Checks to see if account exists and is active.
@@ -93,10 +91,8 @@ def account_exists(
     return session.execute(query).scalar() is not None
 
 
-@read_session
 def get_account(
-    account: "InternalAccount",
-    *,
+    account: Union["InternalAccount", str],
     session: "Session"
 ) -> models.Account:
     """ Returns an account for the given account name.
@@ -243,10 +239,8 @@ def list_accounts(
         yield {'account': account, 'type': account_type, 'email': email}
 
 
-@read_session
 def list_identities(
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> list["IdentityDict"]:
     """
@@ -283,10 +277,8 @@ def list_identities(
     return [row._asdict() for row in session.execute(query)]  # type: ignore (pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
 
 
-@read_session
 def list_account_attributes(
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> list["AccountAttributesDict"]:
     """
@@ -317,11 +309,9 @@ def list_account_attributes(
     return [row._asdict() for row in session.execute(query)]  # type: ignore (pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
 
 
-@read_session
 def has_account_attribute(
     account: "InternalAccount",
     key: str,
-    *,
     session: "Session"
 ) -> bool:
     """
@@ -410,11 +400,9 @@ def del_account_attribute(
     aid.delete(session=session)
 
 
-@read_session
 def get_usage(
     rse_id: str,
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> "UsageDict":
     """
@@ -439,10 +427,8 @@ def get_usage(
         return {'bytes': 0, 'files': 0, 'updated_at': None}
 
 
-@read_session
 def get_all_rse_usages_per_account(
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> list["AccountUsageModelDict"]:
     """
@@ -464,11 +450,9 @@ def get_all_rse_usages_per_account(
         return []
 
 
-@read_session
 def get_usage_history(
     rse_id: str,
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> list["UsageDict"]:
     """
