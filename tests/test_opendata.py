@@ -25,19 +25,7 @@ from rucio.core import opendata
 from rucio.core.did import add_did, set_status
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
-from rucio.db.sqla.session import get_session
-from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import auth, did_name_generator, headers
-
-skip_unsupported_json = pytest.mark.skipif(
-    not json_implemented(),
-    reason="JSON support is not implemented in this database"
-)
-
-skip_unsupported_dialect = pytest.mark.skipif(
-    get_session().bind.dialect.name in ['oracle', 'sqlite'],
-    reason=f"Unsupported dialect: {get_session().bind.dialect.name}"
-)
 
 
 class TestOpenDataCommon:
@@ -50,6 +38,7 @@ class TestOpenDataCommon:
         opendata_did_state_from_enum = set([state.name for state in OpenDataDIDState])
 
         assert opendata_did_state_from_common == opendata_did_state_from_enum, "'OpenDataDIDState' enum does not match expected states from 'OPENDATA_DID_STATE_LITERAL'"
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCore:
@@ -195,7 +184,6 @@ class TestOpenDataCore:
 
         assert state == OpenDataDIDState.PUBLIC
 
-    @skip_unsupported_dialect
     def test_opendata_dids_meta_update(self, mock_scope, root_account, db_write_session):
         name = did_name_generator(did_type="dataset")
 
@@ -447,6 +435,7 @@ class TestOpenDataCore:
         finally:
             config_set('opendata', 'rule_enable', 'False')
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:
     def test_opendata_dids_list_client(self, mock_scope, rucio_client):
@@ -537,6 +526,7 @@ class TestOpenDataClient:
         meta = opendata_did["meta"]
         assert meta == {}, "'meta' should be empty"
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataAPI:
     api_endpoint = '/opendata/dids'
@@ -604,6 +594,7 @@ class TestOpenDataAPI:
             headers=request_headers,
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCLI:
@@ -742,7 +733,6 @@ class TestOpenDataCLI:
             f"Expected valid states {valid_states} in error message, got {stderr}"
         )
 
-    @skip_unsupported_dialect
     def test_opendata_cli_update_delete(self, mock_scope, doi_factory):
         name = did_name_generator(did_type="dataset")
 
