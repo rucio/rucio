@@ -23,7 +23,8 @@ from rucio.core.lock import get_replica_locks
 from rucio.core.rse import add_rse_attribute
 from rucio.core.rule import add_rule, update_rule
 from rucio.daemons.judge.cleaner import rule_cleaner
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType
+from rucio.db.sqla.session import db_session
 from rucio.tests.common_server import get_vo
 
 from .test_rule import create_files, tag_generator
@@ -68,15 +69,17 @@ class TestJudgeCleaner:
         # Add quota
         cls.jdoe = InternalAccount('jdoe', **cls.vo)
         cls.root = InternalAccount('root', **cls.vo)
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_local_account_limit(cls.root, cls.rse1_id, -1)
-        set_local_account_limit(cls.root, cls.rse3_id, -1)
-        set_local_account_limit(cls.root, cls.rse4_id, -1)
-        set_local_account_limit(cls.root, cls.rse5_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(cls.jdoe, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse5_id, -1, session=session)
+
+            set_local_account_limit(cls.root, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse5_id, -1, session=session)
 
     def test_judge_expire_rule(self):
         """ JUDGE CLEANER: Test the judge when deleting expired rules"""

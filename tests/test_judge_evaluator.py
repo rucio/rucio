@@ -87,15 +87,17 @@ class TestJudgeEvaluator:
         # Add quota
         cls.jdoe = InternalAccount('jdoe', **cls.vo)
         cls.root = InternalAccount('root', **cls.vo)
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_local_account_limit(cls.root, cls.rse1_id, -1)
-        set_local_account_limit(cls.root, cls.rse3_id, -1)
-        set_local_account_limit(cls.root, cls.rse4_id, -1)
-        set_local_account_limit(cls.root, cls.rse5_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(cls.jdoe, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse5_id, -1, session=session)
+
+            set_local_account_limit(cls.root, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse5_id, -1, session=session)
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_add_files_to_dataset(self):
