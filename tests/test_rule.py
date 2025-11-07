@@ -297,9 +297,13 @@ class TestCore:
 
         # create account
         account: InternalAccount = random_account
-        add_account_attribute(
-            account, f"{accountgroup}-{rstring}", "admin"
-        )
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(
+                account,
+                f"{accountgroup}-{rstring}",
+                "admin",
+                session=session
+            )
         with db_session(DatabaseOperationType.READ) as session:
             email = get_account(account, session=session).email
 
@@ -965,7 +969,8 @@ class TestCore:
         with pytest.raises(AccessDenied):
             rucio.gateway.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
-        add_account_attribute(InternalAccount(usr, vo=vo), 'country-test', 'admin')
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(InternalAccount(usr, vo=vo), 'country-test', 'admin', session=session)
         rucio.gateway.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
     def test_reduce_rule(self, mock_scope, did_factory, jdoe_account):
