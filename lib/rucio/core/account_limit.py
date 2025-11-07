@@ -24,7 +24,6 @@ from rucio.core.account import account_exists, get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -208,8 +207,7 @@ def get_local_account_limit(
     return account_limits
 
 
-@transactional_session
-def set_local_account_limit(account: "InternalAccount", rse_id: str, bytes_: int, *, session: "Session") -> None:
+def set_local_account_limit(account: "InternalAccount", rse_id: str, bytes_: int, session: "Session") -> None:
     """
     Returns the limits for the account on the rse.
 
@@ -231,8 +229,7 @@ def set_local_account_limit(account: "InternalAccount", rse_id: str, bytes_: int
         models.AccountLimit(account=account, rse_id=rse_id, bytes=bytes_).save(session=session)
 
 
-@transactional_session
-def set_global_account_limit(account: "InternalAccount", rse_expression: str, bytes_: int, *, session: "Session") -> None:
+def set_global_account_limit(account: "InternalAccount", rse_expression: str, bytes_: int, session: "Session") -> None:
     """
     Sets the global limit for the account on a RSE expression.
 
@@ -254,8 +251,7 @@ def set_global_account_limit(account: "InternalAccount", rse_expression: str, by
         models.AccountGlobalLimit(account=account, rse_expression=rse_expression, bytes=bytes_).save(session=session)
 
 
-@transactional_session
-def delete_local_account_limit(account: "InternalAccount", rse_id: str, *, session: "Session") -> bool:
+def delete_local_account_limit(account: "InternalAccount", rse_id: str, session: "Session") -> bool:
     """
     Deletes a local account limit.
 
@@ -278,8 +274,7 @@ def delete_local_account_limit(account: "InternalAccount", rse_id: str, *, sessi
         return False
 
 
-@transactional_session
-def delete_global_account_limit(account: "InternalAccount", rse_expression: str, *, session: "Session") -> bool:
+def delete_global_account_limit(account: "InternalAccount", rse_expression: str, session: "Session") -> bool:
     """
     Deletes a global account limit.
 
@@ -302,14 +297,13 @@ def delete_global_account_limit(account: "InternalAccount", rse_expression: str,
         return False
 
 
-@transactional_session
-def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = None, *, session: "Session") -> list["RSELocalAccountUsageDict"]:
+def get_local_account_usage(account: "InternalAccount", session: "Session", rse_id: Optional[str] = None) -> list["RSELocalAccountUsageDict"]:
     """
     Read the account usage and connect it with (if available) the account limits of the account.
 
     :param account:  The account to read.
-    :param rse_id:   The rse_id to read (If none, get all).
     :param session:  Database session in use.
+    :param rse_id:   The rse_id to read (If none, get all).
 
     :returns:        List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
@@ -353,19 +347,17 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
     return result_list
 
 
-@transactional_session
 def get_global_account_usage(
     account: "InternalAccount",
-    rse_expression: Optional[str] = None,
-    *,
-    session: "Session"
+    session: "Session",
+    rse_expression: Optional[str] = None
 ) -> list["RSEGlobalAccountUsageDict"]:
     """
     Read the account usage and connect it with the global account limits of the account.
 
     :param account:          The account to read.
-    :param rse_expression:   The RSE expression (If none, get all).
     :param session:          Database session in use.
+    :param rse_expression:   The RSE expression (If none, get all).
 
     :returns:                List of dicts {'rse_expression', 'bytes', 'files' 'bytes_limit', 'bytes_remaining'}
     """
@@ -407,6 +399,6 @@ def get_global_account_usage(
             'rse_expression': rse_expression,
             'bytes': usage[0], 'files': usage[1],
             'bytes_limit': limit,
-            'bytes_remaining': limit - usage[0]
+            'bytes_remaining': limit - usage[0]  # type: ignore (https://github.com/rucio/rucio/issues/8194)
         })
     return result_list
