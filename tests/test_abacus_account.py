@@ -47,7 +47,8 @@ class TestAbacusAccount2:
         activity = "Staging"
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
         account_update(once=True)
-        account_usage = get_local_account_usage(account=root_account, rse_id=rse_id)[0]
+        with db_session(DatabaseOperationType.READ) as session:
+            account_usage = get_local_account_usage(account=root_account, rse_id=rse_id, session=session)[0]
         assert account_usage['bytes'] == nfiles * file_sizes
         assert account_usage['files'] == nfiles
 
@@ -68,8 +69,10 @@ class TestAbacusAccount2:
         cleaner.run(once=True)
         account_update(once=True)
         # set account limit because return value of get_local_account_usage differs if a limit is set or not
-        set_local_account_limit(account=root_account, rse_id=rse_id, bytes_=10)
-        account_usages = get_local_account_usage(account=root_account, rse_id=rse_id)[0]
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=root_account, rse_id=rse_id, bytes_=10, session=session)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_usages = get_local_account_usage(account=root_account, rse_id=rse_id, session=session)[0]
         assert account_usages['bytes'] == 0
         assert account_usages['files'] == 0
 
