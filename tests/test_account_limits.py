@@ -159,7 +159,8 @@ class TestAccountClient:
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limits """
         rse1, rse1_id = rse_factory.make_mock_rse()
         limit = 10
-        account_limit.set_global_account_limit(account, rse1, limit)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.set_global_account_limit(account, rse1, limit, session=session)
         results = rucio_client.get_global_account_limits(account=account.external)
         assert len(results) == 1
         assert results[rse1]['resolved_rses'] == [rse1]
@@ -170,7 +171,8 @@ class TestAccountClient:
         """ ACCOUNT_LIMIT (CLIENTS): Get global account limit. """
         rse1, _ = rse_factory.make_mock_rse()
         limit = 10
-        account_limit.set_global_account_limit(account, rse1, limit)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.set_global_account_limit(account, rse1, limit, session=session)
         result = rucio_client.get_global_account_limit(account=account.external, rse_expression=rse1)
         assert result[rse1] == limit
 
@@ -178,27 +180,31 @@ class TestAccountClient:
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limits """
         rse1, rse1_id = rse_factory.make_mock_rse()
         rse2, rse2_id = rse_factory.make_mock_rse()
-        account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=12345)
-        account_limit.set_local_account_limit(account=account, rse_id=rse2_id, bytes_=12345)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=12345, session=session)
+            account_limit.set_local_account_limit(account=account, rse_id=rse2_id, bytes_=12345, session=session)
 
         limits = rucio_client.get_local_account_limits(account=account.external)
 
         assert (rse1, 12345) in limits.items()
         assert (rse2, 12345) in limits.items()
 
-        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
-        account_limit.delete_local_account_limit(account=account, rse_id=rse2_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=session)
+            account_limit.delete_local_account_limit(account=account, rse_id=rse2_id, session=session)
 
     def test_get_local_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNT_LIMIT (CLIENTS): Get local account limit """
         rse1, rse1_id = rse_factory.make_mock_rse()
-        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
-        account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=333)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=session)
+            account_limit.set_local_account_limit(account=account, rse_id=rse1_id, bytes_=333, session=session)
 
         limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
 
         assert limit == {rse1: 333}
-        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=session)
 
     def test_set_local_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNTLIMIT (CLIENTS): Set local account limit """
@@ -208,7 +214,8 @@ class TestAccountClient:
         limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
 
         assert limit[rse1] == 987
-        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=session)
 
     def test_delete_local_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNTLIMIT (CLIENTS): Delete local account limit """
@@ -221,7 +228,8 @@ class TestAccountClient:
         rucio_client.delete_local_account_limit(account=account.external, rse=rse1)
         limit = rucio_client.get_local_account_limit(account=account.external, rse=rse1)
         assert limit[rse1] is None
-        account_limit.delete_local_account_limit(account=account, rse_id=rse1_id)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            account_limit.delete_local_account_limit(account=account, rse_id=rse1_id, session=session)
 
     def test_delete_global_account_limit(self, account, rucio_client, rse_factory):
         """ ACCOUNTLIMIT (CLIENTS): Delete global account limit """
