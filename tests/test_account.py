@@ -72,11 +72,13 @@ class TestAccountCoreGateway:
         """ ACCOUNT (CORE): Test adding attribute to account """
         key = account_name_generator()
         value = True
-        add_account_attribute(root_account, key, value)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(root_account, key, value, session=session)
         with db_session(DatabaseOperationType.READ) as session:
             assert {'key': key, 'value': True} in list_account_attributes(root_account, session=session)
         with pytest.raises(Duplicate):
-            add_account_attribute(root_account, key, value)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                add_account_attribute(root_account, key, value, session=session)
 
 
 def test_create_user_success(rest_client, auth_token):
@@ -234,7 +236,8 @@ def test_delete_identity_of_account(vo, rest_client):
 
     # normal deletion
     internal_account = InternalAccount(account, vo=vo)
-    add_account_attribute(internal_account, 'admin', True)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account_attribute(internal_account, 'admin', True, session=session)
     response = rest_client.delete(endpoint, headers=headers(auth(token)), json=data)
     assert response.status_code == 200
 
@@ -257,13 +260,15 @@ def test_delete_identity_of_account_admin(vo, rest_client):
     # normal deletion
     data = {'authtype': 'USERPASS', 'identity': identity}
     internal_account = InternalAccount(account, vo=vo)
-    add_account_attribute(internal_account, 'account_admin', True)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account_attribute(internal_account, 'account_admin', True, session=session)
     response = rest_client.delete('/accounts/' + account + '/identities', headers=headers(auth(token)), json=data)
     assert response.status_code == 200
 
     # unauthorized deletion
     other_account = account_name_generator()
-    del_account_attribute(internal_account, 'account_admin')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        del_account_attribute(internal_account, 'account_admin', session=session)
     data = {'authtype': 'USERPASS', 'identity': identity}
     response = rest_client.delete('/accounts/' + other_account + '/identities', headers=headers(auth(token)), json=data)
     assert response.status_code == 401
