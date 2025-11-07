@@ -332,7 +332,7 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
         counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     result_list = []
 
-    for rse_id in set(limits).union(counters):
+    for rse_id in set(limits).union(counters):  # type: ignore (https://github.com/rucio/rucio/issues/8194)
         counter = counters.get(rse_id)
         if counter:
             counter_files = counter.files
@@ -341,14 +341,14 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
             counter_files = 0
             counter_bytes = 0
 
-        if counter_bytes > 0 or counter_files > 0 or rse_id in limits.keys():
+        if counter_bytes > 0 or counter_files > 0 or rse_id in limits.keys():  # type: ignore (https://github.com/rucio/rucio/issues/8194)
             result_list.append({
                 'rse_id': rse_id,
                 'rse': get_rse_name(rse_id=rse_id, session=session),
                 'bytes': counter_bytes,
                 'files': counter_files,
-                'bytes_limit': limits.get(rse_id, 0),
-                'bytes_remaining': limits.get(rse_id, 0) - counter_bytes,
+                'bytes_limit': limits.get(rse_id, 0),  # type: ignore (https://github.com/rucio/rucio/issues/8194)
+                'bytes_remaining': limits.get(rse_id, 0) - counter_bytes,  # type: ignore (https://github.com/rucio/rucio/issues/8194)
             })
     return result_list
 
@@ -374,7 +374,7 @@ def get_global_account_usage(
         # All RSE Expressions
         limits = get_global_account_limit(account=account, session=session)
         all_rse_usages = {usage['rse_id']: (usage['bytes'], usage['files']) for usage in get_all_rse_usages_per_account(account=account, session=session)}
-        for rse_expression, limit in limits.items():
+        for rse_expression, limit in limits.items():  # type: ignore
             usage = 0
             files = 0
             for rse in limit['resolved_rse_ids']:
