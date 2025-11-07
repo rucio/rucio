@@ -211,14 +211,16 @@ class TestJudgeEvaluator:
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        account_counter_before = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before = get_usage(self.rse1_id, self.jdoe, session=session)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
         re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
-        account_counter_after = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after = get_usage(self.rse1_id, self.jdoe, session=session)
         assert account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes']
         assert account_counter_before['files'] + 3 == account_counter_after['files']
 
@@ -239,7 +241,8 @@ class TestJudgeEvaluator:
 
         account_update(once=True)
 
-        account_counter_before = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before = get_usage(self.rse1_id, self.jdoe, session=session)
 
         detach_dids(scope, dataset, [files[0]])
 
@@ -247,7 +250,8 @@ class TestJudgeEvaluator:
         re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
-        account_counter_after = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after = get_usage(self.rse1_id, self.jdoe, session=session)
         assert account_counter_before['bytes'] - 100 == account_counter_after['bytes']
         assert account_counter_before['files'] - 1 == account_counter_after['files']
 
