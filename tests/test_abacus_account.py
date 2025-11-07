@@ -54,7 +54,8 @@ class TestAbacusAccount2:
         # Update and check the account history with the core method
         with db_session(DatabaseOperationType.WRITE) as session:
             update_account_counter_history(account=root_account, rse_id=rse_id, session=session)
-        usage_history = get_usage_history(rse_id=rse_id, account=root_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            usage_history = get_usage_history(rse_id=rse_id, account=root_account, session=session)
         assert usage_history[-1]['bytes'] == nfiles * file_sizes
         assert usage_history[-1]['files'] == nfiles
 
