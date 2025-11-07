@@ -112,7 +112,8 @@ def importer_example_data(vo, jdoe_account):
             db_identities = list_identities()
             for account in self.data1['accounts']:
                 # check existence
-                db_account = get_account(account=account['account'])
+                with db_session(DatabaseOperationType.READ) as session:
+                    db_account = get_account(account=account['account'], session=session)
                 assert db_account['account'] == account['account']
 
                 # check properties
@@ -132,7 +133,8 @@ def importer_example_data(vo, jdoe_account):
                         assert account['account'] in accounts_for_identity
 
             # check removal of account
-            account = get_account(self.old_account_1)
+            with db_session(DatabaseOperationType.READ) as session:
+                account = get_account(self.old_account_1, session=session)  # type: ignore (old_account_1 should not be None here)
             assert account['status'] == AccountStatus.DELETED
 
             # check removal of identities
