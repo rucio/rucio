@@ -127,7 +127,7 @@ jobs:
         id: images
         shell: bash
         run: |
-          docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam pull
+          docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile default --profile iam pull
       - name: Set Runtime Image in Docker Compose
         shell: bash
         run: |
@@ -136,7 +136,7 @@ jobs:
               $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml
       - name: Start containers
         run: |
-          export DEV_PROFILES=storage,externalmetadata,iam
+          export DEV_PROFILES=default,iam
           docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam up -d
       - name: Initialize tests
         shell: bash
