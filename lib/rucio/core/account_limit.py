@@ -24,7 +24,7 @@ from rucio.core.account import account_exists, get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
-from rucio.db.sqla.session import read_session, transactional_session
+from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -34,8 +34,7 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalAccount, RSEAccountUsageDict, RSEGlobalAccountUsageDict, RSELocalAccountUsageDict, RSEResolvedGlobalAccountLimitDict
 
 
-@read_session
-def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccountUsageDict"]:
+def get_rse_account_usage(rse_id: str, session: "Session") -> list["RSEAccountUsageDict"]:
     """
     Returns the account limit and usage for all accounts on a RSE.
 
@@ -94,12 +93,10 @@ def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccoun
     return result
 
 
-@read_session
 def get_global_account_limit(
+    session: "Session",
     account: Optional["InternalAccount"] = None,
-    rse_expression: Optional[str] = None,
-    *,
-    session: "Session"
+    rse_expression: Optional[str] = None
 ) -> Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]:
     """
     Returns the global account limit for the given account and RSE expression.
@@ -148,12 +145,10 @@ def get_global_account_limit(
     return resolved_global_account_limits
 
 
-@read_session
 def get_local_account_limit(
     account: "InternalAccount",
-    rse_ids: Optional[Union[str, "Iterable[str]"]] = None,
-    *,
-    session: "Session"
+    session: "Session",
+    rse_ids: Optional[Union[str, "Iterable[str]"]] = None
 ) -> Optional[Union[int, float, dict[str, int]]]:
     """
     Returns the local account limit for a given RSE or list of RSEs.
