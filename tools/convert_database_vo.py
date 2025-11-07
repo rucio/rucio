@@ -330,7 +330,7 @@ def convert_to_svo(old_vo, delete_vos=False, commit_changes=False, skip_history=
                 success = remove_vo(vo['vo'], commit_changes=commit_changes, skip_history=skip_history)
                 success_all = success_all and success
         if commit_changes and success_all:
-            del_account(InternalAccount('super_root', vo=DEFAULT_VO), session=s)
+            del_account(InternalAccount('super_root', vo=DEFAULT_VO), session=s)  # type: ignore
     s.close()
 
 
