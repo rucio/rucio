@@ -175,11 +175,13 @@ def importer_example_data(vo, jdoe_account):
 
     # Account 1 that already exists
     example_data.old_account_1 = InternalAccount(rse_name_generator(), vo=vo)
-    add_account(example_data.old_account_1, AccountType.USER, email='test')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account(example_data.old_account_1, AccountType.USER, email='test', session=session)  # type: ignore (old_account_1 is not None)
 
     # Account 2 that already exists
     example_data.old_account_2 = InternalAccount(rse_name_generator(), vo=vo)
-    add_account(example_data.old_account_2, AccountType.USER, email='test')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account(example_data.old_account_2, AccountType.USER, email='test', session=session)  # type: ignore (old_account_1 is not None)
 
     # Identity that should be removed
     example_data.identity_to_be_removed = rse_name_generator()
