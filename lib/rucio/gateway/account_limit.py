@@ -272,7 +272,10 @@ def get_local_account_usage(
         if not account_exists(account=internal_account, session=session):
             raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)]
+        return [
+            gateway_update_return_dict(d, session=session)  # type: ignore (RSELocalAccountUsageDict is a valid dict)
+            for d in account_limit_core.get_local_account_usage(account=internal_account, rse_id=rse_id, session=session)
+        ]
 
 
 def get_global_account_usage(
@@ -304,4 +307,11 @@ def get_global_account_usage(
         if not account_exists(account=internal_account, session=session):
             raise rucio.common.exception.AccountNotFound('Account %s does not exist' % (internal_account))
 
-        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_global_account_usage(account=internal_account, rse_expression=rse_expression, session=session)]
+        return [
+            gateway_update_return_dict(d, session=session)  # type: ignore (RSEGlobalAccountUsageDict is a valid dict)
+            for d in account_limit_core.get_global_account_usage(
+                account=internal_account,
+                rse_expression=rse_expression,
+                session=session
+                )
+            ]
