@@ -22,7 +22,8 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, del_account_attribute, list_account_attributes, list_identities
 from rucio.core.identity import add_account_identity, add_identity
-from rucio.db.sqla.constants import AccountStatus, IdentityType
+from rucio.db.sqla.constants import AccountStatus, DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session
 from rucio.gateway.account import account_exists, add_account, del_account, get_account_info, update_account
 from rucio.tests.common import account_name_generator, auth, headers, loginhdr, skip_non_belleii, vohdr
 
@@ -63,7 +64,8 @@ class TestAccountCoreGateway:
         identity = uuid()
         identity_type = IdentityType.USERPASS
         add_account_identity(identity, identity_type, root_account, email, password='secret')
-        identities = list_identities(root_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            identities = list_identities(root_account, session=session)
         assert {'type': identity_type, 'identity': identity, 'email': email} in identities
 
     def test_add_account_attribute(self, root_account):
@@ -71,7 +73,8 @@ class TestAccountCoreGateway:
         key = account_name_generator()
         value = True
         add_account_attribute(root_account, key, value)
-        assert {'key': key, 'value': True} in list_account_attributes(root_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            assert {'key': key, 'value': True} in list_account_attributes(root_account, session=session)
         with pytest.raises(Duplicate):
             add_account_attribute(root_account, key, value)
 
