@@ -1404,7 +1404,8 @@ class TestRSEClient:
         file_sizes = 100
         nfiles = 3
         rse, rse_id = rse_factory.make_posix_rse()
-        set_local_account_limit(account=jdoe_account, rse_id=rse_id, bytes_=10000)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=jdoe_account, rse_id=rse_id, bytes_=10000, session=session)
         activity = "Staging"
         files = create_files(nfiles, mock_scope, rse_id, bytes_=file_sizes)
         dataset = did_name_generator('dataset')
