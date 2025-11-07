@@ -29,7 +29,6 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
-from rucio.db.sqla.session import stream_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
@@ -168,16 +167,14 @@ def update_account(
         query_result.update({key: value})
 
 
-@stream_session
 def list_accounts(
+    session: "Session",
     filter_: Optional["Mapping[str, Any]"] = None,
-    *,
-    session: "Session"
 ) -> "Iterator[AccountDict]":
     """ Returns a list of all account names.
 
-    :param filter_: Dictionary of attributes by which the input data should be filtered
     :param session: the database session in use.
+    :param filter_: Dictionary of attributes by which the input data should be filtered
 
     returns: a list of all account names.
     """
