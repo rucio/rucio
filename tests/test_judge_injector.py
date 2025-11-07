@@ -74,15 +74,17 @@ class TestJudgeEvaluator:
         # Add quota
         cls.jdoe = InternalAccount('jdoe', **cls.vo)
         cls.root = InternalAccount('root', **cls.vo)
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(cls.jdoe, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse5_id, -1, session=session)
+
+            set_local_account_limit(cls.jdoe, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse5_id, -1, session=session)
 
     def test_judge_inject_rule(self):
         """ JUDGE INJECTOR: Test the judge when injecting a rule"""
