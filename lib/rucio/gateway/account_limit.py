@@ -40,7 +40,10 @@ def get_rse_account_usage(
     with db_session(DatabaseOperationType.READ) as session:
         rse_id = get_rse_id(rse=rse, vo=vo, session=session)
 
-        return [gateway_update_return_dict(d, session=session) for d in account_limit_core.get_rse_account_usage(rse_id=rse_id, session=session)]
+        return [
+            gateway_update_return_dict(d, session=session)  # type: ignore (RSEAccountUsageDict is a valid dict)
+            for d in account_limit_core.get_rse_account_usage(rse_id=rse_id, session=session)
+        ]
 
 
 def get_local_account_limit(
@@ -68,11 +71,11 @@ def get_local_account_limit(
         if rse:
             # Single RSE lookup
             rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-            return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}
+            return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}  # type: ignore (https://github.com/rucio/rucio/issues/8194)
         else:
             # Fetch all RSE limits
             limits = account_limit_core.get_local_account_limit(account=internal_account, rse_ids=None, session=session)
-            return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}
+            return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}  # type: ignore (https://github.com/rucio/rucio/issues/8194)
 
 
 def get_global_account_limit(
