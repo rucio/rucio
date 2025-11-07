@@ -942,7 +942,8 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
         assert replica_core.get_replica(rse_id=rse_id, **did)['state'] == ReplicaState.AVAILABLE
 
     # now test a second rule, different account
-    set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1, session=session)
     rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
@@ -1003,7 +1004,8 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert lock_core.get_replica_locks_for_rule_id(rule_id=rule1_id)[0]['state'] == LockState.STUCK
 
     # now test a second rule, different account
-    set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, dst_rse_id, bytes_=-1, session=session)
     rule2_id = rule_core.add_rule(dids=[did], account=jdoe_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, source_replica_expression=dst_rse)[0]
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
