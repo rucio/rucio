@@ -26,11 +26,11 @@ from rucio.common.config import config_get_float
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import InvalidRSEExpression
 from rucio.common.logging import setup_logging
-from rucio.core.heartbeat import list_payload_counts, sanity_check
+from rucio.core.heartbeat import list_payload_counts
 from rucio.core.rse import get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import get_active_locks, rebalance_rse
-from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.daemons.common import HeartbeatHandler, run_daemon, run_daemon_startup_checks
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -334,7 +334,7 @@ def run(
 
     setup_logging(process_name=DAEMON_NAME)
     hostname = socket.gethostname()
-    sanity_check(executable=DAEMON_NAME, hostname=hostname)
+    run_daemon_startup_checks(executable=DAEMON_NAME, hostname=hostname)
     logging.info("BB8 starting %s threads", str(threads))
     thread_list = [
         threading.Thread(
