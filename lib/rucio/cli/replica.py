@@ -58,7 +58,7 @@ def replica_list():
 @click.option("--human", default=True, hidden=True)
 @click.pass_context
 def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
-    """List the replicas of a DID and its PFNs. By default all states, even unavailable, are shown"""
+    """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
     args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
     list_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
