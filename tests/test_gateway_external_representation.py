@@ -383,8 +383,7 @@ class TestGatewayExternalRepresentation:
         abacus_rse.run(once=True)
 
         out = gateway_rse.get_rse_usage(rse_mock, per_account=True, issuer='root', vo=vo)
-        print(out)
-        assert rse_mock_id in [o['rse_id'] for o in out]
+        assert rse_mock_id in [o['rse_id'] for o in out], f"RSE ID not found in usage output: {out}"
         for usage in out:
             if usage['rse_id'] == rse_mock_id:
                 assert usage['rse'] == rse_mock
