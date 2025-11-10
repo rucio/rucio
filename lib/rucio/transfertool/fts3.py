@@ -521,6 +521,9 @@ def bulk_group_transfers(
                 job_params.get('max_time_in_queue')
             ]
 
+            # Separate transfers based on the authentication method.
+            group_key_segments += [_use_tokens(transfer)]
+
             # Separate transfers based on the group policy.
             if policy == 'rule':
                 group_key_segments += [transfer.rws.rule_id]
