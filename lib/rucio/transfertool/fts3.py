@@ -302,7 +302,7 @@ def _pick_fts_checksum(
     return checksum_to_use
 
 
-def _use_tokens(transfer_hop: "DirectTransfer"):
+def _use_tokens(transfer_hop: "DirectTransfer") -> bool:
     """Whether a transfer can be performed with tokens.
 
     In order to be so, all the involved RSEs must have it explicitly enabled
