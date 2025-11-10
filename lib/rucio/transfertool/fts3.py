@@ -501,10 +501,11 @@ def bulk_group_transfers(
         )
         logger(logging.DEBUG, 'bulk_group_transfers: Job parameters are: %s' % (job_params))
         if job_params['job_metadata'].get('multi_sources') or job_params['job_metadata'].get('multihop'):
-            # for multi-hop and multi-source transfers, no bulk submission.
+            # For multi-hop and multi-source transfers, no bulk submission.
             fts_jobs.append({'transfers': transfer_path[0:group_bulk], 'job_params': job_params})
         else:
-            # it's a single-hop, single-source, transfer. Hence, a candidate for bulk submission.
+            # It's a single-hop, single-source, transfer. Hence, a candidate
+            # for bulk submission.
             transfer = transfer_path[0]
             group_key_segments = []
 
@@ -539,7 +540,7 @@ def bulk_group_transfers(
                 grouped_transfers[group_key] = {'transfers': [], 'job_params': job_params}
             grouped_transfers[group_key]['transfers'].append(transfer)
 
-    # split transfer groups to have at most group_bulk elements in each one
+    # Split transfer groups to have at most group_bulk elements in each one.
     for group in grouped_transfers.values():
         job_params = group['job_params']
         logger(logging.DEBUG, 'bulk_group_transfers: grouped_transfers.values(): Job parameters are: %s' % (job_params))
