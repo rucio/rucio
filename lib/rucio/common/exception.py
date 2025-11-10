@@ -124,6 +124,15 @@ class ConfigurationError(RucioException):
         self.error_code = 8
 
 
+class StartupCheckError(RucioException):
+    """Raised when a startup diagnostic check fails."""
+
+    def __init__(self, *args):
+        super(StartupCheckError, self).__init__(*args)
+        self._message = "Startup diagnostic failed."
+        self.error_code = 124
+
+
 class CounterNotFound(RucioException):
     """
     RucioException
