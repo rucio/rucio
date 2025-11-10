@@ -29,9 +29,8 @@ from rucio.common.config import config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import RucioException
 from rucio.common.logging import setup_logging
-from rucio.core.heartbeat import sanity_check
 from rucio.core.rse import get_rse_attribute, get_rses_with_attribute
-from rucio.daemons.common import run_daemon
+from rucio.daemons.common import run_daemon, run_daemon_startup_checks
 from rucio.db.sqla.constants import RuleState
 
 from .config import DecommissioningStatus, InvalidStatusName, attr_to_config, set_status
@@ -144,7 +143,7 @@ def run(
     """
     setup_logging(process_name=DAEMON_NAME)
     hostname = socket.gethostname()
-    sanity_check(executable='rucio-rsedecommissioner', hostname=hostname)
+    run_daemon_startup_checks(executable='rucio-rsedecommissioner', hostname=hostname)
 
     logging.info('RSE-Decommissioner starting 1 thread')
 
