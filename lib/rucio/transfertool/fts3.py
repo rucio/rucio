@@ -506,39 +506,35 @@ def bulk_group_transfers(
         else:
             # it's a single-hop, single-source, transfer. Hence, a candidate for bulk submission.
             transfer = transfer_path[0]
+            group_key_segments = []
 
-            # we cannot group transfers together if their job_key differ
-            job_key = '%s,%s,%s,%s,%s,%s,%s,%s' % (
+            # Separate transfers based on the FTS job parameters.
+            group_key_segments += [
                 job_params['verify_checksum'],
-                job_params.get('spacetoken', ''),
+                job_params.get('spacetoken'),
                 job_params['copy_pin_lifetime'],
                 job_params['bring_online'],
-                job_params['job_metadata'],
+                str(job_params['job_metadata']),
                 job_params['overwrite'],
                 job_params['priority'],
-                job_params.get('max_time_in_queue', '')
-            )
+                job_params.get('max_time_in_queue')
+            ]
 
-            # Additionally, we don't want to group transfers together if their policy_key differ
+            # Separate transfers based on the group policy.
             if policy == 'rule':
-                policy_key = '%s' % transfer.rws.rule_id
+                group_key_segments += [transfer.rws.rule_id]
             elif policy == 'dest':
-                policy_key = '%s' % transfer.dst.rse.name
+                group_key_segments += [transfer.dst.rse.name]
             elif policy == 'src_dest':
-                policy_key = '%s,%s' % (transfer.src.rse.name, transfer.dst.rse.name)
+                group_key_segments += [transfer.src.rse.name, transfer.dst.rse.name]
             elif policy == 'rule_src_dest':
-                policy_key = '%s,%s,%s' % (transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name)
+                group_key_segments += [transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name]
             elif policy == 'activity_dest':
-                policy_key = '%s %s' % (transfer.rws.activity, transfer.dst.rse.name)
-                policy_key = "_".join(policy_key.split(' '))
+                group_key_segments += [transfer.rws.activity, transfer.dst.rse.name]
             elif policy == 'activity_src_dest':
-                policy_key = '%s %s %s' % (transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name)
-                policy_key = "_".join(policy_key.split(' '))
-                # maybe here we need to hash the key if it's too long
-            else:
-                policy_key = ''
+                group_key_segments += [transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name]
 
-            group_key = "%s_%s" % (job_key, policy_key)
+            group_key = tuple(group_key_segments)
             if group_key not in grouped_transfers:
                 grouped_transfers[group_key] = {'transfers': [], 'job_params': job_params}
             grouped_transfers[group_key]['transfers'].append(transfer)
