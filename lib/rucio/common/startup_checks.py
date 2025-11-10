@@ -433,7 +433,13 @@ def _collect_configured_names(
 
     values: set[str] = set()
     for config_option in options_to_query:
-        values.update(config_get_list('startup_checks', config_option, raise_exception=False, default=[]))
+        values.update(config_get_list(
+            'startup_checks',
+            config_option,
+            raise_exception=False,
+            default=[],
+            check_config_table=False,
+        ))
     return {value.strip() for value in values if value and value.strip()}
 
 
@@ -571,8 +577,20 @@ def run_startup_checks(
     checks_snapshot, all_registered_names = _select_checks(normalized_tags)
     checks = list(checks_snapshot)
 
-    strict_mode = config_get_bool('startup_checks', 'strict', raise_exception=False, default=False)
-    soft_timeout_ms = config_get_int('startup_checks', 'timeout_ms', raise_exception=False, default=0)
+    strict_mode = config_get_bool(
+        'startup_checks',
+        'strict',
+        raise_exception=False,
+        default=False,
+        check_config_table=False,
+    )
+    soft_timeout_ms = config_get_int(
+        'startup_checks',
+        'timeout_ms',
+        raise_exception=False,
+        default=0,
+        check_config_table=False,
+    )
     if soft_timeout_ms <= 0:
         soft_timeout_ms = None
 
