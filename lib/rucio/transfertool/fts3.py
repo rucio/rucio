@@ -520,22 +520,23 @@ def bulk_group_transfers(
             )
 
             # Additionally, we don't want to group transfers together if their policy_key differ
-            policy_key = ''
             if policy == 'rule':
                 policy_key = '%s' % transfer.rws.rule_id
-            if policy == 'dest':
+            elif policy == 'dest':
                 policy_key = '%s' % transfer.dst.rse.name
-            if policy == 'src_dest':
+            elif policy == 'src_dest':
                 policy_key = '%s,%s' % (transfer.src.rse.name, transfer.dst.rse.name)
-            if policy == 'rule_src_dest':
+            elif policy == 'rule_src_dest':
                 policy_key = '%s,%s,%s' % (transfer.rws.rule_id, transfer.src.rse.name, transfer.dst.rse.name)
-            if policy == 'activity_dest':
+            elif policy == 'activity_dest':
                 policy_key = '%s %s' % (transfer.rws.activity, transfer.dst.rse.name)
                 policy_key = "_".join(policy_key.split(' '))
-            if policy == 'activity_src_dest':
+            elif policy == 'activity_src_dest':
                 policy_key = '%s %s %s' % (transfer.rws.activity, transfer.src.rse.name, transfer.dst.rse.name)
                 policy_key = "_".join(policy_key.split(' '))
                 # maybe here we need to hash the key if it's too long
+            else:
+                policy_key = ''
 
             group_key = "%s_%s" % (job_key, policy_key)
             if group_key not in grouped_transfers:
