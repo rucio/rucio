@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from flask import Flask
 
+from rucio.common import startup_checks_catalog
 from rucio.common.config import config_get_list
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
@@ -90,6 +91,7 @@ application = Flask(__name__)
 application.wsgi_app = CORSMiddleware(application.wsgi_app)
 apply_endpoints(application, endpoints)
 setup_logging(application)
+startup_checks_catalog.register_all()
 run_startup_checks(tags={'rest'}, logger=application.logger)
 
 

@@ -22,6 +22,7 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
+from rucio.common import startup_checks_catalog
 from rucio.common.logging import formatted_logger
 from rucio.common.startup_checks import run_startup_checks
 from rucio.common.utils import PriorityQueue
@@ -78,6 +79,7 @@ def run_daemon_startup_checks(executable: str, hostname: Optional[str] = None) -
 
     with _daemon_startup_checks_lock:
         if not _daemon_startup_checks_ran:
+            startup_checks_catalog.register_all()
             run_startup_checks(tags={'daemon'}, logger=logger)
             _daemon_startup_checks_ran = True
 
