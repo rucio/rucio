@@ -872,13 +872,14 @@ def test_scope():
     # See issue https://github.com/rucio/rucio/issues/7316
 
 
-def test_subscription(rucio_client, mock_scope):
+def test_subscription(rucio_client, mock_scope, random_account, did_factory):
     subscription_name = generate_uuid()
 
     filter_ = json.dumps({})
-    rules = json.dumps([{"copies": 1, "rse_expression": "JDOE_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"}])
+    rules = [{"copies": 1, "rse_expression": "JDOE_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"}]
+    rules_json = json.dumps(rules)
 
-    cmd = f"rucio subscription add {subscription_name} --account root --filter '{filter_}' --rule '{rules}'"
+    cmd = f"rucio subscription add {subscription_name} --account root --filter '{filter_}' --rule '{rules_json}'"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -889,6 +890,8 @@ def test_subscription(rucio_client, mock_scope):
     assert "ERROR" not in err
     assert subscription_name in out
 
+    # Ensure there is at least one DID for the test
+    did_factory.make_dataset()
     did = [i for i in rucio_client.list_dids(mock_scope.external, filters=[{}], did_type="all")][0]
     cmd = f"rucio subscription touch {mock_scope.external}:{did}"
     exitcode, _, err = execute(cmd)
@@ -899,6 +902,31 @@ def test_subscription(rucio_client, mock_scope):
     rule = json.dumps({})
     cmd = f"rucio subscription update {subscription_name} --filter '{filter_}' --rule {rule}"
     exitcode, _, err = execute(cmd)
-    print(err)
     assert exitcode == 0
     assert "ERROR" not in err
+
+    cmd = 'rucio subscription list'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert subscription_name in out
+
+    # Add a subscription for a specific account, ensure only that subscription is listed
+    subscription_name_2 = generate_uuid()
+    rucio_client.add_subscription(
+            name=subscription_name_2,
+            account=random_account.external,
+            filter_={},
+            replication_rules=rules,
+            comments="test",
+            lifetime=10,
+            retroactive=False,
+            dry_run=False,
+    )
+
+    cmd = f'rucio subscription list --account {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert subscription_name_2 in out
+    assert subscription_name not in out
