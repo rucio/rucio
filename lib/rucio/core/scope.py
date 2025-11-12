@@ -16,10 +16,11 @@ from re import match
 from traceback import format_exc
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
 
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException, VONotFound
+import rucio.core.account as account_core
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException, ScopeNotFound, VONotFound
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, ScopeStatus
@@ -193,3 +194,32 @@ def is_scope_owner(
              models.Scope.account == account)
     )
     return bool(session.execute(stmt).scalar())
+
+
+def update_scope(scope: "InternalScope", account: "InternalAccount", *, session: "Session") -> None:
+    """ Give the scope a new owner
+
+    :param scope: the name for the existing scope.
+    :param account: the account to add the scope to.
+    :param session: The database session in use.
+    """
+
+    if not vo_exists(vo=scope.vo, session=session):
+        raise VONotFound('VO {} not found'.format(scope.vo))
+
+    # Verify both the scope and account exist
+    account_core.get_account(account, session=session)
+    if not check_scope(scope, session):
+        raise ScopeNotFound
+
+    stmt = update(
+        models.Scope
+    ).where(
+        models.Scope.scope == scope
+    ).values({
+        models.Scope.account: account
+    })
+    try:
+        session.execute(stmt)
+    except Exception:
+        raise RucioException(str(format_exc()))
