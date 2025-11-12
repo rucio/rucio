@@ -16,6 +16,7 @@ import functools
 import itertools
 import json
 import logging
+import os
 import re
 import sys
 from traceback import format_tb
@@ -392,18 +393,79 @@ def rucio_log_formatter(process_name: Optional[str] = None) -> RucioFormatter:
 
 def setup_logging(application: Optional["Flask"] = None, process_name: Optional[str] = None) -> None:
     """
-    Configures the logging by setting the output stream to stdout and
-    configures log level and log format.
+    Configure the logging sink/format/level.
+
+    By default, log records are emitted to stdout. Stream selection can be configured via:
+      - [common] logstream = stdout|stderr
+      - env RUCIO_LOG_STREAM = stdout|stderr (overrides config)
+
+    Additionally, *process-wide* sys.stdout writes (e.g. print(), direct sys.stdout.write())
+    can be redirected to sys.stderr via:
+      - [common] redirect_stdout_to_stderr = true|false
+      - env RUCIO_LOGGING_REDIRECT_STDOUT_TO_STDERR = 1/0/true/false/on/off (overrides config)
+
+    Important notes:
+      - redirect_stdout_to_stderr affects only sys.stdout writes, not the logging handler output.
+        To unify *all* output to a single stream, set both:
+          logstream = stderr
+          redirect_stdout_to_stderr = true
+      - Redirecting sys.stdout is a process-wide side effect and is intended for debugging /
+        containerized deployments. Avoid enabling it in production unless you explicitly want it.
     """
     config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
-    stdouthandler = logging.StreamHandler(stream=sys.stdout)
-    stdouthandler.setFormatter(rucio_log_formatter(process_name=process_name))
-    stdouthandler.setLevel(config_loglevel)
-    logging.basicConfig(level=config_loglevel, handlers=[stdouthandler])
+    # Decide the handler stream (default stdout)
+    # Keep references to the streams before we potentially swap them around so the
+    # handler can keep writing to the original destination.
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    stream_choice = (os.getenv('RUCIO_LOG_STREAM', '').strip().lower()
+                     or str(config_get('common', 'logstream', raise_exception=False, default='stdout')).strip().lower())
+    stream = original_stderr if stream_choice in ('stderr', 'err', '2') else original_stdout
+
+    # Optionally route all process-level stdout to stderr
+    redirect_cfg = config_get_bool('common', 'redirect_stdout_to_stderr', raise_exception=False, default=False)
+    redirect_env_raw = os.getenv('RUCIO_LOGGING_REDIRECT_STDOUT_TO_STDERR', '')
+    if redirect_env_raw.strip():
+        redirect = redirect_env_raw.strip().lower() in ('1', 'true', 'yes', 'on')
+    else:
+        redirect = redirect_cfg
+
+    if redirect and sys.stdout is not sys.stderr:
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
+        sys.stdout = sys.stderr
+
+    handler = logging.StreamHandler(stream=stream)
+    handler.setFormatter(rucio_log_formatter(process_name=process_name))
+    handler.setLevel(config_loglevel)
+    logging.basicConfig(level=config_loglevel, handlers=[handler])
 
     if application:
-        application.logger.addHandler(stdouthandler)
+        app_logger = application.logger
+
+        # Clear only Flask's default handler(s) to avoid duplicate emissions.
+        # Do not wipe custom user-provided handlers.
+        removed_flask_default = False
+        try:
+            from flask.logging import default_handler  # type: ignore
+        except Exception:
+            default_handler = None
+
+        if default_handler and default_handler in app_logger.handlers:
+            app_logger.removeHandler(default_handler)
+            removed_flask_default = True
+
+        # In Flask defaults, propagate=False and the default handler is the only handler.
+        # After removing it, attach our handler so app logs continue to be emitted.
+        if removed_flask_default and not app_logger.handlers:
+            app_logger.addHandler(handler)
+            app_logger.propagate = False
+
+        app_logger.setLevel(config_loglevel)
 
 
 def formatted_logger(innerfunc: 'Callable', formatstr: str = "%s") -> 'Callable':
