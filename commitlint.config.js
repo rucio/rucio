@@ -37,7 +37,6 @@ const rucioTypes = [
   // Functional changes
   'feat',     // New feature
   'fix',      // Bug fix
-  'perf',     // Code change that improves performance
 
   // Non-functional changes
   'docs',     // Documentation only changes
