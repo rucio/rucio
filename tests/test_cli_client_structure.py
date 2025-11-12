@@ -857,7 +857,7 @@ def test_rule(rucio_client, mock_scope):
     assert len(out.split("\n")) == 3  # Creates two rules with independent IDs and one extra line at the end
 
 
-def test_scope():
+def test_scope(random_account):
     new_scope = scope_name_generator()
     cmd = f"rucio scope add {new_scope} --account root"
     exitcode, _, err = execute(cmd)
@@ -870,6 +870,16 @@ def test_scope():
     assert "ERROR" not in err
     # assert new_scope in out
     # See issue https://github.com/rucio/rucio/issues/7316
+
+    # Missing account arguments
+    cmd = f"rucio scope update {new_scope}"
+    exitcode, _, _ = execute(cmd)
+    assert exitcode == 2
+
+    cmd = f"rucio scope update {new_scope} --account {random_account.external}"
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
 
 
 def test_subscription(rucio_client, mock_scope):

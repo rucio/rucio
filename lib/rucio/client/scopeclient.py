@@ -114,3 +114,38 @@ class ScopeClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
+
+    def update_scope(self, account: str, scope: str) -> bool:
+        """
+        Change the ownership of a scope
+
+        Parameters
+        ----------
+        account :
+            New account to assign as scope owner
+        scope :
+            Scope to change ownership of
+
+        Returns
+        -------
+        bool
+            True if the operation was successful
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
+        ScopeNotFound
+            If scope doesn't exist.
+        CannotAuthenticate, AccessDenied
+            Insufficient permission/incorrect credentials to change ownership.
+        """
+
+        path = '/'.join(['scopes', account, scope])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, method=HTTPMethod.PUT)
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
