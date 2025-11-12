@@ -43,7 +43,6 @@ const rucioTypes = [
   'style',    // Changes that do not affect the meaning of the code
   'refactor', // Code change that neither fixes a bug nor adds a feature
   'test',     // Adding missing tests or correcting existing tests
-  'build',    // Changes that affect the build system or external dependencies
   'ci',       // Changes to CI configuration files and scripts
   'chore',    // Other changes that don't modify src or test files
 
