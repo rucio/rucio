@@ -100,7 +100,10 @@ def merge_configs(source_file_paths, dest_file_path, use_env=True, logger=loggin
                         file_config = fix_multi_word_sections(yaml.safe_load(f))
                         parser.read_dict(file_config)
                 elif path.is_file() or file_path.suffix in ['.ini', '.cfg', '.config']:
-                    local_parser = configparser.ConfigParser()
+                    # The merge utility only needs literal values.  Disabling interpolation keeps
+                    # strings that contain percent-based tokens (for example logging formatters)
+                    # from being parsed as references to other options.
+                    local_parser = configparser.ConfigParser(interpolation=None)
                     local_parser.read(file_path)
                     file_config = {section: {option: value for option, value in section_proxy.items()} for section, section_proxy in local_parser.items()}
                 else:
