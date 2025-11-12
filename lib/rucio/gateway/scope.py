@@ -92,3 +92,29 @@ def get_scopes(
 
     with db_session(DatabaseOperationType.READ) as session:
         return [scope.external for scope in core_scope.get_scopes(internal_account, session=session)]
+
+
+def update_scope(
+        scope: str,
+        account: str,
+        issuer: str,
+        vo: str = DEFAULT_VO
+) -> None:
+    """
+    Change ownership of a scope
+
+    :param account: New owner for the scope
+    :param scope: Scope to change
+    param issuer: User making the request
+    :param vo: VO to act on
+
+    """
+    kwargs = {'scope': scope, 'account': account}
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='update_scope', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise AccessDenied('Account %s can not add scope. %s' % (issuer, auth_result.message))
+
+        internal_account = InternalAccount(account, vo=vo)
+        internal_scope = InternalScope(scope, vo=vo)
+        core_scope.update_scope(internal_scope, internal_account, session=session)

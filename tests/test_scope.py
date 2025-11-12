@@ -16,10 +16,11 @@ from json import loads
 
 import pytest
 
+from lib.rucio.common.types import InternalAccount
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject, ScopeNotFound
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid as uuid
-from rucio.core.scope import add_scope, get_scopes, is_scope_owner
+from rucio.core.scope import add_scope, get_scopes, is_scope_owner, update_scope
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 from rucio.tests.common import account_name_generator, auth, hdrdict, headers, scope_name_generator
@@ -44,6 +45,32 @@ class TestScopeCoreApi:
             add_scope(scope=scope, account=jdoe_account, session=session)
             answer = is_scope_owner(scope=scope, account=jdoe_account, session=session)
         assert answer is True
+
+    def test_change_scope_owner(self, vo, jdoe_account, random_account):
+        """ SCOPE (CORE): Give the scope a different owner"""
+        scope = InternalScope(scope_name_generator(), vo=vo)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_scope(scope=scope, account=jdoe_account, session=session)
+            anwser = is_scope_owner(scope, account=jdoe_account, session=session)
+        assert anwser
+
+        with db_session(DatabaseOperationType.WRITE) as session:
+            update_scope(scope=scope, account=random_account, session=session)
+            is_owner = is_scope_owner(scope, account=random_account, session=session)
+            is_not_owner = not is_scope_owner(scope, account=jdoe_account, session=session)
+
+        assert is_owner
+        assert is_not_owner
+
+        account = InternalAccount(account_name_generator())
+        with pytest.raises(AccountNotFound):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                update_scope(scope=scope, account=account, session=session)
+
+        scope = InternalScope(scope_name_generator())
+        with pytest.raises(ScopeNotFound):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                update_scope(scope=scope, account=random_account, session=session)
 
 
 def test_scope_success(rest_client, auth_token):
@@ -99,6 +126,28 @@ def test_list_scope(rest_client, auth_token):
     svr_list = loads(response.get_data(as_text=True))
     for scope in scopes:
         assert scope in svr_list
+
+
+def test_scope_change_ownership(rest_client, auth_token, random_account_factory):
+    """ SCOPE (REST): Send a post to change the existing scope's owner """
+    og_owner = random_account_factory()
+    scope = scope_name_generator()
+    response = rest_client.post(f'/accounts/{og_owner}/scopes/{scope}', headers=headers(auth(auth_token)))
+    assert response.status_code == 201
+
+    new_owner = random_account_factory()
+    response = rest_client.put(f"/scopes/{new_owner}/{scope}", headers=headers(auth(auth_token)))
+    assert response.status_code == 201
+
+    # Try to do it without sufficient permissions
+    new_owner = random_account_factory()
+    response = rest_client.put(f"/scopes/{new_owner}/{scope}", headers=headers(auth("fake_token")))
+    assert response.status_code == 401
+
+    # Try it with an account that doesn't exist
+    new_owner = account_name_generator()
+    response = rest_client.put(f"/scopes/{new_owner}/{scope}", headers=headers(auth(auth_token)))
+    assert response.status_code == 404
 
 
 def test_list_scope_account_not_found(rest_client, auth_token):
