@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 from rucio.common.constants import HTTPMethod
-from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound
-from rucio.gateway.scope import add_scope, get_scopes, list_scopes
+from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, VONotFound
+from rucio.gateway.scope import add_scope, get_scopes, list_scopes, update_scope
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
@@ -93,6 +93,46 @@ class Scope(ErrorHandlingMethodView):
 
         return 'Created', 201
 
+    def put(self, account: str, scope: str) -> Response:
+        """
+        ---
+        summary: Change ownership of a scope.
+        description: "Changes ownership of a scope.."
+        tags:
+          - Scopes
+        parameters:
+        - name: account
+          in: path
+          description: "The new owner account"
+          schema:
+            type: string
+          style: simple
+        - name: scope
+          in: path
+          description: "The name of the scope."
+          schema:
+            type: string
+          style: simple
+        responses:
+          201:
+            description: "OK"
+            content:
+              application/json:
+                schema:
+                  type: string
+                  enum: ['']
+          401:
+            description: "Invalid Auth Token"
+          403:
+            description: "Scope or already exists"
+        """
+        try:
+            update_scope(scope=scope, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except (ScopeNotFound, AccountNotFound, VONotFound) as error:
+            return generate_http_error_flask(404, error)
+
+        return Response("", 201)
+
 
 class AccountScopeList(ErrorHandlingMethodView):
 
@@ -145,7 +185,7 @@ def blueprint() -> AuthenticatedBlueprint:
 
     scope_view = Scope.as_view('scope')
     bp.add_url_rule('/', view_func=scope_view, methods=[HTTPMethod.GET.value])
-    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=[HTTPMethod.POST.value])
+    bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=[HTTPMethod.POST.value, HTTPMethod.PUT.value])
     account_scope_list_view = AccountScopeList.as_view('account_scope_list')
     bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=[HTTPMethod.GET.value])
 
