@@ -16,6 +16,7 @@ import functools
 import itertools
 import json
 import logging
+import os
 import re
 import sys
 from traceback import format_tb
@@ -392,18 +393,50 @@ def rucio_log_formatter(process_name: Optional[str] = None) -> RucioFormatter:
 
 def setup_logging(application: Optional["Flask"] = None, process_name: Optional[str] = None) -> None:
     """
-    Configures the logging by setting the output stream to stdout and
-    configures log level and log format.
+    Configure logging sink/format/level.
+    Defaults to stdout (backwards compatible).
+
+    Defaults are read from the Rucio config file:
+      - [common] logstream = stdout|stderr
+      - [common] redirect_stdout_to_stderr = true|false
+
+    Environment variables (if present) override config values:
+      - env RUCIO_LOG_STREAM=stdout|stderr
+      - env RUCIO_LOGGING_REDIRECT_STDOUT_TO_STDERR=1/true/on
     """
     config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
-    stdouthandler = logging.StreamHandler(stream=sys.stdout)
-    stdouthandler.setFormatter(rucio_log_formatter(process_name=process_name))
-    stdouthandler.setLevel(config_loglevel)
-    logging.basicConfig(level=config_loglevel, handlers=[stdouthandler])
+    # Decide the handler stream (default stdout)
+    # Keep references to the streams before we potentially swap them around so the
+    # handler can keep writing to the original destination.
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    stream_choice = (os.getenv('RUCIO_LOG_STREAM', '').strip().lower()
+                     or str(config_get('common', 'logstream', raise_exception=False, default='stdout')).strip().lower())
+    stream = original_stderr if stream_choice in ('stderr', 'err', '2') else original_stdout
+
+    # Optionally route all process-level stdout to stderr (helps with mod_wsgi/CI)
+    redirect_env = os.getenv('RUCIO_LOGGING_REDIRECT_STDOUT_TO_STDERR', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    redirect_cfg = config_get_bool('common', 'redirect_stdout_to_stderr', raise_exception=False, default=False)
+    if (redirect_env or redirect_cfg) and sys.stdout is not sys.stderr:
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
+        sys.stdout = sys.stderr
+
+    handler = logging.StreamHandler(stream=stream)
+    handler.setFormatter(rucio_log_formatter(process_name=process_name))
+    handler.setLevel(config_loglevel)
+    logging.basicConfig(level=config_loglevel, handlers=[handler])
 
     if application:
-        application.logger.addHandler(stdouthandler)
+        # avoid duplicate emissions from app logger + root
+        application.logger.handlers[:] = []
+        application.logger.addHandler(handler)
+        application.logger.setLevel(config_loglevel)
+        application.logger.propagate = False
 
 
 def formatted_logger(innerfunc: 'Callable', formatstr: str = "%s") -> 'Callable':
