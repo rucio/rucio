@@ -16,9 +16,9 @@ from json import loads
 
 import pytest
 
-from lib.rucio.common.types import InternalAccount
 from rucio.common.exception import AccountNotFound, Duplicate, InvalidObject, ScopeNotFound
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import generate_uuid
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.scope import add_scope, get_scopes, is_scope_owner, update_scope
 from rucio.db.sqla.constants import DatabaseOperationType
@@ -223,3 +223,24 @@ class TestScopeClient:
         rucio_client.add_account(account, 'USER', 'rucio@email.com')
         with pytest.raises(ScopeNotFound):
             rucio_client.list_scopes_for_account(account)
+
+    def test_update_scope(self, rucio_client, scope_factory, random_account_factory, vo):
+        scope, _ = scope_factory(vos=[vo])
+
+        new_account = random_account_factory()
+        with db_session(DatabaseOperationType.READ) as session:
+            is_not_owner = not is_scope_owner(InternalScope(scope), new_account, session)
+        assert is_not_owner
+
+        not_real_scope = generate_uuid()
+        with pytest.raises(ScopeNotFound):
+            rucio_client.update_scope(account=new_account.external, scope=not_real_scope)
+
+        not_real_account = generate_uuid()
+        with pytest.raises(AccountNotFound):
+            rucio_client.update_scope(account=not_real_account, scope=scope)
+
+        rucio_client.update_scope(account=new_account.external, scope=scope)
+        with db_session(DatabaseOperationType.READ) as session:
+            is_owner = is_scope_owner(InternalScope(scope), new_account, session)
+        assert is_owner
