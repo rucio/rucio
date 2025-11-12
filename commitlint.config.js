@@ -74,6 +74,31 @@ const gitTrailerPlugin = {
       }
       
       return [true];
+    },
+    'breaking-change-consistency': (parsed, _when, _value) => {
+      const { header = '', body, footer } = parsed;
+      const fullMessage = [body, footer].filter(Boolean).join('\n');
+
+      const headerHasBang = /^[^:]+!\s*:/.test(header);
+      const breakingChangeMatch = fullMessage.match(/^BREAKING CHANGE\s*:\s*(.*)$/im);
+      const hasBreakingFooter = Boolean(breakingChangeMatch);
+
+      if (headerHasBang && !hasBreakingFooter) {
+        return [false, 'Commit messages that use "!" must include a BREAKING CHANGE footer.'];
+      }
+
+      if (!headerHasBang && hasBreakingFooter) {
+        return [false, 'BREAKING CHANGE footer requires "!" in the commit header (e.g., "chore(api)!: ...").'];
+      }
+
+      if (hasBreakingFooter) {
+        const description = breakingChangeMatch[1].trim();
+        if (!description) {
+          return [false, 'BREAKING CHANGE footer must include a description (e.g., "BREAKING CHANGE: describe the impact").'];
+        }
+      }
+
+      return [true];
     }
   }
 };
@@ -93,7 +118,8 @@ module.exports = {
     'body-max-line-length': [0], // Disable body line length limit
     'body-leading-blank': [1, 'always'], // Body should start with a blank line
     'footer-leading-blank': [1, 'always'], // Footer should start with a blank line
-    'issue-trailer-required': [2, 'always'] // Issue-related Git trailer is required  
+    'issue-trailer-required': [2, 'always'], // Issue-related Git trailer is required
+    'breaking-change-consistency': [2, 'always'] // Ensure BREAKING CHANGE footer usage is consistent
   },
   helpUrl: 'https://rucio.cern.ch/documentation/contributing/'
 };
