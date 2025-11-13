@@ -136,16 +136,16 @@ class TemporaryRSEFactory:
                 'impl': protocol_impl,
                 'domains': {
                     'wan': {
-                        'read': 1,
-                        'write': 1,
-                        'delete': 1,
-                        'third_party_copy_read': 1,
-                        'third_party_copy_write': 1,
+                        'read': 0,
+                        'write': 0,
+                        'delete': 0,
+                        'third_party_copy_read': 0,
+                        'third_party_copy_write': 0,
                     },
                     'lan': {
-                        'read': 1,
-                        'write': 1,
-                        'delete': 1,
+                        'read': 0,
+                        'write': 0,
+                        'delete': 0,
                     }
                 }
             }
@@ -189,16 +189,16 @@ class TemporaryRSEFactory:
                 'impl': protocol_impl,
                 'domains': {
                     'wan': {
-                        'read': 1,
-                        'write': 1,
-                        'delete': 1,
-                        'third_party_copy_read': 1,
-                        'third_party_copy_write': 1,
+                        'read': 0,
+                        'write': 0,
+                        'delete': 0,
+                        'third_party_copy_read': 0,
+                        'third_party_copy_write': 0,
                     },
                     'lan': {
-                        'read': 1,
-                        'write': 1,
-                        'delete': 1,
+                        'read': 0,
+                        'write': 0,
+                        'delete': 0,
                     }
                 }
             }
