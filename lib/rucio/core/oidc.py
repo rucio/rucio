@@ -66,7 +66,7 @@ METRICS = MetricManager(module=__name__)
 REQUEST2ENDPOINT['CCAccessTokenRequest'] = 'token_endpoint'
 
 # private/protected file containing Rucio Client secrets known to the Identity Provider as well
-IDPSECRETS = config_get("", Config.oidc.ipsecrets, False)
+IDPSECRETS = Config.oidc.ipsecrets(raise_exception=False)
 ADMIN_ISSUER_ID = config_get('oidc', 'admin_issuer', False)
 EXPECTED_OIDC_AUDIENCE = config_get('oidc', 'expected_audience', False, 'rucio')
 EXPECTED_OIDC_SCOPE = config_get('oidc', 'expected_scope', False, 'openid profile')

@@ -140,7 +140,7 @@ def __dump_url(
     # get the date of the most recent dump
     today = date.today()
     dump_dates = []
-    dump_production_day = config_get("", Config.bb8.dump_production_day, raise_exception=False)
+    dump_production_day = Config.bb8.dump_production_day(raise_exception=False)
     if dump_production_day is None:
         for idx in range(0, 7):
             dump_date = today - timedelta(idx)
@@ -166,7 +166,7 @@ def __dump_url(
         dump_dates = [dump_date.strftime("%d-%m-%Y")]
 
     # getting structure (template) of url location of a dump
-    url_template_str = config_get("", Config.bb8.url_template_str, raise_exception=False)
+    url_template_str = Config.bb8.url_template_str(raise_exception=False)
     url_template = Template(url_template_str)
 
     # populating url template

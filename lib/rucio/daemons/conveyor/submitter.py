@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_float, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.logging import setup_logging
@@ -219,10 +219,10 @@ def submitter(
     if not request_type:
         request_type = [RequestType.TRANSFER]
 
-    partition_hash_var = config_get('', Config.conveyor.partition_hash_var, raise_exception=False)
+    partition_hash_var = Config.conveyor.partition_hash_var(raise_exception=False)
 
-    config_schemes = set(config_get_list('', Config.conveyor.scheme, raise_exception=False))
-    config_failover_schemes = set(config_get_list('', Config.conveyor.failover, raise_exception=False))
+    config_schemes = set(Config.conveyor.scheme(raise_exception=False))
+    config_failover_schemes = set(Config.conveyor.failover(raise_exception=False))
 
     schemes_supported_by_tt = set()
     for transfertool in transfertools:
@@ -244,9 +244,9 @@ def submitter(
     if config_failover_schemes.difference(failover_schemes):
         logging.info(f'Following failover schemes filtered out: {list(config_failover_schemes.difference(failover_schemes))}')
 
-    timeout = config_get_float('', Config.conveyor.submit_timeout, raise_exception=False)
+    timeout = Config.conveyor.submit_timeout(raise_exception=False)
 
-    bring_online = config_get_int('', Config.conveyor.bring_online, raise_exception=False)
+    bring_online = Config.conveyor.bring_online(raise_exception=False)
 
     max_time_in_queue = _get_max_time_in_queue_conf()
     logging.debug("Maximum time in queue for different activities: %s", max_time_in_queue)

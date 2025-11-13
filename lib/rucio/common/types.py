@@ -484,12 +484,3 @@ def is_str_list(in_list: list[Any]) -> TypeGuard[list[str]]:
     """Typeguard to narrow type of list to list[str].
     For speed, assumes that all elements are str if the first element is str."""
     return isinstance(next(iter(in_list), None), str)
-
-
-class ConfigOption:
-    def __init__(self, section: str, name: str, docstring: str, type_: 'Callable[[str], Any]' = str, default: 'Any' = None) -> None:
-        self.section = section
-        self.name = name
-        self.type_ = type_
-        self.default = default
-        self.docstring = docstring

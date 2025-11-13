@@ -30,7 +30,7 @@ from requests.exceptions import RequestException
 from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool, config_get_float
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.config_settings import Config
 from rucio.common.exception import DatabaseException, TransferToolTimeout, TransferToolWrongAnswer
 from rucio.common.logging import setup_logging
@@ -171,7 +171,7 @@ def poller(
     """
     Main loop to check the status of a transfer primitive with a transfertool.
     """
-    timeout = config_get_float("", Config.conveyor.timeout, raise_exception=False)
+    timeout = Config.conveyor.timeout(raise_exception=False)
     multi_vo = config_get_bool('common', 'multi_vo', False, None)
     oidc_support = config_get_bool('conveyor', 'poller_oidc_support', default=False, raise_exception=False)
 

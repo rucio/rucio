@@ -79,10 +79,10 @@ def main(args):
     if not config.config_has_section('auditor'):
         raise NoSectionError("Auditor section required in config to run the auditor daemon.")
 
-    cache_dir = config.config_get("", Config.auditor.cache)
-    results_dir = config.config_get("", Config.auditor.results)
+    cache_dir = Config.auditor.cache()
+    results_dir = Config.auditor.results()
 
-    log_dir = config.config_get("", Config.auditor.logdir)
+    log_dir = Config.auditor.logdir()
     logfilename = os.path.join(log_dir, 'auditor.log')
     logger.info('Starting auditor')
 

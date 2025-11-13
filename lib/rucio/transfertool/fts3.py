@@ -177,7 +177,7 @@ def _pick_cert_file(vo: Optional[str]) -> Optional[str]:
             if vo_cert.exists():
                 cert = str(vo_cert)
     if not cert:
-        usercert = config_get("", Config.conveyor.usercert, False)
+        usercert = Config.conveyor.usercert(raise_exception=False)
         if usercert:
             cert = usercert
     return cert

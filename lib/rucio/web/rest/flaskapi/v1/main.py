@@ -73,7 +73,7 @@ def apply_endpoints(app: Flask, modules: "Iterable[str]") -> None:
             raise ConfigurationError(f'"{blueprint_module}" from the endpoints configuration value did not have a blueprint')
 
 
-endpoints = set(config_get_list("", Config.api.endpoints, raise_exception=False))
+endpoints = set(Config.api.endpoints(raise_exception=False))
 endpoints_add = set(config_get_list('api', 'endpoints_add', raise_exception=False, default=[]))
 endpoints_remove = set(config_get_list('api', 'endpoints_remove', raise_exception=False, default=[]))
 

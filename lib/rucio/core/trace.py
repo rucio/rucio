@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Union, overload
 import stomp
 from jsonschema import Draft7Validator, ValidationError, validate
 
-from rucio.common.config import config_get, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_int
 from rucio.common.config_settings import Config
 from rucio.common.exception import InvalidObject, TraceValidationSchemaNotFound
 from rucio.common.logging import rucio_log_formatter
@@ -42,11 +42,11 @@ if TYPE_CHECKING:
 
 METRICS = MetricManager(module=__name__)
 
-CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get("", Config.common.loglevel, raise_exception=False).upper())
+CONFIG_COMMON_LOGLEVEL = getattr(logging, Config.common.loglevel(raise_exception=False).upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get("", Config.trace.loglevel, raise_exception=False).upper())
-CONFIG_TRACE_LOGFORMAT = config_get("",  Config.trace.logformat, raise_exception=False)
-CONFIG_TRACE_TRACEDIR = config_get("", Config.trace.tracedir, raise_exception=False)
+CONFIG_TRACE_LOGLEVEL = getattr(logging, Config.trace.loglevel(raise_exception=False).upper())
+CONFIG_TRACE_LOGFORMAT = Config.trace.logformat(raise_exception=False)
+CONFIG_TRACE_TRACEDIR = Config.trace.tracedir(raise_exception=False)
 CONFIG_TRACE_MAXBYTES = config_get_int('trace', 'maxbytes', raise_exception=False, default=1000000000)
 CONFIG_TRACE_BACKUPCOUNT = config_get_int('trace', 'backupCount', raise_exception=False, default=10)
 
@@ -71,14 +71,14 @@ ROTATING_LOGGER.addHandler(ROTATING_HANDLER)
 
 BROKERS_ALIAS, BROKERS_RESOLVED = [], []
 try:
-    BROKERS_ALIAS = config_get_list("", Config.trace.brokers)
+    BROKERS_ALIAS = Config.trace.brokers()
 except Exception:
     raise Exception('Could not load brokers from configuration')
 
-PORT = config_get_int("", Config.trace.port)
+PORT = Config.trace.port()
 TOPIC = config_get('trace', 'topic')
-USERNAME = config_get("", Config.trace.username)
-PASSWORD = config_get("", Config.trace.password)
+USERNAME = Config.trace.username()
+PASSWORD = Config.trace.password()
 VHOST = config_get('trace', 'broker_virtual_host', raise_exception=False)
 
 TOUCH_SCHEMA: 'ObjectSchema' = {

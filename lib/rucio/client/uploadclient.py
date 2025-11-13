@@ -29,7 +29,7 @@ from rucio.client.client import Client
 from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, md5
 from rucio.common.client import detect_client_location
-from rucio.common.config import config_get, config_get_bool, config_get_int
+from rucio.common.config import config_get, config_get_bool
 from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import (
@@ -692,7 +692,7 @@ class UploadClient:
         # verification whether the scope exists
         account_scopes = []
         try:
-            account_scopes = self.client.list_scopes_for_account(self.client.account)
+            account_scopes = self.client.list_scopes_for_account(str(self.client.account))
         except ScopeNotFound:
             pass
         if account_scopes and file['did_scope'] not in account_scopes:
@@ -1231,7 +1231,7 @@ class UploadClient:
         Exception
             If the requested service is not available or permissions are not granted.
         """
-        retries = config_get_int('client', Config.client.protocol_stat_retries, raise_exception=False)
+        retries = Config.client.protocol_stat_retries(raise_exception=False)
         for attempt in range(retries):
             try:
                 self.logger(logging.DEBUG, 'stat: pfn=%s' % pfn)

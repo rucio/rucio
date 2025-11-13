@@ -16,8 +16,8 @@ import os
 import re
 from glob import glob
 
+from rucio.common.config import ConfigOption
 from rucio.common.config_settings import Config
-from rucio.common.types import ConfigOption
 
 
 def get_source_files() -> list[str]:
@@ -71,11 +71,11 @@ def count_doc_lines() -> float:
     Note: This is a rough estimate that does not include things like import statements or duplicates of the came config parameter call.
     """
 
-    total = 0
+    uses_config_get = 0
     files = get_source_files()
     for file in files:
         pattern = r'\bconfig_get(?:_\w+)?\s*\('
-        total += len(re.findall(pattern, load_file(file)))
+        uses_config_get += len(re.findall(pattern, load_file(file)))
 
     count = 0
     for name, attr in Config.__dict__.items():
@@ -85,7 +85,7 @@ def count_doc_lines() -> float:
             if isinstance(section, ConfigOption):
                 count += 1
 
-    return count / total
+    return count / (uses_config_get + count)
 
 
 def arguments():

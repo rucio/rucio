@@ -70,6 +70,7 @@ jobs:
           paths_to_copy: |
             tools/generate_configuration_setting.py
             lib/rucio/common/config_settings.py
+            lib/rucio/common/config.py
             lib/rucio/common/types.py
       - name: Count initial number of configuration annotations
         id: count_initial
@@ -90,8 +91,8 @@ jobs:
           if [ $INITIAL_CONFIG_ANNOTATIONS -lt $UPDATE_CONFIG_ANNOTATIONS ]; then
             echo "A new configuration parameter was added as a string and not as a defined option"
             echo "Please ensure the new parameter is called from rucio.common.config_settings"
-            echo "`option = config_get[_type]("", Config.[section].[option])`"
-            echo 'where Config.[section].[option] is a ConfigOption type.'
+            echo "`option = Config.[section].[option]()`"
+            echo "where Config.[section].[option] is a ConfigOption type."
             echo "Adding documentation comments ensures all parameters are up to date and documentation is accessible to users."
             exit 1
           fi

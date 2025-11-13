@@ -29,7 +29,7 @@ from time import time
 from typing import TYPE_CHECKING, Optional
 
 import rucio.db.sqla.util
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import DatabaseException, RSENotFound
@@ -345,8 +345,8 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
     _, _, logger = heartbeat_handler.live()
 
     chunksize = config_get_int('tracer-kronos', 'chunksize')
-    prefetch_size = config_get_int("", Config.tracer_kronos.prefetch_size)
-    subscription_id = config_get("", Config.tracer_kronos.subscription_id)
+    prefetch_size = Config.tracer_kronos.prefetch_size()
+    subscription_id = Config.tracer_kronos.subscription_id()
     try:
         bad_files_patterns = []
         pattern = config_get(section='kronos', option='bad_files_patterns', session=None)
@@ -362,17 +362,17 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
 
     use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
     if not use_ssl:
-        username = config_get("", Config.tracer_kronos.username)
-        password = config_get("", Config.tracer_kronos.password)
+        username = Config.tracer_kronos.username()
+        password = Config.tracer_kronos.password()
 
-    excluded_usrdns = set(config_get_list("", Config.tracer_kronos.excluded_usrdns))
+    excluded_usrdns = set(Config.tracer_kronos.excluded_usrdns())
     vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
 
-    brokers_alias = config_get_list("", Config.tracer_kronos.brokers)
-    port = config_get_int("", Config.tracer_kronos.port)
-    reconnect_attempts = config_get_int("", Config.tracer_kronos.reconnect_attempts)
-    ssl_key_file = config_get("", Config.tracer_kronos.ssl_key_file, raise_exception=False)
-    ssl_cert_file = config_get("", Config.tracer_kronos.ssl_cert_file, raise_exception=False)
+    brokers_alias = Config.tracer_kronos.brokers()
+    port = Config.tracer_kronos.port()
+    reconnect_attempts = Config.tracer_kronos.reconnect_attempts()
+    ssl_key_file = Config.tracer_kronos.ssl_key_file(raise_exception=False)
+    ssl_cert_file = Config.tracer_kronos.ssl_cert_file(raise_exception=False)
 
     created_conns, _ = stomp_conn_mngr.re_configure(
         brokers=brokers_alias,
@@ -393,7 +393,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
             METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
             conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
                                                                  conn=conn,
-                                                                 queue=config_get("", Config.tracer_kronos.queue),
+                                                                 queue=Config.tracer_kronos.queue(),
                                                                  chunksize=chunksize,
                                                                  subscription_id=subscription_id,
                                                                  excluded_usrdns=excluded_usrdns,

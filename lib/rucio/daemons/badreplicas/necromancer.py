@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
-REGION = MemcacheRegion(expiration_time=config_get_int("", Config.necromancer.cache_time, False))
+REGION = MemcacheRegion(Config.necromancer.cache_time(raise_exception=False))
 DAEMON_NAME = 'necromancer'
 
 

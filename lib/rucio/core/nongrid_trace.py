@@ -32,9 +32,9 @@ METRICS = MetricManager(module=__name__)
 
 CONFIG_COMMON_LOGLEVEL = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
-CONFIG_TRACE_LOGLEVEL = getattr(logging, config_get("", Config.nongrid_trace.loglevel, raise_exception=False).upper())
-CONFIG_TRACE_LOGFORMAT = config_get("", Config.nongrid_trace.logformat, raise_exception=False)
-CONFIG_TRACE_TRACEDIR = config_get("", Config.nongrid_trace.tracedir, raise_exception=False)
+CONFIG_TRACE_LOGLEVEL = getattr(logging, Config.nongrid_trace.loglevel(raise_exception=False).upper())
+CONFIG_TRACE_LOGFORMAT = Config.nongrid_trace.logformat(raise_exception=False)
+CONFIG_TRACE_TRACEDIR = Config.nongrid_trace.tracedir(raise_exception=False)
 CONFIG_TRACE_MAXBYTES = config_get_int('nongrid-trace', 'maxbytes', raise_exception=False, default=1000000000)
 CONFIG_TRACE_BACKUPCOUNT = config_get_int('nongrid-trace', 'backupCount', raise_exception=False, default=10)
 
@@ -63,10 +63,10 @@ try:
 except Exception:
     raise Exception('Could not load brokers from configuration')
 
-PORT = config_get("", Config.nongrid_trace.port)
+PORT = Config.nongrid_trace.port()
 TOPIC = config_get('nongrid-trace', 'topic')
-USERNAME = config_get("", Config.nongrid_trace.username)
-PASSWORD = config_get("", Config.nongrid_trace.password)
+USERNAME = Config.nongrid_trace.username()
+PASSWORD = Config.nongrid_trace.password()
 VHOST = config_get('nongrid-trace', 'broker_virtual_host', raise_exception=False)
 
 logging.getLogger("stomp").setLevel(logging.CRITICAL)

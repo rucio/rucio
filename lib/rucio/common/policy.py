@@ -38,10 +38,10 @@ def get_policy(logger: 'LoggerFunction' = logging.log) -> str:
     policy = REGION.get('policy')
     if isinstance(policy, NoValue):
         try:
-            policy = config_get("", Config.policy.permission)
+            policy = Config.policy.permission()
         except (NoOptionError, NoSectionError):
             try:
-                policy = config_get("", Config.permission.policy)
+                policy = Config.permission.policy()
             except (NoOptionError, NoSectionError):
                 policy = DEFAULT_VO
                 logger(logging.WARNING, "Policy not specified, falling back to DEFAULT_VO")

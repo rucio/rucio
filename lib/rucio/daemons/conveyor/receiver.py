@@ -28,7 +28,7 @@ import stomp
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
+from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.config_settings import Config
 from rucio.common.logging import setup_logging
 from rucio.common.policy import get_policy
@@ -135,7 +135,7 @@ def receiver(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = config_get_list("", Config.messaging_fts3.brokers)
+        brokers_alias = Config.messaging_fts3.brokers()
     except Exception:
         raise Exception('Could not load brokers from configuration')
 
@@ -158,9 +158,9 @@ def receiver(
     port = config_get_int('messaging-fts3', 'port')
     vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
     if not use_ssl:
-        username = config_get("", Config.messaging_fts3.un)
-        password = config_get("", Config.messaging_fts3.pw)
-        port = config_get_int("", Config.messaging_fts3.port)
+        username = Config.messaging_fts3.un()
+        password = Config.messaging_fts3.pw()
+        port = Config.messaging_fts3.port()
 
     conns = []
     for broker in brokers_resolved:
@@ -173,8 +173,8 @@ def receiver(
                                  reconnect_attempts_max=999)
         if use_ssl:
             con.set_ssl(
-                key_file=config_get("", Config.messaging_fts3.ssl_key),
-                cert_file=config_get("", Config.messaging_fts3.ssl_cert),
+                key_file=Config.messaging_fts3.ssl_key(),
+                cert_file=Config.messaging_fts3.ssl_cert(),
             )
         conns.append(con)
 
@@ -205,7 +205,7 @@ def receiver(
                         conn.connect(username, password, wait=True)
                     else:
                         conn.connect(wait=True)
-                    conn.subscribe(destination=config_get("", Config.messaging_fts3.destination),
+                    conn.subscribe(destination=Config.messaging_fts3.destination(),
                                    id='rucio-messaging-fts3',
                                    ack='auto')
             time.sleep(1)

@@ -30,7 +30,6 @@ from werkzeug.datastructures import Headers
 from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
-from rucio.common import config
 from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
@@ -70,7 +69,7 @@ class CORSMiddleware:
 
         if request.environ.get('REQUEST_METHOD') == HTTPMethod.OPTIONS.value:
             try:
-                webui_urls = config.config_get_list("", Config.webui.urls)
+                webui_urls = Config.webui.urls()
             except (NoOptionError, NoSectionError, RuntimeError) as error:
                 logging.exception('Could not get webui urls from config file')
                 return str(error), 500  # type: ignore (return type incompatible with Flask middleware)

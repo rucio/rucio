@@ -171,7 +171,7 @@ def process_output(
     rse = os.path.basename(output[:output.rfind('_')])
     rse_id = get_rse_id(rse=rse)
     usage = get_rse_usage(rse_id=rse_id, source='rucio')[0]
-    threshold = config.config_get_float("", Config.auditor.threshold, False)
+    threshold = Config.auditor.threshold(raise_exception=False)
 
     # Perform a basic sanity check by comparing the number of entries
     # with the total number of files on the RSE.  If the percentage is

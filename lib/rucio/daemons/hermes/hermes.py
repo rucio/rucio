@@ -116,7 +116,7 @@ def setup_activemq(
     brokers_alias = []
     brokers_resolved = []
     try:
-        brokers_alias = config_get_list("", Config.messaging_hermes.brokers)
+        brokers_alias = Config.messaging_hermes.brokers()
     except Exception:
         raise Exception("Could not load brokers from configuration")
 
@@ -156,14 +156,14 @@ def setup_activemq(
             "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
         )
 
-    port = config_get_int("", Config.messaging_hermes.port)
+    port = Config.messaging_hermes.port()
     vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
     username = None
     password = None
     if not use_ssl:
-        username = config_get("", Config.messaging_hermes.un)
-        password = config_get("", Config.messaging_hermes.pw)
-        port = config_get_int("", Config.messaging_hermes.nonssl_port)
+        username = Config.messaging_hermes.un()
+        password = Config.messaging_hermes.pw()
+        port = Config.messaging_hermes.nonssl_port()
 
     conns = []
     for broker in brokers_resolved:
@@ -188,8 +188,8 @@ def setup_activemq(
         )
         if use_ssl:
             con.set_ssl(
-                key_file=config_get("", Config.messaging_hermes.ssl_key),
-                cert_file=config_get("", Config.messaging_hermes.ssl_cert),
+                key_file=Config.messaging_hermes.ssl_key(),
+                cert_file=Config.messaging_hermes.ssl_cert(),
             )
 
         con.set_listener(
@@ -197,7 +197,7 @@ def setup_activemq(
         )
 
         conns.append(con)
-    destination = config_get("", Config.messaging_hermes.destination)
+    destination = Config.messaging_hermes.destination()
     return conns, destination, username, password, use_ssl
 
 
@@ -643,7 +643,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     if "influx" in services_list:
         influx_endpoint = None
         try:
-            influx_endpoint = config_get("", Config.hermes.influxdb_endpoint, False)
+            influx_endpoint = Config.hermes.influxdb_endpoint(raise_exception=False)
             if not influx_endpoint:
                 logger(
                     logging.ERROR,
@@ -654,7 +654,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
     if "elastic" in services_list:
         elastic_endpoint = None
         try:
-            elastic_endpoint = config_get("", Config.hermes.elastic_endpoint, False)
+            elastic_endpoint = Config.hermes.elastic_endpoint(raise_exception=False)
             if not elastic_endpoint:
                 logger(
                     logging.ERROR,

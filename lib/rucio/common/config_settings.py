@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from rucio.common.types import ConfigOption
+from rucio.common.config import ConfigOption
 
 
 class Alembic:
@@ -173,7 +173,7 @@ class MessagingCache:
 
 class MessagingFTS3:
     name = "messaging-fts3"
-    brokers = ConfigOption(name, "brokers", "Brokers")
+    brokers = ConfigOption(name, "brokers", "Brokers", list)
     un = ConfigOption(name, "username", "Username of the broker. Only used if `use_ssl` is not set")
     pw = ConfigOption(name, "password", "Password of the `username`. Only used if `use_ssl` is not set.")
     port = ConfigOption(name, "nonssl_port", " Port of the broker if `use_ssl` is not set.", int)
@@ -184,7 +184,7 @@ class MessagingFTS3:
 
 class MessagingHermes:
     name = "messaging-hermes"
-    brokers = ConfigOption(name, "brokers", "Brokers")
+    brokers = ConfigOption(name, "brokers", "Brokers", list)
     port = ConfigOption(name, "port", "Port of the broker if `use_ssl` is set", int)
     un = ConfigOption(name, "username", "Username of the broker. Only used if `use_ssl` is not set")
     pw = ConfigOption(name, "password", "Password of the `username`. Only used if `use_ssl` is not set.")
@@ -380,7 +380,7 @@ class WebUI:
 
 class API:
     name = "api"
-    endpoints = ConfigOption(name, "endpoints", "Endpoints separated by commas. When empty, all endpoints are loaded", list, default=[])
+    endpoints = ConfigOption(name, "endpoints", "Endpoints separated by commas. When empty, all endpoints are loaded", type_=list, default=[])
 
 
 class Config:
