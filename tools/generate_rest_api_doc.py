@@ -16,7 +16,7 @@
 from apispec import APISpec
 from apispec_webframeworks.flask import FlaskPlugin
 
-from rucio.vcsversion import VERSION_INFO
+from rucio.vcsversion import VERSION
 from rucio.web.rest.flaskapi.v1.main import application
 
 description_text = """Each resource can be accessed or modified using specially
@@ -92,7 +92,7 @@ Exceptions`](https://github.com/rucio/rucio/blob/58efd21b5e21182df80bef3dbe8befa
 
 spec = APISpec(
     title="Rucio",
-    version=VERSION_INFO['version'],
+    version=VERSION,
     openapi_version="3.0.2",
     plugins=[FlaskPlugin()],
     info={

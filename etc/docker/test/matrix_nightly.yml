@@ -7,11 +7,6 @@ python:
   - "3.9"
   - "3.10"
 suites:
-  - id: syntax
-    SYNTAX_REPORT: 1
-    RUN_HTTPD: false
-  - id: client_syntax
-    RUN_HTTPD: false
   - id: client
     RDBMS: postgres14
   - id: remote_dbs

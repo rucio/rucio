@@ -12,19 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from rucio.vcsversion import VERSION_INFO
-from rucio.version import canonical_version_string, vcs_version_string, version_string, version_string_with_vcs
+from rucio.vcsversion import BRANCH_NICK, REVISION_ID, VERSION
+from rucio.version import vcs_version_string, version_string, version_string_with_vcs
 
 
 class TestVersion:
-    def test_canonical_version_string(self):
-        assert canonical_version_string() == VERSION_INFO['version']
-
     def test_version_string(self):
-        assert version_string() == VERSION_INFO['version']
+        assert version_string() == VERSION
 
     def test_vcs_version_string(self):
-        assert vcs_version_string() == "%s:%s" % (VERSION_INFO['branch_nick'], VERSION_INFO['revision_id'])
+        assert vcs_version_string() == "%s:%s" % (BRANCH_NICK, REVISION_ID)
 
     def test_version_string_with_vcs(self):
-        assert version_string_with_vcs() == "%s-%s" % (VERSION_INFO['version'], "%s:%s" % (VERSION_INFO['branch_nick'], VERSION_INFO['revision_id']))
+        assert version_string_with_vcs() == "%s-%s" % (VERSION, "%s:%s" % (BRANCH_NICK, REVISION_ID))
