@@ -49,10 +49,10 @@ dependencies = [
 ]
 requires-python = ">=3.9"
 authors = [
-  {name = "Rucio", email = "rucio-dev@cern.ch"},
+  {name = "Rucio", email = "rucio-contact@cern.ch"},
 ]
 maintainers = [
-  {name = "Rucio", email = "rucio-dev@cern.ch"}
+  {name = "Rucio", email = "rucio-contact@cern.ch"}
 ]
 description = "Rucio server package"
 readme = "README.md"
