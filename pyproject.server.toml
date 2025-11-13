@@ -164,7 +164,7 @@ etc = "etc"
 tools = "tools"
 requirements = "requirements"
 
-[tool.setuptools.package.find]
+[tool.setuptools.packages.find]
 where = ["lib"]
 include = ["rucio*"]
 
