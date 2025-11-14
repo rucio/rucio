@@ -18,6 +18,7 @@
 
 import errno
 import getpass
+import json
 import os
 import secrets
 import sys
@@ -425,6 +426,8 @@ class BaseClient:
                 yield response.text
 
     def _reduce_data(self, data, maxlen: int = 132) -> str:
+        if isinstance(data, dict):
+            data = json.dumps(data)
         text = data if isinstance(data, str) else data.decode("utf-8")
         if len(text) > maxlen:
             text = "%s ... %s" % (text[:maxlen - 15], text[-10:])
