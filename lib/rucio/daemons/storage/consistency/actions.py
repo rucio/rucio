@@ -37,11 +37,12 @@ from rucio.common import exception
 from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.types import InternalAccount, InternalScope, LFNDict
 from rucio.common.utils import daemon_sleep
-from rucio.core.heartbeat import die, live, sanity_check
+from rucio.core.heartbeat import die, live
 from rucio.core.monitor import MetricManager
 from rucio.core.quarantined_replica import add_quarantined_replicas
 from rucio.core.replica import __exist_replicas, update_replicas_states
 from rucio.core.rse import get_rse_id, list_rses
+from rucio.daemons.common import run_daemon_startup_checks
 
 # FIXME: these are needed by local version of declare_bad_file_replicas()
 # TODO: remove after move of this code to core/replica.py - see https://github.com/rucio/rucio/pull/5068
@@ -823,7 +824,7 @@ def run(
            miss_threshold_percent, force_proceed, scanner_files_path))
 
     hostname = socket.gethostname()
-    sanity_check(executable=DAEMON_NAME, hostname=hostname)
+    run_daemon_startup_checks(executable=DAEMON_NAME, hostname=hostname)
 
 # It was decided that for the time being this daemon is best executed in a single thread
 # TODO: If this decicion is reversed in the future, the following line should be removed.
