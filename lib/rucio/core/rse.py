@@ -28,8 +28,8 @@ from sqlalchemy.sql.expression import Executable, and_, delete, desc, false, fun
 from rucio.common import exception, types, utils
 from rucio.common.cache import MemcacheRegion
 from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
-from rucio.common.config import get_lfn2pfn_algorithm_default
 from rucio.common.constants import DEFAULT_VO, RSE_ALL_SUPPORTED_PROTOCOL_OPERATIONS, RSE_ATTRS_BOOL, RSE_ATTRS_STR, SUPPORTED_SIGN_URL_SERVICES_LITERAL, RseAttr
+from rucio.common.plugins import get_lfn2pfn_algorithm_default
 from rucio.common.utils import Availability
 from rucio.core.rse_counter import add_counter, get_counter
 from rucio.db.sqla import models
