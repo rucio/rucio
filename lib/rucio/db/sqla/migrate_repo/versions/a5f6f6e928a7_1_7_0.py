@@ -15,10 +15,9 @@
 ''' add columns for 1.7.0 release '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, create_check_constraint, create_foreign_key, drop_column, drop_constraint
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a5f6f6e928a7'
@@ -31,7 +30,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('dids', sa.Column('purge_replicas',
                                      sa.Boolean(name='DIDS_PURGE_RPLCS_CHK', create_constraint=True),
                                      server_default='1'), schema=schema)
@@ -69,7 +68,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
 
     if is_current_dialect('oracle', 'postgresql'):
         drop_column('dids', 'purge_replicas', schema=schema)

@@ -15,10 +15,9 @@
 ''' add request external_host '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '14ec5aeb64cf'
@@ -31,7 +30,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('requests', sa.Column('external_host', sa.String(256)), schema=schema)
 
 
@@ -41,5 +40,5 @@ def downgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_column('requests', 'external_host', schema=schema)

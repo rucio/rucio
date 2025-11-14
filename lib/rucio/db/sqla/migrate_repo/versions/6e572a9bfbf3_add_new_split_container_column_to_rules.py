@@ -15,10 +15,9 @@
 ''' add new split_container column to rules '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '6e572a9bfbf3'
@@ -31,7 +30,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('rules', sa.Column('split_container', sa.Boolean(name='RULES_SPLIT_CONTAINER_CHK', create_constraint=True), default=False), schema=schema)
         add_column('rules_hist_recent', sa.Column('split_container', sa.Boolean()), schema=schema)
         add_column('rules_history', sa.Column('split_container', sa.Boolean()), schema=schema)
@@ -43,7 +42,7 @@ def downgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_column('rules', 'split_container', schema=schema)
         drop_column('rules_hist_recent', 'split_container', schema=schema)
         drop_column('rules_history', 'split_container', schema=schema)

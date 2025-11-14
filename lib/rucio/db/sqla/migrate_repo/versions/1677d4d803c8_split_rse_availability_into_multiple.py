@@ -15,11 +15,10 @@
 """ split rse availability into multiple """
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column, get_bind
 from sqlalchemy.sql.expression import true
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -33,7 +32,7 @@ def upgrade():
     """
 
     if is_current_dialect("oracle", "mysql", "postgresql"):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ""
+        schema = get_effective_schema()
 
         add_column("rses", sa.Column("availability_read", sa.Boolean, server_default=true()), schema=schema)
         add_column("rses", sa.Column("availability_write", sa.Boolean, server_default=true()), schema=schema)
@@ -62,7 +61,7 @@ def downgrade():
     """
 
     if is_current_dialect("oracle", "mysql", "postgresql"):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ""
+        schema = get_effective_schema()
 
         drop_column("rses", "availability_read", schema=schema)
         drop_column("rses", "availability_write", schema=schema)

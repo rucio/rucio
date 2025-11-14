@@ -15,10 +15,9 @@
 ''' add clob payload to messages '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '90f47792bb76'
@@ -31,7 +30,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('messages', sa.Column('payload_nolimit', sa.Text), schema=schema)
         add_column('messages_history', sa.Column('payload_nolimit', sa.Text), schema=schema)
 
@@ -42,6 +41,6 @@ def downgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_column('messages', 'payload_nolimit', schema=schema)
         drop_column('messages_history', 'payload_nolimit', schema=schema)

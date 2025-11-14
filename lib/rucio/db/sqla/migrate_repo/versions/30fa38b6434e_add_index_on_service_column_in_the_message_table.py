@@ -15,10 +15,9 @@
 ''' Add index on service column in the message table '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import alter_column, create_index, drop_index
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '30fa38b6434e'
@@ -30,7 +29,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         alter_column('messages', 'services', existing_type=sa.String(2048), type_=sa.String(256), schema=schema)
         alter_column('messages', 'event_type', existing_type=sa.String(1024), type_=sa.String(256), schema=schema)
     create_index('MESSAGES_SERVICES_IDX', 'messages', ['services', 'event_type'])
@@ -42,6 +41,6 @@ def downgrade():
     '''
     drop_index('MESSAGES_SERVICES_IDX', 'messages')
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         alter_column('messages', 'services', existing_type=sa.String(256), type_=sa.String(2048), schema=schema)
         alter_column('messages', 'event_type', existing_type=sa.String(256), type_=sa.String(1024), schema=schema)

@@ -15,10 +15,9 @@
 ''' add staging timestamps to request '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'bc68e9946deb'
@@ -31,7 +30,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('requests', sa.Column('staging_started_at', sa.DateTime()), schema=schema)
         add_column('requests', sa.Column('staging_finished_at', sa.DateTime()), schema=schema)
         add_column('requests_history', sa.Column('staging_started_at', sa.DateTime()), schema=schema)
@@ -44,7 +43,7 @@ def downgrade():
     '''
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_column('requests', 'staging_started_at', schema=schema)
         drop_column('requests', 'staging_finished_at', schema=schema)
         drop_column('requests_history', 'staging_started_at', schema=schema)

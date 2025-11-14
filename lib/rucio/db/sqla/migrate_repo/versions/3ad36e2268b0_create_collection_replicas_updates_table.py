@@ -17,11 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_constraint, drop_index, drop_table
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -35,7 +34,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('collection_replicas', sa.Column('available_replicas_cnt', sa.BigInteger()), schema=schema)
         add_column('collection_replicas', sa.Column('available_bytes', sa.BigInteger()), schema=schema)
 
@@ -62,7 +61,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
 
     if is_current_dialect('oracle', 'postgresql'):
         drop_column('collection_replicas', 'available_replicas_cnt', schema=schema)

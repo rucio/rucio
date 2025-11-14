@@ -15,10 +15,9 @@
 ''' correct PK and IDX for history tables '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, create_primary_key, drop_column, drop_constraint, drop_index
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -39,7 +38,7 @@ def upgrade():
         drop_constraint(constraint_name='ARCH_CONT_HIST_PK', table_name='archive_contents_history', type_='primary')
 
         # RULES_HIST_RECENT
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
         drop_column('rules_hist_recent', 'history_id', schema=schema)
 
@@ -61,7 +60,7 @@ def downgrade():
         drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
 
         # RULES_HIST_RECENT
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('rules_hist_recent', sa.Column('history_id', GUID()), schema=schema)
         create_primary_key('RULES_HIST_RECENT_PK', 'rules_hist_recent', ['history_id'])
 

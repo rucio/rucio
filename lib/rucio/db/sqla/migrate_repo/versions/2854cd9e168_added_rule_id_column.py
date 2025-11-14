@@ -15,10 +15,9 @@
 ''' added_rule_id_column '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -32,7 +31,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('requests', sa.Column('rule_id', GUID()), schema=schema)
         add_column('requests_history', sa.Column('rule_id', GUID()), schema=schema)
 
@@ -43,6 +42,6 @@ def downgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_column('requests', 'rule_id', schema=schema)
         drop_column('requests_history', 'rule_id', schema=schema)

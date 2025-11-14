@@ -15,10 +15,9 @@
 ''' add estimator columns to request table '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import add_column, drop_column
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '94a5961ddbf2'
@@ -31,7 +30,7 @@ def upgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         add_column('requests', sa.Column('estimated_started_at', sa.DateTime()), schema=schema)
         add_column('requests', sa.Column('estimated_transferred_at', sa.DateTime()), schema=schema)
 
@@ -42,6 +41,6 @@ def downgrade():
     '''
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        schema = get_effective_schema()
         drop_column('requests', 'estimated_started_at', schema=schema)
         drop_column('requests', 'estimated_transferred_at', schema=schema)
