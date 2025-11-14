@@ -14,9 +14,9 @@
 
 ''' add a new state LOST in BadFilesStatus '''
 
-from alembic import context
 from alembic.op import create_check_constraint
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -29,7 +29,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
@@ -40,5 +40,5 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')

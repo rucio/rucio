@@ -14,8 +14,9 @@
 
 ''' update REQUESTS_TYP_STA_UPD_IDX index '''
 
-from alembic import context
 from alembic.op import create_index, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '44278720f774'
@@ -27,7 +28,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'activity'])
         create_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests', ['request_type', 'state', 'updated_at'])
@@ -38,7 +39,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
         drop_index('REQUESTS_TYP_STA_UPD_IDX_OLD', 'requests')
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ['request_type', 'state', 'updated_at'])

@@ -14,8 +14,9 @@
 
 ''' replicas table PK definition is in wrong order '''
 
-from alembic import context
 from alembic.op import create_foreign_key, create_primary_key, drop_constraint, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # revision identifiers used by alembic
 revision = '3345511706b8'
@@ -27,13 +28,13 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if is_current_dialect('oracle', 'postgresql'):
         drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
         drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
         # The constraint has an internal index which is not automatically dropped,
         # we have to do that manually
@@ -52,13 +53,13 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if is_current_dialect('oracle', 'postgresql'):
         drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
         drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['rse_id', 'scope', 'name'], ['rse_id', 'scope', 'name'])
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
         # The constraint has an internal index which is not automatically dropped,
         # we have to do that manually

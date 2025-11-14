@@ -18,6 +18,7 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import get_bind
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.types import GUID, BooleanString
 
 # Alembic revision identifiers
@@ -59,7 +60,7 @@ def upgrade():
     """
     Upgrade the database to this revision
     """
-    if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
+    if is_current_dialect("oracle", "mysql", "postgresql"):
         conn = get_bind()
         for setting, setting_datatype in get_changed_rse_settings():
             rse_table = sa.sql.table(
@@ -94,7 +95,7 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
-    if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
+    if is_current_dialect("oracle", "mysql", "postgresql"):
         conn = get_bind()
         for setting, setting_datatype in get_changed_rse_settings():
             rse_table = sa.sql.table(

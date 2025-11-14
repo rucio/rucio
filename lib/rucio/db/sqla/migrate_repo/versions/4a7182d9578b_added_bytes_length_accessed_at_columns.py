@@ -18,6 +18,8 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, drop_column
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
+
 # Alembic revision identifiers
 revision = '4a7182d9578b'
 down_revision = 'c129ccdb2d5'
@@ -28,7 +30,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dataset_locks', sa.Column('length', sa.BigInteger()), schema=schema)
         add_column('dataset_locks', sa.Column('bytes', sa.BigInteger()), schema=schema)
@@ -41,7 +43,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('dataset_locks', 'length', schema=schema)
         drop_column('dataset_locks', 'bytes', schema=schema)

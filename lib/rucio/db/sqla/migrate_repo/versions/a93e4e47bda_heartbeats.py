@@ -17,8 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import create_check_constraint, create_index, create_primary_key, create_table, drop_constraint, drop_table
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a93e4e47bda'
@@ -30,7 +31,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('heartbeats',
                      sa.Column('executable', sa.String(512)),
                      sa.Column('hostname', sa.String(128)),
@@ -51,11 +52,11 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('heartbeats_pk', 'configs', type_='primary')
         drop_table('heartbeats')
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         # drop_constraint('heartbeats_pk', 'configs', type_='primary')
         # drop_index('heartbeats_updated_at', 'heartbeats')
         # drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')

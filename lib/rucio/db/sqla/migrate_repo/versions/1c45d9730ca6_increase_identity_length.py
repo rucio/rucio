@@ -18,6 +18,7 @@ import sqlalchemy as sa
 from alembic import context, op
 from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -32,7 +33,7 @@ def upgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
+    if is_current_dialect('oracle', 'postgresql'):
 
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
@@ -47,7 +48,7 @@ def upgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema[:-1])
 
         # MySQL does not allow altering a column referenced by a ForeignKey
@@ -77,7 +78,7 @@ def downgrade():
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
@@ -96,7 +97,7 @@ def downgrade():
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 
@@ -116,7 +117,7 @@ def downgrade():
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         execute("DELETE FROM " + schema + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
         execute("DELETE FROM " + schema + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
 

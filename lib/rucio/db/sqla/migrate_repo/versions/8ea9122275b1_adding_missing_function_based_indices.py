@@ -14,8 +14,9 @@
 
 ''' Adding missing function based indices '''
 
-from alembic import context
 from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '8ea9122275b1'
@@ -38,7 +39,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['mysql']:
+    if is_current_dialect('mysql'):
         drop_constraint('BAD_REPLICAS_ACCOUNT_FK', 'bad_replicas', type_='foreignkey')
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
 
@@ -48,6 +49,6 @@ def downgrade():
     drop_index('BAD_REPLICAS_ACCOUNT_IDX', 'bad_replicas')
     drop_index('REQUESTS_DEST_RSE_ID_IDX', 'requests')
 
-    if context.get_context().dialect.name in ['mysql']:
+    if is_current_dialect('mysql'):
         create_foreign_key('BAD_REPLICAS_ACCOUNT_FK', 'bad_replicas', 'accounts', ['account'], ['account'])
         create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])

@@ -17,6 +17,7 @@
 from alembic import context, op
 from alembic.op import create_check_constraint, create_primary_key, drop_constraint, rename_table
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -31,7 +32,7 @@ def upgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages')
         create_primary_key('messages_pk', 'messages', ['id'])
@@ -40,7 +41,7 @@ def upgrade():
         create_check_constraint('messages_created_nn', 'messages', 'created_at is not null')
         create_check_constraint('messages_updated_nn', 'messages', 'updated_at is not null')
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages', schema=schema[:-1])
         create_primary_key('messages_pk', 'messages', ['id'])
@@ -49,7 +50,7 @@ def upgrade():
         create_check_constraint('messages_created_nn', 'messages', 'created_at is not null')
         create_check_constraint('messages_updated_nn', 'messages', 'updated_at is not null')
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages', schema=schema[:-1])
         create_primary_key('messages_pk', 'messages', ['id'])
@@ -66,7 +67,7 @@ def downgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
         try_drop_constraint('MESSAGES_PAYLOAD_NN', 'messages')
         try_drop_constraint('MESSAGES_CREATED_NN', 'messages')
@@ -79,7 +80,7 @@ def downgrade():
         create_check_constraint('CALLBACKS_CREATED_NN', 'callbacks', 'created_at is not null')
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PAYLOAD_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
@@ -92,7 +93,7 @@ def downgrade():
         create_check_constraint('CALLBACKS_CREATED_NN', 'callbacks', 'created_at is not null')
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_EVENT_TYPE_NN')  # pylint: disable=no-member
         op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_PAYLOAD_NN')  # pylint: disable=no-member
         op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_CREATED_NN')  # pylint: disable=no-member

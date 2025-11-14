@@ -19,6 +19,7 @@ from alembic import context, op
 from alembic.op import add_column, drop_column
 
 from rucio.db.sqla.constants import RuleNotification
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -33,13 +34,13 @@ def upgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
+    if is_current_dialect('oracle', 'mysql'):
         add_column('rules', sa.Column('notification', sa.Enum(RuleNotification,
                                                               name='RULES_NOTIFICATION_CHK',
                                                               create_constraint=True,
                                                               values_callable=lambda obj: [e.value for e in obj]),
                                       default=RuleNotification.NO), schema=schema[:-1])
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
         op.execute("ALTER TABLE %srules ADD COLUMN notification \"RULES_NOTIFICATION_CHK\"" % schema)
 
@@ -51,14 +52,14 @@ def downgrade():
 
     schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         drop_column('rules', 'notification', schema=schema[:-1])
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         op.execute('ALTER TABLE %srules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR' % schema)
         op.execute('ALTER TABLE %srules DROP COLUMN notification' % schema)
         op.execute('DROP TYPE \"RULES_NOTIFICATION_CHK\"')
 
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         drop_column('rules', 'notification', schema=schema[:-1])

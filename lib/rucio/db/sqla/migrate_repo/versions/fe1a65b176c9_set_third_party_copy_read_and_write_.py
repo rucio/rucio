@@ -17,6 +17,8 @@
 from alembic import context
 from alembic.op import alter_column, execute  # pylint: disable=no-member
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
+
 # Alembic revision identifiers
 revision = 'fe1a65b176c9'
 down_revision = '0f1adb7a599a'
@@ -26,7 +28,7 @@ def upgrade():
     '''
     Upgrade the database to this revision
     '''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         schema_prefix = schema + '.' if schema else ''
         execute('UPDATE ' + schema_prefix + 'rse_protocols SET third_party_copy_read=third_party_copy WHERE third_party_copy_read is NULL')

@@ -14,8 +14,9 @@
 
 ''' change tokens pk '''
 
-from alembic import context
 from alembic.op import create_foreign_key, create_primary_key, drop_constraint
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '2eef46be23d4'
@@ -27,7 +28,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
         drop_constraint('TOKENS_PK', 'tokens', type_='primary')
         create_primary_key('TOKENS_PK', 'tokens', ['token'])
@@ -39,7 +40,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
         drop_constraint('TOKENS_PK', 'tokens', type_='primary')
         create_primary_key('TOKENS_PK', 'tokens', ['account', 'token'])

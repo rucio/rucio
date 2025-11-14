@@ -18,6 +18,8 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import alter_column
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
+
 # Alembic revision identifiers
 revision = '30d5206e9cad'
 down_revision = 'b0070f3695c8'
@@ -25,13 +27,13 @@ down_revision = 'b0070f3695c8'
 
 def upgrade():
     """Upgrade the database to this revision."""
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         alter_column('oauth_requests', 'redirect_msg', existing_type=sa.String(2048), type_=sa.String(4000), schema=schema)
 
 
 def downgrade():
     """Downgrade the database to the previous revision."""
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         alter_column('oauth_requests', 'redirect_msg', existing_type=sa.String(4000), type_=sa.String(2048), schema=schema)

@@ -17,9 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_table
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -32,7 +32,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('rse_transfer_limits',
                      sa.Column('rse_id', GUID()),
                      sa.Column('activity', sa.String(50)),
@@ -54,10 +54,10 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('rse_transfer_limits')
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         # drop_constraint('RSE_TRANSFER_LIMITS_PK', 'rse_transfer_limits', type_='primary')
         # drop_constraint('RSE_TRANSFER_LIMITS_CREATED_NN', 'rse_transfer_limits')
         # drop_constraint('RSE_TRANSFER_LIMITS_UPDATED_NN', 'rse_transfer_limits')

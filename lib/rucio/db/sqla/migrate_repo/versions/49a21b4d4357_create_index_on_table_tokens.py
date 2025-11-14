@@ -14,8 +14,9 @@
 
 ''' add tokens index '''
 
-from alembic import context
 from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '49a21b4d4357'
@@ -27,7 +28,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
         create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['account', 'expired_at'])
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])
@@ -38,7 +39,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
         drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])

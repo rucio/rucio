@@ -14,8 +14,9 @@
 
 ''' removing created_at index '''
 
-from alembic import context
 from alembic.op import create_index, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 revision = '469d262be19'
 down_revision = '16a0aca82e12'
@@ -26,7 +27,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids', ['scope', 'rule_evaluation_action', 'name'])
         drop_index('CREATED_AT_IDX', 'updated_dids')
 
@@ -36,6 +37,6 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids')
         create_index('CREATED_AT_IDX', 'updated_dids', ['created_at'])

@@ -17,8 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_table
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a74275a1ad30'
@@ -32,7 +33,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table(table_name,
                      sa.Column('rse_expression', sa.String(3000)),
                      sa.Column('bytes', sa.BigInteger()),
@@ -50,5 +51,5 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table(table_name)

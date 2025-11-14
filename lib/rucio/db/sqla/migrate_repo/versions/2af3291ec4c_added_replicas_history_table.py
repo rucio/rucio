@@ -15,9 +15,9 @@
 ''' added replicas history table '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_constraint, drop_table
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -30,7 +30,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('replicas_history',
                      sa.Column('rse_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -47,10 +47,10 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('replicas_history')
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         drop_constraint('REPLICAS_HIST_PK', 'replicas_history', type_='primary')
         drop_constraint('REPLICAS_HIST_RSE_ID_FK', 'replicas_history')
         drop_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history')

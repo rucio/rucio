@@ -17,10 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_table
 
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '7541902bf173'
@@ -32,7 +32,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('dids_followed',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
@@ -86,6 +86,6 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('dids_followed')
         drop_table('dids_followed_events')

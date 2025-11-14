@@ -15,10 +15,10 @@
 ''' remove temporary DIDs '''
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import create_index, create_primary_key, create_table, drop_table
 
 from rucio.common.schema import get_schema_value
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.types import GUID, InternalScopeString
 
 # Alembic revision identifiers
@@ -28,13 +28,13 @@ down_revision = '27e3a68927fb'
 
 def upgrade():
     '''Upgrade the database to this revision'''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('tmp_dids')
 
 
 def downgrade():
     '''Downgrade the database to the previous revision'''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('tmp_dids',
                      sa.Column('scope', InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                      sa.Column('name', sa.String(get_schema_value('NAME_LENGTH'))),

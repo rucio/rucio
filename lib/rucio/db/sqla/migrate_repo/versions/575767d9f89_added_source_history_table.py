@@ -18,6 +18,7 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, create_table, drop_column, drop_table
 
+from rucio.db.sqla.migrate_repo import is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -30,7 +31,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('sources_history',
                      sa.Column('request_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -51,7 +52,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         drop_column('requests', 'estimated_at', schema=schema)
         drop_column('requests_history', 'estimated_at', schema=schema)

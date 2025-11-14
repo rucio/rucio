@@ -14,8 +14,9 @@
 
 ''' create index on requests.external_id '''
 
-from alembic import context
 from alembic.op import create_index, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '42db2617c364'
@@ -27,7 +28,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_EXTERNALID_UQ', 'requests', ['external_id'])
 
 
@@ -36,5 +37,5 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_EXTERNALID_UQ', 'requests')

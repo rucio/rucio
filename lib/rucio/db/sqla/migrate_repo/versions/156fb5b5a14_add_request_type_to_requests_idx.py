@@ -14,8 +14,9 @@
 
 ''' add request_type to requests idx '''
 
-from alembic import context
 from alembic.op import create_foreign_key, create_index, create_unique_constraint, drop_constraint, drop_index
+
+from rucio.db.sqla.migrate_repo import is_current_dialect
 
 # Alembic revision identifiers
 revision = '156fb5b5a14'
@@ -27,7 +28,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
         drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
         drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
@@ -41,7 +42,7 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
         drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
         drop_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', type_='unique')
