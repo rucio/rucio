@@ -11,3 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Helpers shared across Alembic migrations."""
+
+from .ddl_helpers import (
+    is_current_dialect,
+)
+
+__all__ = [
+    "is_current_dialect",
+]
