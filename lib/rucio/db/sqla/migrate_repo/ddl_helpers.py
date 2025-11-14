@@ -142,6 +142,49 @@ def is_current_dialect(
     return name.lower() in wanted
 
 
+def get_effective_schema() -> 'Optional[str]':
+    """
+    Return the schema Alembic treats as the default for migrations, if any.
+
+    When helpers in this module are called without a ``schema=`` argument,
+    they fall back to this value so that objects live alongside the Alembic
+    version table by default.
+
+    Resolution order (first non‑empty wins)
+    --------------------------------------
+    1. ``alembic.runtime.migration.MigrationContext.version_table_schema``
+    2. ``MigrationContext.opts['version_table_schema']``
+    3. ``alembic.context.config.get_main_option('version_table_schema')``
+
+    Returns
+    -------
+    Optional[str]
+        The configured version‑table schema, or ``None`` when no default is set.
+
+    Notes
+    -----
+    This function inspects only the active Alembic context/configuration; it
+    does not query the server.
+    """
+
+    ctx = _get_migration_context()
+    if ctx is not None:
+        schema = getattr(ctx, "version_table_schema", None)
+        if schema:
+            return schema
+        opts = getattr(ctx, "opts", {}) or {}
+        schema = opts.get("version_table_schema")
+        if schema:
+            return schema
+    cfg = getattr(context, "config", None)
+    if cfg is not None:
+        schema = cfg.get_main_option("version_table_schema")
+        if schema:
+            return schema
+    return None
+
+
 __all__ = [
     "is_current_dialect",
+    "get_effective_schema",
 ]

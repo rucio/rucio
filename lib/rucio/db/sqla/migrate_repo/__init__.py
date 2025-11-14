@@ -15,9 +15,11 @@
 """Helpers shared across Alembic migrations."""
 
 from .ddl_helpers import (
+    get_effective_schema,
     is_current_dialect,
 )
 
 __all__ = [
     "is_current_dialect",
+    "get_effective_schema",
 ]
