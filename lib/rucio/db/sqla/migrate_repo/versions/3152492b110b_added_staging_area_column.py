@@ -15,10 +15,10 @@
 ''' added staging_area column '''
 
 import sqlalchemy as sa
-from alembic import context, op
+from alembic import op
 from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -31,23 +31,24 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
+    schema_prefix = f"{schema}." if schema else ""
 
     if is_current_dialect('oracle'):
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema)
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif is_current_dialect('postgresql'):
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema[:-1])
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema)
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif is_current_dialect('mysql'):
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema[:-1])
-        op.execute('ALTER TABLE ' + schema + 'requests DROP CHECK REQUESTS_TYPE_CHK')  # pylint: disable=no-member
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema)
+        op.execute('ALTER TABLE ' + schema_prefix + 'requests DROP CHECK REQUESTS_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
@@ -57,22 +58,23 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
+    schema_prefix = f"{schema}." if schema else ""
 
     if is_current_dialect('oracle'):
         try_drop_constraint('RSE_STAGING_AREA_CHK', 'rses')
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area')
+        drop_column('rses', 'staging_area', schema=schema)
 
     elif is_current_dialect('postgresql'):
-        op.execute('ALTER TABLE ' + schema + 'requests DROP CONSTRAINT IF EXISTS "REQUESTS_TYPE_CHK", ALTER COLUMN request_type TYPE CHAR')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema_prefix + 'requests DROP CONSTRAINT IF EXISTS "REQUESTS_TYPE_CHK", ALTER COLUMN request_type TYPE CHAR')  # pylint: disable=no-member
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area', schema=schema[:-1])
+        drop_column('rses', 'staging_area', schema=schema)
 
     elif is_current_dialect('mysql'):
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area', schema=schema[:-1])
+        drop_column('rses', 'staging_area', schema=schema)

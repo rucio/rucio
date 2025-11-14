@@ -14,10 +14,10 @@
 
 ''' rename callback to message '''
 
-from alembic import context, op
+from alembic import op
 from alembic.op import create_check_constraint, create_primary_key, drop_constraint, rename_table
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -30,7 +30,7 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
 
     if is_current_dialect('oracle'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
@@ -43,7 +43,7 @@ def upgrade():
 
     elif is_current_dialect('postgresql'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        rename_table('callbacks', 'messages', schema=schema[:-1])
+        rename_table('callbacks', 'messages', schema=schema)
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
         create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
@@ -52,7 +52,7 @@ def upgrade():
 
     elif is_current_dialect('mysql'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        rename_table('callbacks', 'messages', schema=schema[:-1])
+        rename_table('callbacks', 'messages', schema=schema)
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
         create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
@@ -65,7 +65,8 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
+    schema_prefix = f"{schema}." if schema else ""
 
     if is_current_dialect('oracle'):
         try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
@@ -86,7 +87,7 @@ def downgrade():
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_UPDATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PK', 'messages', type_='primary')
-        rename_table('messages', 'callbacks', schema=schema[:-1])
+        rename_table('messages', 'callbacks', schema=schema)
         create_primary_key('CALLBACKS_PK', 'callbacks', ['id'])
         create_check_constraint('CALLBACKS_EVENT_TYPE_NN', 'callbacks', 'event_type is not null')
         create_check_constraint('CALLBACKS_PAYLOAD_NN', 'callbacks', 'payload is not null')
@@ -94,12 +95,12 @@ def downgrade():
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
     elif is_current_dialect('mysql'):
-        op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_EVENT_TYPE_NN')  # pylint: disable=no-member
-        op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_PAYLOAD_NN')  # pylint: disable=no-member
-        op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_CREATED_NN')  # pylint: disable=no-member
-        op.execute('ALTER TABLE ' + schema + 'messages DROP CHECK MESSAGES_UPDATED_NN')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_EVENT_TYPE_NN')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_PAYLOAD_NN')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_CREATED_NN')  # pylint: disable=no-member
+        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_UPDATED_NN')  # pylint: disable=no-member
         drop_constraint('messages_pk', 'messages', type_='primary')
-        rename_table('messages', 'callbacks', schema=schema[:-1])
+        rename_table('messages', 'callbacks', schema=schema)
         create_primary_key('callbacks_pk', 'callbacks', ['id'])
         create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')
         create_check_constraint('callbacks_payload_nn', 'callbacks', 'payload is not null')

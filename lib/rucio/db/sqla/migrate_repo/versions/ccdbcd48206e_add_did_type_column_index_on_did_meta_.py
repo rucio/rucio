@@ -15,11 +15,10 @@
 ''' Add did_type column + index on did_meta table '''
 
 import sqlalchemy as sa
-from alembic.context import get_context
 from alembic.op import add_column, create_index, drop_column, drop_index, execute
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -32,18 +31,19 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    schema = get_context().version_table_schema + '.' if get_context().version_table_schema else ''
+    schema = get_effective_schema()
+    schema_prefix = f"{schema}." if schema else ""
     if is_current_dialect('oracle', 'mysql'):
         add_column('did_meta',
                    sa.Column('did_type', sa.Enum(DIDType,
                                                  name='DID_META_DID_TYPE_CHK',
                                                  create_constraint=True,
                                                  values_callable=lambda obj: [e.value for e in obj])),
-                   schema=schema[:-1])
+                   schema=schema)
     elif is_current_dialect('postgresql'):
         execute("CREATE TYPE \"DID_META_DID_TYPE_CHK\" AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')")
-        execute("ALTER TABLE %sdid_meta ADD COLUMN did_type \"DID_META_DID_TYPE_CHK\"" % schema)
-    create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'])
+        execute("ALTER TABLE %sdid_meta ADD COLUMN did_type \"DID_META_DID_TYPE_CHK\"" % schema_prefix)
+    create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'], schema=schema)
 
 
 def downgrade():
@@ -51,16 +51,17 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    drop_index('DID_META_DID_TYPE_IDX', 'did_meta')
-    schema = get_context().version_table_schema + '.' if get_context().version_table_schema else ''
+    schema = get_effective_schema()
+    schema_prefix = f"{schema}." if schema else ""
+    drop_index('DID_META_DID_TYPE_IDX', 'did_meta', schema=schema)
     if is_current_dialect('oracle'):
         try_drop_constraint('DID_META_DID_TYPE_CHK', 'did_meta')
-        drop_column('did_meta', 'did_type', schema=schema[:-1])
+        drop_column('did_meta', 'did_type', schema=schema)
 
     elif is_current_dialect('postgresql'):
-        execute('ALTER TABLE %sdid_meta DROP CONSTRAINT IF EXISTS "DID_META_DID_TYPE_CHK", ALTER COLUMN did_type TYPE CHAR' % schema)
-        execute('ALTER TABLE %sdid_meta DROP COLUMN did_type' % schema)
+        execute('ALTER TABLE %sdid_meta DROP CONSTRAINT IF EXISTS "DID_META_DID_TYPE_CHK", ALTER COLUMN did_type TYPE CHAR' % schema_prefix)
+        execute('ALTER TABLE %sdid_meta DROP COLUMN did_type' % schema_prefix)
         execute('DROP TYPE \"DID_META_DID_TYPE_CHK\"')
 
     elif is_current_dialect('mysql'):
-        drop_column('did_meta', 'did_type', schema=schema[:-1])
+        drop_column('did_meta', 'did_type', schema=schema)
