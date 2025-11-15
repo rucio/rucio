@@ -15,7 +15,7 @@
 """Opendata initial model"""  # noqa: D400, D415
 
 import sqlalchemy as sa
-from alembic import op
+from alembic.op import create_index, create_table, drop_index, drop_table, get_bind
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.constants import OpenDataDIDState
@@ -27,7 +27,7 @@ down_revision = '30d5206e9cad'
 
 
 def upgrade():
-    op.create_table(
+    create_table(
         'dids_opendata',
         sa.Column('scope', sa.String(length=get_schema_value('SCOPE_LENGTH')), nullable=False),
         sa.Column('name', sa.String(length=get_schema_value('NAME_LENGTH')), nullable=False),
@@ -40,12 +40,12 @@ def upgrade():
         sa.ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'],
                                 ondelete='CASCADE', name='OPENDATA_DID_FK')
     )
-    op.create_index('OPENDATA_DID_UPDATED_AT_IDX', 'dids_opendata', ['updated_at'])
-    op.create_index('OPENDATA_DID_CREATED_AT_IDX', 'dids_opendata', ['created_at'])
-    op.create_index('OPENDATA_DID_STATE_IDX', 'dids_opendata', ['state'])
-    op.create_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'dids_opendata', ['state', 'updated_at'])
+    create_index('OPENDATA_DID_UPDATED_AT_IDX', 'dids_opendata', ['updated_at'])
+    create_index('OPENDATA_DID_CREATED_AT_IDX', 'dids_opendata', ['created_at'])
+    create_index('OPENDATA_DID_STATE_IDX', 'dids_opendata', ['state'])
+    create_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'dids_opendata', ['state', 'updated_at'])
 
-    op.create_table(
+    create_table(
         'dids_opendata_doi',
         sa.Column('scope', sa.String(length=get_schema_value('SCOPE_LENGTH')), nullable=False),
         sa.Column('name', sa.String(length=get_schema_value('NAME_LENGTH')), nullable=False),
@@ -56,10 +56,10 @@ def upgrade():
         sa.ForeignKeyConstraint(['scope', 'name'], ['dids_opendata.scope', 'dids_opendata.name'],
                                 ondelete='CASCADE', name='OPENDATA_DOI_FK')
     )
-    op.create_index('OPENDATA_DOI_UPDATED_AT_IDX', 'dids_opendata_doi', ['updated_at'])
-    op.create_index('OPENDATA_DOI_CREATED_AT_IDX', 'dids_opendata_doi', ['created_at'])
+    create_index('OPENDATA_DOI_UPDATED_AT_IDX', 'dids_opendata_doi', ['updated_at'])
+    create_index('OPENDATA_DOI_CREATED_AT_IDX', 'dids_opendata_doi', ['created_at'])
 
-    op.create_table(
+    create_table(
         'dids_opendata_meta',
         sa.Column('scope', sa.String(length=get_schema_value('SCOPE_LENGTH')), nullable=False),
         sa.Column('name', sa.String(length=get_schema_value('NAME_LENGTH')), nullable=False),
@@ -73,17 +73,17 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table('dids_opendata_meta')
+    drop_table('dids_opendata_meta')
 
-    op.drop_index('OPENDATA_DOI_CREATED_AT_IDX', table_name='dids_opendata_doi')
-    op.drop_index('OPENDATA_DOI_UPDATED_AT_IDX', table_name='dids_opendata_doi')
-    op.drop_table('dids_opendata_doi')
+    drop_index('OPENDATA_DOI_CREATED_AT_IDX', table_name='dids_opendata_doi')
+    drop_index('OPENDATA_DOI_UPDATED_AT_IDX', table_name='dids_opendata_doi')
+    drop_table('dids_opendata_doi')
 
-    op.drop_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', table_name='dids_opendata')
-    op.drop_index('OPENDATA_DID_STATE_IDX', table_name='dids_opendata')
-    op.drop_index('OPENDATA_DID_CREATED_AT_IDX', table_name='dids_opendata')
-    op.drop_index('OPENDATA_DID_UPDATED_AT_IDX', table_name='dids_opendata')
-    op.drop_table('dids_opendata')
+    drop_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', table_name='dids_opendata')
+    drop_index('OPENDATA_DID_STATE_IDX', table_name='dids_opendata')
+    drop_index('OPENDATA_DID_CREATED_AT_IDX', table_name='dids_opendata')
+    drop_index('OPENDATA_DID_UPDATED_AT_IDX', table_name='dids_opendata')
+    drop_table('dids_opendata')
 
     # Drop enum if created in this migration
-    sa.Enum(name='DID_OPENDATA_STATE_CHK').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='DID_OPENDATA_STATE_CHK').drop(get_bind(), checkfirst=True)

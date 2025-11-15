@@ -16,8 +16,7 @@
 Add PREPARING state to Request model.
 """
 
-from alembic import op
-from alembic.op import execute
+from alembic.op import create_check_constraint, drop_constraint, execute, get_context
 
 from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
@@ -39,7 +38,7 @@ def upgrade():
     requests_table = qualify_table('requests')
     if is_current_dialect('oracle'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
-        op.create_check_constraint(
+        create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(new_enum_values)})',
@@ -80,10 +79,10 @@ def upgrade():
         )
 
     elif is_current_dialect('mysql'):
-        if op.get_context().dialect.server_version_info[0] == 8:
-            op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check', schema=schema)
+        if get_context().dialect.server_version_info[0] == 8:
+            drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check', schema=schema)
 
-        op.create_check_constraint(
+        create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(new_enum_values)})',
@@ -104,7 +103,7 @@ def downgrade():
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
-        op.create_check_constraint(
+        create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(old_enum_values)})',
@@ -144,15 +143,15 @@ def downgrade():
         )
 
     elif is_current_dialect('mysql'):
-        op.create_check_constraint(
+        create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(old_enum_values)})',
             schema=schema,
         )
 
-        if op.get_context().dialect.server_version_info[0] == 8:
-            op.drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check', schema=schema)
+        if get_context().dialect.server_version_info[0] == 8:
+            drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check', schema=schema)
 
 
 def enum_values_str(enumvals):
