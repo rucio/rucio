@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' increase identity length '''
+""" increase identity length """
 
 import sqlalchemy as sa
 from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
@@ -30,9 +30,9 @@ down_revision = 'b4293a99f344'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     account_map_table = qualify_table('account_map')
@@ -84,9 +84,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     account_map_table = qualify_table('account_map')

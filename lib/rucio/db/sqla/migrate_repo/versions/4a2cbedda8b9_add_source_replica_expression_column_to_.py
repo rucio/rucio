@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add_source_replica_expression_column_to_rules '''
+""" add_source_replica_expression_column_to_rules """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column
@@ -25,9 +25,9 @@ down_revision = 'a616581ee47'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
@@ -35,9 +35,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()

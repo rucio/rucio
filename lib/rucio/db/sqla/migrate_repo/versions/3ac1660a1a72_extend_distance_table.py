@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' extend distance table '''
+""" extend distance table """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column
@@ -25,9 +25,9 @@ down_revision = '5673b4b6e843'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
@@ -41,9 +41,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()

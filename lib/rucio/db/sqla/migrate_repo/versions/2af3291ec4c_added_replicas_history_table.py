@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added replicas history table '''
+""" added replicas history table """
 
 import sqlalchemy as sa
 from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_constraint, drop_table
@@ -26,9 +26,9 @@ down_revision = '32c7d2783f7e'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('replicas_history',
@@ -43,9 +43,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('replicas_history')

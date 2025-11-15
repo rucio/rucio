@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' correct PK and IDX for history tables '''
+""" correct PK and IDX for history tables """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_primary_key, drop_column, drop_constraint, drop_index
@@ -26,9 +26,9 @@ down_revision = '9eb936a81eb1'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         # CONTENTS_HISTORY
@@ -47,9 +47,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         # CONTENTS_HISTORY

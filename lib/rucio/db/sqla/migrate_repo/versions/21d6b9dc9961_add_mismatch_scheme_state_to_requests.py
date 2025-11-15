@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add mismatch scheme state to requests '''
+""" add mismatch scheme state to requests """
 
 from alembic.op import create_check_constraint, execute
 
@@ -25,9 +25,9 @@ down_revision = '5f139f77382a'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     requests_table = qualify_table('requests')
 
@@ -48,9 +48,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     requests_table = qualify_table('requests')
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' cleanup distances table '''
+""" cleanup distances table """
 
 import sqlalchemy as sa
 from alembic.op import add_column, alter_column, drop_column
@@ -25,9 +25,9 @@ down_revision = '13d4f70c66a9'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
 
@@ -51,9 +51,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
 

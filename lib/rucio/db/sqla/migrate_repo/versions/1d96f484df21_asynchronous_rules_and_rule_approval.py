@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' asynchronous rules and rule approval '''
+""" asynchronous rules and rule approval """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_check_constraint, drop_column, execute
@@ -26,9 +26,9 @@ down_revision = '3d9813fab443'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     rules_table = qualify_table('rules')
@@ -69,9 +69,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     rules_table = qualify_table('rules')

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' rename callback to message '''
+""" rename callback to message """
 
 from alembic.op import create_check_constraint, create_primary_key, drop_constraint, execute, rename_table
 
@@ -25,9 +25,9 @@ down_revision = '2b8e7bcb4783'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
 
@@ -60,9 +60,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     messages_table = qualify_table('messages')

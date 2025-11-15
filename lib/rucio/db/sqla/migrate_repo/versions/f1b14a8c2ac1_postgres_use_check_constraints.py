@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' postgres_use_check_constraints '''
+""" postgres_use_check_constraints """
 
 # Alembic revision identifiers
 revision = 'f1b14a8c2ac1'

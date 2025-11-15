@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add saml identity type '''
+""" add saml identity type """
 
 from alembic.op import create_check_constraint, drop_constraint, execute
 
@@ -25,9 +25,9 @@ down_revision = '53b479c3cb0f'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     account_map_table = qualify_table('account_map')
     identities_table = qualify_table('identities')
@@ -64,9 +64,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     account_map_table = qualify_table('account_map')

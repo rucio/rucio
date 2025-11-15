@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Adding missing function based indices '''
+""" Adding missing function based indices """
 
 from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '50280c53117c'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
     create_index('SUBSCRIPTIONS_STATE_IDX', 'subscriptions', ['state'])
     create_index('CONTENTS_RULE_EVAL_FB_IDX', 'contents', ['rule_evaluation'])
     create_index('REPLICAS_STATE_IDX', 'replicas', ['state'])
@@ -35,9 +35,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('mysql'):
         drop_constraint('BAD_REPLICAS_ACCOUNT_FK', 'bad_replicas', type_='foreignkey')

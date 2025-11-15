@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added_columns_rse_transfer_limits '''
+""" added_columns_rse_transfer_limits """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column
@@ -25,9 +25,9 @@ down_revision = '7541902bf173'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
 
@@ -38,9 +38,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
 

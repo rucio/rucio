@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' update REQUESTS_TYP_STA_UPD_IDX index '''
+""" update REQUESTS_TYP_STA_UPD_IDX index """
 
 from alembic.op import create_index, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '40ad39ce3160'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
@@ -35,9 +35,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')

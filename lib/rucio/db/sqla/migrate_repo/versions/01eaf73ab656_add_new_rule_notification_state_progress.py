@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add new rule notification state progress '''
+""" add new rule notification state progress """
 
 from alembic.op import create_check_constraint, execute
 
@@ -25,9 +25,9 @@ down_revision = '90f47792bb76'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     rules_table = qualify_table('rules')
 
@@ -60,9 +60,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     rules_table = qualify_table('rules')
 

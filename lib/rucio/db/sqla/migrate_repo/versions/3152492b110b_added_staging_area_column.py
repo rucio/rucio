@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added staging_area column '''
+""" added staging_area column """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint, execute
@@ -26,9 +26,9 @@ down_revision = '22cf51430c78'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     requests_table = qualify_table('requests')
@@ -58,9 +58,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     requests_table = qualify_table('requests')

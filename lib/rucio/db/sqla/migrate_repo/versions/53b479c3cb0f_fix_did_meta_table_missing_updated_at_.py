@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' fix did_meta table missing updated_at, created_at columns '''
+""" fix did_meta table missing updated_at, created_at columns """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column
@@ -25,9 +25,9 @@ down_revision = '2cbee484dcf9'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
@@ -36,9 +36,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()

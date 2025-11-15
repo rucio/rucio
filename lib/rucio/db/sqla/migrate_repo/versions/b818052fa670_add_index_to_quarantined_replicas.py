@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add index to quarantined replicas '''
+""" add index to quarantined replicas """
 
 from alembic.op import create_index, drop_index
 
@@ -24,18 +24,18 @@ down_revision = '2962ece31cf4'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas', ['path', 'rse_id'], unique=True)
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('QUARANTINED_REPLICAS_PATH_IDX', 'quarantined_replicas')

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Add status column in messages '''
+""" Add status column in messages """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column
@@ -25,9 +25,9 @@ down_revision = 'a118956323f8'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
 
@@ -37,9 +37,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
 

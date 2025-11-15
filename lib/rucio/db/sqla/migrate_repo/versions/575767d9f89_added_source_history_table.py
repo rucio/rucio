@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added source history table '''
+""" added source history table """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_table, drop_column, drop_table
@@ -26,9 +26,9 @@ down_revision = '379a19b5332d'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('sources_history',
@@ -47,9 +47,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()

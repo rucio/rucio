@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' true is true '''
+""" true is true """
 
 from alembic.op import execute
 
@@ -29,9 +29,9 @@ down_revision = 'b96a1c7e1cc4'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     account_attr_table = qualify_table('account_attr_map')
     rse_attr_table = qualify_table('rse_attr_map')
@@ -78,9 +78,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     account_attr_table = qualify_table('account_attr_map')
     rse_attr_table = qualify_table('rse_attr_map')

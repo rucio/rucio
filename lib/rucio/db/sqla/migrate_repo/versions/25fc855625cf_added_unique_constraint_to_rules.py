@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added unique constraint to rules '''
+""" added unique constraint to rules """
 
 from alembic.op import create_index, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '4a7182d9578b'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'],
@@ -34,9 +34,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')

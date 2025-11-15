@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add qos policy map table '''
+""" add qos policy map table """
 
 import datetime
 
@@ -28,9 +28,9 @@ down_revision = 'a193a275255c'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
         create_table('rse_qos_map',
@@ -47,9 +47,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
         drop_table('rse_qos_map')

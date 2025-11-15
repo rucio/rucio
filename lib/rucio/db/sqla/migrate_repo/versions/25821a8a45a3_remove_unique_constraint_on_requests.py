@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' remove unique constraint on requests '''
+""" remove unique constraint on requests """
 
 from alembic.op import create_foreign_key, create_index, create_unique_constraint, drop_constraint, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '1803333ac20f'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
@@ -39,9 +39,9 @@ def upgrade():
 
 def downgrade():
 
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')

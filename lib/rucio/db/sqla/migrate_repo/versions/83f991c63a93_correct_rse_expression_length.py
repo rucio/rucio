@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' correct rse_expression length '''
+""" correct rse_expression length """
 
 import sqlalchemy as sa
 from alembic.op import alter_column
@@ -25,9 +25,9 @@ down_revision = '2190e703eb6e'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
         alter_column('rules_hist_recent', 'rse_expression', existing_type=sa.String(255), type_=sa.String(3000), schema=schema)
@@ -35,9 +35,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
         alter_column('rules_hist_recent', 'rse_expression', existing_type=sa.String(3000), type_=sa.String(255), schema=schema)

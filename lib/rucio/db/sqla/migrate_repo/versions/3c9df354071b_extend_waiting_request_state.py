@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' extend waiting request state '''
+""" extend waiting request state """
 
 from alembic.op import create_check_constraint, execute
 
@@ -25,9 +25,9 @@ down_revision = '2edee4a83846'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     requests_table = qualify_table('requests')
 
@@ -46,9 +46,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     requests_table = qualify_table('requests')
 

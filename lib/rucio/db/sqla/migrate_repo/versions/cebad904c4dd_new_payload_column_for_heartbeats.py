@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' New payload column for heartbeats '''
+""" New payload column for heartbeats """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_index, drop_column, drop_index
@@ -26,9 +26,9 @@ down_revision = 'b7d287de34fd'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
@@ -37,9 +37,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()

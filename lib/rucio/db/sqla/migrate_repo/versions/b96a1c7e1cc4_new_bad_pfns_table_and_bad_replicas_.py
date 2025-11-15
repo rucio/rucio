@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' new bad_pfns table and bad_replicas changes '''
+""" new bad_pfns table and bad_replicas changes """
 
 import datetime
 
@@ -41,9 +41,9 @@ down_revision = '1f46c5f240ac'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     bad_replicas_table = qualify_table('bad_replicas')
@@ -119,9 +119,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     bad_replicas_table = qualify_table('bad_replicas')

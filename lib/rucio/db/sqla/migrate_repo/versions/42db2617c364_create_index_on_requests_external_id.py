@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' create index on requests.external_id '''
+""" create index on requests.external_id """
 
 from alembic.op import create_index, drop_index
 
@@ -24,18 +24,18 @@ down_revision = '4bab9edd01fc'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_EXTERNALID_UQ', 'requests', ['external_id'])
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_EXTERNALID_UQ', 'requests')

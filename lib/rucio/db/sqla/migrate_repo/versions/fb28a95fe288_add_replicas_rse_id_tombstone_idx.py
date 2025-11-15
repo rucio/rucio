@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add_replicas_rse_id_tombstone_idx '''
+""" add_replicas_rse_id_tombstone_idx """
 
 from alembic.op import create_index, drop_index
 
@@ -22,16 +22,16 @@ down_revision = '140fef722e91'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     create_index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'replicas', ['rse_id', 'tombstone'])
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     drop_index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'replicas')

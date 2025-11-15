@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add notification column to rules '''
+""" add notification column to rules """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column, execute
@@ -27,9 +27,9 @@ down_revision = '14ec5aeb64cf'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     rules_table = qualify_table('rules')
@@ -51,9 +51,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     rules_table = qualify_table('rules')

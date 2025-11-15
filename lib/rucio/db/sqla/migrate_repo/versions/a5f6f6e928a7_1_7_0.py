@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add columns for 1.7.0 release '''
+""" add columns for 1.7.0 release """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_check_constraint, create_foreign_key, drop_column, drop_constraint
@@ -25,9 +25,9 @@ down_revision = '21d6b9dc9961'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
@@ -64,9 +64,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
 

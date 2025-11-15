@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' new replica state for temporary unavailable replicas '''
+""" new replica state for temporary unavailable replicas """
 
 from alembic.op import create_check_constraint, execute
 
@@ -25,9 +25,9 @@ down_revision = '3345511706b8'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     replicas_table = qualify_table('replicas')
 
@@ -66,9 +66,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     replicas_table = qualify_table('replicas')
 

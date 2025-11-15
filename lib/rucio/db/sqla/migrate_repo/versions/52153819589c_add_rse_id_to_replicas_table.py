@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add_rse_id_to_replicas_table '''
+""" add_rse_id_to_replicas_table """
 
 
 from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
@@ -25,17 +25,17 @@ down_revision = '30fa38b6434e'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     create_index('REPLICAS_RSE_ID_IDX', 'replicas', ['rse_id'])
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('mysql'):
         drop_constraint('REPLICAS_RSE_ID_FK', 'replicas', type_='foreignkey')

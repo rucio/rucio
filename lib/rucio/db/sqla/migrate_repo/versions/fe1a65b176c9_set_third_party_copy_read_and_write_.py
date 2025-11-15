@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' set third_party_copy_read and write fields '''
+""" set third_party_copy_read and write fields """
 
 from alembic.op import alter_column, execute  # pylint: disable=no-member
 
@@ -24,9 +24,9 @@ down_revision = '0f1adb7a599a'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     rse_protocol_table = qualify_table('rse_protocols')
 
@@ -53,7 +53,7 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
     pass

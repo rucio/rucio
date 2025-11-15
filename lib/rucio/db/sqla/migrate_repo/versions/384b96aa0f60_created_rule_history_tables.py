@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' created rule history tables '''
+""" created rule history tables """
 
 import datetime
 
@@ -29,9 +29,9 @@ down_revision = '4cf0a2e127d4'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('rules_hist_recent',
                      sa.Column('history_id', GUID()),
@@ -118,9 +118,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql'):
         drop_index('RULES_HIST_RECENT_ID_IDX', 'rules_hist_recent')

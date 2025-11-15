@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' OAuth2.0 and JWT feature support; adding table oauth_requests & several columns to tokens table '''
+""" OAuth2.0 and JWT feature support; adding table oauth_requests & several columns to tokens table """
 
 import datetime
 
@@ -29,9 +29,9 @@ down_revision = '810a41685bc1'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
     schema = get_effective_schema()
     account_map_table = qualify_table('account_map')
     identities_table = qualify_table('identities')
@@ -101,9 +101,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
     schema = get_effective_schema()
     if is_current_dialect('oracle'):
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add a new state LOST in BadFilesStatus '''
+""" add a new state LOST in BadFilesStatus """
 
 from alembic.op import create_check_constraint
 
@@ -25,9 +25,9 @@ down_revision = '1fc15ab60d43'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
@@ -36,9 +36,9 @@ def upgrade():
 
 def downgrade():
 
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' oracle_global_temporary_tables '''
+""" oracle_global_temporary_tables """
 
 import sqlalchemy as sa
 from alembic import context
@@ -28,9 +28,9 @@ down_revision = 'd6e2c3b2cf26'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle'):
         additional_kwargs = {
@@ -63,9 +63,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle'):
         global_temp_tables = sa.inspect(context.get_bind()).get_temp_table_names()

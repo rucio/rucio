@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add didtype_chck to requests '''
+""" add didtype_chck to requests """
 
 import sqlalchemy as sa
 from alembic.op import add_column, drop_column, execute
@@ -26,9 +26,9 @@ down_revision = '436827b13f82'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     requests_table = qualify_table('requests')
@@ -55,9 +55,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
 

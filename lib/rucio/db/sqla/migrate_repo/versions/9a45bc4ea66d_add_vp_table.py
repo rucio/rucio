@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add VP table '''
+""" add VP table """
 
 import sqlalchemy as sa
 from alembic.op import create_foreign_key, create_primary_key, create_table, drop_table
@@ -27,9 +27,9 @@ down_revision = '739064d31565'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('virtual_placements',
@@ -46,9 +46,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('virtual_placements')

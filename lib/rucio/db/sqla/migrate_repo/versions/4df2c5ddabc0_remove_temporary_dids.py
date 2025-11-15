@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' remove temporary DIDs '''
+""" remove temporary DIDs """
 
 import sqlalchemy as sa
 from alembic.op import create_index, create_primary_key, create_table, drop_table
@@ -27,13 +27,13 @@ down_revision = '27e3a68927fb'
 
 
 def upgrade():
-    '''Upgrade the database to this revision'''
+    """Upgrade the database to this revision"""
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('tmp_dids')
 
 
 def downgrade():
-    '''Downgrade the database to the previous revision'''
+    """Downgrade the database to the previous revision"""
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('tmp_dids',
                      sa.Column('scope', InternalScopeString(get_schema_value('SCOPE_LENGTH'))),

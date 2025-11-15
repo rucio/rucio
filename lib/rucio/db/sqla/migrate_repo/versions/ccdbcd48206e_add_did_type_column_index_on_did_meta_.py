@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Add did_type column + index on did_meta table '''
+""" Add did_type column + index on did_meta table """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_index, drop_column, drop_index, execute
@@ -27,9 +27,9 @@ down_revision = '52153819589c'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     did_meta_table = qualify_table('did_meta')
@@ -52,9 +52,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     did_meta_table = qualify_table('did_meta')

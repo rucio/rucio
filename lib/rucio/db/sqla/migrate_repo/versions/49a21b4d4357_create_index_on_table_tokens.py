@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add tokens index '''
+""" add tokens index """
 
 from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '2eef46be23d4'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
@@ -35,9 +35,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')

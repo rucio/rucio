@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' replicas table PK definition is in wrong order '''
+""" replicas table PK definition is in wrong order """
 
 from alembic.op import create_foreign_key, create_primary_key, drop_constraint, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '01eaf73ab656'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql'):
         drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
@@ -49,9 +49,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql'):
         drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')

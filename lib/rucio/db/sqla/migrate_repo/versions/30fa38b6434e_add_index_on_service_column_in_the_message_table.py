@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Add index on service column in the message table '''
+""" Add index on service column in the message table """
 
 import sqlalchemy as sa
 from alembic.op import alter_column, create_index, drop_index
@@ -25,9 +25,9 @@ down_revision = 'e138c364ebd0'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
         alter_column('messages', 'services', existing_type=sa.String(2048), type_=sa.String(256), schema=schema)
@@ -36,9 +36,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
     drop_index('MESSAGES_SERVICES_IDX', 'messages')
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()

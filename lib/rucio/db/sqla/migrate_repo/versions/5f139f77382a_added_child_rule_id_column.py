@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added child_rule_id column '''
+""" added child_rule_id column """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_foreign_key, create_index, drop_column, drop_constraint, drop_index
@@ -26,9 +26,9 @@ down_revision = '1d1215494e95'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         schema = get_effective_schema()
@@ -41,9 +41,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules', type_='foreignkey')

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Removal of ReplicaState.SOURCE '''
+""" Removal of ReplicaState.SOURCE """
 
 from alembic.op import create_check_constraint, execute
 
@@ -25,9 +25,9 @@ down_revision = 'f1b14a8c2ac1'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     collection_replicas_table = qualify_table('collection_replicas')
     replicas_table = qualify_table('replicas')
@@ -89,9 +89,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     collection_replicas_table = qualify_table('collection_replicas')
     replicas_table = qualify_table('replicas')

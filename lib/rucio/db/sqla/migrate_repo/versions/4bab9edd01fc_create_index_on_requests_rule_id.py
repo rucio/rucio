@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' create index on requests.rule_id '''
+""" create index on requests.rule_id """
 
 from alembic.op import create_index, drop_index
 
@@ -24,18 +24,18 @@ down_revision = 'ae2a56fcc89'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_RULEID_IDX', 'requests', ['rule_id'])
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_index('REQUESTS_RULEID_IDX', 'requests')

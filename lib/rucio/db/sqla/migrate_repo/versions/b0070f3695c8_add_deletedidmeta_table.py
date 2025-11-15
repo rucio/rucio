@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Add deleted_did_meta table '''
+""" Add deleted_did_meta table """
 
 import sqlalchemy as sa
 from alembic.op import create_index, create_primary_key, create_table, drop_table
@@ -27,9 +27,9 @@ down_revision = 'b5493606bbf5'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('deleted_did_meta',
@@ -49,9 +49,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('deleted_did_meta')

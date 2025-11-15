@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Extending columns for filter and replication_rules in subscriptions '''
+""" Extending columns for filter and replication_rules in subscriptions """
 
 import sqlalchemy as sa
 from alembic.op import alter_column
@@ -25,9 +25,9 @@ down_revision = 'f85a2962b021'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
@@ -38,9 +38,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     if is_current_dialect('oracle', 'mysql', 'postgresql'):

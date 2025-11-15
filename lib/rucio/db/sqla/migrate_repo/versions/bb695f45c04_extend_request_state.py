@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' extend request state '''
+""" extend request state """
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint, execute
@@ -26,9 +26,9 @@ down_revision = '3082b8cef557'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     schema = get_effective_schema()
     requests_table = qualify_table('requests')
@@ -54,9 +54,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     schema = get_effective_schema()
     requests_table = qualify_table('requests')

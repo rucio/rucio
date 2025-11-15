@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' adding transfertool column and index to requests table'''
+""" adding transfertool column and index to requests table"""
 
 import sqlalchemy as sa
 from alembic.op import add_column, create_index, drop_column, drop_index
@@ -25,9 +25,9 @@ down_revision = 'd23453595260'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
         schema = get_effective_schema()
@@ -37,9 +37,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
         schema = get_effective_schema()

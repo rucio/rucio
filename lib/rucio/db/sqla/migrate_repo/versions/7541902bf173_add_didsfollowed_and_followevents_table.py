@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add DidFollowed and FollowEvent table '''
+""" add DidFollowed and FollowEvent table """
 
 import datetime
 
@@ -28,9 +28,9 @@ down_revision = 'a74275a1ad30'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('dids_followed',
@@ -82,9 +82,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('dids_followed')

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add request_type to requests idx '''
+""" add request_type to requests idx """
 
 from alembic.op import create_foreign_key, create_index, create_unique_constraint, drop_constraint, drop_index
 
@@ -24,9 +24,9 @@ down_revision = '1a29d6a9504c'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
@@ -38,9 +38,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
