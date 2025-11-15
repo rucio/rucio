@@ -44,8 +44,16 @@ def upgrade():
             ALTER COLUMN notification TYPE CHAR
             """
         )
-        execute('DROP TYPE "RULES_NOTIFICATION_CHK"')
-        execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
+        execute(
+            """
+            DROP TYPE "RULES_NOTIFICATION_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "RULES_NOTIFICATION_CHK" AS ENUM('Y', 'N', 'C', 'P')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -79,8 +87,16 @@ def downgrade():
             ALTER COLUMN notification TYPE CHAR
             """
         )
-        execute('DROP TYPE "RULES_NOTIFICATION_CHK"')
-        execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C')")
+        execute(
+            """
+            DROP TYPE "RULES_NOTIFICATION_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "RULES_NOTIFICATION_CHK" AS ENUM('Y', 'N', 'C')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {rules_table}

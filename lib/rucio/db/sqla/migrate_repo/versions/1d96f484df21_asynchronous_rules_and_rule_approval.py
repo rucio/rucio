@@ -47,8 +47,16 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute("DROP TYPE \"RULES_STATE_CHK\"")
-        execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')")
+        execute(
+            """
+            DROP TYPE "RULES_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "RULES_STATE_CHK" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -90,8 +98,16 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute("DROP TYPE \"RULES_STATE_CHK\"")
-        execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O')")
+        execute(
+            """
+            DROP TYPE "RULES_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "RULES_STATE_CHK" AS ENUM('S', 'R', 'U', 'O')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {rules_table}

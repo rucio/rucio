@@ -41,7 +41,11 @@ def upgrade():
                                                  values_callable=lambda obj: [e.value for e in obj])),
                    schema=schema)
     elif is_current_dialect('postgresql'):
-        execute("CREATE TYPE \"DID_META_DID_TYPE_CHK\" AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')")
+        execute(
+            """
+            CREATE TYPE "DID_META_DID_TYPE_CHK" AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {did_meta_table}
@@ -77,7 +81,11 @@ def downgrade():
             DROP COLUMN did_type
             """
         )
-        execute('DROP TYPE \"DID_META_DID_TYPE_CHK\"')
+        execute(
+            """
+            DROP TYPE "DID_META_DID_TYPE_CHK"
+            """
+        )
 
     elif is_current_dialect('mysql'):
         drop_column('did_meta', 'did_type', schema=schema)

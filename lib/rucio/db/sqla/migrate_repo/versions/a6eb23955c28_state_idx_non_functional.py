@@ -33,7 +33,12 @@ def upgrade():
     rules_table = qualify_table('rules')
 
     if is_current_dialect('oracle', 'postgresql'):
-        execute(f'ALTER INDEX {schema_prefix}"RULES_STUCKSTATE_IDX" RENAME TO "RULES_STATE_IDX"')
+        execute(
+            f"""
+            ALTER INDEX {schema_prefix}"RULES_STUCKSTATE_IDX"
+            RENAME TO "RULES_STATE_IDX"
+            """
+        )
     elif is_current_dialect('mysql'):
         execute(
             f"""
@@ -56,7 +61,12 @@ def downgrade():
     rules_table = qualify_table('rules')
 
     if is_current_dialect('oracle', 'postgresql'):
-        execute(f'ALTER INDEX {schema_prefix}"RULES_STATE_IDX" RENAME TO "RULES_STUCKSTATE_IDX"')
+        execute(
+            f"""
+            ALTER INDEX {schema_prefix}"RULES_STATE_IDX"
+            RENAME TO "RULES_STUCKSTATE_IDX"
+            """
+        )
     elif is_current_dialect('mysql'):
         execute(
             f"""

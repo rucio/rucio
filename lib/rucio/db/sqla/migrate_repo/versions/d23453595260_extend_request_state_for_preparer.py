@@ -52,8 +52,16 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REQUESTS_HISTORY_STATE_CHK"')
-        execute(f'CREATE TYPE "REQUESTS_HISTORY_STATE_CHK" AS ENUM({enum_values_str(new_enum_values)})')
+        execute(
+            """
+            DROP TYPE "REQUESTS_HISTORY_STATE_CHK"
+            """
+        )
+        execute(
+            f"""
+            CREATE TYPE "REQUESTS_HISTORY_STATE_CHK" AS ENUM({enum_values_str(new_enum_values)})
+            """
+        )
         execute(
             f"""
             ALTER TABLE {requests_history_table}
@@ -68,8 +76,16 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REQUESTS_STATE_CHK"')
-        execute(f'CREATE TYPE "REQUESTS_STATE_CHK" AS ENUM({enum_values_str(new_enum_values)})')
+        execute(
+            """
+            DROP TYPE "REQUESTS_STATE_CHK"
+            """
+        )
+        execute(
+            f"""
+            CREATE TYPE "REQUESTS_STATE_CHK" AS ENUM({enum_values_str(new_enum_values)})
+            """
+        )
         execute(
             f"""
             ALTER TABLE {requests_table}
@@ -117,7 +133,11 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(f'CREATE TYPE "REQUESTS_HISTORY_STATE_CHK" AS ENUM({enum_values_str(old_enum_values)})')
+        execute(
+            f"""
+            CREATE TYPE "REQUESTS_HISTORY_STATE_CHK" AS ENUM({enum_values_str(old_enum_values)})
+            """
+        )
         execute(
             f"""
             ALTER TABLE {requests_history_table}
@@ -132,8 +152,16 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REQUESTS_STATE_CHK"')
-        execute(f'CREATE TYPE "REQUESTS_STATE_CHK" AS ENUM({enum_values_str(old_enum_values)})')
+        execute(
+            """
+            DROP TYPE "REQUESTS_STATE_CHK"
+            """
+        )
+        execute(
+            f"""
+            CREATE TYPE "REQUESTS_STATE_CHK" AS ENUM({enum_values_str(old_enum_values)})
+            """
+        )
         execute(
             f"""
             ALTER TABLE {requests_table}

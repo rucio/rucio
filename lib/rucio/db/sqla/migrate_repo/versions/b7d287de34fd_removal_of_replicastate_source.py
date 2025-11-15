@@ -48,8 +48,16 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REPLICAS_STATE_CHK"')
-        execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')")
+        execute(
+            """
+            DROP TYPE "REPLICAS_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {replicas_table}
@@ -65,8 +73,16 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"')
-        execute("CREATE TYPE \"COLLECTION_REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')")
+        execute(
+            """
+            DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "COLLECTION_REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}
@@ -112,8 +128,16 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REPLICAS_STATE_CHK"')
-        execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        execute(
+            """
+            DROP TYPE "REPLICAS_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {replicas_table}
@@ -129,8 +153,16 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"')
-        execute("CREATE TYPE \"COLLECTION_REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        execute(
+            """
+            DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "COLLECTION_REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}

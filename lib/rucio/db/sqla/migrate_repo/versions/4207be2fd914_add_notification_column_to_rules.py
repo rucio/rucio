@@ -41,7 +41,11 @@ def upgrade():
                                                               values_callable=lambda obj: [e.value for e in obj]),
                                       default=RuleNotification.NO), schema=schema)
     elif is_current_dialect('postgresql'):
-        execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
+        execute(
+            """
+            CREATE TYPE "RULES_NOTIFICATION_CHK" AS ENUM('Y', 'N', 'C', 'P')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -76,7 +80,11 @@ def downgrade():
             DROP COLUMN notification
             """
         )
-        execute('DROP TYPE "RULES_NOTIFICATION_CHK"')
+        execute(
+            """
+            DROP TYPE "RULES_NOTIFICATION_CHK"
+            """
+        )
 
     elif is_current_dialect('mysql'):
         drop_column('rules', 'notification', schema=schema)

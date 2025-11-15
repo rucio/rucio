@@ -44,8 +44,16 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REPLICAS_STATE_CHK"')
-        execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        execute(
+            """
+            DROP TYPE "REPLICAS_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {replicas_table}
@@ -85,8 +93,16 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute('DROP TYPE "REPLICAS_STATE_CHK"')
-        execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S')")
+        execute(
+            """
+            DROP TYPE "REPLICAS_STATE_CHK"
+            """
+        )
+        execute(
+            """
+            CREATE TYPE "REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'S')
+            """
+        )
         execute(
             f"""
             ALTER TABLE {replicas_table}
