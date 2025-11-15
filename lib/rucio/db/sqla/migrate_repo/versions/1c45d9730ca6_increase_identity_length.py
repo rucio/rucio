@@ -21,6 +21,7 @@ from alembic.op import alter_column, create_check_constraint, create_foreign_key
 from rucio.db.sqla.migrate_repo import (
     get_effective_schema,
     is_current_dialect,
+    qualify_table,
 )
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -79,13 +80,21 @@ def downgrade():
 
     schema = get_effective_schema()
     schema_prefix = f"{schema}." if schema else ""
+    account_map_table = qualify_table('account_map')
+    identities_table = qualify_table('identities')
 
     # Attention!
     # This automatically removes all SSH keys to accommodate the column size and check constraint.
 
     if is_current_dialect('oracle'):
-        execute("DELETE FROM account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM identities WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute(
+            f"DELETE FROM {account_map_table} "
+            "WHERE identity_type='SSH'"
+        )
+        execute(
+            f"DELETE FROM {identities_table} "
+            "WHERE identity_type='SSH'"
+        )
 
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -103,8 +112,14 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
 
     elif is_current_dialect('postgresql'):
-        execute("DELETE FROM " + schema_prefix + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM " + schema_prefix + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute(
+            f"DELETE FROM {account_map_table} "
+            "WHERE identity_type='SSH'"
+        )
+        execute(
+            f"DELETE FROM {identities_table} "
+            "WHERE identity_type='SSH'"
+        )
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         op.execute('ALTER TABLE ' + schema_prefix + 'identities DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
@@ -123,8 +138,14 @@ def downgrade():
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
 
     elif is_current_dialect('mysql'):
-        execute("DELETE FROM " + schema_prefix + "account_map WHERE identity_type='SSH'")  # pylint: disable=no-member
-        execute("DELETE FROM " + schema_prefix + "identities WHERE identity_type='SSH'")  # pylint: disable=no-member
+        execute(
+            f"DELETE FROM {account_map_table} "
+            "WHERE identity_type='SSH'"
+        )
+        execute(
+            f"DELETE FROM {identities_table} "
+            "WHERE identity_type='SSH'"
+        )
 
         op.execute('ALTER TABLE ' + schema_prefix + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
