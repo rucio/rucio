@@ -17,11 +17,22 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic import op
-from alembic.op import add_column, create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_column, drop_constraint, drop_index, drop_table
+from alembic.op import (
+    add_column,
+    create_check_constraint,
+    create_foreign_key,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_column,
+    drop_constraint,
+    drop_index,
+    drop_table,
+    execute,
+)
 
 from rucio.db.sqla.constants import BadPFNStatus
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -35,7 +46,7 @@ def upgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    bad_replicas_table = qualify_table('bad_replicas')
 
     if is_current_dialect('oracle', 'postgresql'):
         # Create new bad_pfns table
@@ -87,7 +98,12 @@ def upgrade():
         create_primary_key('BAD_PFNS_PK', 'bad_pfns', ['path', 'state'])
         create_foreign_key('BAD_PFNS_ACCOUNT_FK', 'bad_pfns', 'accounts', ['account'], ['account'])
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'bad_replicas DROP CHECK BAD_REPLICAS_STATE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {bad_replicas_table}
+            DROP CHECK BAD_REPLICAS_STATE_CHK
+            """
+        )
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
@@ -108,7 +124,7 @@ def downgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    bad_replicas_table = qualify_table('bad_replicas')
 
     if is_current_dialect('oracle'):
         drop_table('bad_pfns')
@@ -126,7 +142,13 @@ def downgrade():
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'bad_replicas DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {bad_replicas_table}
+            DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 

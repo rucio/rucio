@@ -14,10 +14,9 @@
 
 ''' rename callback to message '''
 
-from alembic import op
-from alembic.op import create_check_constraint, create_primary_key, drop_constraint, rename_table
+from alembic.op import create_check_constraint, create_primary_key, drop_constraint, execute, rename_table
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -66,7 +65,7 @@ def downgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    messages_table = qualify_table('messages')
 
     if is_current_dialect('oracle'):
         try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
@@ -95,10 +94,30 @@ def downgrade():
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
     elif is_current_dialect('mysql'):
-        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_EVENT_TYPE_NN')  # pylint: disable=no-member
-        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_PAYLOAD_NN')  # pylint: disable=no-member
-        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_CREATED_NN')  # pylint: disable=no-member
-        op.execute('ALTER TABLE ' + schema_prefix + 'messages DROP CHECK MESSAGES_UPDATED_NN')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {messages_table}
+            DROP CHECK MESSAGES_EVENT_TYPE_NN
+            """
+        )
+        execute(
+            f"""
+            ALTER TABLE {messages_table}
+            DROP CHECK MESSAGES_PAYLOAD_NN
+            """
+        )
+        execute(
+            f"""
+            ALTER TABLE {messages_table}
+            DROP CHECK MESSAGES_CREATED_NN
+            """
+        )
+        execute(
+            f"""
+            ALTER TABLE {messages_table}
+            DROP CHECK MESSAGES_UPDATED_NN
+            """
+        )
         drop_constraint('messages_pk', 'messages', type_='primary')
         rename_table('messages', 'callbacks', schema=schema)
         create_primary_key('callbacks_pk', 'callbacks', ['id'])

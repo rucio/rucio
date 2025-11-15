@@ -15,10 +15,9 @@
 ''' extend request state '''
 
 import sqlalchemy as sa
-from alembic import op
-from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint
+from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -32,7 +31,7 @@ def upgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    requests_table = qualify_table('requests')
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
@@ -42,7 +41,12 @@ def upgrade():
         add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema)
 
     elif is_current_dialect('mysql'):
-        op.execute('ALTER TABLE ' + schema_prefix + 'requests DROP CHECK REQUESTS_STATE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {requests_table}
+            DROP CHECK REQUESTS_STATE_CHK
+            """
+        )
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
         add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema)
@@ -55,7 +59,7 @@ def downgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    requests_table = qualify_table('requests')
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
@@ -72,7 +76,12 @@ def downgrade():
         drop_column('sources', 'is_using', schema=schema)
 
     elif is_current_dialect('mysql'):
-        op.execute('ALTER TABLE ' + schema_prefix + 'requests DROP CHECK REQUESTS_STATE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {requests_table}
+            DROP CHECK REQUESTS_STATE_CHK
+            """
+        )
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
         drop_column('requests', 'submitter_id', schema=schema)

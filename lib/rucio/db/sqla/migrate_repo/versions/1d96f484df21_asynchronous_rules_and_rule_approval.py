@@ -15,10 +15,9 @@
 ''' asynchronous rules and rule approval '''
 
 import sqlalchemy as sa
-from alembic import op
-from alembic.op import add_column, create_check_constraint, drop_column
+from alembic.op import add_column, create_check_constraint, drop_column, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -32,7 +31,7 @@ def upgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    rules_table = qualify_table('rules')
 
     if is_current_dialect('oracle'):
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema)
@@ -41,14 +40,31 @@ def upgrade():
 
     elif is_current_dialect('postgresql'):
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema)
-        op.execute('ALTER TABLE ' + schema_prefix + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')
-        op.execute("DROP TYPE \"RULES_STATE_CHK\"")
-        op.execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')")
-        op.execute("ALTER TABLE %srules ALTER COLUMN state TYPE \"RULES_STATE_CHK\" USING state::\"RULES_STATE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
+        execute("DROP TYPE \"RULES_STATE_CHK\"")
+        execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')")
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            ALTER COLUMN state TYPE "RULES_STATE_CHK"
+            USING state::"RULES_STATE_CHK"
+            """
+        )
 
     elif is_current_dialect('mysql'):
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema)
-        op.execute('ALTER TABLE ' + schema_prefix + 'rules DROP CHECK RULES_STATE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            DROP CHECK RULES_STATE_CHK
+            """
+        )
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
 
@@ -58,7 +74,7 @@ def downgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    rules_table = qualify_table('rules')
 
     if is_current_dialect('oracle'):
         drop_column('rules', 'ignore_account_limit', schema=schema)
@@ -67,10 +83,22 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
         drop_column('rules', 'ignore_account_limit', schema=schema)
-        op.execute('ALTER TABLE ' + schema_prefix + 'rules DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK", ALTER COLUMN state TYPE CHAR')
-        op.execute("DROP TYPE \"RULES_STATE_CHK\"")
-        op.execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O')")
-        op.execute("ALTER TABLE %srules ALTER COLUMN state TYPE \"RULES_STATE_CHK\" USING state::\"RULES_STATE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
+        execute("DROP TYPE \"RULES_STATE_CHK\"")
+        execute("CREATE TYPE \"RULES_STATE_CHK\" AS ENUM('S', 'R', 'U', 'O')")
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            ALTER COLUMN state TYPE "RULES_STATE_CHK"
+            USING state::"RULES_STATE_CHK"
+            """
+        )
 
     elif is_current_dialect('mysql'):
         drop_column('rules', 'ignore_account_limit', schema=schema)

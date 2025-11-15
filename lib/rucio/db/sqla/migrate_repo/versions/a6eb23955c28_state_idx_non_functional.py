@@ -16,7 +16,7 @@
 
 from alembic.op import create_index, drop_index, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 
 # Alembic revision identifiers
 revision = 'a6eb23955c28'
@@ -30,10 +30,17 @@ def upgrade():
 
     schema = get_effective_schema()
     schema_prefix = f"{schema}." if schema else ""
+    rules_table = qualify_table('rules')
+
     if is_current_dialect('oracle', 'postgresql'):
         execute(f'ALTER INDEX {schema_prefix}"RULES_STUCKSTATE_IDX" RENAME TO "RULES_STATE_IDX"')
     elif is_current_dialect('mysql'):
-        execute(f'ALTER TABLE {schema_prefix}rules RENAME INDEX RULES_STUCKSTATE_IDX TO RULES_STATE_IDX')
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            RENAME INDEX RULES_STUCKSTATE_IDX TO RULES_STATE_IDX
+            """
+        )
     elif is_current_dialect('sqlite'):
         create_index('RULES_STATE_IDX', 'rules', ['state'])
         drop_index('RULES_STUCKSTATE_IDX', 'rules')
@@ -46,10 +53,17 @@ def downgrade():
 
     schema = get_effective_schema()
     schema_prefix = f"{schema}." if schema else ""
+    rules_table = qualify_table('rules')
+
     if is_current_dialect('oracle', 'postgresql'):
         execute(f'ALTER INDEX {schema_prefix}"RULES_STATE_IDX" RENAME TO "RULES_STUCKSTATE_IDX"')
     elif is_current_dialect('mysql'):
-        execute(f'ALTER TABLE {schema_prefix}rules RENAME INDEX RULES_STATE_IDX TO RULES_STUCKSTATE_IDX')
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            RENAME INDEX RULES_STATE_IDX TO RULES_STUCKSTATE_IDX
+            """
+        )
     elif is_current_dialect('sqlite'):
         create_index('RULES_STUCKSTATE_IDX', 'rules', ['state'])
         drop_index('RULES_STATE_IDX', 'rules')

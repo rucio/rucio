@@ -15,7 +15,6 @@
 ''' increase identity length '''
 
 import sqlalchemy as sa
-from alembic import op
 from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
 
 from rucio.db.sqla.migrate_repo import (
@@ -36,7 +35,8 @@ def upgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    account_map_table = qualify_table('account_map')
+    identities_table = qualify_table('identities')
 
     if is_current_dialect('oracle', 'postgresql'):
 
@@ -63,11 +63,21 @@ def upgrade():
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {identities_table}
+            DROP CHECK IDENTITIES_TYPE_CHK
+            """
+        )
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-        op.execute('ALTER TABLE ' + schema_prefix + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {account_map_table}
+            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
+            """
+        )
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
@@ -79,7 +89,6 @@ def downgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
     account_map_table = qualify_table('account_map')
     identities_table = qualify_table('identities')
 
@@ -122,12 +131,24 @@ def downgrade():
         )
 
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        op.execute('ALTER TABLE ' + schema_prefix + 'identities DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {identities_table}
+            DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK",
+            ALTER COLUMN identity_type TYPE VARCHAR
+            """
+        )
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'account_map DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK", ALTER COLUMN identity_type TYPE VARCHAR')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {account_map_table}
+            DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK",
+            ALTER COLUMN identity_type TYPE VARCHAR
+            """
+        )
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
@@ -147,12 +168,22 @@ def downgrade():
             "WHERE identity_type='SSH'"
         )
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {identities_table}
+            DROP CHECK IDENTITIES_TYPE_CHK
+            """
+        )
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {account_map_table}
+            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
+            """
+        )
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")

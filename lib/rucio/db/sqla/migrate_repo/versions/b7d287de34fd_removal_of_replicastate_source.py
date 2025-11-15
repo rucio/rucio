@@ -14,10 +14,9 @@
 
 ''' Removal of ReplicaState.SOURCE '''
 
-from alembic import op
-from alembic.op import create_check_constraint
+from alembic.op import create_check_constraint, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -30,8 +29,8 @@ def upgrade():
     Upgrade the database to this revision
     '''
 
-    schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    collection_replicas_table = qualify_table('collection_replicas')
+    replicas_table = qualify_table('replicas')
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
@@ -42,18 +41,47 @@ def upgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
 
     elif is_current_dialect('postgresql'):
-        op.execute('ALTER TABLE ' + schema_prefix + 'replicas DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')
-        op.execute('DROP TYPE "REPLICAS_STATE_CHK"')
-        op.execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')")
-        op.execute("ALTER TABLE %sreplicas ALTER COLUMN state TYPE \"REPLICAS_STATE_CHK\" USING state::\"REPLICAS_STATE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {replicas_table}
+            DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
+        execute('DROP TYPE "REPLICAS_STATE_CHK"')
+        execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')")
+        execute(
+            f"""
+            ALTER TABLE {replicas_table}
+            ALTER COLUMN state TYPE "REPLICAS_STATE_CHK"
+            USING state::"REPLICAS_STATE_CHK"
+            """
+        )
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'collection_replicas DROP CONSTRAINT IF EXISTS "COLLECTION_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')
-        op.execute('DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"')
-        op.execute("CREATE TYPE \"COLLECTION_REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')")
-        op.execute("ALTER TABLE %scollection_replicas ALTER COLUMN state TYPE \"COLLECTION_REPLICAS_STATE_CHK\" USING state::\"COLLECTION_REPLICAS_STATE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {collection_replicas_table}
+            DROP CONSTRAINT IF EXISTS "COLLECTION_REPLICAS_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
+        execute('DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"')
+        execute("CREATE TYPE \"COLLECTION_REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')")
+        execute(
+            f"""
+            ALTER TABLE {collection_replicas_table}
+            ALTER COLUMN state TYPE "COLLECTION_REPLICAS_STATE_CHK"
+            USING state::"COLLECTION_REPLICAS_STATE_CHK"
+            """
+        )
 
     elif is_current_dialect('mysql'):
-        op.execute('ALTER TABLE ' + schema_prefix + 'replicas DROP CHECK REPLICAS_STATE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {replicas_table}
+            DROP CHECK REPLICAS_STATE_CHK
+            """
+        )
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
@@ -65,8 +93,8 @@ def downgrade():
     Downgrade the database to the previous revision
     '''
 
-    schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    collection_replicas_table = qualify_table('collection_replicas')
+    replicas_table = qualify_table('replicas')
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
@@ -77,15 +105,39 @@ def downgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
     elif is_current_dialect('postgresql'):
-        op.execute('ALTER TABLE ' + schema_prefix + 'replicas DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')
-        op.execute('DROP TYPE "REPLICAS_STATE_CHK"')
-        op.execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
-        op.execute("ALTER TABLE %sreplicas ALTER COLUMN state TYPE \"REPLICAS_STATE_CHK\" USING state::\"REPLICAS_STATE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {replicas_table}
+            DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
+        execute('DROP TYPE "REPLICAS_STATE_CHK"')
+        execute("CREATE TYPE \"REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        execute(
+            f"""
+            ALTER TABLE {replicas_table}
+            ALTER COLUMN state TYPE "REPLICAS_STATE_CHK"
+            USING state::"REPLICAS_STATE_CHK"
+            """
+        )
 
-        op.execute('ALTER TABLE ' + schema_prefix + 'collection_replicas DROP CONSTRAINT IF EXISTS "COLLECTION_REPLICAS_STATE_CHK", ALTER COLUMN state TYPE CHAR')
-        op.execute('DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"')
-        op.execute("CREATE TYPE \"COLLECTION_REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
-        op.execute("ALTER TABLE %scollection_replicas ALTER COLUMN state TYPE \"COLLECTION_REPLICAS_STATE_CHK\" USING state::\"COLLECTION_REPLICAS_STATE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {collection_replicas_table}
+            DROP CONSTRAINT IF EXISTS "COLLECTION_REPLICAS_STATE_CHK",
+            ALTER COLUMN state TYPE CHAR
+            """
+        )
+        execute('DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"')
+        execute("CREATE TYPE \"COLLECTION_REPLICAS_STATE_CHK\" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        execute(
+            f"""
+            ALTER TABLE {collection_replicas_table}
+            ALTER COLUMN state TYPE "COLLECTION_REPLICAS_STATE_CHK"
+            USING state::"COLLECTION_REPLICAS_STATE_CHK"
+            """
+        )
 
     elif is_current_dialect('mysql'):
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',

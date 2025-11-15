@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic.op import add_column, create_index, drop_column, drop_index, execute
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -32,7 +32,7 @@ def upgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    did_meta_table = qualify_table('did_meta')
     if is_current_dialect('oracle', 'mysql'):
         add_column('did_meta',
                    sa.Column('did_type', sa.Enum(DIDType,
@@ -42,7 +42,12 @@ def upgrade():
                    schema=schema)
     elif is_current_dialect('postgresql'):
         execute("CREATE TYPE \"DID_META_DID_TYPE_CHK\" AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')")
-        execute("ALTER TABLE %sdid_meta ADD COLUMN did_type \"DID_META_DID_TYPE_CHK\"" % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {did_meta_table}
+            ADD COLUMN did_type "DID_META_DID_TYPE_CHK"
+            """
+        )
     create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'], schema=schema)
 
 
@@ -52,15 +57,26 @@ def downgrade():
     '''
 
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    did_meta_table = qualify_table('did_meta')
     drop_index('DID_META_DID_TYPE_IDX', 'did_meta', schema=schema)
     if is_current_dialect('oracle'):
         try_drop_constraint('DID_META_DID_TYPE_CHK', 'did_meta')
         drop_column('did_meta', 'did_type', schema=schema)
 
     elif is_current_dialect('postgresql'):
-        execute('ALTER TABLE %sdid_meta DROP CONSTRAINT IF EXISTS "DID_META_DID_TYPE_CHK", ALTER COLUMN did_type TYPE CHAR' % schema_prefix)
-        execute('ALTER TABLE %sdid_meta DROP COLUMN did_type' % schema_prefix)
+        execute(
+            f"""
+            ALTER TABLE {did_meta_table}
+            DROP CONSTRAINT IF EXISTS "DID_META_DID_TYPE_CHK",
+            ALTER COLUMN did_type TYPE CHAR
+            """
+        )
+        execute(
+            f"""
+            ALTER TABLE {did_meta_table}
+            DROP COLUMN did_type
+            """
+        )
         execute('DROP TYPE \"DID_META_DID_TYPE_CHK\"')
 
     elif is_current_dialect('mysql'):

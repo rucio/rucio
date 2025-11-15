@@ -19,7 +19,7 @@ import datetime
 import sqlalchemy as sa
 from alembic.op import add_column, alter_column, create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -33,7 +33,8 @@ def upgrade():
     Upgrade the database to this revision
     '''
     schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
+    account_map_table = qualify_table('account_map')
+    identities_table = qualify_table('identities')
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -46,12 +47,22 @@ def upgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
                                 schema=schema)
     elif is_current_dialect('mysql'):
-        execute('ALTER TABLE ' + schema_prefix + 'identities DROP CHECK IDENTITIES_TYPE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {identities_table}
+            DROP CHECK IDENTITIES_TYPE_CHK
+            """
+        )
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
                                 schema=schema)
-        execute('ALTER TABLE ' + schema_prefix + 'account_map DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK')  # pylint: disable=no-member
+        execute(
+            f"""
+            ALTER TABLE {account_map_table}
+            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
+            """
+        )
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
