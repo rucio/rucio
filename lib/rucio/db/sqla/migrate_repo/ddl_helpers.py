@@ -19,14 +19,136 @@ The functions collected here smooth over backend differences so that schema chan
 can be expressed once and executed safely across Rucio's supported databases.
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 from alembic import context, op
+from sqlalchemy.dialects import mysql, postgresql, sqlite
+from sqlalchemy.dialects import oracle as ora
+from sqlalchemy.engine.default import DefaultDialect
 
 if TYPE_CHECKING:
     from typing import Optional
 
     from alembic.runtime.migration import MigrationContext
+    from sqlalchemy.sql.compiler import IdentifierPreparer
+
+
+LOGGER = logging.getLogger(__name__)
+_WARNED_UNKNOWN_DIALECT = False
+
+
+def _warn_unknown_dialect_once() -> None:
+    """Log a single warning when the SQL dialect cannot be determined.
+
+    This preserves historic behavior for offline runs but makes it explicit that
+    Oracle would otherwise receive double-quoted, case-sensitive identifiers.
+    """
+
+    global _WARNED_UNKNOWN_DIALECT
+    if not _WARNED_UNKNOWN_DIALECT:
+        LOGGER.warning(
+            "Unable to determine SQL dialect for Alembic helpers; falling back to "
+            "generic behavior. For offline runs, set 'sqlalchemy.url' or use "
+            "'alembic -x dialect=<name>' (e.g. oracle). On Oracle, quoted identifiers "
+            "would be case-sensitive."
+        )
+        _WARNED_UNKNOWN_DIALECT = True
+
+
+def _preparer() -> 'IdentifierPreparer':
+    """
+    Return the current dialect's identifier preparer.
+
+    When a migration context is active we defer to its dialect preparer.
+    Otherwise, look up the configured backend and return the preparer for that
+    engine so that offline migrations still receive backend-specific quoting
+    (e.g. backticks for MySQL/MariaDB, double quotes for PostgreSQL). If no
+    dialect hint can be derived we keep operating by falling back to
+    ``DefaultDialect`` and emit a one-time warning so callers understand that
+    ANSI-style quoting (double quotes) will be used irrespective of the actual
+    backend. This particularly impacts Oracle because identifiers will then be
+    quoted and therefore case-sensitive, contrary to the typical Rucio
+    expectation of uppercase folding.
+    """
+
+    ctx = _get_migration_context()
+    dialect = getattr(ctx, "dialect", None)
+    if dialect is not None:
+        return dialect.identifier_preparer
+
+    name = (_get_current_dialect() or "").lower()
+    if name in {"mysql", "mariadb"}:
+        return mysql.dialect().identifier_preparer
+    if name == "postgresql":
+        return postgresql.dialect().identifier_preparer
+    if name == "oracle":
+        return ora.dialect().identifier_preparer
+    if name == "sqlite":
+        return sqlite.dialect().identifier_preparer
+
+    # DefaultDialect produces ANSI-style double quotes; this is our final
+    # fallback when no dialect hints are available, even though Oracle will
+    # therefore receive quoted identifiers in this edge case.
+    _warn_unknown_dialect_once()
+    return DefaultDialect().identifier_preparer
+
+
+def quote_identifier(
+        name: 'Optional[str]'
+) -> str:
+    """
+    Quote *name* using the active dialect's identifier rules.
+
+    Parameters
+    ----------
+    name : Optional[str]
+        The identifier to quote. Falsy values (``None`` or the empty string)
+        result in ``""`` so the helper can be used directly with optional values.
+
+    Returns
+    -------
+    str
+        The quoted identifier or the empty string when ``name`` is falsy.
+    """
+
+    if not name:
+        return ""
+    return _preparer().quote_identifier(name)
+
+
+def _quoted_table(
+        table_name: str,
+        schema: 'Optional[str]'
+) -> str:
+    """
+    Quote *table_name* and *schema* for SQL emission.
+
+    Oracle deliberately avoids quoting so that identifiers retain their
+    server‑side uppercase folding. This matches the behaviour of existing
+    migrations that concatenate ``f"{schema}.{table_name}"`` strings.
+
+    Fail-safe: when the dialect cannot be determined, do **not** quote. This
+    preserves legacy concatenation semantics and keeps Oracle safe. A one-time
+    warning is emitted to help users fix their offline configuration.
+    """
+
+    name = (_get_current_dialect() or "").lower()
+
+    if not name:
+        _warn_unknown_dialect_once()
+        if schema:
+            return f"{schema}.{table_name}"
+        return table_name
+
+    if name == 'oracle':
+        if schema:
+            return f"{schema}.{table_name}"
+        return table_name
+
+    if schema:
+        return f"{quote_identifier(schema)}.{quote_identifier(table_name)}"
+    return quote_identifier(table_name)
 
 
 def _get_current_dialect() -> 'Optional[str]':
@@ -184,7 +306,71 @@ def get_effective_schema() -> 'Optional[str]':
     return None
 
 
+def qualify_table(
+        table_name: str,
+        schema: 'Optional[str]' = None
+) -> str:
+    """
+    Render an appropriately quoted (or unquoted) table identifier, schema‑qualified when configured.
+
+    Parameters
+    ----------
+    table_name : str
+        Unqualified table name to quote. Must be non-empty and contain no dots.
+    schema : Optional[str] = None
+        Schema to qualify with. When omitted, uses `get_effective_schema`.
+        If that also yields ``None``, the result is unqualified. Passing
+        ``""`` is treated the same as ``None``. Multi-part schema names
+        (containing ``"."``) are rejected.
+
+    Returns
+    -------
+    str
+        The table name qualified with its schema when provided. For detected
+        non-Oracle dialects, quoting is performed via SQLAlchemy's
+        `sqlalchemy.sql.compiler.IdentifierPreparer` so the output matches the
+        active engine (e.g. backticks for MySQL/MariaDB). Oracle intentionally
+        returns unquoted identifiers so that implicit uppercasing continues to
+        work, and when the dialect cannot be determined the helper emits a
+        warning and likewise returns unquoted identifiers.
+
+    Notes
+    -----
+    * This helper performs no server round‑trips.
+    * Useful when emitting raw SQL via ``op.execute`` that must be portable
+      across PostgreSQL, MySQL/MariaDB, Oracle, and SQLite.
+
+    Examples
+    --------
+    Dialect (mode)             Input                 Expected output
+    -------------------------  --------------------  ------------------------------
+    PostgreSQL (detected)      ("users", "dev")      '"dev"."users"'
+    MySQL/MariaDB (detected)   ("users", "dev")      '`dev`.`users`'
+    Oracle (detected)          ("requests", "ATLAS") 'ATLAS.requests'
+    SQLite (detected)          ("users", None)       '"users"'
+    Unknown dialect            ("users", "dev")      'dev.users'
+    Unknown dialect            ("users", None)       'users'
+    Any                        ("", "dev")           ValueError
+    Any                        ("dev.users", None)   ValueError
+    Any                        ("users", "dev.app")  ValueError
+    """
+
+    if not table_name:
+        raise ValueError("table_name must be a non-empty unqualified identifier")
+    if "." in table_name:
+        raise ValueError("Pass an unqualified table_name; use schema=... for qualification")
+    if schema is None:
+        schema = get_effective_schema()
+    if schema == "":
+        schema = None
+    if schema is not None and "." in schema:
+        raise ValueError("schema must be a single identifier; multi-part names are unsupported")
+    return _quoted_table(table_name, schema)
+
+
 __all__ = [
     "is_current_dialect",
     "get_effective_schema",
+    "qualify_table",
+    "quote_identifier",
 ]

@@ -17,9 +17,13 @@
 from .ddl_helpers import (
     get_effective_schema,
     is_current_dialect,
+    qualify_table,
+    quote_identifier,
 )
 
 __all__ = [
     "is_current_dialect",
     "get_effective_schema",
+    "qualify_table",
+    "quote_identifier",
 ]
