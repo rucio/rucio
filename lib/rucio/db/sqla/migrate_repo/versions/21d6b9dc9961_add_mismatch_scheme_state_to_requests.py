@@ -14,9 +14,9 @@
 
 """ add mismatch scheme state to requests """
 
-from alembic.op import create_check_constraint, execute
+from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import create_check_constraint, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

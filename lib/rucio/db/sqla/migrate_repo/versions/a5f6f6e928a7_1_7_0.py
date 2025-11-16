@@ -15,9 +15,9 @@
 """ add columns for 1.7.0 release """
 
 import sqlalchemy as sa
-from alembic.op import create_check_constraint, create_foreign_key, drop_column, drop_constraint
+from alembic.op import create_foreign_key, drop_column, drop_constraint
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a5f6f6e928a7'

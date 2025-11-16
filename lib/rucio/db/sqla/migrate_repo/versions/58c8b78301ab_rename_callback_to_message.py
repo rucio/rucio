@@ -14,9 +14,9 @@
 
 """ rename callback to message """
 
-from alembic.op import create_check_constraint, create_primary_key, drop_constraint, execute, rename_table
+from alembic.op import create_primary_key, drop_constraint, execute, rename_table
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import create_check_constraint, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

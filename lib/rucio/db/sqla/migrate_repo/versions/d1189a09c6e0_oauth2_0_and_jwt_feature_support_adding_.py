@@ -17,9 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
+from alembic.op import create_index, create_primary_key, create_table, drop_column, drop_table, execute
 
-from rucio.db.sqla.migrate_repo import add_column, alter_column, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, alter_column, create_check_constraint, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -39,13 +39,11 @@ def upgrade():
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
         try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
     elif is_current_dialect('mysql'):
         execute(
             f"""
@@ -55,8 +53,7 @@ def upgrade():
         )
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
         execute(
             f"""
             ALTER TABLE {account_map_table}
@@ -65,8 +62,7 @@ def upgrade():
         )
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC')")
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         add_column('tokens', sa.Column('oidc_scope', sa.String(2048), nullable=True, default=None))
@@ -90,7 +86,7 @@ def upgrade():
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      schema=schema)
         create_primary_key('OAUTH_REQUESTS_STATE_PK', 'oauth_requests', ['state'], schema=schema)
-        create_check_constraint('OAUTH_REQUESTS_EXPIRED_AT_NN', 'oauth_requests', 'expired_at is not null', schema=schema)
+        create_check_constraint('OAUTH_REQUESTS_EXPIRED_AT_NN', 'oauth_requests', 'expired_at is not null')
         create_index('OAUTH_REQUESTS_ACC_EXP_AT_IDX', 'oauth_requests', ['account', 'expired_at'], schema=schema)
         create_index('OAUTH_REQUESTS_ACCESS_MSG_IDX', 'oauth_requests', ['access_msg'], schema=schema)
 
@@ -109,14 +105,12 @@ def downgrade():
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
         try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
         drop_column('tokens', 'oidc_scope', schema=schema)
         drop_column('tokens', 'audience', schema=schema)
         drop_column('tokens', 'refresh_token', schema=schema)
@@ -130,13 +124,11 @@ def downgrade():
     elif is_current_dialect('mysql'):
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
         drop_column('tokens', 'oidc_scope', schema=schema)
         drop_column('tokens', 'audience', schema=schema)
         drop_column('tokens', 'refresh_token', schema=schema)
@@ -151,13 +143,11 @@ def downgrade():
 
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
-                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')",
-                                schema=schema)
+                                condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
         drop_column('tokens', 'oidc_scope', schema=schema)
         drop_column('tokens', 'audience', schema=schema)
         drop_column('tokens', 'refresh_token', schema=schema)

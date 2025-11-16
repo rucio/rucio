@@ -15,9 +15,9 @@
 """ added staging_area column """
 
 import sqlalchemy as sa
-from alembic.op import create_check_constraint, drop_column, drop_constraint, execute
+from alembic.op import drop_column, drop_constraint, execute
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
