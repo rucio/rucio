@@ -15,9 +15,9 @@
 """ added column volume to rse_transfer_limits """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '2cbee484dcf9'
@@ -30,8 +30,7 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('rse_transfer_limits', sa.Column('volume', sa.BigInteger), schema=schema)
+        add_column('rse_transfer_limits', sa.Column('volume', sa.BigInteger))
 
 
 def downgrade():

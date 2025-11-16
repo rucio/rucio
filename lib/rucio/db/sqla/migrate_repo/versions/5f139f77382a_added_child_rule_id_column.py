@@ -15,9 +15,9 @@
 """ added child_rule_id column """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_foreign_key, create_index, drop_column, drop_constraint, drop_index
+from alembic.op import create_foreign_key, create_index, drop_column, drop_constraint, drop_index
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -31,10 +31,9 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('rules', sa.Column('child_rule_id', GUID()), schema=schema)
-        add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()), schema=schema)
-        add_column('rules_history', sa.Column('child_rule_id', GUID()), schema=schema)
+        add_column('rules', sa.Column('child_rule_id', GUID()))
+        add_column('rules_hist_recent', sa.Column('child_rule_id', GUID()))
+        add_column('rules_history', sa.Column('child_rule_id', GUID()))
 
         create_foreign_key('RULES_CHILD_RULE_ID_FK', 'rules', 'rules', ['child_rule_id'], ['id'])
         create_index('RULES_CHILD_RULE_ID_IDX', 'rules', ['child_rule_id'])

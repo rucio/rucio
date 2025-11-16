@@ -15,9 +15,9 @@
 """ adding transfertool column and index to requests table"""
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_index, drop_column, drop_index
+from alembic.op import create_index, drop_column, drop_index
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'f85a2962b021'
@@ -30,9 +30,8 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
-        schema = get_effective_schema()
-        add_column('requests', sa.Column('transfertool', sa.String(64)), schema=schema)
-        add_column('requests_history', sa.Column('transfertool', sa.String(64)), schema=schema)
+        add_column('requests', sa.Column('transfertool', sa.String(64)))
+        add_column('requests_history', sa.Column('transfertool', sa.String(64)))
         create_index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'requests', ['request_type', 'state', 'transfertool', 'activity'])
 
 

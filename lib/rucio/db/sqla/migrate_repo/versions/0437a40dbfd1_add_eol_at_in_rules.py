@@ -15,9 +15,9 @@
 """ add eol_at in rules """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '0437a40dbfd1'
@@ -30,10 +30,9 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('rules', sa.Column('eol_at', sa.DateTime), schema=schema)
-        add_column('rules_hist_recent', sa.Column('eol_at', sa.DateTime), schema=schema)
-        add_column('rules_history', sa.Column('eol_at', sa.DateTime), schema=schema)
+        add_column('rules', sa.Column('eol_at', sa.DateTime))
+        add_column('rules_hist_recent', sa.Column('eol_at', sa.DateTime))
+        add_column('rules_history', sa.Column('eol_at', sa.DateTime))
 
 
 def downgrade():

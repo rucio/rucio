@@ -15,9 +15,9 @@
 """ added staging_area column """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint, execute
+from alembic.op import create_check_constraint, drop_column, drop_constraint, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -30,23 +30,22 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     requests_table = qualify_table('requests')
 
     if is_current_dialect('oracle'):
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif is_current_dialect('postgresql'):
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
         drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif is_current_dialect('mysql'):
-        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
         execute(
             f"""
             ALTER TABLE {requests_table}

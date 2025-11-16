@@ -15,9 +15,9 @@
 """ added purge column to rules """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_check_constraint, drop_column
+from alembic.op import create_check_constraint, drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'd6dceb1de2d'
@@ -30,8 +30,7 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rules', sa.Column('purge_replicas', sa.Boolean(name='RULES_PURGE_REPLICAS_CHK', create_constraint=True), default=False))
         create_check_constraint('RULES_PURGE_REPLICAS_NN', 'rules', "PURGE_REPLICAS IS NOT NULL")
 
 

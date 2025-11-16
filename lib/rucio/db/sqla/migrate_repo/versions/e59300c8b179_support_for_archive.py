@@ -17,9 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_foreign_key, create_index, create_primary_key, create_table, drop_column, drop_table
+from alembic.op import create_foreign_key, create_index, create_primary_key, create_table, drop_column, drop_table
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 from rucio.db.sqla.models import String
 from rucio.db.sqla.types import GUID
 
@@ -77,15 +77,12 @@ def upgrade():
         create_index('ARCH_CONT_HIST_IDX', 'archive_contents_history',
                      ['scope', 'name'])
 
-        schema = get_effective_schema()
         add_column('dids', sa.Column('is_archive',
-                                     sa.Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True)),
-                   schema=schema)
+                                     sa.Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True)))
         add_column('dids', sa.Column('constituent',
-                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True)),
-                   schema=schema)
-        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()), schema=schema)
-        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()), schema=schema)
+                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True)))
+        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()))
+        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()))
 
 
 def downgrade():

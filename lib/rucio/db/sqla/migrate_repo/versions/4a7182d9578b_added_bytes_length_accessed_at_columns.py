@@ -15,9 +15,9 @@
 """ added bytes, length, accessed_at columns """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '4a7182d9578b'
@@ -30,11 +30,10 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('dataset_locks', sa.Column('length', sa.BigInteger()), schema=schema)
-        add_column('dataset_locks', sa.Column('bytes', sa.BigInteger()), schema=schema)
-        add_column('dataset_locks', sa.Column('accessed_at', sa.DateTime()), schema=schema)
-        add_column('dids', sa.Column('accessed_at', sa.DateTime()), schema=schema)
+        add_column('dataset_locks', sa.Column('length', sa.BigInteger()))
+        add_column('dataset_locks', sa.Column('bytes', sa.BigInteger()))
+        add_column('dataset_locks', sa.Column('accessed_at', sa.DateTime()))
+        add_column('dids', sa.Column('accessed_at', sa.DateTime()))
 
 
 def downgrade():

@@ -15,9 +15,9 @@
 """ New payload column for heartbeats """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_index, drop_column, drop_index
+from alembic.op import create_index, drop_column, drop_index
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 from rucio.db.sqla.models import String
 
 # Alembic revision identifiers
@@ -31,9 +31,8 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
         drop_index('HEARTBEATS_UPDATED_AT', 'heartbeats')
-        add_column('heartbeats', sa.Column('payload', String(3000)), schema=schema)
+        add_column('heartbeats', sa.Column('payload', String(3000)))
 
 
 def downgrade():

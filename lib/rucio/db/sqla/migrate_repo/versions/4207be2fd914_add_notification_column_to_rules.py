@@ -15,10 +15,10 @@
 """ add notification column to rules """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column, execute
+from alembic.op import drop_column, execute
 
 from rucio.db.sqla.constants import RuleNotification
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -31,7 +31,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     rules_table = qualify_table('rules')
 
     if is_current_dialect('oracle', 'mysql'):
@@ -39,7 +38,7 @@ def upgrade():
                                                               name='RULES_NOTIFICATION_CHK',
                                                               create_constraint=True,
                                                               values_callable=lambda obj: [e.value for e in obj]),
-                                      default=RuleNotification.NO), schema=schema)
+                                      default=RuleNotification.NO))
     elif is_current_dialect('postgresql'):
         execute(
             """

@@ -15,9 +15,9 @@
 """ extend distance table """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '3ac1660a1a72'
@@ -30,14 +30,13 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('distances', sa.Column('packet_loss', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('latency', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('mbps_file', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('mbps_link', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('queued_total', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('done_1h', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('done_6h', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('packet_loss', sa.Integer))
+        add_column('distances', sa.Column('latency', sa.Integer))
+        add_column('distances', sa.Column('mbps_file', sa.Integer))
+        add_column('distances', sa.Column('mbps_link', sa.Integer))
+        add_column('distances', sa.Column('queued_total', sa.Integer))
+        add_column('distances', sa.Column('done_1h', sa.Integer))
+        add_column('distances', sa.Column('done_6h', sa.Integer))
 
 
 def downgrade():

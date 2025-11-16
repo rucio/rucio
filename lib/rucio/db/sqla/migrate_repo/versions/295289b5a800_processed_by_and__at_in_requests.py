@@ -15,9 +15,9 @@
 """ processed_by and _at in requests """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '295289b5a800'
@@ -30,9 +30,8 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('requests', sa.Column('last_processed_by', sa.String(64)), schema=schema)
-        add_column('requests', sa.Column('last_processed_at', sa.DateTime()), schema=schema)
+        add_column('requests', sa.Column('last_processed_by', sa.String(64)))
+        add_column('requests', sa.Column('last_processed_at', sa.DateTime()))
 
 
 def downgrade():

@@ -15,9 +15,9 @@
 """ correct PK and IDX for history tables """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_primary_key, drop_column, drop_constraint, drop_index
+from alembic.op import create_primary_key, drop_column, drop_constraint, drop_index
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -60,12 +60,11 @@ def downgrade():
         drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
 
         # RULES_HIST_RECENT
-        schema = get_effective_schema()
-        add_column('rules_hist_recent', sa.Column('history_id', GUID()), schema=schema)
+        add_column('rules_hist_recent', sa.Column('history_id', GUID()))
         create_primary_key('RULES_HIST_RECENT_PK', 'rules_hist_recent', ['history_id'])
 
         # RULES_HISTORY
-        add_column('rules_history', sa.Column('history_id', GUID()), schema=schema)
+        add_column('rules_history', sa.Column('history_id', GUID()))
         create_primary_key('RULES_HIST_LONGTERM_PK', 'rules_history', ['history_id'])
 
         # MESSAGES_HISTORY

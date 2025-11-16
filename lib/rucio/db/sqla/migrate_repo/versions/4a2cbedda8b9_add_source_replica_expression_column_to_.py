@@ -15,9 +15,9 @@
 """ add_source_replica_expression_column_to_rules """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '4a2cbedda8b9'
@@ -30,8 +30,7 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('rules', sa.Column('source_replica_expression', sa.String(255)), schema=schema)
+        add_column('rules', sa.Column('source_replica_expression', sa.String(255)))
 
 
 def downgrade():

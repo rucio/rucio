@@ -17,10 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import add_column, bulk_insert, create_primary_key, create_table, create_unique_constraint, drop_column, drop_constraint, drop_table
+from alembic.op import bulk_insert, create_primary_key, create_table, create_unique_constraint, drop_column, drop_constraint, drop_table
 from sqlalchemy import String
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a118956323f8'
@@ -50,7 +50,7 @@ def upgrade():
                            'email': 'N/A'}])
 
         # add a vo column
-        add_column('rses', sa.Column('vo', String(3), sa.ForeignKey('vos.vo', name='RSES_VOS_FK'), nullable=False, server_default='def'), schema=schema)
+        add_column('rses', sa.Column('vo', String(3), sa.ForeignKey('vos.vo', name='RSES_VOS_FK'), nullable=False, server_default='def'))
 
         # change unique constraint: (rse) -> (rse,vo)
         drop_constraint('RSES_RSE_UQ', 'rses', type_='unique', schema=schema)

@@ -17,22 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import (
-    add_column,
-    create_check_constraint,
-    create_foreign_key,
-    create_index,
-    create_primary_key,
-    create_table,
-    drop_column,
-    drop_constraint,
-    drop_index,
-    drop_table,
-    execute,
-)
+from alembic.op import create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_column, drop_constraint, drop_index, drop_table, execute
 
 from rucio.db.sqla.constants import BadPFNStatus
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -45,7 +33,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     bad_replicas_table = qualify_table('bad_replicas')
 
     if is_current_dialect('oracle', 'postgresql'):
@@ -71,7 +58,7 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
 
         # Change PK
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
@@ -108,7 +95,7 @@ def upgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
         # Add new column to bad_replicas table
-        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()), schema=schema)
+        add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
 
         # Change PK
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')

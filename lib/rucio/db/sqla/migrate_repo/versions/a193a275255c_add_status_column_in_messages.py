@@ -15,9 +15,9 @@
 """ Add status column in messages """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a193a275255c'
@@ -29,11 +29,9 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
-        add_column('messages', sa.Column('services', sa.String(2048)), schema=schema)
-        add_column('messages_history', sa.Column('services', sa.String(2048)), schema=schema)
+        add_column('messages', sa.Column('services', sa.String(2048)))
+        add_column('messages_history', sa.Column('services', sa.String(2048)))
 
 
 def downgrade():

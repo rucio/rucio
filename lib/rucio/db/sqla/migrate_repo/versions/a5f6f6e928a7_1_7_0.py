@@ -15,9 +15,9 @@
 """ add columns for 1.7.0 release """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_check_constraint, create_foreign_key, drop_column, drop_constraint
+from alembic.op import create_check_constraint, create_foreign_key, drop_column, drop_constraint
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a5f6f6e928a7'
@@ -30,37 +30,36 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
         add_column('dids', sa.Column('purge_replicas',
                                      sa.Boolean(name='DIDS_PURGE_RPLCS_CHK', create_constraint=True),
-                                     server_default='1'), schema=schema)
-        add_column('dids', sa.Column('eol_at', sa.DateTime), schema=schema)
+                                     server_default='1'))
+        add_column('dids', sa.Column('eol_at', sa.DateTime))
 
         add_column('deleted_dids', sa.Column('purge_replicas',
-                                             sa.Boolean(name='DEL_DIDS_PURGE_RPLCS_CHK', create_constraint=True)), schema=schema)
-        add_column('deleted_dids', sa.Column('eol_at', sa.DateTime), schema=schema)
+                                             sa.Boolean(name='DEL_DIDS_PURGE_RPLCS_CHK', create_constraint=True)))
+        add_column('deleted_dids', sa.Column('eol_at', sa.DateTime))
 
         create_check_constraint('DIDS_PURGE_REPLICAS_NN', 'dids', 'purge_replicas is not null')
 
-        add_column('requests', sa.Column('account', sa.String(25)), schema=schema)
-        add_column('requests', sa.Column('requested_at', sa.DateTime), schema=schema)
-        add_column('requests', sa.Column('priority', sa.Integer), schema=schema)
+        add_column('requests', sa.Column('account', sa.String(25)))
+        add_column('requests', sa.Column('requested_at', sa.DateTime))
+        add_column('requests', sa.Column('priority', sa.Integer))
         create_foreign_key('REQUESTS_ACCOUNT_FK', 'requests', 'accounts', ['account'], ['account'])
 
-        add_column('requests_history', sa.Column('account', sa.String(25)), schema=schema)
-        add_column('requests_history', sa.Column('requested_at', sa.DateTime), schema=schema)
+        add_column('requests_history', sa.Column('account', sa.String(25)))
+        add_column('requests_history', sa.Column('requested_at', sa.DateTime))
 
-        add_column('requests_history', sa.Column('priority', sa.Integer), schema=schema)
+        add_column('requests_history', sa.Column('priority', sa.Integer))
 
-        add_column('rules', sa.Column('priority', sa.Integer), schema=schema)
-        add_column('rules_hist_recent', sa.Column('priority', sa.Integer), schema=schema)
-        add_column('rules_history', sa.Column('priority', sa.Integer), schema=schema)
+        add_column('rules', sa.Column('priority', sa.Integer))
+        add_column('rules_hist_recent', sa.Column('priority', sa.Integer))
+        add_column('rules_history', sa.Column('priority', sa.Integer))
 
-        add_column('distances', sa.Column('active', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('submitted', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('finished', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('failed', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('transfer_speed', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('active', sa.Integer))
+        add_column('distances', sa.Column('submitted', sa.Integer))
+        add_column('distances', sa.Column('finished', sa.Integer))
+        add_column('distances', sa.Column('failed', sa.Integer))
+        add_column('distances', sa.Column('transfer_speed', sa.Integer))
 
 
 def downgrade():

@@ -15,9 +15,9 @@
 """ asynchronous rules and rule approval """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_check_constraint, drop_column, execute
+from alembic.op import create_check_constraint, drop_column, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -30,16 +30,15 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     rules_table = qualify_table('rules')
 
     if is_current_dialect('oracle'):
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         try_drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif is_current_dialect('postgresql'):
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -66,7 +65,7 @@ def upgrade():
         )
 
     elif is_current_dialect('mysql'):
-        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False), schema=schema)
+        add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         execute(
             f"""
             ALTER TABLE {rules_table}

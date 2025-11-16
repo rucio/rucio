@@ -15,9 +15,9 @@
 """ fix did_meta table missing updated_at, created_at columns """
 
 import sqlalchemy as sa
-from alembic.op import add_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '53b479c3cb0f'
@@ -30,9 +30,8 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        add_column('did_meta', sa.Column('created_at', sa.DateTime), schema=schema)
-        add_column('did_meta', sa.Column('updated_at', sa.DateTime), schema=schema)
+        add_column('did_meta', sa.Column('created_at', sa.DateTime))
+        add_column('did_meta', sa.Column('updated_at', sa.DateTime))
 
 
 def downgrade():

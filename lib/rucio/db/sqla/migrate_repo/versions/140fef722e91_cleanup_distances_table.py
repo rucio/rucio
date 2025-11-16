@@ -15,9 +15,9 @@
 """ cleanup distances table """
 
 import sqlalchemy as sa
-from alembic.op import add_column, alter_column, drop_column
+from alembic.op import alter_column, drop_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '140fef722e91'
@@ -61,17 +61,17 @@ def downgrade():
 
         alter_column('distances', 'distance', existing_type=sa.Integer, new_column_name='ranking', schema=schema)
 
-        add_column('distances', sa.Column('agis_distance', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('geoip_distance', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('active', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('submitted', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('finished', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('failed', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('transfer_speed', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('packet_loss', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('latency', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('mbps_file', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('mbps_link', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('queued_total', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('done_1h', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('done_6h', sa.Integer), schema=schema)
+        add_column('distances', sa.Column('agis_distance', sa.Integer))
+        add_column('distances', sa.Column('geoip_distance', sa.Integer))
+        add_column('distances', sa.Column('active', sa.Integer))
+        add_column('distances', sa.Column('submitted', sa.Integer))
+        add_column('distances', sa.Column('finished', sa.Integer))
+        add_column('distances', sa.Column('failed', sa.Integer))
+        add_column('distances', sa.Column('transfer_speed', sa.Integer))
+        add_column('distances', sa.Column('packet_loss', sa.Integer))
+        add_column('distances', sa.Column('latency', sa.Integer))
+        add_column('distances', sa.Column('mbps_file', sa.Integer))
+        add_column('distances', sa.Column('mbps_link', sa.Integer))
+        add_column('distances', sa.Column('queued_total', sa.Integer))
+        add_column('distances', sa.Column('done_1h', sa.Integer))
+        add_column('distances', sa.Column('done_6h', sa.Integer))

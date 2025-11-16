@@ -15,9 +15,9 @@
 """ added source history table """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_table, drop_column, drop_table
+from alembic.op import create_table, drop_column, drop_table
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -41,9 +41,8 @@ def upgrade():
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('ranking', sa.Integer()),
                      sa.Column('is_using', sa.Boolean(), default=False))
-        schema = get_effective_schema()
-        add_column('requests', sa.Column('estimated_at', sa.DateTime), schema=schema)
-        add_column('requests_history', sa.Column('estimated_at', sa.DateTime), schema=schema)
+        add_column('requests', sa.Column('estimated_at', sa.DateTime))
+        add_column('requests_history', sa.Column('estimated_at', sa.DateTime))
 
 
 def downgrade():

@@ -17,9 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import add_column, alter_column, create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
+from alembic.op import alter_column, create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -69,13 +69,13 @@ def upgrade():
                                 schema=schema)
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        add_column('tokens', sa.Column('oidc_scope', sa.String(2048), nullable=True, default=None), schema=schema)
-        add_column('tokens', sa.Column('audience', sa.String(315), nullable=True, default=None), schema=schema)
-        add_column('tokens', sa.Column('refresh_token', sa.String(315), nullable=True, default=None), schema=schema)
-        add_column('tokens', sa.Column('refresh', sa.Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True), default=False), schema=schema)
-        add_column('tokens', sa.Column('refresh_start', sa.DateTime(), nullable=True, default=None), schema=schema)
-        add_column('tokens', sa.Column('refresh_expired_at', sa.DateTime(), nullable=True, default=None), schema=schema)
-        add_column('tokens', sa.Column('refresh_lifetime', sa.Integer(), nullable=True, default=None), schema=schema)
+        add_column('tokens', sa.Column('oidc_scope', sa.String(2048), nullable=True, default=None))
+        add_column('tokens', sa.Column('audience', sa.String(315), nullable=True, default=None))
+        add_column('tokens', sa.Column('refresh_token', sa.String(315), nullable=True, default=None))
+        add_column('tokens', sa.Column('refresh', sa.Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True), default=False))
+        add_column('tokens', sa.Column('refresh_start', sa.DateTime(), nullable=True, default=None))
+        add_column('tokens', sa.Column('refresh_expired_at', sa.DateTime(), nullable=True, default=None))
+        add_column('tokens', sa.Column('refresh_lifetime', sa.Integer(), nullable=True, default=None))
 
         create_table('oauth_requests',
                      sa.Column('account', InternalAccountString(25)),

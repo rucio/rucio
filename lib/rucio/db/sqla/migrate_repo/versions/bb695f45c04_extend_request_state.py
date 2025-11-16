@@ -15,9 +15,9 @@
 """ extend request state """
 
 import sqlalchemy as sa
-from alembic.op import add_column, create_check_constraint, drop_column, drop_constraint, execute
+from alembic.op import create_check_constraint, drop_column, drop_constraint, execute
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -30,15 +30,14 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     requests_table = qualify_table('requests')
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
-        add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema)
-        add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema)
+        add_column('requests', sa.Column('submitter_id', sa.Integer()))
+        add_column('sources', sa.Column('is_using', sa.Boolean()))
 
     elif is_current_dialect('mysql'):
         execute(
@@ -49,8 +48,8 @@ def upgrade():
         )
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
-        add_column('requests', sa.Column('submitter_id', sa.Integer()), schema=schema)
-        add_column('sources', sa.Column('is_using', sa.Boolean()), schema=schema)
+        add_column('requests', sa.Column('submitter_id', sa.Integer()))
+        add_column('sources', sa.Column('is_using', sa.Boolean()))
 
 
 def downgrade():
