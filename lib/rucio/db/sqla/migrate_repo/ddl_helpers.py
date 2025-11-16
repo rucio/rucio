@@ -28,10 +28,11 @@ from sqlalchemy.dialects import oracle as ora
 from sqlalchemy.engine.default import DefaultDialect
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Any, Optional
 
     from alembic.runtime.migration import MigrationContext
     from sqlalchemy.sql.compiler import IdentifierPreparer
+    from sqlalchemy.sql.schema import Table
 
 
 LOGGER = logging.getLogger(__name__)
@@ -368,7 +369,366 @@ def qualify_table(
     return _quoted_table(table_name, schema)
 
 
+# ---------------------------------------------------------------------------
+# Schema-defaulting wrappers for alembic.op
+# ---------------------------------------------------------------------------
+
+def _with_default_schema(kwargs: 'dict[str, Any]') -> 'dict[str, Any]':
+    """
+    Ensure a default schema is present in ``kwargs['schema']``.
+
+    Parameters
+    ----------
+    kwargs : dict[str, Any]
+        Keyword-argument mapping destined for an Alembic operation. If ``schema`` is
+        absent or falsy (``None``/``""``), this helper injects the value from
+        :func:`get_effective_schema`, when available.
+
+    Returns
+    -------
+    dict[str, Any]
+        The (potentially) augmented mapping. The input is mutated and returned for convenience.
+
+    Notes
+    -----
+    Schema is keyword-only in the wrapper functions, so it cannot appear in ``*args``.
+    """
+    if "schema" not in kwargs or kwargs.get("schema") in (None, ""):
+        eff = get_effective_schema()
+        if eff:
+            kwargs["schema"] = eff
+    return kwargs
+
+
+def add_column(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.add_column` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Add a column to the Rucio ``replicas`` table while respecting the configured
+    version-table schema:
+
+    >>> add_column("replicas", sa.Column("tape_state", sa.String(1)))
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.add_column(*args, **kwargs)
+
+
+def alter_column(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.alter_column` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Make ``guid`` nullable in the Rucio ``dids`` table:
+
+    >>> alter_column("dids", "guid", existing_type=sa.String(36), nullable=True)
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.alter_column(*args, **kwargs)
+
+
+def create_check_constraint(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.create_check_constraint` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Ensure that the ``state`` column on ``replicas`` stays within a small set:
+
+    >>> create_check_constraint("CHK_REPLICAS_STATE", "replicas", "state IN ('A','B')")
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.create_check_constraint(*args, **kwargs)
+
+
+def create_index(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.create_index` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Create a common Rucio index over ``(scope, name)`` on ``replicas``:
+
+    >>> create_index("IX_REPLICAS_SCOPE_NAME", "replicas", ["scope", "name"], unique=False)
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.create_index(*args, **kwargs)
+
+
+def create_primary_key(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.create_primary_key` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Set the canonical Rucio DID composite key:
+
+    >>> create_primary_key("DIDS_PK", "dids", ["scope", "name"])
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.create_primary_key(*args, **kwargs)
+
+
+def create_table(*args: 'Any', **kwargs: 'Any') -> 'Table':
+    """
+    Replacement for :func:`alembic.op.create_table` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    Table
+        The SQLAlchemy ``Table`` object produced by Alembic.
+
+    Examples
+    --------
+    Create a temporary audit table under the configured migration schema:
+
+    >>> tbl = create_table(
+    ...     "tmp_account_audit",
+    ...     sa.Column("id", sa.Integer(), primary_key=True),
+    ...     sa.Column("account", sa.String(25), nullable=False),
+    ... )
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.create_table(*args, **kwargs)
+
+
+def create_unique_constraint(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.create_unique_constraint` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Enforce unique emails for Rucio accounts:
+
+    >>> create_unique_constraint("UQ_ACCOUNTS_EMAIL", "accounts", ["email"])
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.create_unique_constraint(*args, **kwargs)
+
+
+def drop_column(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.drop_column` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    Remove a deprecated column from ``requests``:
+
+    >>> drop_column("requests", "old_col")
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.drop_column(*args, **kwargs)
+
+
+def drop_constraint(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.drop_constraint` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    This is a thin schema-defaulting wrapper. For tolerant "drop if exists" semantics,
+    use :func:`try_drop_constraint`.
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.drop_constraint(*args, **kwargs)
+
+
+def drop_index(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.drop_index` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    This wrapper does not swallow "missing index" errors. For idempotent semantics across
+    backends, prefer :func:`try_drop_index`.
+
+    Examples
+    --------
+    >>> drop_index("IX_ACCOUNTS_EMAIL", table_name="accounts")
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.drop_index(*args, **kwargs)
+
+
+def drop_table(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.drop_table` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> drop_table("tmp_account_audit")
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.drop_table(*args, **kwargs)
+
+
+def rename_table(*args: 'Any', **kwargs: 'Any') -> None:
+    """
+    Replacement for :func:`alembic.op.rename_table` with schema defaulting.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or is
+        falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    >>> rename_table("collections", "collections_legacy")
+    """
+    kwargs = _with_default_schema(dict(kwargs))
+    return op.rename_table(*args, **kwargs)
+
+
 __all__ = [
+    "add_column",
+    "alter_column",
+    "create_check_constraint",
+    "create_index",
+    "create_primary_key",
+    "create_table",
+    "create_unique_constraint",
+    "drop_column",
+    "drop_constraint",
+    "drop_index",
+    "drop_table",
+    "rename_table",
     "is_current_dialect",
     "get_effective_schema",
     "qualify_table",

@@ -15,13 +15,37 @@
 """Helpers shared across Alembic migrations."""
 
 from .ddl_helpers import (
+    add_column,
+    alter_column,
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    create_unique_constraint,
+    drop_column,
+    drop_constraint,
+    drop_index,
+    drop_table,
     get_effective_schema,
     is_current_dialect,
     qualify_table,
     quote_identifier,
+    rename_table,
 )
 
 __all__ = [
+    "add_column",
+    "alter_column",
+    "create_check_constraint",
+    "create_index",
+    "create_primary_key",
+    "create_table",
+    "create_unique_constraint",
+    "drop_column",
+    "drop_constraint",
+    "drop_index",
+    "drop_table",
+    "rename_table",
     "is_current_dialect",
     "get_effective_schema",
     "qualify_table",
