@@ -14,15 +14,15 @@
 
 """ rename callback to message """
 
-from alembic.op import execute, rename_table
+from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     create_primary_key,
     drop_constraint,
-    get_effective_schema,
     is_current_dialect,
     qualify_table,
+    rename_table,
 )
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -36,8 +36,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
         rename_table('callbacks', 'messages')
@@ -49,7 +47,7 @@ def upgrade():
 
     elif is_current_dialect('postgresql'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        rename_table('callbacks', 'messages', schema=schema)
+        rename_table('callbacks', 'messages')
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
         create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
@@ -58,7 +56,7 @@ def upgrade():
 
     elif is_current_dialect('mysql'):
         drop_constraint('callbacks_pk', 'callbacks', type_='primary')
-        rename_table('callbacks', 'messages', schema=schema)
+        rename_table('callbacks', 'messages')
         create_primary_key('messages_pk', 'messages', ['id'])
         create_check_constraint('messages_event_type_nn', 'messages', 'event_type is not null')
         create_check_constraint('messages_payload_nn', 'messages', 'payload is not null')
@@ -71,7 +69,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
     messages_table = qualify_table('messages')
 
     if is_current_dialect('oracle'):
@@ -93,7 +90,7 @@ def downgrade():
         drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_UPDATED_NN', 'messages', type_='check')
         drop_constraint('MESSAGES_PK', 'messages', type_='primary')
-        rename_table('messages', 'callbacks', schema=schema)
+        rename_table('messages', 'callbacks')
         create_primary_key('CALLBACKS_PK', 'callbacks', ['id'])
         create_check_constraint('CALLBACKS_EVENT_TYPE_NN', 'callbacks', 'event_type is not null')
         create_check_constraint('CALLBACKS_PAYLOAD_NN', 'callbacks', 'payload is not null')
@@ -126,7 +123,7 @@ def downgrade():
             """
         )
         drop_constraint('messages_pk', 'messages', type_='primary')
-        rename_table('messages', 'callbacks', schema=schema)
+        rename_table('messages', 'callbacks')
         create_primary_key('callbacks_pk', 'callbacks', ['id'])
         create_check_constraint('callbacks_event_type_nn', 'callbacks', 'event_type is not null')
         create_check_constraint('callbacks_payload_nn', 'callbacks', 'payload is not null')

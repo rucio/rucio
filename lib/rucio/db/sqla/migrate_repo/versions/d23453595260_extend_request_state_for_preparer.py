@@ -21,7 +21,6 @@ from alembic.op import execute, get_context
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     drop_constraint,
-    get_effective_schema,
     is_current_dialect,
     qualify_table,
 )
@@ -39,7 +38,6 @@ def upgrade():
 
     new_enum_values = ['Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M', 'P']
 
-    schema = get_effective_schema()
     requests_history_table = qualify_table('requests_history')
     requests_table = qualify_table('requests')
     if is_current_dialect('oracle'):
@@ -48,7 +46,6 @@ def upgrade():
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(new_enum_values)})',
-            schema=schema,
         )
     elif is_current_dialect('postgresql'):
         execute(
@@ -108,7 +105,6 @@ def upgrade():
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(new_enum_values)})',
-            schema=schema,
         )
 
 
@@ -119,7 +115,6 @@ def downgrade():
 
     old_enum_values = ['Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W', 'M']
 
-    schema = get_effective_schema()
     requests_history_table = qualify_table('requests_history')
     requests_table = qualify_table('requests')
 
@@ -129,7 +124,6 @@ def downgrade():
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(old_enum_values)})',
-            schema=schema,
         )
     elif is_current_dialect('postgresql'):
         execute(
@@ -181,7 +175,6 @@ def downgrade():
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(old_enum_values)})',
-            schema=schema,
         )
 
         if get_context().dialect.server_version_info[0] == 8:
