@@ -14,9 +14,9 @@
 
 """ add request_type to requests idx """
 
-from alembic.op import create_foreign_key, create_unique_constraint, drop_constraint, drop_index
+from alembic.op import create_foreign_key, drop_constraint, drop_index
 
-from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
+from rucio.db.sqla.migrate_repo import create_index, create_unique_constraint, is_current_dialect
 
 # Alembic revision identifiers
 revision = '156fb5b5a14'

@@ -17,10 +17,17 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import bulk_insert, create_unique_constraint, drop_column, drop_constraint, drop_table
+from alembic.op import bulk_insert, drop_column, drop_constraint, drop_table
 from sqlalchemy import String
 
-from rucio.db.sqla.migrate_repo import add_column, create_primary_key, create_table, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_primary_key,
+    create_table,
+    create_unique_constraint,
+    get_effective_schema,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = 'a118956323f8'
@@ -53,7 +60,7 @@ def upgrade():
 
         # change unique constraint: (rse) -> (rse,vo)
         drop_constraint('RSES_RSE_UQ', 'rses', type_='unique', schema=schema)
-        create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse', 'vo'], schema=schema)
+        create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse', 'vo'])
 
 
 def downgrade():
@@ -66,7 +73,7 @@ def downgrade():
 
         # change unique constraint: (rse, vo) -> (rse)
         drop_constraint('RSES_RSE_UQ', 'rses', type_='unique', schema=schema)
-        create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse'], schema=schema)
+        create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse'])
 
         # drop vo column
         drop_constraint('RSES_VOS_FK', 'rses', type_='foreignkey', schema=schema)
