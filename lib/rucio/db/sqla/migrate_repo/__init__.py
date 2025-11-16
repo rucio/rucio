@@ -31,6 +31,7 @@ from .ddl_helpers import (
     qualify_table,
     quote_identifier,
     rename_table,
+    try_drop_constraint,
 )
 
 __all__ = [
@@ -50,4 +51,5 @@ __all__ = [
     "get_effective_schema",
     "qualify_table",
     "quote_identifier",
+    "try_drop_constraint",
 ]
