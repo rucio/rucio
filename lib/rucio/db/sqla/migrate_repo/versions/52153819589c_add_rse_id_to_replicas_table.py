@@ -14,12 +14,12 @@
 
 """ add_rse_id_to_replicas_table """
 
-
-from alembic.op import create_foreign_key, drop_index
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
     drop_constraint,
+    drop_index,
     is_current_dialect,
 )
 

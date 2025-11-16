@@ -14,9 +14,11 @@
 
 """ create index on rules_hist_recent """
 
-from alembic.op import drop_index
-
-from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    drop_index,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '1a80adff031a'

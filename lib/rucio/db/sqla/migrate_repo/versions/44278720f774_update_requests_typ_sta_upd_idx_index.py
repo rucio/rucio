@@ -14,9 +14,11 @@
 
 """ update REQUESTS_TYP_STA_UPD_IDX index """
 
-from alembic.op import drop_index
-
-from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    drop_index,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '44278720f774'

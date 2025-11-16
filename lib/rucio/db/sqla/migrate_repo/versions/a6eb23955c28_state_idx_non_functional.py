@@ -14,9 +14,15 @@
 
 """ state idx non functional """
 
-from alembic.op import drop_index, execute
+from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import create_index, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    drop_index,
+    get_effective_schema,
+    is_current_dialect,
+    qualify_table,
+)
 
 # Alembic revision identifiers
 revision = 'a6eb23955c28'

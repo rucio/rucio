@@ -14,11 +14,12 @@
 
 """ Adding missing function based indices """
 
-from alembic.op import create_foreign_key, drop_index
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
     drop_constraint,
+    drop_index,
     is_current_dialect,
 )
 

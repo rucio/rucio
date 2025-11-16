@@ -15,12 +15,12 @@
 """ New payload column for heartbeats """
 
 import sqlalchemy as sa
-from alembic.op import drop_index
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
+    drop_index,
     is_current_dialect,
 )
 from rucio.db.sqla.models import String

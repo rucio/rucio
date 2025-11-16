@@ -14,9 +14,10 @@
 
 """ add_replicas_rse_id_tombstone_idx """
 
-from alembic.op import drop_index
-
-from rucio.db.sqla.migrate_repo import create_index
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    drop_index,
+)
 
 # Alembic revision identifiers
 revision = 'fb28a95fe288'

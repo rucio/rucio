@@ -14,9 +14,10 @@
 
 """ remove replicas_tombstone and replicas_rse_id indexes """
 
-from alembic.op import drop_index
-
-from rucio.db.sqla.migrate_repo import create_index
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    drop_index,
+)
 
 # Alembic revision identifiers
 revision = '27e3a68927fb'
