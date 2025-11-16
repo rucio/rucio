@@ -17,9 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import alter_column, create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
+from alembic.op import create_check_constraint, create_index, create_primary_key, create_table, drop_column, drop_table, execute
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, alter_column, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -95,9 +95,9 @@ def upgrade():
         create_index('OAUTH_REQUESTS_ACCESS_MSG_IDX', 'oauth_requests', ['access_msg'], schema=schema)
 
     if is_current_dialect('oracle', 'postgresql'):
-        alter_column('tokens', 'token', existing_type=sa.String(length=352), type_=sa.String(length=3072), schema=schema)
+        alter_column('tokens', 'token', existing_type=sa.String(length=352), type_=sa.String(length=3072))
     if is_current_dialect('mysql'):
-        alter_column('tokens', 'token', existing_type=sa.String(length=352), type_=sa.String(length=3072), existing_nullable=False, nullable=False, schema=schema)
+        alter_column('tokens', 'token', existing_type=sa.String(length=352), type_=sa.String(length=3072), existing_nullable=False, nullable=False)
 
 
 def downgrade():
@@ -125,7 +125,7 @@ def downgrade():
         drop_column('tokens', 'refresh_expired_at', schema=schema)
         drop_column('tokens', 'refresh_lifetime', schema=schema)
         drop_table('oauth_requests', schema=schema)
-        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), schema=schema)
+        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352))
 
     elif is_current_dialect('mysql'):
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -144,7 +144,7 @@ def downgrade():
         drop_column('tokens', 'refresh_start', schema=schema)
         drop_column('tokens', 'refresh_expired_at', schema=schema)
         drop_column('tokens', 'refresh_lifetime', schema=schema)
-        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), existing_nullable=False, nullable=False, schema=schema)
+        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), existing_nullable=False, nullable=False)
         drop_table('oauth_requests', schema=schema)
 
     elif is_current_dialect('postgresql'):
@@ -165,5 +165,5 @@ def downgrade():
         drop_column('tokens', 'refresh_start', schema=schema)
         drop_column('tokens', 'refresh_expired_at', schema=schema)
         drop_column('tokens', 'refresh_lifetime', schema=schema)
-        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), schema=schema)
+        alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352))
         drop_table('oauth_requests', schema=schema)

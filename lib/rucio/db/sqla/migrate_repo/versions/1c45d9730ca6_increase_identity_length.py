@@ -15,13 +15,9 @@
 """ increase identity length """
 
 import sqlalchemy as sa
-from alembic.op import alter_column, create_check_constraint, create_foreign_key, drop_constraint, execute
+from alembic.op import create_check_constraint, create_foreign_key, drop_constraint, execute
 
-from rucio.db.sqla.migrate_repo import (
-    get_effective_schema,
-    is_current_dialect,
-    qualify_table,
-)
+from rucio.db.sqla.migrate_repo import alter_column, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -34,15 +30,14 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     account_map_table = qualify_table('account_map')
     identities_table = qualify_table('identities')
 
     if is_current_dialect('oracle', 'postgresql'):
 
-        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
-        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
-        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
 
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -54,13 +49,13 @@ def upgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
     elif is_current_dialect('mysql'):
-        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048), schema=schema)
+        alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema)
-        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False, schema=schema)
+        alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
+        alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
         execute(
@@ -88,7 +83,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
     account_map_table = qualify_table('account_map')
     identities_table = qualify_table('identities')
 
@@ -116,9 +110,9 @@ def downgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
-        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
-        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif is_current_dialect('postgresql'):
         execute(
@@ -154,9 +148,9 @@ def downgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
-        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
-        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
-        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
     elif is_current_dialect('mysql'):
         execute(
@@ -188,11 +182,11 @@ def downgrade():
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255), schema=schema)
+        alter_column('tokens', 'identity', existing_type=sa.String(2048), type_=sa.String(255))
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
         drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
-        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema)
-        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False, schema=schema)
+        alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
+        alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])

@@ -15,9 +15,8 @@
 """ increase refresh token size """
 
 import sqlalchemy as sa
-from alembic.op import alter_column
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import alter_column, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'fa7a7d78b602'
@@ -30,8 +29,7 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        alter_column('tokens', 'refresh_token', existing_type=sa.String(315), type_=sa.String(3072), schema=schema)
+        alter_column('tokens', 'refresh_token', existing_type=sa.String(315), type_=sa.String(3072))
 
 
 def downgrade():
@@ -40,5 +38,4 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        alter_column('tokens', 'refresh_token', existing_type=sa.String(3072), type_=sa.String(315), schema=schema)
+        alter_column('tokens', 'refresh_token', existing_type=sa.String(3072), type_=sa.String(315))

@@ -15,9 +15,9 @@
 """ cleanup distances table """
 
 import sqlalchemy as sa
-from alembic.op import alter_column, drop_column
+from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, alter_column, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = '140fef722e91'
@@ -47,7 +47,7 @@ def upgrade():
         drop_column('distances', 'done_1h', schema=schema)
         drop_column('distances', 'done_6h', schema=schema)
 
-        alter_column('distances', 'ranking', existing_type=sa.Integer, new_column_name='distance', schema=schema)
+        alter_column('distances', 'ranking', existing_type=sa.Integer, new_column_name='distance')
 
 
 def downgrade():
@@ -55,11 +55,8 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-
-        alter_column('distances', 'distance', existing_type=sa.Integer, new_column_name='ranking', schema=schema)
+        alter_column('distances', 'distance', existing_type=sa.Integer, new_column_name='ranking')
 
         add_column('distances', sa.Column('agis_distance', sa.Integer))
         add_column('distances', sa.Column('geoip_distance', sa.Integer))

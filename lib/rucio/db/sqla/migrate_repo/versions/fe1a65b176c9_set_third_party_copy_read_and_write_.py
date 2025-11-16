@@ -14,9 +14,9 @@
 
 """ set third_party_copy_read and write fields """
 
-from alembic.op import alter_column, execute  # pylint: disable=no-member
+from alembic.op import execute  # pylint: disable=no-member
 
-from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import alter_column, is_current_dialect, qualify_table
 
 # Alembic revision identifiers
 revision = 'fe1a65b176c9'
@@ -31,7 +31,6 @@ def upgrade():
     rse_protocol_table = qualify_table('rse_protocols')
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
 
         execute(
             f"""
@@ -48,8 +47,8 @@ def upgrade():
             """
         )
         # Add server default to 0. The initial alembic migration creates the column without the default, even if it is set in 'models'
-        alter_column('rse_protocols', 'third_party_copy_read', server_default='0', schema=schema)
-        alter_column('rse_protocols', 'third_party_copy_write', server_default='0', schema=schema)
+        alter_column('rse_protocols', 'third_party_copy_read', server_default='0')
+        alter_column('rse_protocols', 'third_party_copy_write', server_default='0')
 
 
 def downgrade():
