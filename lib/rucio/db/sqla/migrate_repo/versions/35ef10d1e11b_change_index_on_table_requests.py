@@ -14,9 +14,9 @@
 
 """ change index on table requests """
 
-from alembic.op import create_index, drop_index
+from alembic.op import drop_index
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
 
 # Alembic revision identifiers
 revision = '35ef10d1e11b'

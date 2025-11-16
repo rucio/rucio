@@ -14,9 +14,9 @@
 
 """ create index on requests.external_id """
 
-from alembic.op import create_index, drop_index
+from alembic.op import drop_index
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
 
 # Alembic revision identifiers
 revision = '42db2617c364'

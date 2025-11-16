@@ -15,10 +15,10 @@
 """ Add did_type column + index on did_meta table """
 
 import sqlalchemy as sa
-from alembic.op import create_index, drop_column, drop_index, execute
+from alembic.op import drop_column, drop_index, execute
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, create_index, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -31,7 +31,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
     did_meta_table = qualify_table('did_meta')
     if is_current_dialect('oracle', 'mysql'):
         add_column('did_meta',
@@ -51,7 +50,7 @@ def upgrade():
             ADD COLUMN did_type "DID_META_DID_TYPE_CHK"
             """
         )
-    create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'], schema=schema)
+    create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'])
 
 
 def downgrade():

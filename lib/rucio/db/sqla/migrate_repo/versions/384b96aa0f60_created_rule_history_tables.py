@@ -17,10 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_index, create_primary_key, create_table, drop_index, drop_table
+from alembic.op import create_primary_key, create_table, drop_index, drop_table
 
 from rucio.db.sqla.constants import DIDType, RuleGrouping, RuleNotification, RuleState
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers

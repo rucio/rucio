@@ -14,9 +14,9 @@
 
 """ remove unique constraint on requests """
 
-from alembic.op import create_foreign_key, create_index, create_unique_constraint, drop_constraint, drop_index
+from alembic.op import create_foreign_key, create_unique_constraint, drop_constraint, drop_index
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
 
 # Alembic revision identifiers
 revision = '25821a8a45a3'

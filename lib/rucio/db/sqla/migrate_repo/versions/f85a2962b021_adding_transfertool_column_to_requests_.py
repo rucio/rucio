@@ -15,9 +15,9 @@
 """ adding transfertool column and index to requests table"""
 
 import sqlalchemy as sa
-from alembic.op import create_index, drop_column, drop_index
+from alembic.op import drop_column, drop_index
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, create_index, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'f85a2962b021'

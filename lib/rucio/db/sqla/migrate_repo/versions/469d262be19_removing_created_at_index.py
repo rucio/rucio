@@ -14,9 +14,9 @@
 
 """ removing created_at index """
 
-from alembic.op import create_index, drop_index
+from alembic.op import drop_index
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_index, is_current_dialect
 
 revision = '469d262be19'
 down_revision = '16a0aca82e12'
