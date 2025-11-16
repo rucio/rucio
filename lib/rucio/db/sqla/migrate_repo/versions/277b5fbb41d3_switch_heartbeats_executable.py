@@ -15,12 +15,12 @@
 """ switch heartbeats executable """
 
 import sqlalchemy as sa
-from alembic.op import drop_constraint
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_primary_key,
     drop_column,
+    drop_constraint,
     is_current_dialect,
 )
 from rucio.db.sqla.models import String

@@ -14,9 +14,14 @@
 
 """ add saml identity type """
 
-from alembic.op import drop_constraint, execute
+from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import create_check_constraint, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    drop_constraint,
+    is_current_dialect,
+    qualify_table,
+)
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -68,7 +73,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
     account_map_table = qualify_table('account_map')
     identities_table = qualify_table('identities')
 
@@ -106,12 +110,12 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
 
-        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check', schema=schema)
+        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check', schema=schema)
+        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")

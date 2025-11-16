@@ -15,9 +15,15 @@
 """ increase identity length """
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, drop_constraint, execute
+from alembic.op import create_foreign_key, execute
 
-from rucio.db.sqla.migrate_repo import alter_column, create_check_constraint, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    alter_column,
+    create_check_constraint,
+    drop_constraint,
+    is_current_dialect,
+    qualify_table,
+)
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers

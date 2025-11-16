@@ -15,12 +15,13 @@
 """ added staging_area column """
 
 import sqlalchemy as sa
-from alembic.op import drop_constraint, execute
+from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_check_constraint,
     drop_column,
+    drop_constraint,
     is_current_dialect,
     qualify_table,
 )

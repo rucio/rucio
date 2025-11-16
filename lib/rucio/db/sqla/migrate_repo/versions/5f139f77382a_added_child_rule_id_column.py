@@ -15,12 +15,13 @@
 """ added child_rule_id column """
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, drop_constraint, drop_index
+from alembic.op import create_foreign_key, drop_index
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
+    drop_constraint,
     is_current_dialect,
 )
 from rucio.db.sqla.types import GUID
