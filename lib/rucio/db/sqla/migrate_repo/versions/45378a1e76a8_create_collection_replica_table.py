@@ -17,10 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key, create_table, drop_table
 
 from rucio.db.sqla.constants import DIDType, ReplicaState
-from rucio.db.sqla.migrate_repo import create_check_constraint, create_index, is_current_dialect
+from rucio.db.sqla.migrate_repo import create_check_constraint, create_index, create_primary_key, is_current_dialect
 from rucio.db.sqla.types import GUID
 from rucio.db.sqla.util import try_drop_constraint
 

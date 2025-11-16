@@ -17,9 +17,9 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_primary_key, create_table, drop_column, drop_table, execute
+from alembic.op import create_table, drop_column, drop_table, execute
 
-from rucio.db.sqla.migrate_repo import add_column, alter_column, create_check_constraint, create_index, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, alter_column, create_check_constraint, create_index, create_primary_key, get_effective_schema, is_current_dialect, qualify_table
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -85,7 +85,7 @@ def upgrade():
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      schema=schema)
-        create_primary_key('OAUTH_REQUESTS_STATE_PK', 'oauth_requests', ['state'], schema=schema)
+        create_primary_key('OAUTH_REQUESTS_STATE_PK', 'oauth_requests', ['state'])
         create_check_constraint('OAUTH_REQUESTS_EXPIRED_AT_NN', 'oauth_requests', 'expired_at is not null')
         create_index('OAUTH_REQUESTS_ACC_EXP_AT_IDX', 'oauth_requests', ['account', 'expired_at'])
         create_index('OAUTH_REQUESTS_ACCESS_MSG_IDX', 'oauth_requests', ['access_msg'])

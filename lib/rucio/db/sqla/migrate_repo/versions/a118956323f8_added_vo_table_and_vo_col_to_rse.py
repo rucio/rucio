@@ -17,10 +17,10 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import bulk_insert, create_primary_key, create_table, create_unique_constraint, drop_column, drop_constraint, drop_table
+from alembic.op import bulk_insert, create_table, create_unique_constraint, drop_column, drop_constraint, drop_table
 from sqlalchemy import String
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import add_column, create_primary_key, get_effective_schema, is_current_dialect
 
 # Alembic revision identifiers
 revision = 'a118956323f8'

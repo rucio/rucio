@@ -15,9 +15,9 @@
 """ adding did_meta table """
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key, create_table, drop_table
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_primary_key, is_current_dialect
 from rucio.db.sqla.types import JSON
 
 # Alembic revision identifiers

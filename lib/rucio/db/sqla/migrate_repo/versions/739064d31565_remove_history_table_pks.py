@@ -14,9 +14,9 @@
 
 """ remove history table pks """
 
-from alembic.op import create_primary_key, drop_constraint
+from alembic.op import drop_constraint
 
-from rucio.db.sqla.migrate_repo import is_current_dialect
+from rucio.db.sqla.migrate_repo import create_primary_key, is_current_dialect
 
 # Alembic revision identifiers
 revision = '739064d31565'
