@@ -18,8 +18,15 @@ import sqlalchemy as sa
 from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import add_column, create_index, drop_column, drop_index, is_current_dialect, qualify_table
-from rucio.db.sqla.util import try_drop_constraint
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_index,
+    drop_column,
+    drop_index,
+    is_current_dialect,
+    qualify_table,
+    try_drop_constraint,
+)
 
 # Alembic revision identifiers
 revision = 'ccdbcd48206e'

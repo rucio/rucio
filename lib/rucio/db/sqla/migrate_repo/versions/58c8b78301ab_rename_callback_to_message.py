@@ -23,8 +23,8 @@ from rucio.db.sqla.migrate_repo import (
     is_current_dialect,
     qualify_table,
     rename_table,
+    try_drop_constraint,
 )
-from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '58c8b78301ab'

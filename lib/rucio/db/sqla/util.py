@@ -19,12 +19,12 @@ from os import urandom
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import sqlalchemy
-from alembic import command, op
+from alembic import command
 from alembic.config import Config
 from dogpile.cache.api import NoValue
 from sqlalchemy import Column, PrimaryKeyConstraint, func, inspect
 from sqlalchemy.dialects.postgresql.base import PGInspector
-from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.schema import CreateSchema, CreateTable, DropConstraint, DropTable, ForeignKeyConstraint, MetaData, Table
 from sqlalchemy.sql.ddl import DropSchema
@@ -324,21 +324,6 @@ def json_implemented(*, session: Optional["Session"] = None) -> bool:
         return False
 
     return True
-
-
-def try_drop_constraint(constraint_name: str, table_name: str) -> None:
-    """
-    Tries to drop the given constrained and returns successfully if the
-    constraint already existed on Oracle databases.
-
-    :param constraint_name: the constraint's name
-    :param table_name: the table name where the constraint resides
-    """
-    try:
-        op.drop_constraint(constraint_name, table_name)
-    except DatabaseError as e:
-        if 'nonexistent constraint' not in str(e):
-            raise RuntimeError(e)
 
 
 def list_oracle_global_temp_tables(session: "Session") -> list[str]:

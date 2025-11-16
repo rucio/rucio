@@ -16,8 +16,12 @@
 
 from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import create_check_constraint, is_current_dialect, qualify_table
-from rucio.db.sqla.util import try_drop_constraint
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    is_current_dialect,
+    qualify_table,
+    try_drop_constraint,
+)
 
 # Alembic revision identifiers
 revision = '7ec22226cdbf'

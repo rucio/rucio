@@ -15,8 +15,11 @@
 """ add a new state LOST in BadFilesStatus """
 
 
-from rucio.db.sqla.migrate_repo import create_check_constraint, is_current_dialect
-from rucio.db.sqla.util import try_drop_constraint
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    is_current_dialect,
+    try_drop_constraint,
+)
 
 # Alembic revision identifiers
 revision = '3d9813fab443'
