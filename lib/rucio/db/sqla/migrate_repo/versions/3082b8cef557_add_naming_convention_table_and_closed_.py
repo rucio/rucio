@@ -17,11 +17,19 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, drop_column, drop_table
+from alembic.op import create_foreign_key
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.constants import KeyType
-from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, create_primary_key, create_table, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_check_constraint,
+    create_primary_key,
+    create_table,
+    drop_column,
+    drop_table,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '3082b8cef557'
@@ -60,7 +68,6 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('dids', 'closed_at', schema=schema)
-        drop_column('contents_history', 'deleted_at', schema=schema)
-        drop_table('naming_conventions', schema=schema)
+        drop_column('dids', 'closed_at')
+        drop_column('contents_history', 'deleted_at')
+        drop_table('naming_conventions')

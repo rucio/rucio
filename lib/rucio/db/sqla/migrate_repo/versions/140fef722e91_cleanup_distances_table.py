@@ -15,9 +15,13 @@
 """ cleanup distances table """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, alter_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    alter_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '140fef722e91'
@@ -29,23 +33,21 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_column('distances', 'agis_distance', schema=schema)
-        drop_column('distances', 'geoip_distance', schema=schema)
-        drop_column('distances', 'active', schema=schema)
-        drop_column('distances', 'submitted', schema=schema)
-        drop_column('distances', 'finished', schema=schema)
-        drop_column('distances', 'failed', schema=schema)
-        drop_column('distances', 'transfer_speed', schema=schema)
-        drop_column('distances', 'packet_loss', schema=schema)
-        drop_column('distances', 'latency', schema=schema)
-        drop_column('distances', 'mbps_file', schema=schema)
-        drop_column('distances', 'mbps_link', schema=schema)
-        drop_column('distances', 'queued_total', schema=schema)
-        drop_column('distances', 'done_1h', schema=schema)
-        drop_column('distances', 'done_6h', schema=schema)
+        drop_column('distances', 'agis_distance')
+        drop_column('distances', 'geoip_distance')
+        drop_column('distances', 'active')
+        drop_column('distances', 'submitted')
+        drop_column('distances', 'finished')
+        drop_column('distances', 'failed')
+        drop_column('distances', 'transfer_speed')
+        drop_column('distances', 'packet_loss')
+        drop_column('distances', 'latency')
+        drop_column('distances', 'mbps_file')
+        drop_column('distances', 'mbps_link')
+        drop_column('distances', 'queued_total')
+        drop_column('distances', 'done_1h')
+        drop_column('distances', 'done_6h')
 
         alter_column('distances', 'ranking', existing_type=sa.Integer, new_column_name='distance')
 

@@ -17,10 +17,19 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, drop_column, drop_constraint, drop_index, drop_table, execute
+from alembic.op import create_foreign_key, drop_constraint, drop_index, drop_table, execute
 
 from rucio.db.sqla.constants import BadPFNStatus
-from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, create_index, create_primary_key, create_table, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_column,
+    is_current_dialect,
+    qualify_table,
+)
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -110,7 +119,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
     bad_replicas_table = qualify_table('bad_replicas')
 
     if is_current_dialect('oracle'):
@@ -121,7 +129,7 @@ def downgrade():
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
-        drop_column('bad_replicas', 'expires_at', schema=schema)
+        drop_column('bad_replicas', 'expires_at')
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
@@ -139,7 +147,7 @@ def downgrade():
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
-        drop_column('bad_replicas', 'expires_at', schema=schema)
+        drop_column('bad_replicas', 'expires_at')
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
@@ -150,6 +158,6 @@ def downgrade():
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
-        drop_column('bad_replicas', 'expires_at', schema=schema)
+        drop_column('bad_replicas', 'expires_at')
         drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])

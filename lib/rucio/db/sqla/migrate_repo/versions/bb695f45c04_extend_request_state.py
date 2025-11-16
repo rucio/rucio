@@ -15,9 +15,16 @@
 """ extend request state """
 
 import sqlalchemy as sa
-from alembic.op import drop_column, drop_constraint, execute
+from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_check_constraint,
+    drop_column,
+    drop_constraint,
+    is_current_dialect,
+    qualify_table,
+)
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -57,22 +64,21 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
     requests_table = qualify_table('requests')
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
-        drop_column('requests', 'submitter_id', schema=schema)
-        drop_column('sources', 'is_using', schema=schema)
+        drop_column('requests', 'submitter_id')
+        drop_column('sources', 'is_using')
 
     elif is_current_dialect('postgresql'):
-        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check', schema=schema)
+        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
-        drop_column('requests', 'submitter_id', schema=schema)
-        drop_column('sources', 'is_using', schema=schema)
+        drop_column('requests', 'submitter_id')
+        drop_column('sources', 'is_using')
 
     elif is_current_dialect('mysql'):
         execute(
@@ -83,5 +89,5 @@ def downgrade():
         )
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
-        drop_column('requests', 'submitter_id', schema=schema)
-        drop_column('sources', 'is_using', schema=schema)
+        drop_column('requests', 'submitter_id')
+        drop_column('sources', 'is_using')

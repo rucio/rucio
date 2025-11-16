@@ -15,9 +15,12 @@
 """ added comment column to rules """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.models import String
 
 # Alembic revision identifiers
@@ -42,7 +45,6 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('rules', 'comments', schema=schema)
-        drop_column('rules_hist_recent', 'comments', schema=schema)
-        drop_column('rules_history', 'comments', schema=schema)
+        drop_column('rules', 'comments')
+        drop_column('rules_hist_recent', 'comments')
+        drop_column('rules_history', 'comments')

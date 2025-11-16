@@ -15,9 +15,12 @@
 """ add new split_container column to rules """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '6e572a9bfbf3'
@@ -41,7 +44,6 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('rules', 'split_container', schema=schema)
-        drop_column('rules_hist_recent', 'split_container', schema=schema)
-        drop_column('rules_history', 'split_container', schema=schema)
+        drop_column('rules', 'split_container')
+        drop_column('rules_hist_recent', 'split_container')
+        drop_column('rules_history', 'split_container')

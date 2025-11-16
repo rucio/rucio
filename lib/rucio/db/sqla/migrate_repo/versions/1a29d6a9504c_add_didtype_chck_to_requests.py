@@ -15,10 +15,10 @@
 """ add didtype_chck to requests """
 
 import sqlalchemy as sa
-from alembic.op import drop_column, execute
+from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import add_column, drop_column, is_current_dialect, qualify_table
 
 # Alembic revision identifiers
 revision = '1a29d6a9504c'
@@ -58,8 +58,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_column('requests', 'did_type', schema=schema)
-        drop_column('requests_history', 'did_type', schema=schema)
+        drop_column('requests', 'did_type')
+        drop_column('requests_history', 'did_type')

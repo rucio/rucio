@@ -15,9 +15,12 @@
 """ add staging timestamps to request """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = 'bc68e9946deb'
@@ -42,8 +45,7 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
-        schema = get_effective_schema()
-        drop_column('requests', 'staging_started_at', schema=schema)
-        drop_column('requests', 'staging_finished_at', schema=schema)
-        drop_column('requests_history', 'staging_started_at', schema=schema)
-        drop_column('requests_history', 'staging_finished_at', schema=schema)
+        drop_column('requests', 'staging_started_at')
+        drop_column('requests', 'staging_finished_at')
+        drop_column('requests_history', 'staging_started_at')
+        drop_column('requests_history', 'staging_finished_at')

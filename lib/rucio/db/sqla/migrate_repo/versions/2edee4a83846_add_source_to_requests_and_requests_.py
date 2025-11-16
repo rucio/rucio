@@ -15,9 +15,12 @@
 """ add source to requests and requests_history """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -41,6 +44,5 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('requests', 'source_rse_id', schema=schema)
-        drop_column('requests_history', 'source_rse_id', schema=schema)
+        drop_column('requests', 'source_rse_id')
+        drop_column('requests_history', 'source_rse_id')

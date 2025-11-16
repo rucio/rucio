@@ -15,9 +15,14 @@
 """ added source history table """
 
 import sqlalchemy as sa
-from alembic.op import drop_column, drop_table
+from alembic.op import drop_table
 
-from rucio.db.sqla.migrate_repo import add_column, create_table, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_table,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -51,7 +56,6 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('requests', 'estimated_at', schema=schema)
-        drop_column('requests_history', 'estimated_at', schema=schema)
+        drop_column('requests', 'estimated_at')
+        drop_column('requests_history', 'estimated_at')
         drop_table('sources_history')

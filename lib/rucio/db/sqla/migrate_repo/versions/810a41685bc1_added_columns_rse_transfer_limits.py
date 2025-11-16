@@ -15,9 +15,12 @@
 """ added_columns_rse_transfer_limits """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '810a41685bc1'
@@ -40,9 +43,7 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
-        drop_column('rse_transfer_limits', 'deadline', schema=schema)
-        drop_column('rse_transfer_limits', 'strategy', schema=schema)
-        drop_column('rse_transfer_limits', 'direction', schema=schema)
+        drop_column('rse_transfer_limits', 'deadline')
+        drop_column('rse_transfer_limits', 'strategy')
+        drop_column('rse_transfer_limits', 'direction')

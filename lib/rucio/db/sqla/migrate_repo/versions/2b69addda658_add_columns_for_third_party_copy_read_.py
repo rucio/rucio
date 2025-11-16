@@ -15,9 +15,12 @@
 """ Add columns for third_party_copy_read and third_party_copy_write """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '2b69addda658'
@@ -40,6 +43,5 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('rse_protocols', 'third_party_copy_write', schema=schema)
-        drop_column('rse_protocols', 'third_party_copy_read', schema=schema)
+        drop_column('rse_protocols', 'third_party_copy_write')
+        drop_column('rse_protocols', 'third_party_copy_read')

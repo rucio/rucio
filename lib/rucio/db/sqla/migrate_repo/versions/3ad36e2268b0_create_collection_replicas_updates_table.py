@@ -17,10 +17,18 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import drop_column, drop_constraint, drop_index, drop_table
+from alembic.op import drop_constraint, drop_index, drop_table
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, create_index, create_primary_key, create_table, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -60,16 +68,14 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
-
     if is_current_dialect('oracle', 'postgresql'):
-        drop_column('collection_replicas', 'available_replicas_cnt', schema=schema)
-        drop_column('collection_replicas', 'available_bytes', schema=schema)
+        drop_column('collection_replicas', 'available_replicas_cnt')
+        drop_column('collection_replicas', 'available_bytes')
         drop_table('updated_col_rep')
 
     elif is_current_dialect('mysql'):
-        drop_column('collection_replicas', 'available_replicas_cnt', schema=schema)
-        drop_column('collection_replicas', 'available_bytes', schema=schema)
+        drop_column('collection_replicas', 'available_replicas_cnt')
+        drop_column('collection_replicas', 'available_bytes')
         drop_constraint('UPDATED_COL_REP_PK', 'updated_col_rep', type_='primary')
         drop_index('UPDATED_COL_REP_SNR_IDX', 'updated_col_rep')
         drop_table('updated_col_rep')

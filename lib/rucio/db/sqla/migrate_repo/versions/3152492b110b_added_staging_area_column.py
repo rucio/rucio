@@ -15,9 +15,15 @@
 """ added staging_area column """
 
 import sqlalchemy as sa
-from alembic.op import drop_column, drop_constraint, execute
+from alembic.op import drop_constraint, execute
 
-from rucio.db.sqla.migrate_repo import add_column, create_check_constraint, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_check_constraint,
+    drop_column,
+    is_current_dialect,
+    qualify_table,
+)
 from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
@@ -61,7 +67,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
     requests_table = qualify_table('requests')
 
     if is_current_dialect('oracle'):
@@ -69,7 +74,7 @@ def downgrade():
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area', schema=schema)
+        drop_column('rses', 'staging_area')
 
     elif is_current_dialect('postgresql'):
         execute(
@@ -81,9 +86,9 @@ def downgrade():
         )
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area', schema=schema)
+        drop_column('rses', 'staging_area')
 
     elif is_current_dialect('mysql'):
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
-        drop_column('rses', 'staging_area', schema=schema)
+        drop_column('rses', 'staging_area')

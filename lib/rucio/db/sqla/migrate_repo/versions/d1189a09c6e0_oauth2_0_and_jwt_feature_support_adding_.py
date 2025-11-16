@@ -17,9 +17,20 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import drop_column, drop_table, execute
+from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import add_column, alter_column, create_check_constraint, create_index, create_primary_key, create_table, get_effective_schema, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    alter_column,
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_column,
+    drop_table,
+    is_current_dialect,
+    qualify_table,
+)
 from rucio.db.sqla.types import InternalAccountString
 from rucio.db.sqla.util import try_drop_constraint
 
@@ -100,7 +111,6 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
-    schema = get_effective_schema()
     if is_current_dialect('oracle'):
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -111,14 +121,14 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'oidc_scope', schema=schema)
-        drop_column('tokens', 'audience', schema=schema)
-        drop_column('tokens', 'refresh_token', schema=schema)
-        drop_column('tokens', 'refresh', schema=schema)
-        drop_column('tokens', 'refresh_start', schema=schema)
-        drop_column('tokens', 'refresh_expired_at', schema=schema)
-        drop_column('tokens', 'refresh_lifetime', schema=schema)
-        drop_table('oauth_requests', schema=schema)
+        drop_column('tokens', 'oidc_scope')
+        drop_column('tokens', 'audience')
+        drop_column('tokens', 'refresh_token')
+        drop_column('tokens', 'refresh')
+        drop_column('tokens', 'refresh_start')
+        drop_column('tokens', 'refresh_expired_at')
+        drop_column('tokens', 'refresh_lifetime')
+        drop_table('oauth_requests')
         alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352))
 
     elif is_current_dialect('mysql'):
@@ -129,15 +139,15 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'oidc_scope', schema=schema)
-        drop_column('tokens', 'audience', schema=schema)
-        drop_column('tokens', 'refresh_token', schema=schema)
-        drop_column('tokens', 'refresh', schema=schema)
-        drop_column('tokens', 'refresh_start', schema=schema)
-        drop_column('tokens', 'refresh_expired_at', schema=schema)
-        drop_column('tokens', 'refresh_lifetime', schema=schema)
+        drop_column('tokens', 'oidc_scope')
+        drop_column('tokens', 'audience')
+        drop_column('tokens', 'refresh_token')
+        drop_column('tokens', 'refresh')
+        drop_column('tokens', 'refresh_start')
+        drop_column('tokens', 'refresh_expired_at')
+        drop_column('tokens', 'refresh_lifetime')
         alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352), existing_nullable=False, nullable=False)
-        drop_table('oauth_requests', schema=schema)
+        drop_table('oauth_requests')
 
     elif is_current_dialect('postgresql'):
 
@@ -148,12 +158,12 @@ def downgrade():
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        drop_column('tokens', 'oidc_scope', schema=schema)
-        drop_column('tokens', 'audience', schema=schema)
-        drop_column('tokens', 'refresh_token', schema=schema)
-        drop_column('tokens', 'refresh', schema=schema)
-        drop_column('tokens', 'refresh_start', schema=schema)
-        drop_column('tokens', 'refresh_expired_at', schema=schema)
-        drop_column('tokens', 'refresh_lifetime', schema=schema)
+        drop_column('tokens', 'oidc_scope')
+        drop_column('tokens', 'audience')
+        drop_column('tokens', 'refresh_token')
+        drop_column('tokens', 'refresh')
+        drop_column('tokens', 'refresh_start')
+        drop_column('tokens', 'refresh_expired_at')
+        drop_column('tokens', 'refresh_lifetime')
         alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352))
-        drop_table('oauth_requests', schema=schema)
+        drop_table('oauth_requests')

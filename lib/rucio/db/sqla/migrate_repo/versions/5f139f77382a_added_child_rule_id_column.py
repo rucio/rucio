@@ -15,9 +15,14 @@
 """ added child_rule_id column """
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, drop_column, drop_constraint, drop_index
+from alembic.op import create_foreign_key, drop_constraint, drop_index
 
-from rucio.db.sqla.migrate_repo import add_column, create_index, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_index,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -48,7 +53,6 @@ def downgrade():
         drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules', type_='foreignkey')
         drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
 
-        schema = get_effective_schema()
-        drop_column('rules', 'child_rule_id', schema=schema)
-        drop_column('rules_hist_recent', 'child_rule_id', schema=schema)
-        drop_column('rules_history', 'child_rule_id', schema=schema)
+        drop_column('rules', 'child_rule_id')
+        drop_column('rules_hist_recent', 'child_rule_id')
+        drop_column('rules_history', 'child_rule_id')

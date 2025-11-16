@@ -15,9 +15,12 @@
 """ add metadata to rule tables """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '5673b4b6e843'
@@ -41,7 +44,6 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('rules', 'meta', schema=schema)
-        drop_column('rules_history', 'meta', schema=schema)
-        drop_column('rules_hist_recent', 'meta', schema=schema)
+        drop_column('rules', 'meta')
+        drop_column('rules_history', 'meta')
+        drop_column('rules_hist_recent', 'meta')

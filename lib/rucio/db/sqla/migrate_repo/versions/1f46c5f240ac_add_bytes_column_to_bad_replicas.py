@@ -15,9 +15,12 @@
 """ add bytes column to bad_replicas """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '1f46c5f240ac'
@@ -39,5 +42,4 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('bad_replicas', 'bytes', schema=schema)
+        drop_column('bad_replicas', 'bytes')

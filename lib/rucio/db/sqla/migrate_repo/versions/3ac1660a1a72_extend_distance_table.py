@@ -15,9 +15,12 @@
 """ extend distance table """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '3ac1660a1a72'
@@ -45,11 +48,10 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('distances', 'packet_loss', schema=schema)
-        drop_column('distances', 'latency', schema=schema)
-        drop_column('distances', 'mbps_file', schema=schema)
-        drop_column('distances', 'mbps_link', schema=schema)
-        drop_column('distances', 'queued_total', schema=schema)
-        drop_column('distances', 'done_1h', schema=schema)
-        drop_column('distances', 'done_6h', schema=schema)
+        drop_column('distances', 'packet_loss')
+        drop_column('distances', 'latency')
+        drop_column('distances', 'mbps_file')
+        drop_column('distances', 'mbps_link')
+        drop_column('distances', 'queued_total')
+        drop_column('distances', 'done_1h')
+        drop_column('distances', 'done_6h')

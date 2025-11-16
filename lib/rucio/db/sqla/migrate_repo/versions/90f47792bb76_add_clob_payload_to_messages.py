@@ -15,9 +15,12 @@
 """ add clob payload to messages """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '90f47792bb76'
@@ -40,6 +43,5 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('messages', 'payload_nolimit', schema=schema)
-        drop_column('messages_history', 'payload_nolimit', schema=schema)
+        drop_column('messages', 'payload_nolimit')
+        drop_column('messages_history', 'payload_nolimit')

@@ -15,9 +15,12 @@
 """ adding provenance and phys_group """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '1803333ac20f'
@@ -40,6 +43,5 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('dids', 'provenance', schema=schema)
-        drop_column('dids', 'phys_group', schema=schema)
+        drop_column('dids', 'provenance')
+        drop_column('dids', 'phys_group')

@@ -15,9 +15,12 @@
 """ add_submitted_at_to_requests_table """
 
 import sqlalchemy as sa
-from alembic.op import drop_column
 
-from rucio.db.sqla.migrate_repo import add_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '2ba5229cb54c'
@@ -39,5 +42,4 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        schema = get_effective_schema()
-        drop_column('requests', 'submitted_at', schema=schema)
+        drop_column('requests', 'submitted_at')

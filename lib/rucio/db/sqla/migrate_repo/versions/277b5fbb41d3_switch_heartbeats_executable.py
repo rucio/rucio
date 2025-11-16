@@ -15,9 +15,14 @@
 """ switch heartbeats executable """
 
 import sqlalchemy as sa
-from alembic.op import drop_column, drop_constraint
+from alembic.op import drop_constraint
 
-from rucio.db.sqla.migrate_repo import add_column, create_primary_key, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_primary_key,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.models import String
 
 # Alembic revision identifiers
@@ -32,8 +37,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        schema = get_effective_schema()
-        drop_column('heartbeats', 'executable', schema=schema)
+        drop_column('heartbeats', 'executable')
         add_column('heartbeats', sa.Column('executable', String(64)))
         add_column('heartbeats', sa.Column('readable', String(4000)))
         create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
@@ -46,8 +50,7 @@ def downgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_constraint('heartbeats_pk', 'heartbeats', type_='primary')
-        schema = get_effective_schema()
-        drop_column('heartbeats', 'executable', schema=schema)
-        drop_column('heartbeats', 'readable', schema=schema)
+        drop_column('heartbeats', 'executable')
+        drop_column('heartbeats', 'readable')
         add_column('heartbeats', sa.Column('executable', String(767)))
         create_primary_key('HEARTBEATS_PK', 'heartbeats', ['executable', 'hostname', 'pid', 'thread_id'])
