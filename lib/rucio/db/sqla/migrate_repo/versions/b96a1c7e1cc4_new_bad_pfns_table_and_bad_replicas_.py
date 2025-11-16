@@ -17,7 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, drop_table, execute
+from alembic.op import create_foreign_key, execute
 
 from rucio.db.sqla.constants import BadPFNStatus
 from rucio.db.sqla.migrate_repo import (
@@ -29,6 +29,7 @@ from rucio.db.sqla.migrate_repo import (
     drop_column,
     drop_constraint,
     drop_index,
+    drop_table,
     is_current_dialect,
     qualify_table,
 )

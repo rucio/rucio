@@ -15,13 +15,13 @@
 """Opendata Record ID"""  # noqa: D400, D415
 
 import sqlalchemy as sa
-from alembic.op import drop_table
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_table,
     drop_index,
+    drop_table,
 )
 
 # Alembic revision identifiers

@@ -15,10 +15,15 @@
 """ remove temporary DIDs """
 
 import sqlalchemy as sa
-from alembic.op import drop_table
 
 from rucio.common.schema import get_schema_value
-from rucio.db.sqla.migrate_repo import create_index, create_primary_key, create_table, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID, InternalScopeString
 
 # Alembic revision identifiers

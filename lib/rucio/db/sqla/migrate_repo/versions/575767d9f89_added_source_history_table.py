@@ -15,12 +15,12 @@
 """ added source history table """
 
 import sqlalchemy as sa
-from alembic.op import drop_table
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_table,
     drop_column,
+    drop_table,
     is_current_dialect,
 )
 from rucio.db.sqla.types import GUID
