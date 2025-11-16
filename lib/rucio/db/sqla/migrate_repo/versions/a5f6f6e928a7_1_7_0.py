@@ -21,8 +21,8 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_check_constraint,
     drop_column,
-    drop_constraint,
     is_current_dialect,
+    try_drop_constraint,
 )
 
 # Alembic revision identifiers
@@ -105,7 +105,7 @@ def downgrade():
         drop_column('deleted_dids', 'purge_replicas')
         drop_column('deleted_dids', 'eol_at')
 
-        drop_constraint(constraint_name='REQUESTS_ACCOUNT_FK', table_name='requests', type_='foreignkey')
+        try_drop_constraint(constraint_name='REQUESTS_ACCOUNT_FK', table_name='requests', type_='foreignkey')
         drop_column('requests', 'account')
         drop_column('requests', 'requested_at')
         drop_column('requests', 'priority')

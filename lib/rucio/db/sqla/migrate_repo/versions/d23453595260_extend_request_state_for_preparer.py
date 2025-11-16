@@ -20,7 +20,6 @@ from alembic.op import execute, get_context
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
-    drop_constraint,
     is_current_dialect,
     qualify_table,
     try_drop_constraint,
@@ -99,7 +98,7 @@ def upgrade():
 
     elif is_current_dialect('mysql'):
         if get_context().dialect.server_version_info[0] == 8:
-            drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+            try_drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
 
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
@@ -178,7 +177,7 @@ def downgrade():
         )
 
         if get_context().dialect.server_version_info[0] == 8:
-            drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+            try_drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
 
 
 def enum_values_str(enumvals):

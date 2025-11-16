@@ -62,10 +62,10 @@ def downgrade():
         drop_table('account_attr_map')
 
     elif is_current_dialect('postgresql'):
-        # drop_constraint('ACCOUNT_ATTR_MAP_PK', 'account_attr_map', type_='primary')
-        # drop_constraint('ACCOUNT_ATTR_MAP_CREATED_NN', 'account_attr_map')
-        # drop_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map')
-        # drop_constraint('ACCOUNT_ATTR_MAP_ACCOUNT_FK', 'account_attr_map')
+        # try_drop_constraint('ACCOUNT_ATTR_MAP_PK', 'account_attr_map', type_='primary')
+        # try_drop_constraint('ACCOUNT_ATTR_MAP_CREATED_NN', 'account_attr_map')
+        # try_drop_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map')
+        # try_drop_constraint('ACCOUNT_ATTR_MAP_ACCOUNT_FK', 'account_attr_map')
         # drop_index('ACCOUNT_ATTR_MAP_KEY_VALUE_IDX', 'account_attr_map')
         # drop_table('account_attr_map')
         pass

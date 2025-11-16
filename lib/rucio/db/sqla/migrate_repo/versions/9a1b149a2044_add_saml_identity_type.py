@@ -18,7 +18,6 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
-    drop_constraint,
     is_current_dialect,
     qualify_table,
     try_drop_constraint,
@@ -110,14 +109,14 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
 
-        drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities', type_='check')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map', type_='check')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-        # drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        # try_drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         # create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])

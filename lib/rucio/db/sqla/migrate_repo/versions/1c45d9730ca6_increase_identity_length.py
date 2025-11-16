@@ -20,7 +20,6 @@ from alembic.op import create_foreign_key, execute
 from rucio.db.sqla.migrate_repo import (
     alter_column,
     create_check_constraint,
-    drop_constraint,
     is_current_dialect,
     qualify_table,
     try_drop_constraint,
@@ -59,7 +58,7 @@ def upgrade():
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         alter_column('identities', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
@@ -130,7 +129,7 @@ def downgrade():
             "WHERE identity_type='SSH'"
         )
 
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         execute(
             f"""
             ALTER TABLE {identities_table}
@@ -192,7 +191,7 @@ def downgrade():
 
         # MySQL does not allow altering a column referenced by a ForeignKey
         # so we need to drop that one first
-        drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', type_='foreignkey')
         alter_column('account_map', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
         alter_column('identities', 'identity', existing_type=sa.String(2048), type_=sa.String(255), nullable=False)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])

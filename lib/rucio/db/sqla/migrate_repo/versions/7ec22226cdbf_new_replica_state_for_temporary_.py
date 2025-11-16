@@ -90,10 +90,10 @@ def downgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
 
     elif is_current_dialect('postgresql'):
+        try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         execute(
             f"""
             ALTER TABLE {replicas_table}
-            DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK",
             ALTER COLUMN state TYPE CHAR
             """
         )

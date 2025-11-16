@@ -26,9 +26,9 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     create_unique_constraint,
     drop_column,
-    drop_constraint,
     drop_table,
     is_current_dialect,
+    try_drop_constraint,
 )
 
 # Alembic revision identifiers
@@ -60,7 +60,7 @@ def upgrade():
         add_column('rses', sa.Column('vo', String(3), sa.ForeignKey('vos.vo', name='RSES_VOS_FK'), nullable=False, server_default='def'))
 
         # change unique constraint: (rse) -> (rse,vo)
-        drop_constraint('RSES_RSE_UQ', 'rses', type_='unique')
+        try_drop_constraint('RSES_RSE_UQ', 'rses', type_='unique')
         create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse', 'vo'])
 
 
@@ -71,11 +71,11 @@ def downgrade():
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
         # change unique constraint: (rse, vo) -> (rse)
-        drop_constraint('RSES_RSE_UQ', 'rses', type_='unique')
+        try_drop_constraint('RSES_RSE_UQ', 'rses', type_='unique')
         create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse'])
 
         # drop vo column
-        drop_constraint('RSES_VOS_FK', 'rses', type_='foreignkey')
+        try_drop_constraint('RSES_VOS_FK', 'rses', type_='foreignkey')
         drop_column('rses', 'vo')
 
         # drop vo table

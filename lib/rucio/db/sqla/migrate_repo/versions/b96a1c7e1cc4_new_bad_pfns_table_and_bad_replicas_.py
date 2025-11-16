@@ -27,7 +27,6 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_column,
-    drop_constraint,
     drop_index,
     drop_table,
     is_current_dialect,
@@ -73,7 +72,7 @@ def upgrade():
         add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
 
         # Change PK
-        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        try_drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'state', 'created_at'])
 
         # Add new Index to Table
@@ -110,7 +109,7 @@ def upgrade():
         add_column('bad_replicas', sa.Column('expires_at', sa.DateTime()))
 
         # Change PK
-        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        try_drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'state', 'created_at'])
 
         # Add new Index to Table
@@ -133,7 +132,7 @@ def downgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
         drop_column('bad_replicas', 'expires_at')
-        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        try_drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif is_current_dialect('postgresql'):
@@ -151,7 +150,7 @@ def downgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
         drop_column('bad_replicas', 'expires_at')
-        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        try_drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif is_current_dialect('mysql'):
@@ -162,5 +161,5 @@ def downgrade():
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
         drop_column('bad_replicas', 'expires_at')
-        drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
+        try_drop_constraint('BAD_REPLICAS_STATE_PK', 'bad_replicas', type_='primary')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])

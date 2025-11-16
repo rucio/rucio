@@ -45,10 +45,10 @@ def upgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
 
     elif is_current_dialect('postgresql'):
+        try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         execute(
             f"""
             ALTER TABLE {replicas_table}
-            DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK",
             ALTER COLUMN state TYPE CHAR
             """
         )
@@ -70,10 +70,10 @@ def upgrade():
             """
         )
 
+        try_drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}
-            DROP CONSTRAINT IF EXISTS "COLLECTION_REPLICAS_STATE_CHK",
             ALTER COLUMN state TYPE CHAR
             """
         )
@@ -125,10 +125,10 @@ def downgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
     elif is_current_dialect('postgresql'):
+        try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         execute(
             f"""
             ALTER TABLE {replicas_table}
-            DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK",
             ALTER COLUMN state TYPE CHAR
             """
         )
@@ -150,10 +150,10 @@ def downgrade():
             """
         )
 
+        try_drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}
-            DROP CONSTRAINT IF EXISTS "COLLECTION_REPLICAS_STATE_CHK",
             ALTER COLUMN state TYPE CHAR
             """
         )

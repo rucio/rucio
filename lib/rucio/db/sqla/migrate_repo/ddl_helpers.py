@@ -26,8 +26,10 @@ from alembic import context, op
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.dialects import oracle as ora
 from sqlalchemy.engine.default import DefaultDialect
+from sqlalchemy.exc import DatabaseError
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from typing import Any, Optional
 
     from alembic.runtime.migration import MigrationContext
@@ -37,6 +39,23 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 _WARNED_UNKNOWN_DIALECT = False
+
+MYSQL_GENERAL_MISSING_TOKENS: tuple[str, ...] = (
+    "doesn't exist",
+    "does not exist",
+    "unknown constraint",
+    "unknown index",
+    "unknown key",
+    "check that column/key exists",
+    "check that it exists",
+)
+
+MYSQL_CONSTRAINT_MISSING_TOKENS: tuple[str, ...] = (
+    *MYSQL_GENERAL_MISSING_TOKENS,
+    "can't drop foreign key",
+    "can't drop constraint",
+    "not found in the table",
+)
 
 
 def _warn_unknown_dialect_once() -> None:
@@ -55,6 +74,45 @@ def _warn_unknown_dialect_once() -> None:
             "would be case-sensitive."
         )
         _WARNED_UNKNOWN_DIALECT = True
+
+
+def _matches_any(
+        message: 'Optional[str]',
+        tokens: 'Iterable[str]'
+) -> bool:
+    """
+    Return ``True`` when any token is present in *message*.
+
+    Parameters
+    ----------
+    message : Optional[str]
+        The string to search. ``None`` is treated as the empty string so that
+        unexpected exceptions do not bubble further up the stack.
+    tokens : Iterable[str]
+        Search terms to look for. The comparison is case-insensitive so callers
+        can provide tokens in any casing. Falsy tokens are normalised to the
+        empty string, which matches any message; callers should pre-filter such
+        values if that behaviour is undesirable.
+
+    Returns
+    -------
+    bool
+        ``True`` if at least one token is present in ``message``; otherwise ``False``.
+    """
+
+    msg = (message or "").lower()
+    return any((token or "").lower() in msg for token in tokens)
+
+
+def _dialect_name() -> 'Optional[str]':
+    """
+    Internal shorthand for `_get_current_dialect`, normalising "mariadb" to "mysql".
+    """
+
+    name = _get_current_dialect()
+    if name == "mariadb":
+        return "mysql"
+    return name
 
 
 def _preparer() -> 'IdentifierPreparer':
@@ -367,6 +425,183 @@ def qualify_table(
     if schema is not None and "." in schema:
         raise ValueError("schema must be a single identifier; multi-part names are unsupported")
     return _quoted_table(table_name, schema)
+
+
+def try_drop_constraint(
+        constraint_name: str,
+        table_name: str,
+        *,
+        type_: 'Optional[str]' = None,
+) -> None:
+    """
+    Drop a named constraint if it exists, without failing on "missing" cases.
+
+    Behavior by dialect:
+    * PostgreSQL: emits two safe statements:
+        first an unquoted ALTER TABLE IF EXISTS <tbl> DROP CONSTRAINT IF EXISTS <name>
+        (to match historically unquoted / any‑casing names), then the quoted form.
+        When type_ == "primary", it also tries the backend’s default PK name <table>_pkey
+        (both unquoted and quoted).
+    * MySQL / MariaDB: – uses the appropriate ``ALTER TABLE ... DROP ...`` form;
+      probes the kind when ``type_`` is not supplied and treats standard "missing"
+      errors as a no‑op.
+    * SQLite, Oracle, others : – delegates to Alembic (``drop_constraint``)
+      with ``type_`` as given.
+
+    Parameters
+    ----------
+    constraint_name : str
+        Name of the constraint to remove.
+    table_name : str
+        Table hosting the constraint.
+    type_ : Optional[str]
+        Explicit constraint type (primarily for MySQL/MariaDB). Providing this lets
+        Alembic emit the appropriate ``DROP`` statement without additional probing.
+        Canonical Alembic values include ``"foreignkey"``, ``"check"``, ``"unique"``
+        and ``"primary"``. On MySQL/MariaDB, when ``type_`` is provided, the call is
+        delegated to :func:`drop_constraint` with the type passed through unchanged so
+        that schema defaulting remains consistent.
+        When ``type_`` is omitted on those backends, the helper probes by trying
+        (in order): ``DROP FOREIGN KEY``, then ``DROP INDEX``, then ``DROP CHECK``.
+        Legacy "syntax"/"unsupported" errors for ``DROP CHECK`` (older
+        MySQL/MariaDB) are tolerated both during probing and when ``type_ ==
+        "check"`` so callers need not special-case legacy engines. On
+        PostgreSQL the helper emits raw SQL and ignores ``type_``. Other backends
+        fall back to Alembic with ``type_`` passed through.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    RuntimeError
+        If an unexpected database error occurs (i.e., not a recognised "missing"
+        constraint condition).
+
+    Notes
+    -----
+    * Idempotent by construction : repeated calls leave the schema unchanged.
+    * Error strings that indicate a harmless "missing" case are normalised across
+      backends and tolerated.
+    * Callers should drop dependent objects (e.g., FKs referencing a PK) first,
+      mirroring common migration ordering.
+
+    Examples
+    --------
+    >>> # Works whether or not the FK exists (MySQL/MariaDB will probe)
+    >>> try_drop_constraint("fk_orders_user_id", "orders")
+    >>> # If you know the type, supply it to avoid probing on MySQL/MariaDB
+    >>> try_drop_constraint("fk_orders_user_id", "orders", type_="foreignkey")
+    """
+
+    dialect = _dialect_name()
+    schema = get_effective_schema()
+    quoted_table = _quoted_table(table_name, schema)
+    plain_table = f"{schema}.{table_name}" if schema else table_name
+    quoted_constraint = _qident(constraint_name)
+    if dialect == "postgresql":
+        # Prefer an unquoted drop first so it matches constraints created without quotes
+        # (PostgreSQL folds unquoted identifiers to lower-case). Then try the quoted
+        # form to catch explicitly quoted, case-sensitive names. When dropping a PK,
+        # also attempt the backend's default primary key name (<table>_pkey).
+        stmts = [
+            f"ALTER TABLE IF EXISTS {quoted_table} DROP CONSTRAINT IF EXISTS {constraint_name}",
+            f"ALTER TABLE IF EXISTS {quoted_table} DROP CONSTRAINT IF EXISTS {quoted_constraint}",
+        ]
+        if (type_ or "").lower() == "primary":
+            default_pk = f"{table_name}_pkey"
+            stmts.append(
+                f"ALTER TABLE IF EXISTS {quoted_table} DROP CONSTRAINT IF EXISTS {default_pk}"
+            )
+            stmts.append(
+                f"ALTER TABLE IF EXISTS {quoted_table} DROP CONSTRAINT IF EXISTS {_qident(default_pk)}"
+            )
+        for stmt in stmts:
+            op.execute(stmt)
+        return
+
+    if dialect == "mysql":
+        if type_:
+            try:
+                drop_constraint(constraint_name, table_name, type_=type_)
+            except (DatabaseError, ValueError) as exc:
+                message = str(exc).lower()
+                tolerated = _matches_any(message, MYSQL_CONSTRAINT_MISSING_TOKENS)
+
+                # Older MySQL/MariaDB variants (pre 8.x / 10.2) do not support
+                # ``DROP CHECK`` syntax; treat those as benign when explicitly
+                # dropping a check constraint so callers do not need to special
+                # case legacy engines.
+                if (type_ or "").lower() == "check":
+                    if any(word in message for word in ["syntax", "not supported", "unsupported"]):
+                        tolerated = True
+
+                if not tolerated:
+                    raise RuntimeError(exc) from exc
+                LOGGER.debug(
+                    "Constraint %s on %s already missing or unsupported to drop "
+                    "directly (dialect=mysql, type=%s): %s",
+                    constraint_name,
+                    plain_table,
+                    type_,
+                    message,
+                )
+            return
+
+        statements = (
+            (
+                f"ALTER TABLE {quoted_table} DROP FOREIGN KEY {quoted_constraint}",
+                False,
+            ),
+            (
+                f"ALTER TABLE {quoted_table} DROP INDEX {quoted_constraint}",
+                False,
+            ),
+            (
+                f"ALTER TABLE {quoted_table} DROP CHECK {quoted_constraint}",
+                True,
+            ),
+        )
+        executed = False
+        for stmt, allow_syntax in statements:
+            try:
+                op.execute(stmt)
+                executed = True
+                return
+            except DatabaseError as exc:
+                message = str(exc).lower()
+                tolerated = _matches_any(message, MYSQL_CONSTRAINT_MISSING_TOKENS)
+                if allow_syntax:
+                    tolerated = tolerated or "syntax" in message
+                if not tolerated:
+                    raise RuntimeError(exc) from exc
+        if not executed:
+            LOGGER.debug(
+                "Constraint %s on %s not dropped; treated as already missing",
+                constraint_name,
+                plain_table,
+            )
+        return
+
+    try:
+        drop_constraint(constraint_name, table_name, type_=type_)
+    except (DatabaseError, ValueError) as exc:
+        message = str(exc).lower()
+        tolerated = (
+                "nonexistent constraint" in message
+                or "undefined object" in message
+                or "undefinedobject" in message
+                or "no such constraint" in message
+                or _matches_any(message, MYSQL_CONSTRAINT_MISSING_TOKENS)
+        )
+        if not tolerated:
+            raise RuntimeError(exc) from exc
+        LOGGER.debug(
+            "Constraint %s on %s already missing; treated as no-op",
+            constraint_name,
+            plain_table,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -725,7 +960,6 @@ __all__ = [
     "create_table",
     "create_unique_constraint",
     "drop_column",
-    "drop_constraint",
     "drop_index",
     "drop_table",
     "rename_table",
@@ -733,4 +967,6 @@ __all__ = [
     "get_effective_schema",
     "qualify_table",
     "quote_identifier",
+    "drop_constraint",
+    "try_drop_constraint",
 ]

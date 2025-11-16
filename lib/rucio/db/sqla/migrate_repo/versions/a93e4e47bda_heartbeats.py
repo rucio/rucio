@@ -23,9 +23,9 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_constraint,
     drop_table,
     is_current_dialect,
+    try_drop_constraint,
 )
 
 # Alembic revision identifiers
@@ -60,13 +60,13 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_constraint('heartbeats_pk', 'configs', type_='primary')
+        try_drop_constraint('heartbeats_pk', 'configs', type_='primary')
         drop_table('heartbeats')
 
     elif is_current_dialect('postgresql'):
-        # drop_constraint('heartbeats_pk', 'configs', type_='primary')
+        # try_drop_constraint('heartbeats_pk', 'configs', type_='primary')
         # drop_index('heartbeats_updated_at', 'heartbeats')
-        # drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')
-        # drop_constraint('heartbeats_updated_nn', 'heartbeats', type_='check')
+        # try_drop_constraint('heartbeats_created_nn', 'heartbeats', type_='check')
+        # try_drop_constraint('heartbeats_updated_nn', 'heartbeats', type_='check')
         # drop_table('heartbeats')
         pass

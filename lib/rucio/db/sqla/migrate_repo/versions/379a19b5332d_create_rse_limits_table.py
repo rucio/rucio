@@ -64,8 +64,8 @@ def downgrade():
         drop_table('rse_transfer_limits')
 
     elif is_current_dialect('postgresql'):
-        # drop_constraint('RSE_TRANSFER_LIMITS_PK', 'rse_transfer_limits', type_='primary')
-        # drop_constraint('RSE_TRANSFER_LIMITS_CREATED_NN', 'rse_transfer_limits')
-        # drop_constraint('RSE_TRANSFER_LIMITS_UPDATED_NN', 'rse_transfer_limits')
-        # drop_constraint('RSE_TRANSFER_LIMITS_RSE_ID_FK', 'rse_transfer_limits')
+        # try_drop_constraint('RSE_TRANSFER_LIMITS_PK', 'rse_transfer_limits', type_='primary')
+        # try_drop_constraint('RSE_TRANSFER_LIMITS_CREATED_NN', 'rse_transfer_limits')
+        # try_drop_constraint('RSE_TRANSFER_LIMITS_UPDATED_NN', 'rse_transfer_limits')
+        # try_drop_constraint('RSE_TRANSFER_LIMITS_RSE_ID_FK', 'rse_transfer_limits')
         pass

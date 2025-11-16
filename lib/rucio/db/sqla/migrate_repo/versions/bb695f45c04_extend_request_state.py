@@ -21,7 +21,6 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_check_constraint,
     drop_column,
-    drop_constraint,
     is_current_dialect,
     qualify_table,
     try_drop_constraint,
@@ -74,7 +73,7 @@ def downgrade():
         drop_column('sources', 'is_using')
 
     elif is_current_dialect('postgresql'):
-        drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
         drop_column('requests', 'submitter_id')

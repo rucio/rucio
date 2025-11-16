@@ -16,8 +16,8 @@
 
 from rucio.db.sqla.migrate_repo import (
     create_primary_key,
-    drop_constraint,
     is_current_dialect,
+    try_drop_constraint,
 )
 
 # Alembic revision identifiers
@@ -32,7 +32,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         # CONFIGS_HISTORY
-        drop_constraint('CONFIGS_HISTORY_PK', 'configs_history', type_='primary')
+        try_drop_constraint('CONFIGS_HISTORY_PK', 'configs_history', type_='primary')
 
 
 def downgrade():
