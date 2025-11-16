@@ -15,10 +15,10 @@
 """ add VP table """
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, create_table, drop_table
+from alembic.op import create_foreign_key, drop_table
 
 from rucio.common.schema import get_schema_value
-from rucio.db.sqla.migrate_repo import create_primary_key, is_current_dialect
+from rucio.db.sqla.migrate_repo import create_primary_key, create_table, is_current_dialect
 from rucio.db.sqla.types import JSON
 
 # Alembic revision identifiers
