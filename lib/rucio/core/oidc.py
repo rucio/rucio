@@ -32,7 +32,7 @@ from oic.oic import REQUEST2ENDPOINT, Client, Grant, Token
 from oic.oic.message import AccessTokenResponse, AuthorizationResponse, RegistrationResponse
 from oic.utils import time_util
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
-from sqlalchemy import delete, null, or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
 from rucio.common.cache import MemcacheRegion
@@ -41,16 +41,15 @@ from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioExc
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, chunks, val_to_space_sep_str
 from rucio.core.account import account_exists
+from rucio.core.authentication import __delete_expired_tokens_account
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager
-from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-    from rucio.common.types import InternalAccount
 
 # The WLCG Common JWT Profile dictates that the lifetime of access and ID tokens
 # should range from five minutes to six hours.
@@ -572,7 +571,7 @@ def get_token_oidc(
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         METRICS.counter(name='IdP_authorization.access_token.saved').inc()
-        __delete_expired_tokens_account(account=account, session=session)
+        __delete_expired_tokens_account(account=account, session=session, check_refresh_token=True)
         if 'refresh_token' in oidc_tokens:
             METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         # In case authentication via browser was requested,
@@ -803,93 +802,6 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
     except Exception as error:
         METRICS.counter(name='IdP_authorization.refresh_token.exception').inc()
         raise CannotAuthorize(traceback.format_exc()) from error
-
-
-@transactional_session
-def delete_expired_oauthrequests(total_workers: int, worker_number: int, limit: int = 1000, *, session: "Session"):
-    """
-    Delete expired OAuth request parameters.
-
-    :param total_workers:      Number of total workers.
-    :param worker_number:      id of the executing worker.
-    :param limit:              Maximum number of oauth request session parameters to delete.
-    :param session:            Database session in use.
-
-    :returns: number of deleted rows
-    """
-
-    try:
-        # get expired OAuth request parameters
-        query = select(
-            models.OAuthRequest.state
-        ).where(
-            models.OAuthRequest.expired_at < datetime.utcnow()
-        ).order_by(
-            models.OAuthRequest.expired_at
-        )
-        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='state')
-        # limiting the number of oauth requests deleted at once
-        query = query.limit(limit)
-        # Oracle does not support chaining order_by(), limit(), and
-        # with_for_update(). Use a nested query to overcome this.
-        if session.bind.dialect.name == 'oracle':
-            query = select(
-                models.OAuthRequest.state
-            ).where(
-                models.OAuthRequest.state.in_(query)
-            ).with_for_update(
-                skip_locked=True
-            )
-        else:
-            query = query.with_for_update(skip_locked=True)
-
-        ndeleted = 0
-        for states in session.execute(query).scalars().partitions(10):
-            query = delete(
-                models.OAuthRequest
-            ).where(
-                models.OAuthRequest.state.in_(states)
-            )
-            ndeleted += session.execute(query).rowcount
-        return ndeleted
-    except Exception as error:
-        raise RucioException(error.args) from error
-
-@transactional_session
-def __delete_expired_tokens_account(
-    account: "InternalAccount",
-    *,
-    session: "Session"
-) -> None:
-    """
-    Delete expired tokens from the database.
-
-    :param account: Account to delete expired tokens.
-    :param session: The database session in use.
-    """
-    query = select(
-        models.Token.token
-    ).where(
-        models.Token.expired_at <= datetime.utcnow(),
-        models.Token.account == account,
-        or_(
-            models.Token.refresh_expired_at == null(),
-            models.Token.refresh_expired_at <= datetime.utcnow()
-        )).with_for_update(
-        skip_locked=True
-    )
-    tokens = session.execute(query).scalars().all()
-
-    for chunk in chunks(tokens, 100):
-        delete_query = delete(
-            models.Token
-        ).prefix_with(
-            "/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */"
-        ).where(
-            models.Token.token.in_(chunk)
-        )
-        session.execute(delete_query)
-
 
 
 def __get_keyvalues_from_claims(token: str, keys=None):

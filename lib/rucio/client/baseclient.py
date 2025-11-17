@@ -655,7 +655,7 @@ class BaseClient:
                                         \nthe Rucio authentication server for a token.")
             print("----------------------------------------------")
             while time.time() - start < timeout:
-                result = self._send_request(auth_url, headers=headers, get_token=True)
+                result = self._send_request(auth_url, method=HTTPMethod.GET, headers=headers, get_token=True)
                 if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
                     break
                 time.sleep(2)
@@ -665,7 +665,7 @@ class BaseClient:
             while count < 3:
                 fetchcode = input()
                 fetch_url = build_url(self.auth_host, path='auth/oidc_redirect', params=fetchcode)
-                result = self._send_request(fetch_url, headers=headers, get_token=True)
+                result = self._send_request(fetch_url, method=HTTPMethod.GET, headers=headers, get_token=True)
                 if 'X-Rucio-Auth-Token' in result.headers and result.status_code == codes.ok:
                     break
                 else:
