@@ -73,12 +73,24 @@ class ScopeClient(BaseClient):
         A list containing the names of all scopes.
         """
 
-        path = '/'.join(['scopes/'])
+        path = '/'.join(["scopes", "owner"])
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             scopes = loads(r.text)
             return scopes
+        elif r.status_code == codes.not_found:
+            # Backwards compatibility - see issue #8125
+            path = "scopes/"
+            url = build_url(choice(self.list_hosts), path=path)
+            r = self._send_request(url, method=HTTPMethod.GET)
+            if r.status_code == codes.ok:
+                scopes = loads(r.text)
+                return scopes
+            else:
+                exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+                raise exc_cls(exc_msg)
+
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
