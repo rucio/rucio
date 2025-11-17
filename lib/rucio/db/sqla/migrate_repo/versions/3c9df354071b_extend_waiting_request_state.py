@@ -14,12 +14,9 @@
 
 """ extend waiting request state """
 
-from alembic.op import execute
-
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     is_current_dialect,
-    qualify_table,
     try_drop_constraint,
 )
 
@@ -33,18 +30,13 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"ALTER TABLE {requests_table} "
-            "DROP CHECK REQUESTS_STATE_CHK"
-        )
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U','W')")
 
@@ -54,17 +46,12 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"ALTER TABLE {requests_table} "
-            "DROP CHECK REQUESTS_STATE_CHK"
-        )
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")

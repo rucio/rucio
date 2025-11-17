@@ -72,12 +72,7 @@ def upgrade():
 
     elif is_current_dialect('mysql'):
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            DROP CHECK RULES_STATE_CHK
-            """
-        )
+        try_drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
 

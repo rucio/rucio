@@ -15,14 +15,12 @@
 """ extend request state """
 
 import sqlalchemy as sa
-from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_check_constraint,
     drop_column,
     is_current_dialect,
-    qualify_table,
     try_drop_constraint,
 )
 
@@ -36,8 +34,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
@@ -46,12 +42,7 @@ def upgrade():
         add_column('sources', sa.Column('is_using', sa.Boolean()))
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CHECK REQUESTS_STATE_CHK
-            """
-        )
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U')")
         add_column('requests', sa.Column('submitter_id', sa.Integer()))
@@ -63,8 +54,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
@@ -73,19 +62,14 @@ def downgrade():
         drop_column('sources', 'is_using')
 
     elif is_current_dialect('postgresql'):
-        try_drop_constraint('REQUESTS_STATE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
         drop_column('requests', 'submitter_id')
         drop_column('sources', 'is_using')
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CHECK REQUESTS_STATE_CHK
-            """
-        )
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L')")
         drop_column('requests', 'submitter_id')

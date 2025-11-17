@@ -14,12 +14,9 @@
 
 """ add saml identity type """
 
-from alembic.op import execute
-
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     is_current_dialect,
-    qualify_table,
     try_drop_constraint,
 )
 
@@ -33,9 +30,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    account_map_table = qualify_table('account_map')
-    identities_table = qualify_table('identities')
-
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
@@ -47,21 +41,11 @@ def upgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"""
-            ALTER TABLE {identities_table}
-            DROP CHECK IDENTITIES_TYPE_CHK
-            """
-        )
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
-        execute(
-            f"""
-            ALTER TABLE {account_map_table}
-            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
-            """
-        )
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
@@ -71,9 +55,6 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
-
-    account_map_table = qualify_table('account_map')
-    identities_table = qualify_table('identities')
 
     if is_current_dialect('oracle'):
         try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
@@ -87,22 +68,12 @@ def downgrade():
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"""
-            ALTER TABLE {identities_table}
-            DROP CHECK IDENTITIES_TYPE_CHK
-            """
-        )
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
 
-        execute(
-            f"""
-            ALTER TABLE {account_map_table}
-            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
-            """
-        )
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")

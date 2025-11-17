@@ -14,14 +14,11 @@
 
 """ rename callback to message """
 
-from alembic.op import execute
-
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     create_primary_key,
     drop_current_primary_key,
     is_current_dialect,
-    qualify_table,
     rename_table,
     try_drop_constraint,
 )
@@ -69,8 +66,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    messages_table = qualify_table('messages')
-
     if is_current_dialect('oracle'):
         try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
         try_drop_constraint('MESSAGES_PAYLOAD_NN', 'messages')
@@ -85,10 +80,10 @@ def downgrade():
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
     elif is_current_dialect('postgresql'):
-        try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages', type_='check')
-        try_drop_constraint('MESSAGES_PAYLOAD_NN', 'messages', type_='check')
-        try_drop_constraint('MESSAGES_CREATED_NN', 'messages', type_='check')
-        try_drop_constraint('MESSAGES_UPDATED_NN', 'messages', type_='check')
+        try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
+        try_drop_constraint('MESSAGES_PAYLOAD_NN', 'messages')
+        try_drop_constraint('MESSAGES_CREATED_NN', 'messages')
+        try_drop_constraint('MESSAGES_UPDATED_NN', 'messages')
         drop_current_primary_key('messages')
         rename_table('messages', 'callbacks')
         create_primary_key('CALLBACKS_PK', 'callbacks', ['id'])
@@ -98,30 +93,10 @@ def downgrade():
         create_check_constraint('CALLBACKS_UPDATED_NN', 'callbacks', 'updated_at is not null')
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"""
-            ALTER TABLE {messages_table}
-            DROP CHECK MESSAGES_EVENT_TYPE_NN
-            """
-        )
-        execute(
-            f"""
-            ALTER TABLE {messages_table}
-            DROP CHECK MESSAGES_PAYLOAD_NN
-            """
-        )
-        execute(
-            f"""
-            ALTER TABLE {messages_table}
-            DROP CHECK MESSAGES_CREATED_NN
-            """
-        )
-        execute(
-            f"""
-            ALTER TABLE {messages_table}
-            DROP CHECK MESSAGES_UPDATED_NN
-            """
-        )
+        try_drop_constraint('MESSAGES_EVENT_TYPE_NN', 'messages')
+        try_drop_constraint('MESSAGES_PAYLOAD_NN', 'messages')
+        try_drop_constraint('MESSAGES_CREATED_NN', 'messages')
+        try_drop_constraint('MESSAGES_UPDATED_NN', 'messages')
         drop_current_primary_key('messages')
         rename_table('messages', 'callbacks')
         create_primary_key('callbacks_pk', 'callbacks', ['id'])

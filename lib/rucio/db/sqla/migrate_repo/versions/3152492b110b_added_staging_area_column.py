@@ -36,8 +36,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle'):
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
@@ -46,18 +44,13 @@ def upgrade():
 
     elif is_current_dialect('postgresql'):
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
-        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests', type_='check')
+        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 
     elif is_current_dialect('mysql'):
         add_column('rses', sa.Column('staging_area', sa.Boolean(name='RSE_STAGING_AREA_CHK', create_constraint=True), default=False))
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CHECK REQUESTS_TYPE_CHK
-            """
-        )
+        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T', 'I', '0')")
 

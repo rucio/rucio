@@ -96,12 +96,7 @@ def upgrade():
         )
 
     elif is_current_dialect('mysql'):
-        execute(
-            f"""
-            ALTER TABLE {replicas_table}
-            DROP CHECK REPLICAS_STATE_CHK
-            """
-        )
+        try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',

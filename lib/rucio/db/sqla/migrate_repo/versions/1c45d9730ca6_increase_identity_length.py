@@ -35,9 +35,6 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    account_map_table = qualify_table('account_map')
-    identities_table = qualify_table('identities')
-
     if is_current_dialect('oracle', 'postgresql'):
 
         alter_column('tokens', 'identity', existing_type=sa.String(255), type_=sa.String(2048))
@@ -63,21 +60,11 @@ def upgrade():
         alter_column('account_map', 'identity', existing_type=sa.String(255), type_=sa.String(2048), nullable=False)
         create_foreign_key('ACCOUNT_MAP_ID_TYPE_FK', 'account_map', 'identities', ['identity', 'identity_type'], ['identity', 'identity_type'])
 
-        execute(
-            f"""
-            ALTER TABLE {identities_table}
-            DROP CHECK IDENTITIES_TYPE_CHK
-            """
-        )
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
-        execute(
-            f"""
-            ALTER TABLE {account_map_table}
-            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
-            """
-        )
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH')")
@@ -167,22 +154,12 @@ def downgrade():
             "WHERE identity_type='SSH'"
         )
 
-        execute(
-            f"""
-            ALTER TABLE {identities_table}
-            DROP CHECK IDENTITIES_TYPE_CHK
-            """
-        )
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        execute(
-            f"""
-            ALTER TABLE {account_map_table}
-            DROP CHECK ACCOUNT_MAP_ID_TYPE_CHK
-            """
-        )
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
