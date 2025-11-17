@@ -23,6 +23,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import (
     add_did,
     add_did_to_followed,
+    add_files_with_attachments,
     attach_dids,
     bulk_list_files,
     delete_dids,
@@ -318,6 +319,75 @@ class TestDIDCore:
         assert len(result) == len(files)
         for dataset in non_existing_datasets:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
+
+    def test_add_files_with_attachments(self, root_account, rse_factory, did_factory):
+        _, rse_id = rse_factory.make_mock_rse()
+
+        did_attachment_1 = did_factory.make_dataset()
+        did_attachment_2 = did_factory.make_container()
+        did_attachment_3 = did_factory.make_container()
+        did_attachment_4 = did_factory.make_container()
+
+        dids_attachment = [
+            {
+                'scope': did_attachment_1['scope'],
+                'name': did_attachment_1['name'],
+                'type': DIDType.DATASET,
+            },
+            {
+                'scope': did_attachment_2['scope'],
+                'name': did_attachment_2['name'],
+                'type': DIDType.CONTAINER,
+            },
+            {
+                'scope': did_attachment_3['scope'],
+                'name': did_attachment_3['name'],
+                'type': DIDType.CONTAINER,
+            },
+            {
+                'scope': did_attachment_4['scope'],
+                'name': did_attachment_4['name'],
+                'type': DIDType.CONTAINER,
+            }
+        ]
+
+        file_1 = did_factory.random_file_did()
+        file_2 = did_factory.random_file_did()
+        file_3 = did_factory.random_file_did()
+
+        files = [
+            {
+                'scope': file_1['scope'],
+                'name': file_1['name'],
+                'pfn': "file1_pfn",
+                'bytes': 12345,
+                'adler32': '0cc737eb',
+            },
+            {
+                'scope': file_2['scope'],
+                'name': file_2['name'],
+                'pfn': "file2_pfn",
+                'bytes': 67890,
+                'adler32': '0cc737ec',
+            },
+            {
+                'scope': file_3['scope'],
+                'name': file_3['name'],
+                'pfn': "file3_pfn",
+                'bytes': 111213,
+                'adler32': '0cc737ed',
+            }
+        ]
+
+        # Register replicas, add dids and attachments
+        add_files_with_attachments(
+            files=files[0:1],  # Only add the first file
+            dids_attachment=dids_attachment,
+            account=root_account,
+            rse_id=rse_id,
+        )
+
+        # TODO: check that the files are correctly attached to the datasets and containers
 
 
 class TestDIDGateway:
