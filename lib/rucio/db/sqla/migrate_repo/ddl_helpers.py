@@ -176,23 +176,36 @@ def _dialect_name() -> 'Optional[str]':
     return name
 
 
-def _preparer() -> 'IdentifierPreparer':
+def get_identifier_preparer() -> 'IdentifierPreparer':
     """
-    Return the current dialect's identifier preparer.
+    Return the active SQLAlchemy identifier preparer.
 
-    When a migration context is active we defer to its dialect preparer.
-    Otherwise, look up the configured backend and return the preparer for that
-    engine so that offline migrations still receive backend-specific quoting
-    (e.g. backticks for MySQL/MariaDB, double quotes for PostgreSQL). If no
-    dialect hint can be derived we keep operating by falling back to
-    ``DefaultDialect`` and emit a one-time warning so callers understand that
-    ANSI-style quoting (double quotes) will be used irrespective of the actual
-    backend. This particularly impacts Oracle because identifiers will then be
-    quoted and therefore case-sensitive, contrary to the typical Rucio
-    expectation of uppercase folding.
+    Returns
+    -------
+    IdentifierPreparer
+        The preparer object SQLAlchemy uses to quote identifiers for the
+        currently selected backend.
+
+    Notes
+    -----
+    * Prefers the dialect attached to an active
+      :class:`alembic.runtime.migration.MigrationContext` so that online
+      migrations behave exactly like Alembic's built-ins.
+    * Falls back to the configured backend (via ``alembic.context.config``)
+      during offline runs, keeping migrations reproducible when generating SQL
+      for Rucio deployments.
+    * Emits a one-time warning and returns ``DefaultDialect``'s preparer when
+      no backend hint is available. This means double quotes will be used even
+      on Oracle, where identifiers would therefore become case-sensitive.
+
+    Examples
+    --------
+    >>> preparer = get_identifier_preparer()
+    >>> preparer.quote_identifier("request_state")
+    '"request_state"'
     """
 
-    ctx = _get_migration_context()
+    ctx = get_migration_context()
     dialect = getattr(ctx, "dialect", None)
     if dialect is not None:
         return dialect.identifier_preparer
@@ -234,7 +247,7 @@ def quote_identifier(
 
     if not name:
         return ""
-    return _preparer().quote_identifier(name)
+    return get_identifier_preparer().quote_identifier(name)
 
 
 def _quoted_table(
@@ -317,7 +330,7 @@ def _get_current_dialect() -> 'Optional[str]':
         ``"postgresql"``) or ``None`` when no hint can be derived.
     """
 
-    ctx = _get_migration_context()
+    ctx = get_migration_context()
     dialect = getattr(ctx, "dialect", None)
     name = getattr(dialect, "name", None)
     if name:
@@ -338,7 +351,7 @@ def _get_current_dialect() -> 'Optional[str]':
     return None
 
 
-def _get_migration_context() -> 'Optional[MigrationContext]':
+def get_migration_context() -> 'Optional[MigrationContext]':
     """
     Return the active Alembic `alembic.runtime.migration.MigrationContext`, if any.
 
@@ -439,7 +452,7 @@ def get_effective_schema() -> 'Optional[str]':
     does not query the server.
     """
 
-    ctx = _get_migration_context()
+    ctx = get_migration_context()
     if ctx is not None:
         schema = getattr(ctx, "version_table_schema", None)
         if schema:
@@ -1357,16 +1370,18 @@ __all__ = [
     "create_table",
     "create_unique_constraint",
     "drop_column",
-    "drop_table",
-    "rename_table",
-    "is_current_dialect",
-    "get_effective_schema",
-    "qualify_table",
-    "qualify_index",
-    "quote_identifier",
-    "drop_current_primary_key",
     "drop_constraint",
-    "try_drop_constraint",
+    "drop_current_primary_key",
     "drop_index",
+    "drop_table",
+    "get_effective_schema",
+    "get_identifier_preparer",
+    "get_migration_context",
+    "is_current_dialect",
+    "qualify_index",
+    "qualify_table",
+    "quote_identifier",
+    "rename_table",
+    "try_drop_constraint",
     "try_drop_index",
 ]
