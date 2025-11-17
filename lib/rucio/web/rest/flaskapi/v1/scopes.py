@@ -198,8 +198,14 @@ class ScopeOwnershipList(ErrorHandlingMethodView):
                   description: "All scopes for the account."
                   type: array
                   items:
-                    description: "A scope for the account."
-                    type: string
+                    type: object
+                    properties:
+                      scope:
+                        description: "Name of the scope."
+                        type: str
+                      account:
+                        description: "Account with ownership of the scope."
+                        type: string
           401:
             description: "Invalid Auth Token"
           406:

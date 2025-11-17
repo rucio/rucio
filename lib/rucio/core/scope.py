@@ -14,7 +14,7 @@
 
 from re import match
 from traceback import format_exc
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -124,13 +124,13 @@ def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) ->
     return list(session.execute(stmt).scalars().all())
 
 
-def list_scopes_with_account(filter_: Optional[dict[str, Any]] = None, *, session: "Session") -> "Iterable[dict[Literal['scope', 'account'], Any]]":
+def list_scopes_with_account(filter_: Optional[dict[str, Any]] = None, *, session: "Session") -> "Iterable[dict[str, Any]]":
     """
     Lists all scopes.
     :param filter_: Dictionary of attributes by which the input data should be filtered
     :param session: The database session in use.
 
-    :returns: A of dictionaries with the scope and its owner
+    :returns: An iterable of dictionaries with the scope and its owner
     """
     filter_ = filter_ or {}
     stmt = select(
