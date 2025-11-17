@@ -52,7 +52,7 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        try_drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules', type_='foreignkey')
+        try_drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
         drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
 
         drop_column('rules', 'child_rule_id')

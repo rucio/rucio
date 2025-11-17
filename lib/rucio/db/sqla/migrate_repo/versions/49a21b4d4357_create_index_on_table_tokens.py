@@ -34,7 +34,7 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
+        try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens')
         create_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens', ['account', 'expired_at'])
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])
 
@@ -45,6 +45,6 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
+        try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens')
         drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])

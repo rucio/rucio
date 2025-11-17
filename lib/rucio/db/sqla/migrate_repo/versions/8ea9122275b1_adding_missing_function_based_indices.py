@@ -45,8 +45,8 @@ def downgrade():
     """
 
     if is_current_dialect('mysql'):
-        try_drop_constraint('BAD_REPLICAS_ACCOUNT_FK', 'bad_replicas', type_='foreignkey')
-        try_drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
+        try_drop_constraint('BAD_REPLICAS_ACCOUNT_FK', 'bad_replicas')
+        try_drop_constraint('REQUESTS_RSES_FK', 'requests')
 
     drop_index('SUBSCRIPTIONS_STATE_IDX', 'subscriptions')
     drop_index('CONTENTS_RULE_EVAL_FB_IDX', 'contents')

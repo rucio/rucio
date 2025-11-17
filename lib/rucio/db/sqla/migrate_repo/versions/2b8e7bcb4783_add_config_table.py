@@ -70,8 +70,8 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
         drop_current_primary_key('configs')
-        try_drop_constraint('configs_created_nn', 'configs', type_='check')
-        try_drop_constraint('configs_updated_nn', 'configs', type_='check')
+        try_drop_constraint('configs_created_nn', 'configs')
+        try_drop_constraint('configs_updated_nn', 'configs')
         drop_table('configs')
-        try_drop_constraint('configs_history_pk', 'configs_history', type_='check')
+        try_drop_constraint('configs_history_pk', 'configs_history')
         drop_table('configs_history')

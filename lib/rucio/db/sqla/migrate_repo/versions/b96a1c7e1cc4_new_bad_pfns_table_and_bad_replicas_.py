@@ -97,7 +97,7 @@ def upgrade():
         create_primary_key('BAD_PFNS_PK', 'bad_pfns', ['path', 'state'])
         create_foreign_key('BAD_PFNS_ACCOUNT_FK', 'bad_pfns', 'accounts', ['account'], ['account'])
 
-        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
@@ -135,7 +135,7 @@ def downgrade():
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         alter_column('bad_replicas', 'state', type_=sa.CHAR(length=1))
 
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',

@@ -60,7 +60,7 @@ def upgrade():
         add_column('rses', sa.Column('vo', String(3), sa.ForeignKey('vos.vo', name='RSES_VOS_FK'), nullable=False, server_default='def'))
 
         # change unique constraint: (rse) -> (rse,vo)
-        try_drop_constraint('RSES_RSE_UQ', 'rses', type_='unique')
+        try_drop_constraint('RSES_RSE_UQ', 'rses')
         create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse', 'vo'])
 
 
@@ -71,11 +71,11 @@ def downgrade():
 
     if is_current_dialect('oracle', 'postgresql', 'mysql'):
         # change unique constraint: (rse, vo) -> (rse)
-        try_drop_constraint('RSES_RSE_UQ', 'rses', type_='unique')
+        try_drop_constraint('RSES_RSE_UQ', 'rses')
         create_unique_constraint('RSES_RSE_UQ', 'rses', ['rse'])
 
         # drop vo column
-        try_drop_constraint('RSES_VOS_FK', 'rses', type_='foreignkey')
+        try_drop_constraint('RSES_VOS_FK', 'rses')
         drop_column('rses', 'vo')
 
         # drop vo table

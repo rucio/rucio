@@ -42,7 +42,7 @@ def downgrade():
     """
 
     if is_current_dialect('mysql'):
-        try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas', type_='foreignkey')
+        try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
     drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
     if is_current_dialect('mysql'):
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])

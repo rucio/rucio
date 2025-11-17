@@ -105,7 +105,7 @@ def downgrade():
         drop_column('deleted_dids', 'purge_replicas')
         drop_column('deleted_dids', 'eol_at')
 
-        try_drop_constraint(constraint_name='REQUESTS_ACCOUNT_FK', table_name='requests', type_='foreignkey')
+        try_drop_constraint('REQUESTS_ACCOUNT_FK', 'requests')
         drop_column('requests', 'account')
         drop_column('requests', 'requested_at')
         drop_column('requests', 'priority')
