@@ -18,6 +18,7 @@ from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_primary_key,
+    drop_current_primary_key,
     is_current_dialect,
     try_drop_constraint,
 )
@@ -34,7 +35,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
-        try_drop_constraint('TOKENS_PK', 'tokens', type_='primary')
+        drop_current_primary_key('tokens')
         create_primary_key('TOKENS_PK', 'tokens', ['token'])
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])
 
@@ -46,6 +47,6 @@ def downgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens', type_='foreignkey')
-        try_drop_constraint('TOKENS_PK', 'tokens', type_='primary')
+        drop_current_primary_key('tokens')
         create_primary_key('TOKENS_PK', 'tokens', ['account', 'token'])
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])

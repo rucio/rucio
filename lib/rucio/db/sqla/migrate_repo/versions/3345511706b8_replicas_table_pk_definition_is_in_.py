@@ -18,6 +18,7 @@ from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_primary_key,
+    drop_current_primary_key,
     drop_index,
     is_current_dialect,
     try_drop_constraint,
@@ -35,7 +36,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
-        try_drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
+        drop_current_primary_key('replicas')
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
 
@@ -46,7 +47,7 @@ def upgrade():
         drop_index('SOURCES_REPLICA_FK', 'sources')
         try_drop_constraint(constraint_name='REPLICAS_LFN_FK', table_name='replicas', type_='foreignkey')
         try_drop_constraint(constraint_name='REPLICAS_RSE_ID_FK', table_name='replicas', type_='foreignkey')
-        try_drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
+        drop_current_primary_key('replicas')
         create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
@@ -60,7 +61,7 @@ def downgrade():
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
-        try_drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')
+        drop_current_primary_key('replicas')
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['rse_id', 'scope', 'name'], ['rse_id', 'scope', 'name'])
 
@@ -71,7 +72,7 @@ def downgrade():
         drop_index('SOURCES_REPLICA_FK', 'sources')
         try_drop_constraint(constraint_name='REPLICAS_LFN_FK', table_name='replicas', type_='foreignkey')
         try_drop_constraint(constraint_name='REPLICAS_RSE_ID_FK', table_name='replicas', type_='foreignkey')
-        try_drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')
+        drop_current_primary_key('replicas')
         create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])

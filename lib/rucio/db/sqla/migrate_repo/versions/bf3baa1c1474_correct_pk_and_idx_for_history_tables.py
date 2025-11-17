@@ -20,9 +20,9 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_primary_key,
     drop_column,
+    drop_current_primary_key,
     drop_index,
     is_current_dialect,
-    try_drop_constraint,
 )
 from rucio.db.sqla.types import GUID
 
@@ -38,13 +38,13 @@ def upgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         # CONTENTS_HISTORY
-        try_drop_constraint('CONTENTS_HIST_PK', 'contents_history', type_='primary')
+        drop_current_primary_key('contents_history')
 
         # ARCHIVE_CONTENTS_HISTORY
-        try_drop_constraint(constraint_name='ARCH_CONT_HIST_PK', table_name='archive_contents_history', type_='primary')
+        drop_current_primary_key('archive_contents_history')
 
         # RULES_HIST_RECENT
-        try_drop_constraint(constraint_name='RULES_HIST_RECENT_PK', table_name='rules_hist_recent', type_='primary')
+        drop_current_primary_key('rules_hist_recent')
         drop_column('rules_hist_recent', 'history_id')
 
         # RULES_HISTORY
