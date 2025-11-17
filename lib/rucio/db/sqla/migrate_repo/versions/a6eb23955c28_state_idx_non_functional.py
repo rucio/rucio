@@ -19,8 +19,8 @@ from alembic.op import execute
 from rucio.db.sqla.migrate_repo import (
     create_index,
     drop_index,
-    get_effective_schema,
     is_current_dialect,
+    qualify_index,
     qualify_table,
 )
 
@@ -34,14 +34,13 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
     rules_table = qualify_table('rules')
+    rules_stuck_idx = qualify_index('RULES_STUCKSTATE_IDX')
 
     if is_current_dialect('oracle', 'postgresql'):
         execute(
             f"""
-            ALTER INDEX {schema_prefix}"RULES_STUCKSTATE_IDX"
+            ALTER INDEX {rules_stuck_idx}
             RENAME TO "RULES_STATE_IDX"
             """
         )
@@ -62,14 +61,13 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = get_effective_schema()
-    schema_prefix = f"{schema}." if schema else ""
     rules_table = qualify_table('rules')
+    rules_state_idx = qualify_index('RULES_STATE_IDX')
 
     if is_current_dialect('oracle', 'postgresql'):
         execute(
             f"""
-            ALTER INDEX {schema_prefix}"RULES_STATE_IDX"
+            ALTER INDEX {rules_state_idx}
             RENAME TO "RULES_STUCKSTATE_IDX"
             """
         )
