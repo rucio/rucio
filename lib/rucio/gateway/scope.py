@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import rucio.gateway.permission
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
 from rucio.common.schema import validate_schema
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.common.utils import gateway_update_return_dict
 from rucio.core import scope as core_scope
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) -> list[Optional[str]]:
@@ -43,6 +47,28 @@ def list_scopes(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) 
 
     with db_session(DatabaseOperationType.READ) as session:
         return [scope.external for scope in core_scope.list_scopes(filter_=filter_, session=session)]
+
+
+def list_scopes_with_account(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO) -> 'Generator[dict[str, Any]]':
+    """
+    Lists all scopes.
+
+    :param filter_: Dictionary of attributes by which the input data should be filtered
+    :param vo: The VO to act on.
+
+    :returns: A list containing all scopes with their owner.
+    """
+    filter_ = filter_ or {}
+
+    if 'scope' in filter_:
+        filter_['scope'] = InternalScope(scope=filter_['scope'], vo=vo)
+    else:
+        filter_['scope'] = InternalScope(scope='*', vo=vo)
+
+    with db_session(DatabaseOperationType.READ) as session:
+        scopes = core_scope.list_scopes_with_account(filter_=filter_, session=session)
+        for scope in scopes:
+            yield gateway_update_return_dict(scope, session=session)
 
 
 def add_scope(
