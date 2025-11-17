@@ -16,7 +16,7 @@ from flask import Flask, Response, jsonify, request
 
 from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, VONotFound
-from rucio.gateway.scope import add_scope, get_scopes, list_scopes, update_scope
+from rucio.gateway.scope import add_scope, get_scopes, list_scopes, list_scopes_with_account, update_scope
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
@@ -180,6 +180,15 @@ class AccountScopeList(ErrorHandlingMethodView):
         return jsonify(scopes)
 
 
+class ScopeOwnershipList(ErrorHandlingMethodView):
+    def get(self) -> Response:
+        scopes = list_scopes_with_account(vo=request.environ['vo'])
+        res = []
+        for dictionary in scopes:
+            res.append(dictionary)
+        return jsonify(res)
+
+
 def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('scopes', __name__, url_prefix='/scopes')
 
@@ -188,6 +197,8 @@ def blueprint() -> AuthenticatedBlueprint:
     bp.add_url_rule('/<account>/<scope>', view_func=scope_view, methods=[HTTPMethod.POST.value, HTTPMethod.PUT.value])
     account_scope_list_view = AccountScopeList.as_view('account_scope_list')
     bp.add_url_rule('/<account>/scopes', view_func=account_scope_list_view, methods=[HTTPMethod.GET.value])
+    scope_ownership_view = ScopeOwnershipList.as_view("scope_ownership")
+    bp.add_url_rule('/owner/', view_func=scope_ownership_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp
