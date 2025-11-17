@@ -29,10 +29,10 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_current_primary_key,
-    drop_index,
     drop_table,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -119,7 +119,7 @@ def downgrade():
 
     if is_current_dialect('oracle'):
         drop_table('bad_pfns')
-        drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
+        try_drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
         try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
@@ -133,7 +133,7 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
         drop_table('bad_pfns')
-        drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
+        try_drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
         try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         alter_column('bad_replicas', 'state', type_=sa.CHAR(length=1))
@@ -149,7 +149,7 @@ def downgrade():
 
     elif is_current_dialect('mysql'):
         drop_table('bad_pfns')
-        drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
+        try_drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")

@@ -22,10 +22,10 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
-    drop_index,
     is_current_dialect,
     qualify_table,
     try_drop_constraint,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -66,7 +66,7 @@ def downgrade():
     """
 
     did_meta_table = qualify_table('did_meta')
-    drop_index('DID_META_DID_TYPE_IDX', 'did_meta')
+    try_drop_index('DID_META_DID_TYPE_IDX', 'did_meta')
     if is_current_dialect('oracle'):
         try_drop_constraint('DID_META_DID_TYPE_CHK', 'did_meta')
         drop_column('did_meta', 'did_type')

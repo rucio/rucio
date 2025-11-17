@@ -23,9 +23,9 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_index,
     drop_table,
     is_current_dialect,
+    try_drop_index,
 )
 from rucio.db.sqla.types import GUID
 
@@ -129,7 +129,7 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql'):
-        drop_index('RULES_HIST_RECENT_ID_IDX', 'rules_hist_recent')
+        try_drop_index('RULES_HIST_RECENT_ID_IDX', 'rules_hist_recent')
         drop_table('rules_hist_recent')
         drop_table('rules_history')
 

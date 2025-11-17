@@ -21,8 +21,8 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     drop_column,
     drop_current_primary_key,
-    drop_index,
     is_current_dialect,
+    try_drop_index,
 )
 from rucio.db.sqla.types import GUID
 
@@ -62,7 +62,7 @@ def downgrade():
 
         # ARCHIVE_CONTENTS_HISTORY
         create_primary_key('ARCH_CONT_HIST_PK', 'archive_contents_history', ['scope', 'name', 'child_scope', 'child_name'])
-        drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
+        try_drop_index('ARCH_CONT_HIST_IDX', 'archive_contents_history')
 
         # RULES_HIST_RECENT
         add_column('rules_hist_recent', sa.Column('history_id', GUID()))

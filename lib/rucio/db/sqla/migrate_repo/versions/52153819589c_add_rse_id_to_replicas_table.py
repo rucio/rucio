@@ -18,9 +18,9 @@ from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
-    drop_index,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -43,6 +43,6 @@ def downgrade():
 
     if is_current_dialect('mysql'):
         try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
-    drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
+    try_drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
     if is_current_dialect('mysql'):
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])

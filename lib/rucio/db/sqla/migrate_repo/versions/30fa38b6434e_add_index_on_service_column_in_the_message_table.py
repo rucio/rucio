@@ -19,8 +19,8 @@ import sqlalchemy as sa
 from rucio.db.sqla.migrate_repo import (
     alter_column,
     create_index,
-    drop_index,
     is_current_dialect,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -42,7 +42,7 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
-    drop_index('MESSAGES_SERVICES_IDX', 'messages')
+    try_drop_index('MESSAGES_SERVICES_IDX', 'messages')
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         alter_column('messages', 'services', existing_type=sa.String(256), type_=sa.String(2048))
         alter_column('messages', 'event_type', existing_type=sa.String(256), type_=sa.String(1024))

@@ -27,9 +27,9 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_current_primary_key,
-    drop_index,
     drop_table,
     is_current_dialect,
+    try_drop_index,
 )
 from rucio.db.sqla.types import GUID
 
@@ -79,5 +79,5 @@ def downgrade():
         drop_column('collection_replicas', 'available_replicas_cnt')
         drop_column('collection_replicas', 'available_bytes')
         drop_current_primary_key('updated_col_rep')
-        drop_index('UPDATED_COL_REP_SNR_IDX', 'updated_col_rep')
+        try_drop_index('UPDATED_COL_REP_SNR_IDX', 'updated_col_rep')
         drop_table('updated_col_rep')

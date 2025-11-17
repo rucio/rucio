@@ -19,9 +19,9 @@ from alembic.op import create_foreign_key
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_unique_constraint,
-    drop_index,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -37,7 +37,7 @@ def upgrade():
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         try_drop_constraint('REQUESTS_RSES_FK', 'requests')
         try_drop_constraint('REQUESTS_DID_FK', 'requests')
-        drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
+        try_drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
         create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
         create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_unique_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])

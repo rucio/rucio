@@ -16,8 +16,8 @@
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
-    drop_index,
     is_current_dialect,
+    try_drop_index,
 )
 
 revision = '469d262be19'
@@ -31,7 +31,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids', ['scope', 'rule_evaluation_action', 'name'])
-        drop_index('CREATED_AT_IDX', 'updated_dids')
+        try_drop_index('CREATED_AT_IDX', 'updated_dids')
 
 
 def downgrade():
@@ -40,5 +40,5 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids')
+        try_drop_index('UPDATED_DIDS_SCOPERULENAME_IDX', 'updated_dids')
         create_index('CREATED_AT_IDX', 'updated_dids', ['created_at'])

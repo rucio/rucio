@@ -18,9 +18,9 @@ from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
-    drop_index,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -46,5 +46,5 @@ def downgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         try_drop_constraint('TOKENS_ACCOUNT_FK', 'tokens')
-        drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
+        try_drop_index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'tokens')
         create_foreign_key('TOKENS_ACCOUNT_FK', 'tokens', 'accounts', ['account'], ['account'])

@@ -19,9 +19,9 @@ from alembic.op import create_foreign_key
 from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     drop_current_primary_key,
-    drop_index,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_index,
 )
 
 # revision identifiers used by alembic
@@ -44,7 +44,7 @@ def upgrade():
         try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
         # The constraint has an internal index which is not automatically dropped,
         # we have to do that manually
-        drop_index('SOURCES_REPLICA_FK', 'sources')
+        try_drop_index('SOURCES_REPLICA_FK', 'sources')
         try_drop_constraint('REPLICAS_LFN_FK', 'replicas')
         try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
         drop_current_primary_key('replicas')
@@ -69,7 +69,7 @@ def downgrade():
         try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
         # The constraint has an internal index which is not automatically dropped,
         # we have to do that manually
-        drop_index('SOURCES_REPLICA_FK', 'sources')
+        try_drop_index('SOURCES_REPLICA_FK', 'sources')
         try_drop_constraint('REPLICAS_LFN_FK', 'replicas')
         try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
         drop_current_primary_key('replicas')

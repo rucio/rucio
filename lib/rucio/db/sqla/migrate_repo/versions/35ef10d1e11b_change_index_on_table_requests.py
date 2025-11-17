@@ -16,8 +16,8 @@
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
-    drop_index,
     is_current_dialect,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -32,7 +32,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ["request_type", "state", "updated_at"])
-        drop_index('REQUESTS_TYP_STA_CRE_IDX', 'requests')
+        try_drop_index('REQUESTS_TYP_STA_CRE_IDX', 'requests')
 
 
 def downgrade():
@@ -42,4 +42,4 @@ def downgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_TYP_STA_CRE_IDX', 'requests', ["request_type", "state", "created_at"])
-        drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
+        try_drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')

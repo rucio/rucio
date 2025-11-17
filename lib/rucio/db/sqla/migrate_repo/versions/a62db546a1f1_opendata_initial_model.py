@@ -22,8 +22,8 @@ from rucio.db.sqla.constants import OpenDataDIDState
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_table,
-    drop_index,
     drop_table,
+    try_drop_index,
 )
 from rucio.db.sqla.types import JSON
 
@@ -81,14 +81,14 @@ def upgrade():
 def downgrade():
     drop_table('dids_opendata_meta')
 
-    drop_index('OPENDATA_DOI_CREATED_AT_IDX', table_name='dids_opendata_doi')
-    drop_index('OPENDATA_DOI_UPDATED_AT_IDX', table_name='dids_opendata_doi')
+    try_drop_index('OPENDATA_DOI_CREATED_AT_IDX', 'dids_opendata_doi')
+    try_drop_index('OPENDATA_DOI_UPDATED_AT_IDX', 'dids_opendata_doi')
     drop_table('dids_opendata_doi')
 
-    drop_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', table_name='dids_opendata')
-    drop_index('OPENDATA_DID_STATE_IDX', table_name='dids_opendata')
-    drop_index('OPENDATA_DID_CREATED_AT_IDX', table_name='dids_opendata')
-    drop_index('OPENDATA_DID_UPDATED_AT_IDX', table_name='dids_opendata')
+    try_drop_index('OPENDATA_DID_STATE_UPDATED_AT_IDX', 'dids_opendata')
+    try_drop_index('OPENDATA_DID_STATE_IDX', 'dids_opendata')
+    try_drop_index('OPENDATA_DID_CREATED_AT_IDX', 'dids_opendata')
+    try_drop_index('OPENDATA_DID_UPDATED_AT_IDX', 'dids_opendata')
     drop_table('dids_opendata')
 
     # Drop enum if created in this migration

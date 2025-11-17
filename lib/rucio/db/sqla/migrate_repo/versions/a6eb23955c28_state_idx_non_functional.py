@@ -18,10 +18,10 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
-    drop_index,
     is_current_dialect,
     qualify_index,
     qualify_table,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -53,7 +53,7 @@ def upgrade():
         )
     elif is_current_dialect('sqlite'):
         create_index('RULES_STATE_IDX', 'rules', ['state'])
-        drop_index('RULES_STUCKSTATE_IDX', 'rules')
+        try_drop_index('RULES_STUCKSTATE_IDX', 'rules')
 
 
 def downgrade():
@@ -80,4 +80,4 @@ def downgrade():
         )
     elif is_current_dialect('sqlite'):
         create_index('RULES_STUCKSTATE_IDX', 'rules', ['state'])
-        drop_index('RULES_STATE_IDX', 'rules')
+        try_drop_index('RULES_STATE_IDX', 'rules')

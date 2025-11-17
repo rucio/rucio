@@ -16,7 +16,7 @@
 
 from rucio.db.sqla.migrate_repo import (
     create_index,
-    drop_index,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -37,4 +37,4 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    drop_index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'replicas')
+    try_drop_index('REPLICAS_RSE_ID_TOMBSTONE_IDX', 'replicas')

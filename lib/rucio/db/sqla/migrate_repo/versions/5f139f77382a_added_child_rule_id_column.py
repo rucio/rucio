@@ -21,9 +21,9 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
-    drop_index,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_index,
 )
 from rucio.db.sqla.types import GUID
 
@@ -53,7 +53,7 @@ def downgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         try_drop_constraint('RULES_CHILD_RULE_ID_FK', 'rules')
-        drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
+        try_drop_index('RULES_CHILD_RULE_ID_IDX', 'rules')
 
         drop_column('rules', 'child_rule_id')
         drop_column('rules_hist_recent', 'child_rule_id')

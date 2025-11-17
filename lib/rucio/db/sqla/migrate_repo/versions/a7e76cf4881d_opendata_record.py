@@ -20,8 +20,8 @@ from rucio.common.schema import get_schema_value
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_table,
-    drop_index,
     drop_table,
+    try_drop_index,
 )
 
 # Alembic revision identifiers
@@ -46,6 +46,6 @@ def upgrade():
 
 
 def downgrade():
-    drop_index('OPENDATA_RECORD_CREATED_AT_IDX', table_name='dids_opendata_record')
-    drop_index('OPENDATA_RECORD_UPDATED_AT_IDX', table_name='dids_opendata_record')
+    try_drop_index('OPENDATA_RECORD_CREATED_AT_IDX', 'dids_opendata_record')
+    try_drop_index('OPENDATA_RECORD_UPDATED_AT_IDX', 'dids_opendata_record')
     drop_table('dids_opendata_record')
