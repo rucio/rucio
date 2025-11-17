@@ -16,7 +16,7 @@ jobs:
     name: Add header lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           # We need the history to determine the file creation date.
           fetch-depth: 0
@@ -27,7 +27,7 @@ jobs:
   python_ruff:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Install Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
@@ -50,7 +50,7 @@ jobs:
       UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../updated_type_annotation_report.txt
       INITIAL_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE: ../initial_type_annotation_report.txt
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Count current number of missing type annotations
         id: count_updated
         shell: bash
@@ -106,7 +106,7 @@ jobs:
       PYRIGHT_CURRENT_REPORT: ../pyright_current_report.json
       PYRIGHT_ANCESTOR_REPORT: ../pyright_ancestor_report.json
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev git
@@ -146,7 +146,7 @@ jobs:
     if: github.repository_owner == 'rucio' || github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Update pip
         run: python3 -m pip install -U pip setuptools
       - name: Install python requirements for matrix_parser.py
@@ -174,7 +174,7 @@ jobs:
       matrix:
         cfg: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Login to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
