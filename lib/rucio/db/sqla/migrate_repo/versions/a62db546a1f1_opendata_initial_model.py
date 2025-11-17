@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Opendata initial model"""  # noqa: D400, D415
+""" Opendata initial model """
 
 import sqlalchemy as sa
 from alembic.op import get_bind

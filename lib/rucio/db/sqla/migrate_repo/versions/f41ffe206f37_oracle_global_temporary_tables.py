@@ -15,7 +15,7 @@
 """ oracle_global_temporary_tables """
 
 import sqlalchemy as sa
-from alembic import context
+from alembic.op import get_bind
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.migrate_repo import (
@@ -71,7 +71,7 @@ def downgrade():
     """
 
     if is_current_dialect('oracle'):
-        global_temp_tables = sa.inspect(context.get_bind()).get_temp_table_names()
+        global_temp_tables = sa.inspect(get_bind()).get_temp_table_names()
         for idx in range(5):
             for table_name in [f'TEMPORARY_ID_{idx}', f'TEMPORARY_ASSOCIATION_{idx}', f'TEMPORARY_SCOPE_NAME_{idx}']:
                 if table_name in global_temp_tables:

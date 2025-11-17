@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" adding transfertool column and index to requests table"""
+""" adding transfertool column and index to requests table """
 
 import sqlalchemy as sa
 

@@ -29,8 +29,8 @@ def upgrade():
     """
     Upgrade the database to this revision
     """
+    drop_current_primary_key('subscriptions_history')
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_current_primary_key('subscriptions_history')
         create_primary_key('SUBSCRIPTIONS_HISTORY_PK', 'subscriptions_history', ['id', 'updated_at'])
 
 
@@ -38,6 +38,6 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
+    drop_current_primary_key('subscriptions_history')
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_current_primary_key('subscriptions_history')
         create_primary_key('SUBSCRIPTIONS_PK', 'subscriptions_history', ['id', 'updated_at'])

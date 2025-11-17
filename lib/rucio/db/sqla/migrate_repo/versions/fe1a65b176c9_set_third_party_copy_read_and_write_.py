@@ -14,9 +14,13 @@
 
 """ set third_party_copy_read and write fields """
 
-from alembic.op import execute  # pylint: disable=no-member
+from alembic.op import execute
 
-from rucio.db.sqla.migrate_repo import alter_column, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    alter_column,
+    is_current_dialect,
+    qualify_table,
+)
 
 # Alembic revision identifiers
 revision = 'fe1a65b176c9'
@@ -31,7 +35,6 @@ def upgrade():
     rse_protocol_table = qualify_table('rse_protocols')
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-
         execute(
             f"""
             UPDATE {rse_protocol_table}

@@ -16,7 +16,10 @@
 
 import sqlalchemy as sa
 
-from rucio.db.sqla.migrate_repo import alter_column, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    alter_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '8523998e2e76'

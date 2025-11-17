@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Opendata Record ID"""  # noqa: D400, D415
+""" Opendata Record ID """
 
 import sqlalchemy as sa
 

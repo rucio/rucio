@@ -18,7 +18,12 @@ import sqlalchemy as sa
 from alembic.op import get_bind
 from sqlalchemy.sql.expression import true
 
-from rucio.db.sqla.migrate_repo import add_column, drop_column, get_effective_schema, is_current_dialect
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    get_effective_schema,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
