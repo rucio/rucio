@@ -34,7 +34,7 @@ from rucio.common.client import detect_client_location
 from rucio.common.config import config_get
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
-from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
+from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException, ScopeNotFound
 from rucio.common.pcache import Pcache
 from rucio.common.utils import execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
 from rucio.rse import rsemanager as rsemgr
@@ -1856,8 +1856,15 @@ class DownloadClient:
             did_name = did[1]
         elif len(did) == 1:
             if self.extract_scope_convention == 'belleii':
-                scopes = [scope for scope in self.client.list_scopes()]
-                did_scope, did_name = extract_scope(did[0], scopes)
+                listed_scopes = [scope for scope in self.client.list_scopes()]
+                # TODO remove backwards compatiblity check. See #8125
+                if len(listed_scopes) == 0:
+                    raise ScopeNotFound
+                if not isinstance(listed_scopes[0], str):
+                    scopes = [str(s['scope']) for s in listed_scopes]  # type: ignore
+                else:
+                    scopes = listed_scopes
+                did_scope, did_name = extract_scope(did[0], scopes)  # type: ignore
             else:
                 did = did_str.split('.')
                 did_scope = did[0]
