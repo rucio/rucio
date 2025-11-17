@@ -57,6 +57,11 @@ MYSQL_CONSTRAINT_MISSING_TOKENS: tuple[str, ...] = (
     "not found in the table",
 )
 
+MYSQL_PRIMARY_KEY_MISSING_TOKENS: tuple[str, ...] = (
+    *MYSQL_GENERAL_MISSING_TOKENS,
+    "can't drop primary key",
+)
+
 
 def _warn_unknown_dialect_once() -> None:
     """Log a single warning when the SQL dialect cannot be determined.
@@ -102,6 +107,29 @@ def _matches_any(
 
     msg = (message or "").lower()
     return any((token or "").lower() in msg for token in tokens)
+
+
+def _qliteral(
+        value: 'Optional[str]'
+) -> str:
+    """
+    Wrap *value* in single quotes for SQL/PL blocks.
+
+    Parameters
+    ----------
+    value : Optional[str]
+        The literal value to quote. Embedded single quotes are doubled to
+        preserve the original contents.
+
+    Returns
+    -------
+    str
+        The quoted literal. ``None`` is emitted as the SQL ``NULL`` literal.
+    """
+
+    if value is None:
+        return "NULL"
+    return "'" + value.replace("'", "''") + "'"
 
 
 def _dialect_name() -> 'Optional[str]':
@@ -604,6 +632,130 @@ def try_drop_constraint(
         )
 
 
+def drop_current_primary_key(
+        table_name: str
+) -> None:
+    """
+    Drop the current primary key on ``table_name`` if one exists.
+
+    Parameters
+    ----------
+    table_name : str
+        The table whose primary key should be removed.
+
+    Behavior by dialect
+    -------------------
+    * PostgreSQL : – looks up the PK name from catalogs and drops it only if present
+      (via a small ``DO $$`` block for safety).
+    * Oracle : – queries catalogs to discover and drop the PK if present.
+    * MySQL / MariaDB: – executes ``ALTER TABLE <table> DROP PRIMARY KEY`` and
+      tolerates the standard "already missing" errors.
+    * Others : – logged as a no‑op.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    RuntimeError
+        On MySQL/MariaDB, if an unexpected database error occurs (i.e., not a recognised
+        "missing primary key" condition).
+
+    Notes
+    -----
+    * Idempotent : repeating the call leaves the database unchanged.
+    * Drop dependent foreign keys first to mirror common migration ordering.
+
+    Examples
+    --------
+    >>> drop_current_primary_key("orders")
+    """
+
+    dialect = _dialect_name()
+    schema = get_effective_schema()
+    plain_table = f"{schema}.{table_name}" if schema else table_name
+
+    if dialect == "mysql":
+        quoted_table = _quoted_table(table_name, schema)
+        try:
+            op.execute(f"ALTER TABLE {quoted_table} DROP PRIMARY KEY")
+        except DatabaseError as exc:
+            message = str(exc).lower()
+            tolerated = _matches_any(message, MYSQL_PRIMARY_KEY_MISSING_TOKENS)
+            if not tolerated:
+                raise RuntimeError(exc) from exc
+            LOGGER.debug(
+                "Primary key on %s already missing (dialect=mysql)",
+                plain_table,
+            )
+        return
+
+    if dialect == "postgresql":
+        schema_init = _qliteral(schema) if schema else "NULL"
+        op.execute(
+            f"""
+        DO $$
+        DECLARE
+            schemaname text := {schema_init};
+            pkname     text;
+            tblname    text := {_qliteral(table_name)};
+        BEGIN
+            IF schemaname IS NULL THEN
+                schemaname := current_schema();
+            END IF;
+
+            SELECT c.conname
+              INTO pkname
+              FROM pg_constraint c
+              JOIN pg_class      r ON r.oid = c.conrelid
+              JOIN pg_namespace  n ON n.oid = r.relnamespace
+             WHERE c.contype = 'p'
+               AND n.nspname = schemaname
+               AND r.relname = tblname;
+
+            IF pkname IS NOT NULL THEN
+                EXECUTE format('ALTER TABLE %I.%I DROP CONSTRAINT %I',
+                               schemaname, tblname, pkname);
+            END IF;
+        END$$;
+        """
+        )
+        return
+
+    if dialect == "oracle":
+        owner_expr = (
+            f"UPPER({_qliteral(schema)})" if schema else "SYS_CONTEXT('USERENV','CURRENT_SCHEMA')"
+        )
+        tab_expr = f"UPPER({_qliteral(table_name)})"
+        quoted_table = _quoted_table(table_name, schema)
+
+        op.execute(
+            f"""
+        DECLARE
+            v_cnt NUMBER;
+        BEGIN
+            SELECT COUNT(*)
+              INTO v_cnt
+              FROM ALL_CONSTRAINTS
+             WHERE OWNER = {owner_expr}
+               AND TABLE_NAME = {tab_expr}
+               AND CONSTRAINT_TYPE = 'P';
+
+            IF v_cnt > 0 THEN
+                EXECUTE IMMEDIATE 'ALTER TABLE {quoted_table} DROP PRIMARY KEY';
+            END IF;
+        END;
+        """
+        )
+        return
+
+    LOGGER.debug(
+        "Primary key drop on %s skipped; unsupported dialect treated as no-op",
+        plain_table,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Schema-defaulting wrappers for alembic.op
 # ---------------------------------------------------------------------------
@@ -969,4 +1121,5 @@ __all__ = [
     "quote_identifier",
     "drop_constraint",
     "try_drop_constraint",
+    "drop_current_primary_key",
 ]
