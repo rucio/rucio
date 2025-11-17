@@ -17,11 +17,12 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, execute
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.constants import BadPFNStatus
 from rucio.db.sqla.migrate_repo import (
     add_column,
+    alter_column,
     create_check_constraint,
     create_index,
     create_primary_key,
@@ -31,7 +32,6 @@ from rucio.db.sqla.migrate_repo import (
     drop_index,
     drop_table,
     is_current_dialect,
-    qualify_table,
     try_drop_constraint,
 )
 
@@ -44,8 +44,6 @@ def upgrade():
     """
     Upgrade the database to this revision
     """
-
-    bad_replicas_table = qualify_table('bad_replicas')
 
     if is_current_dialect('oracle', 'postgresql'):
         # Create new bad_pfns table
@@ -74,6 +72,8 @@ def upgrade():
 
         # Change PK
         drop_current_primary_key('bad_replicas')
+        for pk_name in ('BAD_REPLICAS_STATE_PK', 'BAD_REPLICAS_PK', 'bad_replicas_pkey'):
+            try_drop_constraint(pk_name, 'bad_replicas')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'state', 'created_at'])
 
         # Add new Index to Table
@@ -97,12 +97,7 @@ def upgrade():
         create_primary_key('BAD_PFNS_PK', 'bad_pfns', ['path', 'state'])
         create_foreign_key('BAD_PFNS_ACCOUNT_FK', 'bad_pfns', 'accounts', ['account'], ['account'])
 
-        execute(
-            f"""
-            ALTER TABLE {bad_replicas_table}
-            DROP CHECK BAD_REPLICAS_STATE_CHK
-            """
-        )
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S', 'T')")
 
@@ -122,8 +117,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    bad_replicas_table = qualify_table('bad_replicas')
-
     if is_current_dialect('oracle'):
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
@@ -134,24 +127,24 @@ def downgrade():
 
         drop_column('bad_replicas', 'expires_at')
         drop_current_primary_key('bad_replicas')
+        for pk_name in ('BAD_REPLICAS_STATE_PK', 'BAD_REPLICAS_PK', 'bad_replicas_pkey'):
+            try_drop_constraint(pk_name, 'bad_replicas')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif is_current_dialect('postgresql'):
         drop_table('bad_pfns')
         drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
-        execute(
-            f"""
-            ALTER TABLE {bad_replicas_table}
-            DROP CONSTRAINT IF EXISTS "BAD_REPLICAS_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
-        )
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas', type_='check')
+        alter_column('bad_replicas', 'state', type_=sa.CHAR(length=1))
+
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 
         drop_column('bad_replicas', 'expires_at')
         drop_current_primary_key('bad_replicas')
+        for pk_name in ('BAD_REPLICAS_STATE_PK', 'BAD_REPLICAS_PK', 'bad_replicas_pkey'):
+            try_drop_constraint(pk_name, 'bad_replicas')
         create_primary_key('BAD_REPLICAS_STATE_PK', 'bad_replicas', ['scope', 'name', 'rse_id', 'created_at'])
 
     elif is_current_dialect('mysql'):
