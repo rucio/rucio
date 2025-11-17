@@ -29,10 +29,12 @@ from .ddl_helpers import (
     drop_table,
     get_effective_schema,
     is_current_dialect,
+    qualify_index,
     qualify_table,
     quote_identifier,
     rename_table,
     try_drop_constraint,
+    try_drop_index,
 )
 
 __all__ = [
@@ -48,10 +50,12 @@ __all__ = [
     "drop_current_primary_key",
     "drop_index",
     "drop_table",
-    "rename_table",
-    "is_current_dialect",
     "get_effective_schema",
+    "is_current_dialect",
+    "qualify_index",
     "qualify_table",
     "quote_identifier",
+    "rename_table",
     "try_drop_constraint",
+    "try_drop_index",
 ]
