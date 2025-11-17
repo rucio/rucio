@@ -182,6 +182,29 @@ class AccountScopeList(ErrorHandlingMethodView):
 
 class ScopeOwnershipList(ErrorHandlingMethodView):
     def get(self) -> Response:
+        """
+        ---
+        summary: List Scopes
+        description: "List all scopes and their ownership."
+        tags:
+          - Scopes
+        parameters:
+        responses:
+          200:
+            description: "OK"
+            content:
+              application/json:
+                schema:
+                  description: "All scopes for the account."
+                  type: array
+                  items:
+                    description: "A scope for the account."
+                    type: string
+          401:
+            description: "Invalid Auth Token"
+          406:
+            description: "Not acceptable"
+        """
         scopes = list_scopes_with_account(vo=request.environ['vo'])
         res = []
         for dictionary in scopes:
