@@ -81,6 +81,7 @@ extend-select = [
     "PLW0127", # Self-assigning variable
     "PLW3301", # Nested min/max – niche readability case.
     "W291",    # Trailing whitespace (low-hanging fruit that improves cleanliness)
+    "W292",    # Missing newline at end-of-file
 ]
 
 ignore = [
