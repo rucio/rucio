@@ -24,6 +24,7 @@ from rucio.db.sqla.migrate_repo import (
     drop_column,
     is_current_dialect,
     qualify_table,
+    render_enum_name,
     try_drop_constraint,
     try_drop_index,
 )
@@ -46,15 +47,16 @@ def upgrade():
                                                  create_constraint=True,
                                                  values_callable=lambda obj: [e.value for e in obj])))
     elif is_current_dialect('postgresql'):
+        did_meta_enum = render_enum_name('DID_META_DID_TYPE_CHK')
         execute(
-            """
-            CREATE TYPE "DID_META_DID_TYPE_CHK" AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')
+            f"""
+            CREATE TYPE {did_meta_enum} AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')
             """
         )
         execute(
             f"""
             ALTER TABLE {did_meta_table}
-            ADD COLUMN did_type "DID_META_DID_TYPE_CHK"
+            ADD COLUMN did_type {did_meta_enum}
             """
         )
     create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'])
@@ -72,6 +74,7 @@ def downgrade():
         drop_column('did_meta', 'did_type')
 
     elif is_current_dialect('postgresql'):
+        did_meta_enum = render_enum_name('DID_META_DID_TYPE_CHK')
         execute(
             f"""
             ALTER TABLE {did_meta_table}
@@ -86,8 +89,8 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "DID_META_DID_TYPE_CHK"
+            f"""
+            DROP TYPE {did_meta_enum}
             """
         )
 

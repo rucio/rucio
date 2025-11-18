@@ -23,6 +23,7 @@ from rucio.db.sqla.migrate_repo import (
     drop_column,
     is_current_dialect,
     qualify_table,
+    render_enum_name,
     try_drop_constraint,
 )
 
@@ -44,6 +45,7 @@ def upgrade():
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
 
     elif is_current_dialect('postgresql'):
+        rules_state_enum = render_enum_name('RULES_STATE_CHK')
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         execute(
             f"""
@@ -53,20 +55,20 @@ def upgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "RULES_STATE_CHK"
+            f"""
+            DROP TYPE {rules_state_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "RULES_STATE_CHK" AS ENUM('S', 'R', 'U', 'O', 'W', 'I')
+            f"""
+            CREATE TYPE {rules_state_enum} AS ENUM('S', 'R', 'U', 'O', 'W', 'I')
             """
         )
         execute(
             f"""
             ALTER TABLE {rules_table}
-            ALTER COLUMN state TYPE "RULES_STATE_CHK"
-            USING state::"RULES_STATE_CHK"
+            ALTER COLUMN state TYPE {rules_state_enum}
+            USING state::{rules_state_enum}
             """
         )
 
@@ -89,6 +91,7 @@ def downgrade():
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
 
     elif is_current_dialect('postgresql'):
+        rules_state_enum = render_enum_name('RULES_STATE_CHK')
         drop_column('rules', 'ignore_account_limit')
         execute(
             f"""
@@ -98,20 +101,20 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "RULES_STATE_CHK"
+            f"""
+            DROP TYPE {rules_state_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "RULES_STATE_CHK" AS ENUM('S', 'R', 'U', 'O')
+            f"""
+            CREATE TYPE {rules_state_enum} AS ENUM('S', 'R', 'U', 'O')
             """
         )
         execute(
             f"""
             ALTER TABLE {rules_table}
-            ALTER COLUMN state TYPE "RULES_STATE_CHK"
-            USING state::"RULES_STATE_CHK"
+            ALTER COLUMN state TYPE {rules_state_enum}
+            USING state::{rules_state_enum}
             """
         )
 

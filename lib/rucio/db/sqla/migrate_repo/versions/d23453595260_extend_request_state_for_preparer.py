@@ -22,6 +22,7 @@ from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     is_current_dialect,
     qualify_table,
+    render_enum_name,
     try_drop_constraint,
 )
 
@@ -47,6 +48,10 @@ def upgrade():
             condition=f'state in ({enum_values_str(new_enum_values)})',
         )
     elif is_current_dialect('postgresql'):
+
+        requests_history_enum = render_enum_name('REQUESTS_HISTORY_STATE_CHK')
+        requests_enum = render_enum_name('REQUESTS_STATE_CHK')
+
         execute(
             f"""
             ALTER TABLE {requests_history_table}
@@ -55,20 +60,20 @@ def upgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "REQUESTS_HISTORY_STATE_CHK"
+            f"""
+            DROP TYPE {requests_history_enum}
             """
         )
         execute(
             f"""
-            CREATE TYPE "REQUESTS_HISTORY_STATE_CHK" AS ENUM({enum_values_str(new_enum_values)})
+            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_str(new_enum_values)})
             """
         )
         execute(
             f"""
             ALTER TABLE {requests_history_table}
-            ALTER COLUMN state TYPE "REQUESTS_HISTORY_STATE_CHK"
-            USING state::"REQUESTS_HISTORY_STATE_CHK"
+            ALTER COLUMN state TYPE {requests_history_enum}
+            USING state::{requests_history_enum}
             """
         )
         execute(
@@ -79,20 +84,20 @@ def upgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "REQUESTS_STATE_CHK"
+            f"""
+            DROP TYPE {requests_enum}
             """
         )
         execute(
             f"""
-            CREATE TYPE "REQUESTS_STATE_CHK" AS ENUM({enum_values_str(new_enum_values)})
+            CREATE TYPE {requests_enum} AS ENUM({enum_values_str(new_enum_values)})
             """
         )
         execute(
             f"""
             ALTER TABLE {requests_table}
-            ALTER COLUMN state TYPE "REQUESTS_STATE_CHK"
-            USING state::"REQUESTS_STATE_CHK"
+            ALTER COLUMN state TYPE {requests_enum}
+            USING state::{requests_enum}
             """
         )
 
@@ -125,6 +130,10 @@ def downgrade():
             condition=f'state in ({enum_values_str(old_enum_values)})',
         )
     elif is_current_dialect('postgresql'):
+
+        requests_history_enum = render_enum_name('REQUESTS_HISTORY_STATE_CHK')
+        requests_enum = render_enum_name('REQUESTS_STATE_CHK')
+
         execute(
             f"""
             ALTER TABLE {requests_history_table}
@@ -134,14 +143,14 @@ def downgrade():
         )
         execute(
             f"""
-            CREATE TYPE "REQUESTS_HISTORY_STATE_CHK" AS ENUM({enum_values_str(old_enum_values)})
+            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_str(old_enum_values)})
             """
         )
         execute(
             f"""
             ALTER TABLE {requests_history_table}
-            ALTER COLUMN state TYPE "REQUESTS_HISTORY_STATE_CHK"
-            USING state::"REQUESTS_HISTORY_STATE_CHK"
+            ALTER COLUMN state TYPE {requests_history_enum}
+            USING state::{requests_history_enum}
             """
         )
         execute(
@@ -152,20 +161,20 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "REQUESTS_STATE_CHK"
+            f"""
+            DROP TYPE {requests_enum}
             """
         )
         execute(
             f"""
-            CREATE TYPE "REQUESTS_STATE_CHK" AS ENUM({enum_values_str(old_enum_values)})
+            CREATE TYPE {requests_enum} AS ENUM({enum_values_str(old_enum_values)})
             """
         )
         execute(
             f"""
             ALTER TABLE {requests_table}
-            ALTER COLUMN state TYPE "REQUESTS_STATE_CHK"
-            USING state::"REQUESTS_STATE_CHK"
+            ALTER COLUMN state TYPE {requests_enum}
+            USING state::{requests_enum}
             """
         )
 

@@ -20,6 +20,7 @@ from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     is_current_dialect,
     qualify_table,
+    render_enum_name,
     try_drop_constraint,
 )
 
@@ -41,6 +42,7 @@ def upgrade():
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
     elif is_current_dialect('postgresql'):
+        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -49,20 +51,20 @@ def upgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "RULES_NOTIFICATION_CHK"
+            f"""
+            DROP TYPE {rules_notification_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "RULES_NOTIFICATION_CHK" AS ENUM('Y', 'N', 'C', 'P')
+            f"""
+            CREATE TYPE {rules_notification_enum} AS ENUM('Y', 'N', 'C', 'P')
             """
         )
         execute(
             f"""
             ALTER TABLE {rules_table}
-            ALTER COLUMN notification TYPE "RULES_NOTIFICATION_CHK"
-            USING notification::"RULES_NOTIFICATION_CHK"
+            ALTER COLUMN notification TYPE {rules_notification_enum}
+            USING notification::{rules_notification_enum}
             """
         )
 
@@ -84,6 +86,7 @@ def downgrade():
                                 condition="notification in ('Y', 'N', 'C')")
 
     elif is_current_dialect('postgresql'):
+        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -92,20 +95,20 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "RULES_NOTIFICATION_CHK"
+            f"""
+            DROP TYPE {rules_notification_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "RULES_NOTIFICATION_CHK" AS ENUM('Y', 'N', 'C')
+            f"""
+            CREATE TYPE {rules_notification_enum} AS ENUM('Y', 'N', 'C')
             """
         )
         execute(
             f"""
             ALTER TABLE {rules_table}
-            ALTER COLUMN notification TYPE "RULES_NOTIFICATION_CHK"
-            USING notification::"RULES_NOTIFICATION_CHK"
+            ALTER COLUMN notification TYPE {rules_notification_enum}
+            USING notification::{rules_notification_enum}
             """
         )
 

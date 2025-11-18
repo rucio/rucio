@@ -20,6 +20,7 @@ from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     is_current_dialect,
     qualify_table,
+    render_enum_name,
     try_drop_constraint,
 )
 
@@ -45,6 +46,8 @@ def upgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'T')")
 
     elif is_current_dialect('postgresql'):
+        replicas_state_enum = render_enum_name('REPLICAS_STATE_CHK')
+        collection_replicas_state_enum = render_enum_name('COLLECTION_REPLICAS_STATE_CHK')
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         execute(
             f"""
@@ -53,20 +56,20 @@ def upgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "REPLICAS_STATE_CHK"
+            f"""
+            DROP TYPE {replicas_state_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
+            f"""
+            CREATE TYPE {replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
             """
         )
         execute(
             f"""
             ALTER TABLE {replicas_table}
-            ALTER COLUMN state TYPE "REPLICAS_STATE_CHK"
-            USING state::"REPLICAS_STATE_CHK"
+            ALTER COLUMN state TYPE {replicas_state_enum}
+            USING state::{replicas_state_enum}
             """
         )
 
@@ -78,20 +81,20 @@ def upgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"
+            f"""
+            DROP TYPE {collection_replicas_state_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "COLLECTION_REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
+            f"""
+            CREATE TYPE {collection_replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
             """
         )
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}
-            ALTER COLUMN state TYPE "COLLECTION_REPLICAS_STATE_CHK"
-            USING state::"COLLECTION_REPLICAS_STATE_CHK"
+            ALTER COLUMN state TYPE {collection_replicas_state_enum}
+            USING state::{collection_replicas_state_enum}
             """
         )
 
@@ -120,6 +123,8 @@ def downgrade():
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
 
     elif is_current_dialect('postgresql'):
+        replicas_state_enum = render_enum_name('REPLICAS_STATE_CHK')
+        collection_replicas_state_enum = render_enum_name('COLLECTION_REPLICAS_STATE_CHK')
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         execute(
             f"""
@@ -128,20 +133,20 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "REPLICAS_STATE_CHK"
+            f"""
+            DROP TYPE {replicas_state_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
+            f"""
+            CREATE TYPE {replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
             """
         )
         execute(
             f"""
             ALTER TABLE {replicas_table}
-            ALTER COLUMN state TYPE "REPLICAS_STATE_CHK"
-            USING state::"REPLICAS_STATE_CHK"
+            ALTER COLUMN state TYPE {replicas_state_enum}
+            USING state::{replicas_state_enum}
             """
         )
 
@@ -153,20 +158,20 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "COLLECTION_REPLICAS_STATE_CHK"
+            f"""
+            DROP TYPE {collection_replicas_state_enum}
             """
         )
         execute(
-            """
-            CREATE TYPE "COLLECTION_REPLICAS_STATE_CHK" AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
+            f"""
+            CREATE TYPE {collection_replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
             """
         )
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}
-            ALTER COLUMN state TYPE "COLLECTION_REPLICAS_STATE_CHK"
-            USING state::"COLLECTION_REPLICAS_STATE_CHK"
+            ALTER COLUMN state TYPE {collection_replicas_state_enum}
+            USING state::{collection_replicas_state_enum}
             """
         )
 

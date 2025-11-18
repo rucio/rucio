@@ -23,6 +23,7 @@ from rucio.db.sqla.migrate_repo import (
     drop_column,
     is_current_dialect,
     qualify_table,
+    render_enum_name,
     try_drop_constraint,
 )
 
@@ -45,15 +46,16 @@ def upgrade():
                                                               values_callable=lambda obj: [e.value for e in obj]),
                                       default=RuleNotification.NO))
     elif is_current_dialect('postgresql'):
+        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
         execute(
-            """
-            CREATE TYPE "RULES_NOTIFICATION_CHK" AS ENUM('Y', 'N', 'C', 'P')
+            f"""
+            CREATE TYPE {rules_notification_enum} AS ENUM('Y', 'N', 'C', 'P')
             """
         )
         execute(
             f"""
             ALTER TABLE {rules_table}
-            ADD COLUMN notification "RULES_NOTIFICATION_CHK"
+            ADD COLUMN notification {rules_notification_enum}
             """
         )
 
@@ -70,6 +72,7 @@ def downgrade():
         drop_column('rules', 'notification')
 
     elif is_current_dialect('postgresql'):
+        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -84,8 +87,8 @@ def downgrade():
             """
         )
         execute(
-            """
-            DROP TYPE "RULES_NOTIFICATION_CHK"
+            f"""
+            DROP TYPE {rules_notification_enum}
             """
         )
 
