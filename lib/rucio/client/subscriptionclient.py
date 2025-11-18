@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from json import dumps
+from json import dumps, loads
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from requests.status_codes import codes
@@ -207,6 +207,38 @@ class SubscriptionClient(BaseClient):
         result = self._send_request(url, method=HTTPMethod.PUT, data=data)
         if result.status_code == codes.created:   # pylint: disable=no-member
             return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
+            raise exc_cls(exc_msg)
+        
+    def delete_subscription(
+            self,
+            name,
+            account: Optional[str] = None,
+    ) -> Literal[True]:
+        """
+        Deletes a subscription
+
+        Parameters
+        ----------
+        name : Name of the subscription
+        account : Account identifier
+
+        Raises
+        ------
+        SubscriptionNotFound
+            If subscription is not found
+        AccessDenied
+            If account cannot create subscription
+        """
+        if not account:
+            account = self.account
+        
+        path = self.SUB_BASEURL + '/' + account + '/' + name  # type: ignore
+        url = build_url(choice(self.list_hosts), path=path)
+        result = self._send_request(url, method=HTTPMethod.DELETE)
+        if result.status_code == codes.ok:   # pylint: disable=no-member
+            return loads(result.text)
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)

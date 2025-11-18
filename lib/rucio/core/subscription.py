@@ -263,19 +263,55 @@ def list_subscriptions(name: Optional[str] = None,
 
 
 @transactional_session
-def delete_subscription(subscription_id: str, *, session: "Session") -> None:
+def delete_subscription(name: str,
+                        account: "InternalAccount",
+                        *, session: "Session") -> None:
     """
     Deletes a subscription
 
-    :param subscription_id: Subscription identifier
-    :type subscription_id:  String
+    :param name:               Name of the subscription
+    :type name:                String
+    :param account:            Account identifier
+    :type account:             String
+
+    :param session:            The database session in use.
+
+    :raises: SubscriptionNotFound if subscription is not found
     """
-    stmt = delete(
-        models.Subscription
-    ).where(
-        models.Subscription.id == subscription_id
-    )
-    session.execute(stmt)
+    try:
+        keep_history = config_get_bool('subscriptions', 'keep_history')
+    except (NoOptionError, NoSectionError, RuntimeError):
+        keep_history = False
+
+    try:
+        stmt = select(
+                models.Subscription
+            ).where(
+                and_(models.Subscription.name == name,
+                    models.Subscription.account == account)
+            )
+        subscription = session.execute(stmt).scalar_one()
+    except NoResultFound:
+        raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
+
+    subscription.delete(session=session)
+
+    if keep_history:
+        subscription_history = models.SubscriptionHistory(id=subscription.id,
+                                                            name=subscription.name,
+                                                            filter=subscription.filter,
+                                                            account=subscription.account,
+                                                            replication_rules=subscription.replication_rules,
+                                                            state=subscription.state,
+                                                            lifetime=subscription.lifetime,
+                                                            retroactive=subscription.retroactive,
+                                                            policyid=subscription.policyid,
+                                                            comments=subscription.comments,
+                                                            last_processed=subscription.last_processed,
+                                                            expired_at=subscription.expired_at,
+                                                            updated_at=datetime.datetime.utcnow(),
+                                                            created_at=subscription.created_at)
+        subscription_history.save(session=session)
 
 
 @stream_session
