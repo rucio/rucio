@@ -21,6 +21,7 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_check_constraint,
     drop_column,
+    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -54,11 +55,7 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {rules_state_enum}
-            """
-        )
+        execute(drop_enum_sql('RULES_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {rules_state_enum} AS ENUM('S', 'R', 'U', 'O', 'W', 'I')
@@ -100,11 +97,7 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {rules_state_enum}
-            """
-        )
+        execute(drop_enum_sql('RULES_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {rules_state_enum} AS ENUM('S', 'R', 'U', 'O')

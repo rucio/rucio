@@ -20,6 +20,7 @@ from alembic.op import execute, get_context
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
+    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -59,11 +60,7 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {requests_history_enum}
-            """
-        )
+        execute(drop_enum_sql('REQUESTS_HISTORY_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {requests_history_enum} AS ENUM({enum_values_str(new_enum_values)})
@@ -83,11 +80,7 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {requests_enum}
-            """
-        )
+        execute(drop_enum_sql('REQUESTS_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {requests_enum} AS ENUM({enum_values_str(new_enum_values)})
@@ -160,11 +153,7 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {requests_enum}
-            """
-        )
+        execute(drop_enum_sql('REQUESTS_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {requests_enum} AS ENUM({enum_values_str(old_enum_values)})

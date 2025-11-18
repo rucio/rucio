@@ -18,6 +18,7 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
+    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -50,11 +51,7 @@ def upgrade():
             ALTER COLUMN notification TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {rules_notification_enum}
-            """
-        )
+        execute(drop_enum_sql('RULES_NOTIFICATION_CHK'))
         execute(
             f"""
             CREATE TYPE {rules_notification_enum} AS ENUM('Y', 'N', 'C', 'P')
@@ -94,11 +91,7 @@ def downgrade():
             ALTER COLUMN notification TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {rules_notification_enum}
-            """
-        )
+        execute(drop_enum_sql('RULES_NOTIFICATION_CHK'))
         execute(
             f"""
             CREATE TYPE {rules_notification_enum} AS ENUM('Y', 'N', 'C')

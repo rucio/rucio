@@ -21,6 +21,7 @@ from rucio.db.sqla.constants import RuleNotification
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
+    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -72,7 +73,6 @@ def downgrade():
         drop_column('rules', 'notification')
 
     elif is_current_dialect('postgresql'):
-        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
         execute(
             f"""
             ALTER TABLE {rules_table}
@@ -86,11 +86,7 @@ def downgrade():
             DROP COLUMN notification
             """
         )
-        execute(
-            f"""
-            DROP TYPE {rules_notification_enum}
-            """
-        )
+        execute(drop_enum_sql('RULES_NOTIFICATION_CHK'))
 
     elif is_current_dialect('mysql'):
         drop_column('rules', 'notification')

@@ -18,6 +18,7 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
+    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -55,11 +56,7 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {replicas_state_enum}
-            """
-        )
+        execute(drop_enum_sql('REPLICAS_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
@@ -80,11 +77,7 @@ def upgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {collection_replicas_state_enum}
-            """
-        )
+        execute(drop_enum_sql('COLLECTION_REPLICAS_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {collection_replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'T')
@@ -132,11 +125,7 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {replicas_state_enum}
-            """
-        )
+        execute(drop_enum_sql('REPLICAS_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
@@ -157,11 +146,7 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
-        execute(
-            f"""
-            DROP TYPE {collection_replicas_state_enum}
-            """
-        )
+        execute(drop_enum_sql('COLLECTION_REPLICAS_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {collection_replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
