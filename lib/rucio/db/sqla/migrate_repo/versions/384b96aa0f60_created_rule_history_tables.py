@@ -17,16 +17,15 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType, RuleGrouping, RuleNotification, RuleState
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_enum_sql,
     drop_table,
     is_current_dialect,
+    try_drop_enum,
     try_drop_index,
 )
 from rucio.db.sqla.types import GUID
@@ -152,4 +151,4 @@ def downgrade():
                 'RULES_HISTORY_GROUPING_CHK',
                 'RULES_HISTORY_NOTIFY_CHK',
         ):
-            execute(drop_enum_sql(enum_name))
+            try_drop_enum(enum_name)

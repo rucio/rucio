@@ -22,11 +22,11 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
-    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
     try_drop_constraint,
+    try_drop_enum,
     try_drop_index,
 )
 
@@ -88,7 +88,7 @@ def downgrade():
             DROP COLUMN did_type
             """
         )
-        execute(drop_enum_sql('DID_META_DID_TYPE_CHK'))
+        try_drop_enum('DID_META_DID_TYPE_CHK')
 
     elif is_current_dialect('mysql'):
         drop_column('did_meta', 'did_type')

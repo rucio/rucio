@@ -17,16 +17,15 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType, LifetimeExceptionsState
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     create_primary_key,
     create_table,
-    drop_enum_sql,
     drop_table,
     is_current_dialect,
+    try_drop_enum,
 )
 from rucio.db.sqla.types import GUID
 
@@ -75,8 +74,8 @@ def downgrade():
     if is_current_dialect('postgresql'):
         drop_table('lifetime_except')
         # Drop enums so a subsequent upgrade can recreate them cleanly.
-        execute(drop_enum_sql('LIFETIME_EXCEPT_TYPE_CHK'))
-        execute(drop_enum_sql('LIFETIME_EXCEPT_STATE_CHK'))
+        try_drop_enum('LIFETIME_EXCEPT_TYPE_CHK')
+        try_drop_enum('LIFETIME_EXCEPT_STATE_CHK')
 
     # Other dialects: just drop the table.
     elif is_current_dialect('oracle', 'mysql'):

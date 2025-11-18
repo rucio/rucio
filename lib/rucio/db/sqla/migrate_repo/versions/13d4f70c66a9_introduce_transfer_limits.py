@@ -17,7 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, execute
+from alembic.op import create_foreign_key
 
 from rucio.common.constants import TransferLimitDirection
 from rucio.db.sqla.migrate_repo import (
@@ -25,9 +25,9 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_enum_sql,
     drop_table,
     is_current_dialect,
+    try_drop_enum,
 )
 from rucio.db.sqla.types import GUID
 
@@ -83,7 +83,7 @@ def downgrade():
 
         # On PostgreSQL drop the enum type introduced by this migration
         if is_current_dialect('postgresql'):
-            execute(drop_enum_sql('TRANSFER_LIMITS_DIRECTION_TYPE_CHK'))
+            try_drop_enum('TRANSFER_LIMITS_DIRECTION_TYPE_CHK')
 
         create_table('rse_transfer_limits',
                      sa.Column('rse_id', GUID()),

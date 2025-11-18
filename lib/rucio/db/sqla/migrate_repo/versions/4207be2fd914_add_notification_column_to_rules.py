@@ -21,11 +21,11 @@ from rucio.db.sqla.constants import RuleNotification
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
-    drop_enum_sql,
     is_current_dialect,
     qualify_table,
     render_enum_name,
     try_drop_constraint,
+    try_drop_enum,
 )
 
 # Alembic revision identifiers
@@ -86,7 +86,7 @@ def downgrade():
             DROP COLUMN notification
             """
         )
-        execute(drop_enum_sql('RULES_NOTIFICATION_CHK'))
+        try_drop_enum('RULES_NOTIFICATION_CHK')
 
     elif is_current_dialect('mysql'):
         drop_column('rules', 'notification')

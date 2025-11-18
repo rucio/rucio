@@ -21,9 +21,9 @@ from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
-    drop_enum_sql,
     is_current_dialect,
     qualify_table,
+    try_drop_enum,
 )
 
 # Alembic revision identifiers
@@ -69,4 +69,4 @@ def downgrade():
         drop_column('requests_history', 'did_type')
 
     if is_current_dialect('postgresql'):
-        execute(drop_enum_sql('REQUESTS_DIDTYPE_CHK'))
+        try_drop_enum('REQUESTS_DIDTYPE_CHK')

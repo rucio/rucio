@@ -17,7 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, execute
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.migrate_repo import (
@@ -25,9 +25,9 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_enum_sql,
     drop_table,
     is_current_dialect,
+    try_drop_enum,
 )
 
 # Alembic revision identifiers
@@ -101,5 +101,5 @@ def downgrade():
 
         # On PostgreSQL, drop the enum types created/used by this migration
         if is_current_dialect('postgresql'):
-            execute(drop_enum_sql('DIDS_FOLLOWED_EVENTS_TYPE_CHK'))
-            execute(drop_enum_sql('DIDS_FOLLOWED_TYPE_CHK'))
+            try_drop_enum('DIDS_FOLLOWED_EVENTS_TYPE_CHK')
+            try_drop_enum('DIDS_FOLLOWED_TYPE_CHK')

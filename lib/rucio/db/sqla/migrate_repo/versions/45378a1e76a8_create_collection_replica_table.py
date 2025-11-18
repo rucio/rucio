@@ -17,7 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, execute
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.constants import DIDType, ReplicaState
 from rucio.db.sqla.migrate_repo import (
@@ -25,10 +25,10 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_enum_sql,
     drop_table,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_enum,
 )
 from rucio.db.sqla.types import GUID
 
@@ -88,7 +88,7 @@ def downgrade():
                 'COLLECTION_REPLICAS_TYPE_CHK',
                 'COLLECTION_REPLICAS_STATE_CHK',
         ):
-            execute(drop_enum_sql(enum_name))
+            try_drop_enum(enum_name)
 
     elif is_current_dialect('mysql'):
         drop_table('collection_replicas')

@@ -23,6 +23,8 @@ offered helpers span the meaningful enum operations PostgreSQL allows.
 
 from typing import TYPE_CHECKING
 
+from alembic import op
+
 from .ddl_helpers import get_current_dialect, get_effective_schema, quote_identifier
 
 if TYPE_CHECKING:
@@ -241,7 +243,36 @@ def drop_enum_sql(
     return " ".join(parts)
 
 
+def try_drop_enum(
+        name: str,
+        *,
+        schema: 'Optional[str]' = None,
+        if_exists: bool = True,
+        cascade: bool = False,
+) -> None:
+    """
+    Execute :func:`drop_enum_sql` via Alembic's :func:`op.execute`.
+
+    This thin wrapper keeps migrations readable by skipping the explicit
+    ``op.execute(drop_enum_sql(...))`` pattern when no additional SQL needs to
+    be composed.
+
+    Examples
+    --------
+    >>> try_drop_enum("request_state", schema="rucio")
+    >>> try_drop_enum("request_state", schema="rucio", cascade=True)
+    """
+
+    op.execute(drop_enum_sql(
+        name,
+        schema=schema,
+        if_exists=if_exists,
+        cascade=cascade,
+    ))
+
+
 __all__ = [
     "drop_enum_sql",
     "render_enum_name",
+    "try_drop_enum",
 ]

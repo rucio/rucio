@@ -42,6 +42,7 @@ from .ddl_helpers import (
 from .enum_ddl_helpers import (
     drop_enum_sql,
     render_enum_name,
+    try_drop_enum,
 )
 
 __all__ = [
@@ -69,5 +70,6 @@ __all__ = [
     "rename_table",
     "render_enum_name",
     "try_drop_constraint",
+    "try_drop_enum",
     "try_drop_index",
 ]

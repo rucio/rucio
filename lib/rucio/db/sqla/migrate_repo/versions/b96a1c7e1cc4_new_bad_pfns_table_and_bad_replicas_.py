@@ -17,7 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key, execute
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.constants import BadPFNStatus
 from rucio.db.sqla.migrate_repo import (
@@ -29,10 +29,10 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_current_primary_key,
-    drop_enum_sql,
     drop_table,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_enum,
     try_drop_index,
 )
 
@@ -135,7 +135,7 @@ def downgrade():
     elif is_current_dialect('postgresql'):
         drop_table('bad_pfns')
 
-        execute(drop_enum_sql('BAD_PFNS_STATE_CHK'))
+        try_drop_enum('BAD_PFNS_STATE_CHK')
 
         try_drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
