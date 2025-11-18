@@ -17,6 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
+from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.migrate_repo import (
@@ -27,6 +28,7 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_current_primary_key,
+    drop_enum_sql,
     drop_table,
     is_current_dialect,
     try_drop_index,
@@ -71,9 +73,15 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'postgresql'):
+        # Drop columns & table first so there are no remaining dependencies on the enum type.
         drop_column('collection_replicas', 'available_replicas_cnt')
         drop_column('collection_replicas', 'available_bytes')
         drop_table('updated_col_rep')
+
+        if is_current_dialect('postgresql'):
+            # Then drop the PostgreSQL enum type created by this migration so that a
+            # subsequent upgrade can recreate it cleanly without DuplicateObject errors.
+            execute(drop_enum_sql('UPDATED_COL_REP_TYPE_CHK'))
 
     elif is_current_dialect('mysql'):
         drop_column('collection_replicas', 'available_replicas_cnt')
