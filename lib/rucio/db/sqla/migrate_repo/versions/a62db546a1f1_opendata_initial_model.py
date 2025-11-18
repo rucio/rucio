@@ -15,14 +15,16 @@
 """ Opendata initial model """
 
 import sqlalchemy as sa
-from alembic.op import get_bind
+from alembic.op import execute, get_bind
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.constants import OpenDataDIDState
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_table,
+    drop_enum_sql,
     drop_table,
+    is_current_dialect,
     try_drop_index,
 )
 from rucio.db.sqla.types import JSON
@@ -91,5 +93,7 @@ def downgrade():
     try_drop_index('OPENDATA_DID_UPDATED_AT_IDX', 'dids_opendata')
     drop_table('dids_opendata')
 
-    # Drop enum if created in this migration
-    sa.Enum(name='DID_OPENDATA_STATE_CHK').drop(get_bind(), checkfirst=True)
+    if is_current_dialect('postgresql'):
+        execute(drop_enum_sql('DID_OPENDATA_STATE_CHK'))
+    else:
+        sa.Enum(name='DID_OPENDATA_STATE_CHK').drop(get_bind(), checkfirst=True)
