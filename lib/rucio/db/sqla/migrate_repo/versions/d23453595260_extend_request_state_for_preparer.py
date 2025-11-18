@@ -134,6 +134,7 @@ def downgrade():
             ALTER COLUMN state TYPE CHAR
             """
         )
+        execute(drop_enum_sql('REQUESTS_HISTORY_STATE_CHK'))
         execute(
             f"""
             CREATE TYPE {requests_history_enum} AS ENUM({enum_values_str(old_enum_values)})
