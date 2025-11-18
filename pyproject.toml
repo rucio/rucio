@@ -189,3 +189,10 @@ extend-ignore-names = [
 # Add quotes around type annotations, if doing so would allow
 # an import to be moved into a type-checking block.
 quote-annotations = true
+
+[tool.setuptools.package-dir]
+"" = "lib"
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = ["rucio*"]
