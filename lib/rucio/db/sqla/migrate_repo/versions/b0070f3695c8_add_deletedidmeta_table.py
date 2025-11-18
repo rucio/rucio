@@ -15,12 +15,14 @@
 """ Add deleted_did_meta table """
 
 import sqlalchemy as sa
+from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
+    drop_enum_sql,
     drop_table,
     is_current_dialect,
 )
@@ -60,3 +62,7 @@ def downgrade():
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('deleted_did_meta')
+
+        # On PostgreSQL drop the enum type once the table has been removed.
+        if is_current_dialect('postgresql'):
+            execute(drop_enum_sql('DEL_DID_META_DID_TYPE_CHK'))
