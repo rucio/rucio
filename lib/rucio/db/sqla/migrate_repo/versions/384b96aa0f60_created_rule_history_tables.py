@@ -17,12 +17,14 @@
 import datetime
 
 import sqlalchemy as sa
+from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType, RuleGrouping, RuleNotification, RuleState
 from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
+    drop_enum_sql,
     drop_table,
     is_current_dialect,
     try_drop_index,
@@ -134,5 +136,20 @@ def downgrade():
         drop_table('rules_history')
 
     elif is_current_dialect('postgresql'):
+        # Drop tables first (which also drops the indices), so there are no remaining
+        # dependencies on the enum types.
         drop_table('rules_hist_recent')
         drop_table('rules_history')
+
+        # Then drop the PostgreSQL enum types so the next upgrade can recreate them cleanly.
+        for enum_name in (
+                'RULES_HIST_RECENT_DIDTYPE_CHK',
+                'RULES_HIST_RECENT_STATE_CHK',
+                'RULES_HIST_RECENT_GROUPING_CHK',
+                'RULES_HIST_RECENT_NOTIFY_CHK',
+                'RULES_HISTORY_DIDTYPE_CHK',
+                'RULES_HISTORY_STATE_CHK',
+                'RULES_HISTORY_GROUPING_CHK',
+                'RULES_HISTORY_NOTIFY_CHK',
+        ):
+            execute(drop_enum_sql(enum_name))
