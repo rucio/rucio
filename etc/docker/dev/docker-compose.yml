@@ -133,9 +133,13 @@ services:
 
   elasticsearch:
     container_name: ${RUCIO_ELASTICSEARCH_CONTAINER_NAME:-dev-elasticsearch-1}
-    image: docker.io/elasticsearch:7.8.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
     environment:
       - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    mem_limit: 2g
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow" ]
       interval: 10s
