@@ -23,7 +23,7 @@ offered helpers span the meaningful enum operations PostgreSQL allows.
 
 from typing import TYPE_CHECKING
 
-from .ddl_helpers import get_effective_schema, quote_identifier
+from .ddl_helpers import get_current_dialect, get_effective_schema, quote_identifier
 
 if TYPE_CHECKING:
     from typing import Optional
@@ -105,6 +105,29 @@ def _validate_identifier(
         _check(name)
 
 
+def _assert_postgresql() -> None:
+    """
+    Ensure the active Alembic dialect is PostgreSQL (or unknown/offline).
+
+    The helpers are implemented exclusively for PostgreSQL. When the dialect is
+    known and differs, a clear exception is raised. Uses the shared helpers so
+    that offline SQL rendering (no live MigrationContext) is also checked.
+
+    Raises
+    ------
+    NotImplementedError
+        If the current dialect is known and not PostgreSQL.
+
+    Examples
+    --------
+    >>> _assert_postgresql()  # no-op under PostgreSQL/unknown
+    """
+
+    name = get_current_dialect()
+    if name is not None and name != "postgresql":
+        raise NotImplementedError("These enum DDL helpers are for PostgreSQL only.")
+
+
 def render_enum_name(
         name: str,
         schema: 'Optional[str]' = None
@@ -162,6 +185,63 @@ def render_enum_name(
     return quote_identifier(name)
 
 
+def drop_enum_sql(
+        name: str,
+        *,
+        schema: 'Optional[str]' = None,
+        if_exists: bool = True,
+        cascade: bool = False,
+) -> str:
+    """
+    Build a ``DROP TYPE`` statement for a PostgreSQL enum.
+
+    Parameters
+    ----------
+    name : str
+        Unqualified enum type name.
+    schema : Optional[str]
+        Schema of the type. If omitted, `get_effective_schema` is used when available;
+        otherwise an unqualified name is emitted.
+    if_exists : bool, default True
+        Include ``IF EXISTS`` so the statement is idempotent.
+    cascade : bool, default False
+        Append ``CASCADE`` to drop dependent objects (use with care).
+
+    Returns
+    -------
+    str
+        The assembled SQL, e.g. ``DROP TYPE IF EXISTS "dev"."status"``.
+
+    Raises
+    ------
+    TypeError
+        If ``name`` is not a string (including ``None``).
+    ValueError
+        If ``name`` is an invalid identifier value (empty string, contains NUL,
+        or exceeds the 63‑byte limit).
+
+    Examples
+    --------
+    >>> from alembic import op
+    >>> # Safe drop (no error if missing)
+    >>> op.execute(drop_enum_sql("request_state", schema="rucio"))
+    >>> # Force drop of dependents
+    >>> op.execute(drop_enum_sql("request_state", schema="rucio", cascade=True))
+    """
+
+    _assert_postgresql()
+    _validate_identifier(name, allow_qualified=False)
+
+    parts = ["DROP TYPE"]
+    if if_exists:
+        parts.append("IF EXISTS")
+    parts.append(render_enum_name(name, schema))
+    if cascade:
+        parts.append("CASCADE")
+    return " ".join(parts)
+
+
 __all__ = [
+    "drop_enum_sql",
     "render_enum_name",
 ]

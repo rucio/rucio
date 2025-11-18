@@ -27,6 +27,7 @@ from .ddl_helpers import (
     drop_current_primary_key,
     drop_index,
     drop_table,
+    get_current_dialect,
     get_effective_schema,
     get_identifier_preparer,
     get_migration_context,
@@ -39,6 +40,7 @@ from .ddl_helpers import (
     try_drop_index,
 )
 from .enum_ddl_helpers import (
+    drop_enum_sql,
     render_enum_name,
 )
 
@@ -53,8 +55,10 @@ __all__ = [
     "drop_column",
     "drop_constraint",
     "drop_current_primary_key",
+    "drop_enum_sql",
     "drop_index",
     "drop_table",
+    "get_current_dialect",
     "get_effective_schema",
     "get_identifier_preparer",
     "get_migration_context",

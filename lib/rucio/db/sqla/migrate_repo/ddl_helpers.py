@@ -167,10 +167,10 @@ def _qliteral(
 
 def _dialect_name() -> 'Optional[str]':
     """
-    Internal shorthand for `_get_current_dialect`, normalising "mariadb" to "mysql".
+    Internal shorthand for `get_current_dialect`, normalising "mariadb" to "mysql".
     """
 
-    name = _get_current_dialect()
+    name = get_current_dialect()
     if name == "mariadb":
         return "mysql"
     return name
@@ -210,7 +210,7 @@ def get_identifier_preparer() -> 'IdentifierPreparer':
     if dialect is not None:
         return dialect.identifier_preparer
 
-    name = (_get_current_dialect() or "").lower()
+    name = (get_current_dialect() or "").lower()
     if name in {"mysql", "mariadb"}:
         return mysql.dialect().identifier_preparer
     if name == "postgresql":
@@ -266,7 +266,7 @@ def _quoted_table(
     warning is emitted to help users fix their offline configuration.
     """
 
-    name = (_get_current_dialect() or "").lower()
+    name = (get_current_dialect() or "").lower()
 
     if not name:
         _warn_unknown_dialect_once()
@@ -296,7 +296,7 @@ def _quoted_index(
     do **not** quote and emit a one-time warning to mirror `_quoted_table`.
     """
 
-    name = (_get_current_dialect() or "").lower()
+    name = (get_current_dialect() or "").lower()
 
     if not name:
         _warn_unknown_dialect_once()
@@ -314,7 +314,7 @@ def _quoted_index(
     return quote_identifier(index_name)
 
 
-def _get_current_dialect() -> 'Optional[str]':
+def get_current_dialect() -> 'Optional[str]':
     """
     Return the name of the database dialect used for the current run.
 
@@ -420,7 +420,7 @@ def is_current_dialect(
     ...     op.execute("ALTER SESSION SET NLS_LENGTH_SEMANTICS=CHAR")
     """
 
-    name = _get_current_dialect()
+    name = get_current_dialect()
     if not name:
         return False
     wanted = {d.lower() for d in dialect_names}
@@ -1374,6 +1374,7 @@ __all__ = [
     "drop_current_primary_key",
     "drop_index",
     "drop_table",
+    "get_current_dialect",
     "get_effective_schema",
     "get_identifier_preparer",
     "get_migration_context",
