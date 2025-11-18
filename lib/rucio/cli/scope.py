@@ -39,3 +39,12 @@ def add_(ctx, account, scope_name):
 def list_(ctx: click.Context, account: str, csv: bool):
     """List existing scopes"""
     list_scopes(Arguments({"no_pager": ctx.obj.no_pager, "account": account, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+
+
+@scope.command("update")
+@click.argument("scope-name")
+@click.option("--account", help="New account to associate with scope", required=True)
+@click.pass_context
+def update(ctx: click.Context, scope_name: str, account: str) -> None:
+    """Update the owner of the scope [SCOPE-NAME]"""
+    ctx.obj.client.update_scope(account=account, scope=scope_name)
