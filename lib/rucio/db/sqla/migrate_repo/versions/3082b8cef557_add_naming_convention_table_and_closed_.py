@@ -17,7 +17,7 @@
 import datetime
 
 import sqlalchemy as sa
-from alembic.op import create_foreign_key
+from alembic.op import create_foreign_key, execute
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.constants import KeyType
@@ -27,6 +27,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_column,
+    drop_enum_sql,
     drop_table,
     is_current_dialect,
 )
@@ -67,7 +68,15 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+    if is_current_dialect('oracle', 'mysql'):
         drop_column('dids', 'closed_at')
         drop_column('contents_history', 'deleted_at')
         drop_table('naming_conventions')
+
+    elif is_current_dialect('postgresql'):
+        # Drop the table first to remove dependencies, then drop the enum type,
+        # then remove the added columns.
+        drop_table('naming_conventions')
+        execute(drop_enum_sql('CVT_TYPE_CHK'))
+        drop_column('dids', 'closed_at')
+        drop_column('contents_history', 'deleted_at')
