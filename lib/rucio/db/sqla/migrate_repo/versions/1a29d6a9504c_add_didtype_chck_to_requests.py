@@ -18,7 +18,13 @@ import sqlalchemy as sa
 from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType
-from rucio.db.sqla.migrate_repo import add_column, drop_column, is_current_dialect, qualify_table
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    drop_enum_sql,
+    is_current_dialect,
+    qualify_table,
+)
 
 # Alembic revision identifiers
 revision = '1a29d6a9504c'
@@ -61,3 +67,6 @@ def downgrade():
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_column('requests', 'did_type')
         drop_column('requests_history', 'did_type')
+
+    if is_current_dialect('postgresql'):
+        execute(drop_enum_sql('REQUESTS_DIDTYPE_CHK'))
