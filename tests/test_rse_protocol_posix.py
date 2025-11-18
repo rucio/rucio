@@ -14,6 +14,7 @@
 
 import os
 import shutil
+import tempfile
 
 import pytest
 
@@ -28,19 +29,20 @@ def setup_posix_test_env(rse_name, rse_settings, user):
 
     data = load_test_conf_file('rse_repository.json')
     prefix = data[rse_name]['protocols']['supported']['file']['prefix']
-    try:
-        os.mkdir(prefix)
-    except Exception as e:
-        print(e)
-    os.system('dd if=/dev/urandom of=%s/data.raw bs=1024 count=1024' % prefix)
+    os.makedirs(prefix, exist_ok=True)
+    # Use tempfile for file creation in the same directory
+    fd, temp_data_file = tempfile.mkstemp(dir=prefix, suffix='.raw', prefix='data_')
+    os.close(fd)
+    os.system('dd if=/dev/urandom of=%s bs=1024 count=1024' % temp_data_file)
+    data_file = os.path.join(prefix, 'data.raw')
+    shutil.move(temp_data_file, data_file)
     for f in MgrTestCases.files_remote:
         protocol = mgr.create_protocol(rse_settings, 'write')
         pfn = next(iter(mgr.lfns2pfns(rse_settings, {'name': f, 'scope': 'user.%s' % user}).values()))
         path = protocol.pfn2path(pfn)
         dirs = os.path.dirname(path)
-        if not os.path.exists(dirs):
-            os.makedirs(dirs)
-        shutil.copy('%s/data.raw' % prefix, path)
+        os.makedirs(dirs, exist_ok=True)
+        shutil.copy(data_file, path)
 
 
 @skip_rse_tests_with_accounts
