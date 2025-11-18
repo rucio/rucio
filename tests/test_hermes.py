@@ -59,7 +59,7 @@ class MyListener:
         {
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
-                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/doc/_bulk"),
+                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/_bulk"),
                 ("hermes", "influxdb_endpoint", "http://influxdb:8086/api/v2/write?org=rucio&bucket=rucio"),
                 ("hermes", "influxdb_token", "mytoken"),
                 ("messaging-hermes", "destination", "/queue/events"),
@@ -76,7 +76,7 @@ class MyListener:
         {
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
-                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/doc/_bulk"),
+                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/_bulk"),
                 ("hermes", "influxdb_endpoint", "http://influxdb:8086/api/v2/write?org=rucio&bucket=rucio"),
                 ("hermes", "influxdb_token", "mytoken"),
                 ("messaging-hermes", "destination", "/queue/events"),
