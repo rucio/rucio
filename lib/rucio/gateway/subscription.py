@@ -222,7 +222,9 @@ def list_subscription_rule_states(
 
 
 def delete_subscription(
-    subscription_id: str,
+    name: str,
+    account: str,
+    issuer: str,
     vo: str = DEFAULT_VO,
 ) -> None:
     """
@@ -232,7 +234,15 @@ def delete_subscription(
     :param vo: The VO of the user issuing command
     """
 
-    raise NotImplementedError
+    with db_session(DatabaseOperationType.WRITE) as session:
+        auth_result = has_permission(issuer=issuer, vo=vo, action='delete_subscription', kwargs={'account': account}, session=session)
+        if not auth_result.allowed:
+            raise AccessDenied('Account %s can not delete subscription. %s' % (issuer, auth_result.message))
+
+
+        internal_account = InternalAccount(account, vo=vo)
+
+        return subscription.delete_subscription(name=name, account=internal_account, session=session)
 
 
 def get_subscription_by_id(
