@@ -34,7 +34,7 @@ from rucio.common.client import detect_client_location
 from rucio.common.config import config_get
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
-from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException, ScopeNotFound
+from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
 from rucio.common.pcache import Pcache
 from rucio.common.utils import execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
 from rucio.rse import rsemanager as rsemgr
@@ -229,7 +229,6 @@ class DownloadClient:
         # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
-        self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
 
     def download_pfns(
         self,
@@ -304,6 +303,7 @@ class DownloadClient:
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
+        scopes = self.client.list_scopes()
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
         input_items = []
         for item in items:
@@ -322,7 +322,7 @@ class DownloadClient:
                 logger(logging.DEBUG, did_str)
                 raise InputValidationError('Cannot use PFN download with wildcard in DID')
 
-            did_scope, did_name = self._split_did_str(did_str)
+            did_scope, did_name = extract_scope(did_str, scopes)
             dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'), did_scope, item.get('no_subdir'))
 
             item['scope'] = did_scope
@@ -1321,7 +1321,7 @@ class DownloadClient:
 
         return items
 
-    def _resolve_one_item_dids(self, item: dict[str, Any]) -> "Iterator[dict[str, Any]]":
+    def _resolve_one_item_dids(self, item: dict[str, Any], scopes: list[str]) -> "Iterator[dict[str, Any]]":
         """
         Resolve scopes or wildcard DIDs to lists of full DID names:
 
@@ -1329,6 +1329,8 @@ class DownloadClient:
         ----------
         item :
             One input item
+        scopes :
+            list of known scope names
         """
         dids = item.get('did')
         filters = item.get('filters', {})
@@ -1346,7 +1348,7 @@ class DownloadClient:
             dids = [dids]
 
         for did_str in dids:
-            scope, did_name = self._split_did_str(did_str)
+            scope, did_name = extract_scope(did_str, scopes)
             filters['name'] = did_name
             any_did_resolved = False
             for did in self.client.list_dids(scope, filters=filters, did_type='all', long=True):
@@ -1428,8 +1430,9 @@ class DownloadClient:
         did_to_input_items = {}
 
         # Resolve DIDs
+        scopes = self.client.list_scopes()
         for item in input_items:
-            resolved_dids = list(self._resolve_one_item_dids(item))
+            resolved_dids = list(self._resolve_one_item_dids(item, scopes=scopes))
             if not resolved_dids:
                 logger(logging.WARNING, 'An item did not have any DIDs after resolving the input: %s.' % item.get('did', item))
             item['dids'] = resolved_dids
@@ -1650,8 +1653,9 @@ class DownloadClient:
                     no_subdir = item.get('no_subdir', False)
                     file_did_path = file_did.name
                     if input_did != file_did:
-                        # if datasets were given: prepare the destination paths for each dataset
-                        if self.extract_scope_convention == 'belleii' and file_did_path.startswith('/'):
+                        # if datasets were given: prepare a subdirectory for each dataset
+                        if file_did_path.startswith('/'):
+                            # hierarchical case: use last element of dataset path as name (/foo/bar/dataset -> dataset)
                             file_did_path = file_did_path.split('/')[-1]
                         path = os.path.join(self._prepare_dest_dir(base_dir, input_did.name, no_subdir), file_did_path)
                     else:
@@ -1829,55 +1833,6 @@ class DownloadClient:
             else:
                 download_packs.append(file_item)
         return download_packs
-
-    def _split_did_str(self, did_str: str) -> tuple[str, str]:
-        """
-        Splits a given DID string (e.g. 'scope1:name.file') into its scope and name part
-        (This function is meant to be used as class internal only)
-
-        Parameters
-        ----------
-        did_str :
-            the DID string that will be split
-
-        Returns
-        -------
-
-            the scope- and name part of the given DID
-
-        Raises
-        ------
-        InputValidationError
-            If the given DID string is not valid
-        """
-        did = did_str.split(':')
-        if len(did) == 2:
-            did_scope = did[0]
-            did_name = did[1]
-        elif len(did) == 1:
-            if self.extract_scope_convention == 'belleii':
-                listed_scopes = [scope for scope in self.client.list_scopes()]
-                # TODO remove backwards compatiblity check. See #8125
-                if len(listed_scopes) == 0:
-                    raise ScopeNotFound
-                if not isinstance(listed_scopes[0], str):
-                    scopes = [str(s['scope']) for s in listed_scopes]  # type: ignore
-                else:
-                    scopes = listed_scopes
-                did_scope, did_name = extract_scope(did[0], scopes)  # type: ignore
-            else:
-                did = did_str.split('.')
-                did_scope = did[0]
-                if did_scope == 'user' or did_scope == 'group':
-                    did_scope = '%s.%s' % (did[0], did[1])
-                did_name = did_str
-        else:
-            raise InputValidationError('%s is not a valid DID. To many colons.' % did_str)
-
-        if did_name.endswith('/'):
-            did_name = did_name[:-1]
-
-        return did_scope, did_name
 
     def _prepare_dest_dir(
             self,
