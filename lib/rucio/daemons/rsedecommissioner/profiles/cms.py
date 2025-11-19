@@ -21,7 +21,7 @@ from sqlalchemy.exc import NoResultFound
 
 from rucio.common.exception import Duplicate, RucioException, InvalidRSEExpression
 from rucio.core.lock import get_replica_locks_for_rule_id
-from rucio.core.rse import add_rse_attribute
+from rucio.core.rse import add_rse_attribute, add_protocol
 from rucio.core.rse_expression_parser import parse_expression
 
 from . import generic
@@ -86,8 +86,6 @@ def cms_decommissioner(rse: dict[str, Any], config: dict[str, Any]) -> Decommiss
             (_has_replicas_on_rse, move_to_destination)
         ],
         
-        # TODO: should moc protocol be added ? (introduced since 2020 by OscarFernandoGarzonMiguez)
-        # https://twiki.cern.ch/twiki/bin/view/CMSPublic/RseConfiguration#Decommissioning_Procedure
         # TODO: should rse be deleted ?
         finalizer = generic._generic_finalize
     )
@@ -105,12 +103,14 @@ def _cms_initialize(
     - `availability_write=False`
     - `availability_delete=True`
 
-    and the following attributes are set:
+    the following attributes are set:
 
     - 'update_from_json=False'
     - `skip_site_availability_update=True`
     - `loadtest=False`
     - `greedyDeletion=True`
+    
+    and a mock deletion protocol is added.
 
     :param rse: RSE table entry as a dictionary.
     :param logger: Logging function.
@@ -152,7 +152,31 @@ def _cms_initialize(
         add_rse_attribute(rse['id'], 'reaper', True)
     except Duplicate:
         pass
+
+    logger(logging.INFO,
+        '(%s) Adding mock deletion protocol.',
+        rse['rse'])
     
+    try:
+        add_protocol(rse['rse'], {
+            'scheme': 'mock',
+            'hostname': 'mock',
+            'prefix': '/',
+            'impl': 'rucio.rse.protocols.mock.Default',
+            'domains': {
+                'wan': {
+                    "read": 0,
+                    "write": 0,
+                    "delete": 1, 
+                    "third_party_copy_read": 0, 
+                    "third_party_copy_write": 0
+                    }
+                }
+            }
+                     )
+    except Duplicate:
+        pass
+
 def _is_test_rule(
     rule: dict[str, Any],
     rse: dict[str, Any],
