@@ -510,6 +510,25 @@ class TestSubscriptionClient:
         states = [r['state'] for r in rucio_client.list_subscriptions(name=subscription_name, account=account_name)]
         assert states[0] == 'INACTIVE'
 
+    def test_delete_subscription(self, rse_factory, rucio_client, vo):
+        """SUBSCRIPTION (CLIENT): Verify a subscription is correctly deleted"""
+        subscription_name = uuid()
+        rse1, _ = rse_factory.make_mock_rse()
+        rse2, _ = rse_factory.make_mock_rse()
+        rse_expression = '%s|%s' % (rse1, rse2)
+        account_name = uuid()[:10]
+        add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com')
+        rucio_client.add_subscription(
+            name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
+            replication_rules=[{'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
+        
+        subscription_name = list(rucio_client.list_subscriptions(name=subscription_name, account=account_name))
+        assert len(subscription_name)>0
+
+        rucio_client.delete_subscription(name=subscription_name, account=account_name)
+        subscription_name = list(rucio_client.list_subscriptions(name=subscription_name, account=account_name))
+        assert len(subscription_name)==0
+
 
 @pytest.mark.noparallel(reason='uses daemon')
 class TestDaemon:
