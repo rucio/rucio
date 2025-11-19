@@ -14,6 +14,7 @@
 
 """Functions to manage decommissioning configurations."""
 
+import json
 from enum import Enum
 from typing import Any
 
@@ -39,12 +40,11 @@ def config_to_attr(config: dict[str, Any]) -> str:
     :param config: Decommissioning configuration dictionary.
     :returns: Comma-separated key-value string encoding the configuration.
     """
-    attr = f'profile={config["profile"].value}'
-    if config.get('move_dest'):
-        attr += f',move_dest={config["move_dest"]}'
-    attr += f',status={config["status"].value}'
+    json_compat = config.copy()
+    if isinstance(json_compat.get("status"), DecommissioningStatus):
+        json_compat["status"] = json_compat["status"].value
 
-    return attr
+    return json.dumps(json_compat, separators=(',', ':'))
 
 
 def attr_to_config(attr: str) -> dict[str, Any]:
@@ -53,19 +53,21 @@ def attr_to_config(attr: str) -> dict[str, Any]:
     :param attr: Comma-separated key-value string encoding the configuration.
     :returns: Decommissioning configuration dictionary.
     """
-    # The decommission attribute is a comma-separated list of key=value settings
-    config: dict[str, Any] = dict(map(lambda s: s.split('=', 1), attr.split(',')))
-    for key, value in config.items():
-        if isinstance(value, str):
-            config[key] = value.strip().strip('"')
-    
-    if 'status' in config:
+    config: dict[str, Any]
+
+    try:
+        config = json.loads(attr)
+    except json.JSONDecodeError:
+        config = dict(map(lambda s: s.split('=', 1), attr.split(',')))
+        config = {k: v.strip().strip('"') for k, v in config.items()}
+
+    if "status" in config:
         try:
-            config['status'] = DecommissioningStatus[config['status'].upper()]
-        except KeyError as exc:
-            raise InvalidStatusName() from exc
+            config["status"] = DecommissioningStatus[config["status"].upper()]
+        except KeyError:
+            raise InvalidStatusName(config["status"])
     else:
-        config['status'] = DecommissioningStatus.PROCESSING
+        config["status"] = DecommissioningStatus.PROCESSING
 
     return config
 
@@ -79,7 +81,8 @@ def set_status(
     :param rse_id: RSE ID.
     :param status: RSE decommissioning status.
     """
-    config = attr_to_config(get_rse_attribute(rse_id, RseAttr.DECOMMISSION))  # type: ignore (get_rse_attribute could return None)
-    config['status'] = status
-    # add_rse_attribute can handle updating existing entries too
+    config_raw: str | None = get_rse_attribute(rse_id, RseAttr.DECOMMISSION)
+    config_str: str = config_raw if config_raw is not None else '{}'
+    config = attr_to_config(config_str)
+    config["status"] = status
     add_rse_attribute(rse_id, RseAttr.DECOMMISSION, config_to_attr(config))

@@ -66,6 +66,7 @@ class DecommissioningProfile:
 
     def process(
         self,
+        rse: dict[str, Any],
         rule: dict[str, Any],
         *,
         logger: "LoggerFunction" = logging.log
@@ -79,9 +80,7 @@ class DecommissioningProfile:
             if condition(rule, self.rse, logger=logger):
                 return action(rule, self.rse, logger=logger)
 
-        logger(logging.INFO,
-               '(%s) No handler matched rule %s for %s:%s',
-               rule['rse'], rule['id'], rule['scope'], rule['name'])
+        logger(logging.INFO,'(%s) No handler matched rule %s', rse['rse'], rule['id'])
         return HandlerOutcome.NEED_ATTENTION
 
     def finalize(
