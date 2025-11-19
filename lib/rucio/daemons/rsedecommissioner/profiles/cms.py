@@ -51,7 +51,7 @@ def cms_decommissioner(rse: dict[str, Any], config: dict[str, Any]) -> Decommiss
     :returns: A decommissioning profile dictionary.
     """
     
-    destination = str(config.get('destination', None))
+    destination = str(config.get('move_dest', None))
     move_to_destination = CMSRuleMover(destination)
     
     return DecommissioningProfile(
@@ -158,22 +158,24 @@ def _cms_initialize(
         rse['rse'])
     
     try:
-        add_protocol(rse['rse'], {
-            'scheme': 'mock',
-            'hostname': 'mock',
-            'prefix': '/',
-            'impl': 'rucio.rse.protocols.mock.Default',
-            'domains': {
-                'wan': {
-                    "read": 0,
-                    "write": 0,
-                    "delete": 1, 
-                    "third_party_copy_read": 0, 
-                    "third_party_copy_write": 0
+        add_protocol(
+            rse['id'],
+            {
+                'scheme': 'mock',
+                'hostname': 'mock',
+                'prefix': '/',
+                'impl': 'rucio.rse.protocols.mock.Default',
+                'domains': {
+                    'wan': {
+                        "read": 0,
+                        "write": 0,
+                        "delete": 1, 
+                        "third_party_copy_read": 0, 
+                        "third_party_copy_write": 0
                     }
                 }
             }
-                     )
+        )
     except Duplicate:
         pass
 
