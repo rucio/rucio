@@ -297,6 +297,27 @@ def list_replicas(
             yield rep
 
 
+def replica_exists(
+        did: dict[str, Any],
+        rse: str,
+        issuer: str,
+        vo: str = DEFAULT_VO
+) -> bool:
+    """
+    Returns true if a replica of the given file exists on the given RSE.
+    :param did: The DID of the file.
+    :param rse: The name of the RSE to check.
+    :param issuer: The issuer account.
+    :param vo: The VO to act on.
+    """
+    scope = InternalScope(did['scope'], vo=vo)
+    name = did['name']
+
+    with db_session(DatabaseOperationType.READ) as session:
+        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+        return replica.replica_exists(scope=scope, name=name, rse_id=rse_id, session=session)
+
+
 def add_replicas(
         rse: str,
         files: "Iterable[dict[str, Any]]",
