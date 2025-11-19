@@ -1855,7 +1855,12 @@ class DownloadClient:
             did_scope = did[0]
             did_name = did[1]
         elif len(did) == 1:
-            if self.extract_scope_convention == 'belleii':
+            # no : in name, extract scope from did
+
+            # this branch used to be belle-ii specific (if self.extract_scope_convention == "belleii")
+            # but is also needed for other groups, e.g. CTAO, using hierarchical dids,
+            # so now we check for the presence of / to decide if we need to call extract scope
+            if "/" in did[0]:
                 scopes = [scope for scope in self.client.list_scopes()]
                 did_scope, did_name = extract_scope(did[0], scopes)
             else:
