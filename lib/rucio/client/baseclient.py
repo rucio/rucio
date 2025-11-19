@@ -731,6 +731,7 @@ class BaseClient:
             self.logger.debug("Resetting the token expiration epoch file content.")
             # reset the token expiration epoch file content
             # at new CLI OIDC authentication
+            self.__create_temp_directory()
             self.token_exp_epoch = None
             file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_exp_epoch:
@@ -968,9 +969,9 @@ class BaseClient:
         self.logger.debug('got token from file')
         return True
 
-    def __write_token(self) -> None:
+    def __create_temp_directory (self) -> None:
         """
-        Write the current auth_token to the local token file.
+        Ensure the temporary directory is there.
         """
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.token_path):
@@ -984,6 +985,11 @@ class BaseClient:
             except Exception:
                 raise
 
+    def __write_token(self) -> None:
+        """
+        Write the current auth_token to the local token file.
+        """
+        self.__create_temp_directory()
         try:
             file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_token:
