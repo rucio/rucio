@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from belleii_rucio_policy_package.schema import validate_schema
@@ -139,3 +140,30 @@ def test_belle2_schema(rse_factory, did_factory, root_account, did_client):
         scope, name = extract_scope(path, [])
         with pytest.raises(InvalidObject):
             validate_schema('did', {'name': name, 'scope': scope, 'type': 'CONTAINER'})
+
+
+@skip_non_belleii
+def test_download_datasets(download_client, rse_factory, did_factory, tmp_path, monkeypatch):
+    """CLIENT(USER): Rucio download datasets"""
+    rse, _ = rse_factory.make_posix_rse()
+
+    # dummy fix to make dids come out correctly
+    monkeypatch.setattr(did_factory, "name_prefix", "mock")
+
+    datasets = [
+        did_factory.upload_test_dataset(rse, nb_files=2),
+        did_factory.upload_test_dataset(rse, nb_files=2),
+    ]
+    dids = []
+    for dataset in datasets:
+        name = dataset[0]["dataset_name"]
+        dids.append({"did": name, "base_dir": tmp_path})
+
+    download_client.download_dids(dids)
+
+    for dataset in datasets:
+        for f in dataset:
+            file_name = Path(f["did_name"]).name
+            # remove leading / to make joining work
+            subdir = f['dataset_name'][1:]
+            assert (tmp_path / subdir / file_name).is_file()
