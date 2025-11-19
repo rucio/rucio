@@ -54,7 +54,11 @@ def attr_to_config(attr: str) -> dict[str, Any]:
     :returns: Decommissioning configuration dictionary.
     """
     # The decommission attribute is a comma-separated list of key=value settings
-    config: dict[str, Any] = dict(map(lambda s: s.split('='), attr.split(',')))
+    config: dict[str, Any] = dict(map(lambda s: s.split('=', 1), attr.split(',')))
+    for key, value in config.items():
+        if isinstance(value, str):
+            config[key] = value.strip().strip('"')
+    
     if 'status' in config:
         try:
             config['status'] = DecommissioningStatus[config['status'].upper()]
