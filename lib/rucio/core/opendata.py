@@ -13,14 +13,17 @@
 # limitations under the License.
 
 import json
+import time
 from re import match, search
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
+from dogpile.cache.api import NoValue
 from sqlalchemy import and_, delete, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
 from rucio.common import exception
+from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
@@ -41,6 +44,7 @@ if TYPE_CHECKING:
     from rucio.common.types import InternalScope
 
 METRICS = MetricManager(module=__name__)
+REGION = MemcacheRegion(expiration_time=7200)
 
 
 def is_valid_opendata_did_state(state: str) -> bool:
@@ -276,19 +280,35 @@ def get_opendata_did_files(
         *,
         scope: "InternalScope",
         name: str,
+        use_cache: bool = False,
         session: "Session",
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """
     Retrieve the files associated with an Opendata DID.
 
     Parameters:
         scope: The scope of the Opendata DID.
         name: The name of the Opendata DID.
+        use_cache: If True, use caching to store/retrieve the result. Defaults to False.
         session: SQLAlchemy session to use for the query.
 
     Returns:
-        A list of dictionaries containing file information associated with the Opendata DID.
+        A dictionary containing the list of files, cache hit status, and time elapsed in milliseconds.
     """
+
+    time_start = time.perf_counter()
+
+    cache_key = f"opendata_did_files_{scope}_{name}"
+    if use_cache:
+        file_list = REGION.get(cache_key)
+
+        if not isinstance(file_list, NoValue):
+            result = {
+                "files": file_list,
+                "cache_hit": True,
+                "time_elapsed_millis": (time.perf_counter() - time_start) * 1000,
+            }
+            return result
 
     query = select(
         models.OpenDataDid.scope,
@@ -300,13 +320,13 @@ def get_opendata_did_files(
         )
     )
 
-    result = session.execute(query).mappings().fetchone()
+    query_result = session.execute(query).mappings().fetchone()
 
-    if not result:
+    if not query_result:
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID {scope}:{name} not found.")
 
     files = list_files(scope=scope, name=name)
-    result = [
+    file_list = [
         {
             "scope": file["scope"],
             "name": file["name"],
@@ -318,7 +338,7 @@ def get_opendata_did_files(
 
     rse_expression = config_get("opendata", "rse_expression", raise_exception=True)
 
-    for i, file in enumerate(result):
+    for i, file in enumerate(file_list):
         replicas = list_replicas(
             dids=[{"scope": file["scope"], "name": file["name"]}],
             rse_expression=rse_expression, session=session
@@ -331,7 +351,16 @@ def get_opendata_did_files(
                     continue
                 uris.append(uri)
 
-        result[i]["uris"] = uris
+        file_list[i]["uris"] = uris
+
+    if use_cache:
+        REGION.set(cache_key, file_list)
+
+    result = {
+        "files": file_list,
+        "cache_hit": False,
+        "time_elapsed_millis": (time.perf_counter() - time_start) * 1000,
+    }
 
     return result
 
@@ -398,13 +427,13 @@ def get_opendata_did(
     if include_rule:
         result["rule"] = _fetch_opendata_rule(scope=scope, name=name, session=session)
     if include_files:
-        opendata_files = get_opendata_did_files(scope=scope, name=name, session=session)
-        result["files"] = opendata_files
+        opendata_files = get_opendata_did_files(scope=scope, name=name, use_cache=True, session=session)
+        result["files"] = opendata_files["files"]
 
-        bytes_sum = sum(file["bytes"] for file in opendata_files)
+        bytes_sum = sum(file["bytes"] for file in result["files"])
         extensions = set()
         replicas_missing = 0
-        for file in opendata_files:
+        for file in result["files"]:
             if "uris" not in file or not file["uris"]:
                 replicas_missing += 1
                 continue
@@ -414,10 +443,12 @@ def get_opendata_did(
                     extensions.add(filename.split(".")[-1])
 
         result["files_summary"] = {
-            "count": len(opendata_files),
+            "count": len(result["files"]),
             "bytes": bytes_sum,
             "extensions": list(extensions),
             "replicas_missing": replicas_missing,
+            "request_cache_hit": opendata_files["cache_hit"],
+            "request_time_elapsed_millis": opendata_files["time_elapsed_millis"],
         }
 
     return result
