@@ -316,8 +316,13 @@ def get_opendata_did_files(
         for file in files
     ]
 
+    rse_expression = config_get("opendata", "rse_expression", raise_exception=True)
+
     for i, file in enumerate(result):
-        replicas = list_replicas(dids=[{"scope": file["scope"], "name": file["name"]}], session=session)
+        replicas = list_replicas(
+            dids=[{"scope": file["scope"], "name": file["name"]}],
+            rse_expression=rse_expression, session=session
+        )
         uris = []
         for replica in replicas:
             pfns = replica["pfns"]
