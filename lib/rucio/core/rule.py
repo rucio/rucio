@@ -1196,6 +1196,8 @@ def delete_rule(
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
             return
 
+        rule.deleted_at = datetime.utcnow()
+
         stmt = select(
             models.ReplicaLock
         ).where(
