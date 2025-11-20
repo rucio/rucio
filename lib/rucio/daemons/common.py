@@ -23,6 +23,7 @@ import time
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
+from rucio.common.startup_checks import run_startup_checks
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
@@ -34,6 +35,55 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
+
+_daemon_startup_checks_lock = threading.Lock()
+_daemon_startup_checks_ran = False
+
+
+def run_daemon_startup_checks(executable: str, hostname: Optional[str] = None) -> None:
+    """
+    Execute the daemon-specific startup diagnostics and the heartbeat sanity check.
+
+    This helper is called from :class:`HeartbeatHandler` every time a daemon enters
+    its ``with`` block.  On the very first invocation inside a Python process it
+    acquires a process-wide lock, imports all catalogue entries via
+    :func:`startup_checks_catalog.register_all`, and immediately executes
+    :func:`run_startup_checks` with the ``{'daemon'}`` tag filter.  Untagged
+    diagnostics ("always" checks) run alongside the daemon-tagged ones, and the
+    global ``_daemon_startup_checks_ran`` flag is flipped only after that runner
+    returns successfully.  Because the flag is cached per process, later calls in
+    the same process skip both the registration step and the runner and proceed
+    straight to the heartbeat verification.
+
+    The lock ensures that concurrent daemons cannot run the diagnostics in
+    parallel—every other caller blocks until the first one exits the ``with``
+    block.  If the runner raises (for example because a diagnostic failed), the
+    exception bubbles out, the flag remains ``False``, and the lock is released by
+    normal ``with``-statement unwinding; the next daemon that acquires the lock
+    therefore retries the registration + runner sequence instead of skipping it.
+
+    Also, calling :func:`startup_checks_catalog.register_all` multiple times is
+    harmless.  Each invocation overwrites the same registry entries, so the REST
+    application—or any other service—can call it independently without duplicating
+    checks; the actual execution still depends on the tag set supplied to
+    :func:`run_startup_checks`.
+
+    Irrespective of whether the diagnostic suite just ran, every invocation of
+    this helper performs :func:`heartbeat_core.sanity_check` afterwards so that the
+    daemon confirms its heartbeat record before starting real work.
+    """
+
+    global _daemon_startup_checks_ran
+
+    logger = logging.getLogger(executable)
+    resolved_hostname = hostname or socket.getfqdn()
+
+    with _daemon_startup_checks_lock:
+        if not _daemon_startup_checks_ran:
+            run_startup_checks(tags={'daemon'}, logger=logger)
+            _daemon_startup_checks_ran = True
+
+    heartbeat_core.sanity_check(executable=executable, hostname=resolved_hostname)
 
 
 class HeartbeatHandler:
@@ -62,7 +112,7 @@ class HeartbeatHandler:
         self.last_payload = None
 
     def __enter__(self) -> 'HeartbeatHandler':
-        heartbeat_core.sanity_check(executable=self.executable, hostname=self.hostname)
+        run_daemon_startup_checks(executable=self.executable, hostname=self.hostname)
         self.live()
         return self
 
