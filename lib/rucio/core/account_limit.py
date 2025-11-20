@@ -19,7 +19,7 @@ from sqlalchemy.sql import func, literal, select
 from sqlalchemy.sql.expression import and_, or_
 
 from rucio.common.constants import DEFAULT_VO
-from rucio.common.exception import AccountNotFound
+from rucio.common.exception import AccountNotFound, InvalidRSEExpression
 from rucio.core.account import account_exists, get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
@@ -131,16 +131,23 @@ def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_ex
 
     resolved_global_account_limits = {}
     for limit in global_account_limits:
-        if account:
-            resolved_rses = parse_expression(limit['rse_expression'], filter_={'vo': account.vo}, session=session)
-        else:
-            resolved_rses = parse_expression(limit['rse_expression'], session=session)
         limit_in_bytes = float('inf') if limit['bytes'] == -1 else limit['bytes']
-        resolved_global_account_limits[limit['rse_expression']] = {
-            'resolved_rses': [resolved_rse['rse'] for resolved_rse in resolved_rses],
-            'resolved_rse_ids': [resolved_rse['id'] for resolved_rse in resolved_rses],
-            'limit': limit_in_bytes
+        resolved_limit = {
+            'resolved_rses': [],
+            'resolved_rse_ids': [],
+            'limit': limit_in_bytes,
         }
+        try:
+            if account:
+                resolved_rses = parse_expression(limit['rse_expression'], filter_={'vo': account.vo}, session=session)
+            else:
+                resolved_rses = parse_expression(limit['rse_expression'], session=session)
+            resolved_limit['resolved_rses'] = [resolved_rse['rse'] for resolved_rse in resolved_rses]
+            resolved_limit['resolved_rse_ids'] = [resolved_rse['id'] for resolved_rse in resolved_rses]
+        except InvalidRSEExpression:
+            # invalid expressions resolve to no RSEs
+            pass
+        resolved_global_account_limits[limit['rse_expression']] = resolved_limit
     return resolved_global_account_limits
 
 
@@ -379,17 +386,22 @@ def get_global_account_usage(account: "InternalAccount", rse_expression: Optiona
         # One RSE Expression
         limit = get_global_account_limit(account=account, rse_expression=rse_expression, session=session)
         vo = account.vo
-        resolved_rses = [resolved_rse['id'] for resolved_rse in parse_expression(rse_expression, filter_={'vo': vo}, session=session)]
-        stmt = select(
-            func.sum(models.AccountUsage.bytes),
-            func.sum(models.AccountUsage.files)
-        ).where(
-            and_(models.AccountUsage.account == account,
-                 models.AccountUsage.rse_id.in_(resolved_rses))
-        ).group_by(
-            models.AccountUsage.account
-        )
-        usage = session.execute(stmt).first()
+        try:
+            rses = parse_expression(rse_expression, filter_={'vo': vo}, session=session)
+            resolved_rses = [resolved_rse['id'] for resolved_rse in rses]
+            stmt = select(
+                func.sum(models.AccountUsage.bytes),
+                func.sum(models.AccountUsage.files)
+            ).where(
+                and_(models.AccountUsage.account == account,
+                     models.AccountUsage.rse_id.in_(resolved_rses))
+            ).group_by(
+                models.AccountUsage.account
+            )
+            usage = session.execute(stmt).first()
+        except InvalidRSEExpression:
+            limit = None
+            usage = None
         if limit is None:
             limit = 0
         if usage is None:
