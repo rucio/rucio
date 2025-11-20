@@ -1213,6 +1213,7 @@ class ReplicationRule(BASE, ModelBase):
     split_container: Mapped[bool] = mapped_column(Boolean(name='RULES_SPLIT_CONTAINER_CHK', create_constraint=True),
                                                   default=False)
     meta: Mapped[Optional[str]] = mapped_column(String(4000))
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     _table_args = (PrimaryKeyConstraint('id', name='RULES_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='RULES_SCOPE_NAME_FK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='RULES_ACCOUNT_FK'),
@@ -1278,6 +1279,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     eol_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     split_container: Mapped[bool] = mapped_column(Boolean())
     meta: Mapped[Optional[str]] = mapped_column(String(4000))
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     __mapper_args__ = {
         'primary_key': [id, locks_replicating_cnt]  # Fake primary key for SQLA
     }
@@ -1326,6 +1328,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     eol_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     split_container: Mapped[bool] = mapped_column(Boolean())
     meta: Mapped[Optional[str]] = mapped_column(String(4000))
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     __mapper_args__ = {
         'primary_key': [id, locks_replicating_cnt]  # Fake primary key for SQLA
     }
