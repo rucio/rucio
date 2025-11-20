@@ -722,10 +722,15 @@ def _add_opendata_rule(
 
     rule_asynchronous = config_get_bool("opendata", "rule_asynchronous", raise_exception=False, default=False)
     rule_activity = config_get("opendata", "rule_activity", raise_exception=False, default=None)
-    rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=True)
     rule_account = config_get("opendata", "rule_account", raise_exception=False, default="root")
     rule_vo = config_get("opendata", "rule_vo", raise_exception=False, default=DEFAULT_VO)
     rule_copies = config_get_int("opendata", "rule_copies", raise_exception=False, default=1)
+
+    # The `rse_expression` can be defined either in the more specific `rule_rse_expression` (first choice, override)
+    # or in the more general `rse_expression` (second choice) in the [opendata] section of the config file.
+    rule_rse_expression = config_get("opendata", "rule_rse_expression", raise_exception=False, default=None)
+    if not rule_rse_expression:
+        rule_rse_expression = config_get("opendata", "rse_expression", raise_exception=True)
 
     add_rule_result = add_rule(
         dids=[{"scope": scope, "name": name}],
