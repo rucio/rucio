@@ -243,8 +243,7 @@ class RSE(ErrorHandlingMethodView):
                     type: string
                   rse_type:
                     description: "The rse type."
-                    type: string
-                    enum: ["DISK", "TAPE"]
+                    $ref: "#/components/schemas/RSEType"
                   latitude:
                     description: "The latitude of the RSE."
                     type: number
@@ -384,8 +383,7 @@ class RSE(ErrorHandlingMethodView):
                     type: string
                   rse_type:
                     description: "The rse type."
-                    type: string
-                    enum: ["DISK", "TAPE"]
+                    $ref: "#/components/schemas/RSEType"
                   latitude:
                     description: "The latitude of the RSE."
                     type: number
@@ -478,8 +476,8 @@ class RSE(ErrorHandlingMethodView):
                       type: string
                     rse_type:
                       description: "The rse type."
-                      type: string
-                      enum: ["DISK", "TAPE"]
+                      $ref: "#/components/schemas/RSEType"
+
                     latitude:
                       description: "The latitude of the RSE."
                       type: number
@@ -728,8 +726,7 @@ class ProtocolList(ErrorHandlingMethodView):
                       type: string
                     rse_type:
                       description: "The rse type."
-                      type: string
-                      enum: ["DISK", "TAPE"]
+                      $ref: "#/components/schemas/RSEType"
                     availability_read:
                       description: "The read availability of the RSE."
                       type: boolean
@@ -1064,8 +1061,8 @@ class Protocol(ErrorHandlingMethodView):
                       type: string
                     rse_type:
                       description: "The rse type."
-                      type: string
-                      enum: ["DISK", "TAPE"]
+                      $ref: "#/components/schemas/RSEType"
+
                     availability_read:
                       description: "The read availability of the RSE."
                       type: boolean
@@ -1228,8 +1225,8 @@ class Protocol(ErrorHandlingMethodView):
                       type: string
                     rse_type:
                       description: "The rse type."
-                      type: string
-                      enum: ["DISK", "TAPE"]
+                      $ref: "#/components/schemas/RSEType"
+
                     availability_read:
                       description: "The read availability of the RSE."
                       type: boolean

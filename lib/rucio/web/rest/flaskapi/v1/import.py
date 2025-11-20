@@ -46,8 +46,7 @@ class Import(ErrorHandlingMethodView):
                       properties:
                         rse_type:
                           description: "The type of an rse."
-                          type: string
-                          enum: ['DISK', 'TAPE']
+                          $ref: "#/components/schemas/RSEType"
                   distances:
                     description: "Distances data with src rse name as key."
                     type: object
@@ -89,8 +88,7 @@ class Import(ErrorHandlingMethodView):
                             properties:
                               type:
                                 description: "The type of the identity."
-                                type: string
-                                enum: ['X509', 'GSS', 'USERPASS', 'SSH', 'SAML', 'OIDC']
+                                $ref: "#/components/schemas/IdentityType"
                               identity:
                                 description: "Identifier of the identity."
                                 type: string
