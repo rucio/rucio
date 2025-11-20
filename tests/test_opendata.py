@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import re
-from configparser import DuplicateSectionError, NoOptionError
+from configparser import NoOptionError
 
 import pytest
 
-from rucio.common.config import config_add_section, config_get_bool, config_remove_option, config_set
+from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
@@ -39,6 +39,17 @@ skip_unsupported_dialect = pytest.mark.skipif(
     reason=f"Unsupported dialect: {get_session().bind.dialect.name}"
 )
 
+OPENDATA_RSE_EXPRESSION = 'OpenData=True'
+
+
+@pytest.fixture(scope="module", autouse=True)
+def module_setup():
+    # Set OpenData RSE expression for tests
+    if not config_has_section('opendata'):
+        config_add_section('opendata')
+
+    config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+
 
 class TestOpenDataCommon:
     def test_opendata_did_states(self):
@@ -50,6 +61,11 @@ class TestOpenDataCommon:
         opendata_did_state_from_enum = set([state.name for state in OpenDataDIDState])
 
         assert opendata_did_state_from_common == opendata_did_state_from_enum, "'OpenDataDIDState' enum does not match expected states from 'OPENDATA_DID_STATE_LITERAL'"
+
+    def test_opendata_config(self):
+        rse_expression = config_get('opendata', 'rse_expression')
+
+        assert rse_expression == OPENDATA_RSE_EXPRESSION, f"'opendata.rse_expression' should be '{OPENDATA_RSE_EXPRESSION}'"
 
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
@@ -291,7 +307,8 @@ class TestOpenDataCore:
         assert record_id_after == record_id_first, f"Record ID should be updated to {record_id_first}, fetched from `get_opendata_record_id`"
 
         record_id_second = 54321
-        opendata.update_opendata_record_id(scope=mock_scope, name=name, record_id=record_id_second, session=db_write_session)
+        opendata.update_opendata_record_id(scope=mock_scope, name=name, record_id=record_id_second,
+                                           session=db_write_session)
 
         db_write_session.commit()
 
@@ -331,7 +348,8 @@ class TestOpenDataCore:
 
         with pytest.raises(OpenDataDuplicateRecordID):
             # using a record id that is in use by another open data did will throw
-            opendata.update_opendata_did(scope=mock_scope, name=name_first, record_id=record_id, session=db_write_session)
+            opendata.update_opendata_did(scope=mock_scope, name=name_first, record_id=record_id,
+                                         session=db_write_session)
 
     def test_opendata_dids_list(self, mock_scope, root_account, db_write_session):
         dids = [
@@ -385,7 +403,7 @@ class TestOpenDataCore:
 
     def test_opendata_dids_update_rule(self, mock_scope, root_account, vo, db_write_session, rse_factory):
         _, opendata_rse_id = rse_factory.make_posix_rse(session=db_write_session)
-        add_rse_attribute(opendata_rse_id, key='Opendata', value=True, session=db_write_session)
+        add_rse_attribute(opendata_rse_id, key='OpenData', value=True, session=db_write_session)
 
         name = did_name_generator(did_type="dataset")
 
@@ -401,15 +419,10 @@ class TestOpenDataCore:
         db_write_session.commit()
 
         try:
-            config_add_section('opendata')
-        except DuplicateSectionError:
-            # config already exists, no need to update it
-            pass
-
-        try:
             config_set('opendata', 'rule_enable', 'False')
             # Remove `rule_rse_expression` to check exception when rule configuration is not present
             config_remove_option('opendata', 'rule_rse_expression')
+            config_remove_option('opendata', 'rse_expression')
 
             rule_enable = config_get_bool("opendata", "rule_enable", raise_exception=False, default=False)
             assert rule_enable is False, "'opendata.rule_enable' should be False"
@@ -422,11 +435,13 @@ class TestOpenDataCore:
             config_set('opendata', 'rule_enable', 'True')
 
             with pytest.raises(NoOptionError):
-                # Because `rule_rse_expression` is not configured, rule creation fails
+                # Because `rse_expression` and `rule_rse_expression` are not configured, rule creation fails
                 opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
                                              session=db_write_session)
 
-            config_set('opendata', 'rule_rse_expression', 'Opendata=True')
+            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+            config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
+            # do not set `rse_expression` yet, to check `rule_rse_expression` is enough
             config_set('opendata', 'rule_vo', vo)
 
             response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
@@ -447,6 +462,46 @@ class TestOpenDataCore:
 
         finally:
             config_set('opendata', 'rule_enable', 'False')
+            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+            config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
+
+    def test_opendata_dids_show_files(self, mock_scope, root_account, db_write_session):
+        name = did_name_generator(did_type="dataset")
+        scope = mock_scope
+
+        try:
+            # Remove `rse_expression` to check exception when fetching files from Open Data RSEs
+            config_remove_option('opendata', 'rse_expression')
+
+            add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                    session=db_write_session)
+            opendata.add_opendata_did(scope=scope, name=name, session=db_write_session)
+
+            db_write_session.commit()
+
+            opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=False,
+                                                     session=db_write_session)
+
+            assert opendata_did["scope"] == scope, "Scope does not match"
+            assert opendata_did["name"] == name, "Name does not match"
+
+            assert "files" not in opendata_did, "Files should not be present in the response"
+
+            with pytest.raises(NoOptionError):
+                opendata.get_opendata_did(scope=scope, name=name, include_files=True, session=db_write_session)
+
+            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+
+            opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=True,
+                                                     session=db_write_session)
+
+            assert opendata_did["scope"] == scope, "Scope does not match"
+            assert opendata_did["name"] == name, "Name does not match"
+
+            assert "files" in opendata_did, "Files should be present in the response"
+
+        finally:
+            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
@@ -511,6 +566,11 @@ class TestOpenDataClient:
     def test_opendata_show_client(self, mock_scope, rucio_client):
         name = did_name_generator(did_type="dataset")
         scope = str(mock_scope)
+
+        if not config_has_section('opendata'):
+            config_add_section('opendata')
+
+        config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
         # Add it as a DID
         rucio_client.add_did(scope=scope, name=name, did_type="DATASET")
@@ -759,7 +819,7 @@ class TestOpenDataCLI:
         assert exitcode == 0, f"Failed to add Open Data DID: {stderr.strip()}"
 
         # Update the Record ID (using a hash of the name to avoid collisions)
-        record_id = abs(hash(name)) % 10**8
+        record_id = abs(hash(name)) % 10 ** 8
         exitcode, _, stderr = execute(f"rucio opendata did update {mock_scope}:{name} --record-id {record_id}")
         assert exitcode == 0, f"Failed to update Open Data DID: {stderr.strip()}"
 
