@@ -128,9 +128,8 @@ class Scope(ErrorHandlingMethodView):
                         type: string
                         description: "The name of the DID."
                       type:
-                        type: string
                         description: "The type of the DID."
-                        enum: ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
+                        $ref: "#/components/schemas/DIDType"
                       parent:
                         type: string
                         description: "The parent of the DID."
@@ -183,8 +182,7 @@ class Search(ErrorHandlingMethodView):
           in: query
           description: "The DID type to search for."
           schema:
-            type: string
-            enum: ['all', 'collection', 'container', 'dataset', 'file']
+            $ref: "#/components/schemas/KeyType"
             default: 'collection'
         - name: limit
           in: query
@@ -326,8 +324,7 @@ class BulkDIDS(ErrorHandlingMethodView):
                       type: string
                     type:
                       description: "The type of the DID."
-                      type: string
-                      enum: ["F", "D", "C", "A", "X", "Y", "Z"]
+                      $ref: "#/components/schemas/DIDType"
                     account:
                       description: "The account associated with the DID."
                       type: string

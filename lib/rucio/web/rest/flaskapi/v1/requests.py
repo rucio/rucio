@@ -69,8 +69,7 @@ class RequestGet(ErrorHandlingMethodView):
                       type: string
                     request_type:
                       description: "The request type."
-                      type: string
-                      enum: ["T", "U", "D", "I", "O"]
+                      $ref: "#/components/schemas/RequestType"
                     scope:
                       description: "The scope of the transfer."
                       type: string
@@ -91,8 +90,7 @@ class RequestGet(ErrorHandlingMethodView):
                       type: string
                     state:
                       description: "The state of the request."
-                      type: string
-                      enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                      $ref: "#/components/schemas/RequestState"
                     external_id:
                       description: "External id of the request."
                       type: string
@@ -234,8 +232,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                       type: string
                     request_type:
                       description: "The request type."
-                      type: string
-                      enum: ["T", "U", "D", "I", "O"]
+                      $ref: "#/components/schemas/RequestType"
                     scope:
                       description: "The scope of the transfer."
                       type: string
@@ -256,8 +253,7 @@ class RequestHistoryGet(ErrorHandlingMethodView):
                       type: string
                     state:
                       description: "The state of the request."
-                      type: string
-                      enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                      $ref: "#/components/schemas/RequestState"
                     external_id:
                       description: "External id of the request."
                       type: string
@@ -431,8 +427,7 @@ class RequestList(ErrorHandlingMethodView):
                         type: string
                       request_type:
                         description: "The request type."
-                        type: string
-                        enum: ["T", "U", "D", "I", "O"]
+                        $ref: "#/components/schemas/RequestType"
                       scope:
                         description: "The scope of the transfer."
                         type: string
@@ -453,8 +448,7 @@ class RequestList(ErrorHandlingMethodView):
                         type: string
                       state:
                         description: "The state of the request."
-                        type: string
-                        enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                        $ref: "#/components/schemas/RequestState"
                       external_id:
                         description: "External id of the request."
                         type: string
@@ -670,8 +664,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
                         type: string
                       request_type:
                         description: "The request type."
-                        type: string
-                        enum: ["T", "U", "D", "I", "O"]
+                        $ref: "#/components/schemas/RequestType"
                       scope:
                         description: "The scope of the transfer."
                         type: string
@@ -692,8 +685,7 @@ class RequestHistoryList(ErrorHandlingMethodView):
                         type: string
                       state:
                         description: "The state of the request."
-                        type: string
-                        enum: ["Q", "G", "S", "F", "D", "L", "N", "O", "A", "M", "U", "W", "P"]
+                        $ref: "#/components/schemas/RequestState"
                       external_id:
                         description: "External id of the request."
                         type: string

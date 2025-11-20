@@ -78,8 +78,7 @@ class Subscription(ErrorHandlingMethodView):
                         type: integer
                       state:
                         description: "The state of the subscription."
-                        type: string
-                        enum: ["A", "I", "N", "U", "B"]
+                        $ref: "#/components/schemas/SubscriptionState"
                       last_processed:
                         description: "The time the subscription was processed last."
                         type: string
@@ -172,8 +171,8 @@ class Subscription(ErrorHandlingMethodView):
                         type: integer
                       state:
                         description: "The state of the subscription. If not supplied, the state will be set to 'U' (updated)."
-                        type: string
-                        enum: ["A", "I", "N", "U", "B"]
+                        $ref: "#/components/schemas/SubscriptionState"
+
         responses:
           201:
             description: "OK"
@@ -371,8 +370,7 @@ class SubscriptionName(ErrorHandlingMethodView):
                         type: integer
                       state:
                         description: "The state of the subscription."
-                        type: string
-                        enum: ["A", "I", "N", "U", "B"]
+                        $ref: "#/components/schemas/SubscriptionState"
                       last_processed:
                         description: "The time the subscription was processed last."
                         type: string
@@ -519,8 +517,7 @@ class States(ErrorHandlingMethodView):
                         type: string
                       state:
                         description: "The state of the rules."
-                        type: string
-                        enum: ["R", "O", "S", "U", "W", "I"]
+                        $ref: "#/components/schemas/RuleState"
                       count:
                         description: "The number of rules with that state."
                         type: integer
@@ -582,8 +579,7 @@ class SubscriptionId(ErrorHandlingMethodView):
                       type: integer
                     state:
                       description: "The state of the subscription."
-                      type: string
-                      enum: ["A", "I", "N", "U", "B"]
+                      $ref: "#/components/schemas/SubscriptionState"
                     last_processed:
                       description: "The time the subscription was processed last."
                       type: string
