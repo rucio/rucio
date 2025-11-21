@@ -419,6 +419,7 @@ def run_test_directly(
     scripts_to_run = ' && '.join(
         [
             # Install Rucio directly from the mounted source
+            'ln -sf pyproject.server.toml pyproject.toml',
             'pip install --no-cache-dir -e /rucio_source',
             # Change to the source directory so that relative paths work
             'cd /rucio_source',
@@ -564,6 +565,7 @@ def run_with_httpd(
             run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d', env=compose_env)
 
             # Install Rucio directly from the mounted source
+            run('docker', *namespace_args, 'exec', rucio_container, 'ln', '-sf', 'pyproject.server.toml', 'pyproject.toml')
             run('docker', *namespace_args, 'exec', rucio_container, 'pip', 'install', '--no-cache-dir', '-e', '/rucio_source')
 
             # Running test.sh
