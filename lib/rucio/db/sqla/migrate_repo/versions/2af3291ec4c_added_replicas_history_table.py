@@ -21,10 +21,10 @@ from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     create_primary_key,
     create_table,
-    drop_current_primary_key,
     drop_table,
     is_current_dialect,
     try_drop_constraint,
+    try_drop_primary_key,
 )
 from rucio.db.sqla.types import GUID
 
@@ -59,7 +59,7 @@ def downgrade():
         drop_table('replicas_history')
 
     elif is_current_dialect('postgresql'):
-        drop_current_primary_key('replicas_history')
+        try_drop_primary_key('replicas_history')
         try_drop_constraint('REPLICAS_HIST_RSE_ID_FK', 'replicas_history')
         try_drop_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history')
         drop_table('replicas_history')

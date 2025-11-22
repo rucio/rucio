@@ -1014,6 +1014,41 @@ def drop_current_primary_key(
     )
 
 
+def try_drop_primary_key(
+        table_name: str,
+        *,
+        legacy_names: 'Iterable[str]' = (),
+) -> None:
+    """
+    Drop the current primary key on *table_name* in an idempotent, backend-aware way,
+    then (optionally) drop a few caller-specified legacy constraint names that could
+    collide with the new PK name you intend to create.
+
+    This is a thin wrapper over :func:`drop_current_primary_key`.
+
+    Parameters
+    ----------
+    table_name : str
+        Table whose primary key should be removed.
+    legacy_names : Iterable[str], optional
+        Additional constraint names to drop *by name* after the current PK is removed.
+        Use this only to avoid name collisions when re-creating the PK with a specific
+        name (e.g., dropping an old ``TOKENS_PK`` that is not the current PK anymore).
+
+    Notes
+    -----
+    * This helper does **not** drop dependent foreign keys; do that explicitly in
+      the migration when required by the backend (e.g., MySQL/InnoDB).
+    * Idempotent: repeating the call leaves the schema unchanged.
+    """
+    # Drop the actual current PK using the dialect-specific logic.
+    drop_current_primary_key(table_name)
+
+    # Optionally clean up a few known legacy names that could collide with the new PK name.
+    for name in legacy_names or ():
+        try_drop_constraint(name, table_name)
+
+
 # ---------------------------------------------------------------------------
 # Schema-defaulting wrappers for alembic.op
 # ---------------------------------------------------------------------------
@@ -1385,4 +1420,5 @@ __all__ = [
     "rename_table",
     "try_drop_constraint",
     "try_drop_index",
+    "try_drop_primary_key",
 ]

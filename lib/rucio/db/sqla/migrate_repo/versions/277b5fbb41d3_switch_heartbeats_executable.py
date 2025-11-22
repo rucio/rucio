@@ -20,8 +20,8 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_primary_key,
     drop_column,
-    drop_current_primary_key,
     is_current_dialect,
+    try_drop_primary_key,
 )
 from rucio.db.sqla.models import String
 
@@ -36,7 +36,7 @@ def upgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_current_primary_key('heartbeats')
+        try_drop_primary_key('heartbeats')
         drop_column('heartbeats', 'executable')
         add_column('heartbeats', sa.Column('executable', String(64)))
         add_column('heartbeats', sa.Column('readable', String(4000)))
@@ -49,7 +49,7 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_current_primary_key('heartbeats')
+        try_drop_primary_key('heartbeats')
         drop_column('heartbeats', 'executable')
         drop_column('heartbeats', 'readable')
         add_column('heartbeats', sa.Column('executable', String(767)))

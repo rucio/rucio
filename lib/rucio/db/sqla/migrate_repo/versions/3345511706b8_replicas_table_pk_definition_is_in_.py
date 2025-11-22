@@ -18,10 +18,10 @@ from alembic.op import create_foreign_key
 
 from rucio.db.sqla.migrate_repo import (
     create_primary_key,
-    drop_current_primary_key,
     is_current_dialect,
     try_drop_constraint,
     try_drop_index,
+    try_drop_primary_key,
 )
 
 # revision identifiers used by alembic
@@ -36,7 +36,7 @@ def upgrade():
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
-        drop_current_primary_key('replicas')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
 
@@ -47,7 +47,7 @@ def upgrade():
         try_drop_index('SOURCES_REPLICA_FK', 'sources')
         try_drop_constraint('REPLICAS_LFN_FK', 'replicas')
         try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
-        drop_current_primary_key('replicas')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
@@ -61,7 +61,7 @@ def downgrade():
 
     if is_current_dialect('oracle', 'postgresql'):
         try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
-        drop_current_primary_key('replicas')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['rse_id', 'scope', 'name'], ['rse_id', 'scope', 'name'])
 
@@ -72,7 +72,7 @@ def downgrade():
         try_drop_index('SOURCES_REPLICA_FK', 'sources')
         try_drop_constraint('REPLICAS_LFN_FK', 'replicas')
         try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
-        drop_current_primary_key('replicas')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])

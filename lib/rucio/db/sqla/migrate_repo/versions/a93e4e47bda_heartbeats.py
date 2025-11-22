@@ -23,9 +23,9 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_primary_key,
     create_table,
-    drop_current_primary_key,
     drop_table,
     is_current_dialect,
+    try_drop_primary_key,
 )
 
 # Alembic revision identifiers
@@ -60,7 +60,7 @@ def downgrade():
     """
 
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
-        drop_current_primary_key('configs')
+        try_drop_primary_key('configs')
         drop_table('heartbeats')
 
     elif is_current_dialect('postgresql'):
