@@ -155,6 +155,7 @@ def downgrade():
         drop_table('bad_pfns')
         try_drop_index('BAD_REPLICAS_EXPIRES_AT_IDX', 'bad_replicas')
 
+        try_drop_constraint('BAD_REPLICAS_STATE_CHK', 'bad_replicas')
         create_check_constraint(constraint_name='BAD_REPLICAS_STATE_CHK', table_name='bad_replicas',
                                 condition="state in ('B', 'D', 'L', 'R', 'S')")
 

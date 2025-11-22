@@ -82,6 +82,7 @@ def downgrade():
         drop_column('rses', 'staging_area')
 
     elif is_current_dialect('mysql'):
+        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
         drop_column('rses', 'staging_area')

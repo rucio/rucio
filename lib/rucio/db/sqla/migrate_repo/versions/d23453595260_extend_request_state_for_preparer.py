@@ -97,7 +97,6 @@ def upgrade():
     elif is_current_dialect('mysql'):
         if get_context().dialect.server_version_info[0] == 8:
             try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
-
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
@@ -169,14 +168,14 @@ def downgrade():
         )
 
     elif is_current_dialect('mysql'):
+        if get_context().dialect.server_version_info[0] == 8:
+            try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
+
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
             condition=f'state in ({enum_values_str(old_enum_values)})',
         )
-
-        if get_context().dialect.server_version_info[0] == 8:
-            try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
 
 
 def enum_values_str(enumvals):

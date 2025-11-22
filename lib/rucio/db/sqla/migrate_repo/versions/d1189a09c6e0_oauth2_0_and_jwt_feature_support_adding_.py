@@ -117,10 +117,12 @@ def downgrade():
         alter_column('tokens', 'token', existing_type=sa.String(length=3072), type_=sa.String(length=352))
 
     elif is_current_dialect('mysql'):
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
@@ -136,10 +138,12 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
 
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")
 
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS', 'SSH', 'SAML')")

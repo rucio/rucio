@@ -161,7 +161,9 @@ def downgrade():
         )
 
     elif is_current_dialect('mysql'):
+        try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
         create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        try_drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         create_check_constraint(constraint_name='COLLECTION_REPLICAS_STATE_CHK', table_name='collection_replicas',
                                 condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")

@@ -66,6 +66,7 @@ def upgrade():
         )
 
     elif is_current_dialect('mysql'):
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C', 'P')")
 
@@ -106,5 +107,6 @@ def downgrade():
         )
 
     elif is_current_dialect('mysql'):
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
                                 condition="notification in ('Y', 'N', 'C')")

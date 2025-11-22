@@ -82,7 +82,7 @@ def downgrade():
 
     rules_table = qualify_table('rules')
 
-    if is_current_dialect('oracle'):
+    if is_current_dialect('oracle', 'mysql'):
         drop_column('rules', 'ignore_account_limit')
         try_drop_constraint('RULES_STATE_CHK', 'rules')
         create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
@@ -110,7 +110,3 @@ def downgrade():
             USING state::{rules_state_enum}
             """
         )
-
-    elif is_current_dialect('mysql'):
-        drop_column('rules', 'ignore_account_limit')
-        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
