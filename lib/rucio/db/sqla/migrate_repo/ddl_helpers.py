@@ -44,6 +44,7 @@ Operational notes
 import logging
 from typing import TYPE_CHECKING
 
+import sqlalchemy as sa
 from alembic import context, op
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.dialects import oracle as ora
@@ -1049,6 +1050,107 @@ def try_drop_primary_key(
         try_drop_constraint(name, table_name)
 
 
+def try_create_table(*args: 'Any', **kwargs: 'Any') -> 'Optional[Table]':
+    """
+    Create a table only when it is absent, tolerating pre-existing objects.
+
+    Parameters
+    ----------
+    *args : Any
+        Positional arguments forwarded to Alembic. The first positional argument
+        must be the table name.
+    **kwargs : Any
+        Keyword arguments forwarded to Alembic. If ``schema`` is not provided or
+        is falsy, :func:`get_effective_schema` is injected.
+
+    Returns
+    -------
+    Optional[Table]
+        The SQLAlchemy ``Table`` object when the table is created; otherwise
+        ``None`` when an existing table (regular or temporary) is detected and
+        creation is skipped.
+
+    Behavior by dialect
+    -------------------
+    * Oracle: checks both regular and global temporary tables via
+      ``Inspector.get_table_names`` and ``Inspector.get_temp_table_names`` to
+      avoid ``ORA-00955`` when temporary tables are pre-seeded.
+    * Others: consults ``Inspector.get_table_names`` with the effective schema
+      and, where supported, ``Inspector.get_temp_table_names`` as a best effort.
+
+    Notes
+    -----
+    * Falls back to unconditional creation when no migration context or bind is
+      available (e.g. offline SQL generation), mirroring the other helpers'
+      best-effort semantics.
+    * Keeps the default-schema behavior of :func:`create_table` so callers do
+      not need to repeat the schema argument.
+
+    Examples
+    --------
+    Idempotently create an auxiliary audit table in the migration schema:
+
+    >>> try_create_table(
+    ...     "tmp_account_audit",
+    ...     sa.Column("id", sa.Integer(), primary_key=True),
+    ...     sa.Column("account", sa.String(25), nullable=False),
+    ... )
+    """
+
+    if not args:
+        raise ValueError("create_table_if_missing requires a table name as the first argument")
+
+    table_name = args[0]
+    kwargs = _with_default_schema(dict(kwargs))
+    schema = kwargs.get("schema")
+    dialect = _dialect_name()
+    ctx = get_migration_context()
+    bind = getattr(ctx, "bind", None) if ctx else None
+
+    if dialect is None:
+        _warn_unknown_dialect_once()
+
+    inspector = None
+    if bind is not None:
+        try:
+            inspector = sa.inspect(bind)
+        except Exception:
+            inspector = None
+
+    if inspector is not None:
+        target = table_name.lower()
+        existing_tables = {tbl.lower() for tbl in inspector.get_table_names(schema=schema)}
+        if target in existing_tables:
+            LOGGER.debug(
+                "Table %s already exists; create_table_if_missing treated as no-op", _quoted_table(table_name, schema)
+            )
+            return None
+
+        temp_tables: 'Iterable[str]'
+        try:
+            temp_tables = inspector.get_temp_table_names()
+        except Exception:
+            temp_tables = ()
+
+        if target in {tbl.lower() for tbl in temp_tables}:
+            LOGGER.debug(
+                "Temporary table %s already exists; create_table_if_missing treated as no-op",
+                _quoted_table(table_name, schema),
+            )
+            return None
+
+    elif ctx is not None and bind is None:
+        LOGGER.debug(
+            "create_table_if_missing falling back to unconditional creation; migration context has no bind",
+        )
+    else:
+        LOGGER.debug(
+            "create_table_if_missing falling back to unconditional creation; no migration context available",
+        )
+
+    return op.create_table(*args, **kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Schema-defaulting wrappers for alembic.op
 # ---------------------------------------------------------------------------
@@ -1418,6 +1520,7 @@ __all__ = [
     "qualify_table",
     "quote_identifier",
     "rename_table",
+    "try_create_table",
     "try_drop_constraint",
     "try_drop_index",
     "try_drop_primary_key",
