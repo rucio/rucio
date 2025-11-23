@@ -16,11 +16,12 @@
 Add PREPARING state to Request model.
 """
 
-from alembic.op import execute, get_context
+from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
     enum_values_clause,
+    get_server_version_info,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -96,8 +97,10 @@ def upgrade():
         )
 
     elif is_current_dialect('mysql'):
-        if get_context().dialect.server_version_info[0] == 8:
+        server_version = get_server_version_info()
+        if server_version and server_version[0] == 8:
             try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
+
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
@@ -169,7 +172,8 @@ def downgrade():
         )
 
     elif is_current_dialect('mysql'):
-        if get_context().dialect.server_version_info[0] == 8:
+        server_version = get_server_version_info()
+        if server_version and server_version[0] == 8:
             try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
 
         create_check_constraint(
