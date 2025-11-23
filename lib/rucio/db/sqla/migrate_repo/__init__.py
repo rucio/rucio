@@ -44,15 +44,18 @@ from .ddl_helpers import (
     try_drop_primary_key,
 )
 from .enum_ddl_helpers import (
+    alter_enum_add_value_sql,
     drop_enum_sql,
     enum_values_clause,
     render_enum_name,
+    try_alter_enum_add_value,
     try_drop_enum,
 )
 
 __all__ = [
     "add_column",
     "alter_column",
+    "alter_enum_add_value_sql",
     "create_check_constraint",
     "create_index",
     "create_primary_key",
@@ -78,6 +81,7 @@ __all__ = [
     "rename_table",
     "render_enum_name",
     "try_create_table",
+    "try_alter_enum_add_value",
     "try_drop_constraint",
     "try_drop_enum",
     "try_drop_index",

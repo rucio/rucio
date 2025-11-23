@@ -28,7 +28,8 @@ from alembic import op
 from .ddl_helpers import (
     get_current_dialect,
     get_effective_schema,
-    quote_identifier
+    get_server_version_info,
+    quote_identifier,
     quote_literal,
 )
 
@@ -375,9 +376,173 @@ def try_drop_enum(
     ))
 
 
+def alter_enum_add_value_sql(
+        name: str,
+        value: str,
+        *,
+        schema: 'Optional[str]' = None,
+        before: 'Optional[str]' = None,
+        after: 'Optional[str]' = None,
+        if_not_exists: bool = False,
+) -> str:
+    """
+    Build an ``ALTER TYPE ... ADD VALUE`` statement for PostgreSQL.
+
+    The statement can place the new label before or after an existing label.
+    On newer PostgreSQL versions, ``IF NOT EXISTS`` may be used to make the
+    operation idempotent when the server supports it.
+
+    Parameters
+    ----------
+    name : str
+        Unqualified enum type name.
+    value : str
+        New label to add.
+    schema : Optional[str]
+        Optional schema where the type exists.
+    before : Optional[str]
+        Insert the new label before this existing label.
+    after : Optional[str]
+        Insert the new label after this existing label.
+    if_not_exists : bool, optional
+        If ``True``, prefer ``IF NOT EXISTS`` on PostgreSQL 9.3+; otherwise
+        emit an idempotent DO block that ignores ``duplicate_object`` on
+        older servers or when the version is unknown.
+
+    Returns
+    -------
+    str
+        A single SQL statement, e.g.:
+        ``ALTER TYPE "rucio"."request_state" ADD VALUE IF NOT EXISTS 'ARCHIVED' AFTER 'DONE'``,
+        or a small ``DO $$ ... $$`` block on older servers.
+
+    Raises
+    ------
+    TypeError
+        If ``name`` or any provided label (``value``, ``before``, ``after``)
+        is not a string.
+    ValueError
+        If both ``before`` and ``after`` are provided; if a position label is
+        empty or equals ``value``; or if any label is otherwise invalid
+        (``None``, empty, contains NUL, or exceeds the 63‑byte limit).
+
+    Notes
+    -----
+    * On PostgreSQL < 12, ``ALTER TYPE ... ADD VALUE`` cannot run inside a
+      transaction block. On 12+, it can, but the new label remains unusable
+      until the transaction commits.
+
+    Examples
+    --------
+    >>> from alembic import op
+    >>> # Add a value after an existing label
+    >>> op.execute(alter_enum_add_value_sql("request_state", "ARCHIVED", after="DONE", schema="rucio"))
+    >>> # Idempotent add (uses native IF NOT EXISTS when available; otherwise a DO block)
+    >>> op.execute(alter_enum_add_value_sql(
+    ...     "request_state",
+    ...     "RETRYING",
+    ...     before="SUBMITTED",
+    ...     schema="rucio",
+    ...     if_not_exists=True,
+    ... ))
+    """
+
+    _assert_postgresql()
+    _validate_identifier(name, allow_qualified=False)
+
+    # Disallow contradictory positioning instructions explicitly.
+    if before is not None and after is not None:
+        raise ValueError("'before' and 'after' are mutually exclusive")
+
+    # Validate the new label itself (type, length, NUL, emptiness, etc.).
+    _validate_enum_labels((value,))
+
+    # Empty position labels are rejected explicitly for clearer error messages.
+    if before == "" or after == "":
+        raise ValueError("Position labels (before/after) must be non-empty if provided.")
+
+    # Validate position labels when supplied (they are enum labels, not identifiers).
+    if before is not None:
+        _validate_enum_labels((before,))
+        if before == value:
+            raise ValueError("'before' label cannot equal the value being added.")
+
+    if after is not None:
+        _validate_enum_labels((after,))
+        if after == value:
+            raise ValueError("'after' label cannot equal the value being added.")
+
+    ver = get_server_version_info()
+
+    # Build the core ALTER TYPE ... ADD VALUE statement parts
+    parts = ["ALTER TYPE", render_enum_name(name, schema), "ADD VALUE"]
+
+    use_do_block = False
+    if if_not_exists:
+        # "IF NOT EXISTS" for enum ADD VALUE is available on PG 9.3+.
+        # For older or unknown versions, emit a DO block that ignores
+        # duplicate_object to keep migrations idempotent.
+        if ver and ver >= (9, 3):
+            parts.append("IF NOT EXISTS")
+        else:
+            use_do_block = True
+
+    parts.append(quote_literal(value))
+    if before:
+        parts.extend(["BEFORE", quote_literal(before)])
+    elif after:
+        parts.extend(["AFTER", quote_literal(after)])
+
+    stmt = " ".join(parts)
+
+    if use_do_block:
+        return f"DO $$ BEGIN {stmt}; EXCEPTION WHEN duplicate_object THEN NULL; END $$ LANGUAGE plpgsql;"
+
+    return stmt
+
+
+def try_alter_enum_add_value(
+        name: str,
+        value: str,
+        *,
+        schema: 'Optional[str]' = None,
+        before: 'Optional[str]' = None,
+        after: 'Optional[str]' = None,
+        if_not_exists: bool = False,
+) -> None:
+    """
+    Execute :func:`alter_enum_add_value_sql` via Alembic's :func:`op.execute`.
+
+    This wrapper mirrors :func:`try_drop_enum` to keep migrations concise when
+    no additional SQL composition is required.
+
+    Examples
+    --------
+    >>> try_alter_enum_add_value("request_state", "ARCHIVED", after="DONE", schema="rucio")
+    >>> try_alter_enum_add_value(
+    ...     "request_state",
+    ...     "RETRYING",
+    ...     before="SUBMITTED",
+    ...     schema="rucio",
+    ...     if_not_exists=True,
+    ... )
+    """
+
+    op.execute(alter_enum_add_value_sql(
+        name,
+        value,
+        schema=schema,
+        before=before,
+        after=after,
+        if_not_exists=if_not_exists,
+    ))
+
+
 __all__ = [
+    "alter_enum_add_value_sql",
     "drop_enum_sql",
     "enum_values_clause",
     "render_enum_name",
+    "try_alter_enum_add_value",
     "try_drop_enum",
 ]
