@@ -428,6 +428,29 @@ def is_current_dialect(
     return name.lower() in wanted
 
 
+def get_server_version_info() -> 'Optional[tuple[int, ...]]':
+    """
+    Return the server version tuple reported by the current dialect.
+
+    Returns
+    -------
+    Optional[tuple[int, ...]]
+        The tuple provided by ``dialect.server_version_info`` (commonly
+        ``(major, minor[, patch])``) when the dialect exposes version
+        information, or ``None`` when the details are unavailable.
+
+    Examples
+    --------
+    >>> v = get_server_version_info()
+    >>> if v and v >= (12, 0):
+    ...     # Example: enable PostgreSQL 12+ behavior in a Rucio migration
+    ...     pass
+    """
+
+    ctx = get_migration_context()
+    return getattr(getattr(ctx, "dialect", None), "server_version_info", None)
+
+
 def get_effective_schema() -> 'Optional[str]':
     """
     Return the schema Alembic treats as the default for migrations, if any.
@@ -1515,6 +1538,7 @@ __all__ = [
     "get_effective_schema",
     "get_identifier_preparer",
     "get_migration_context",
+    "get_server_version_info",
     "is_current_dialect",
     "qualify_index",
     "qualify_table",
