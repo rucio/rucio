@@ -25,9 +25,15 @@ from typing import TYPE_CHECKING
 
 from alembic import op
 
-from .ddl_helpers import get_current_dialect, get_effective_schema, quote_identifier
+from .ddl_helpers import (
+    get_current_dialect,
+    get_effective_schema,
+    quote_identifier
+    quote_literal,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from typing import Optional
 
 
@@ -105,6 +111,65 @@ def _validate_identifier(
             _check(segment)
     else:
         _check(name)
+
+
+def _validate_enum_labels(values: 'Iterable[str]') -> tuple[str, ...]:
+    """
+    Validate enum labels and return them in a tuple.
+
+    The check rejects ``None`` values, empty strings, duplicate entries, labels
+    longer than 63 bytes in UTF-8, and any label containing the NUL byte. The
+    original ordering is preserved so the resulting tuple may be fed straight
+    into ``CREATE TYPE ... AS ENUM``.
+
+    Parameters
+    ----------
+    values : Iterable[str]
+        Iterable of labels to validate.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Validated labels, in the order supplied.
+
+    Raises
+    ------
+    TypeError
+        If *values* is a string instead of an iterable, or any label is not a
+        string (excluding ``None`` values, which raise ``ValueError``).
+    ValueError
+        If no labels are supplied, or any label is ``None`` or empty, contains
+        the NUL byte, exceeds 63 bytes in UTF‑8, or duplicates another label.
+
+    Examples
+    --------
+    >>> _validate_enum_labels(["FILE", "DATASET", "CONTAINER"])
+    ('FILE', 'DATASET', 'CONTAINER')
+    """
+
+    if isinstance(values, str):
+        raise TypeError("Enum labels must be provided as an iterable of strings, not a single string.")
+
+    labels = tuple(values)
+    if not labels:
+        raise ValueError("Enum labels iterable must not be empty.")
+
+    seen = set()
+    for label in labels:
+        if label is None:
+            raise ValueError("Enum labels must not be None.")
+        if not isinstance(label, str):
+            raise TypeError("Enum labels must be strings.")
+        if label == "":
+            raise ValueError("Enum labels must be non-empty strings.")
+        if "\x00" in label:
+            raise ValueError("Enum labels must not contain NUL (\\x00) bytes.")
+        if len(label.encode("utf-8")) > 63:
+            raise ValueError("Enum labels must be at most 63 bytes in UTF-8.")
+        if label in seen:
+            raise ValueError("Enum labels must be unique.")
+        seen.add(label)
+    return labels
 
 
 def _assert_postgresql() -> None:
@@ -185,6 +250,45 @@ def render_enum_name(
         _validate_identifier(effective_schema, allow_qualified=False)
         return f"{quote_identifier(effective_schema)}.{quote_identifier(name)}"
     return quote_identifier(name)
+
+
+def enum_values_clause(
+        values: 'Iterable[str]'
+) -> str:
+    """
+    Return a comma-separated list of quoted enum labels.
+
+    All labels are validated and then single-quoted for SQL, producing a
+    fragment suitable for interpolating into ``CREATE TYPE ... AS ENUM``.
+
+    Parameters
+    ----------
+    values : Iterable[str]
+        Labels to include. Order is preserved and defines the enum's sort
+        order within PostgreSQL.
+
+    Returns
+    -------
+    str
+        A fragment of the form ``'value1', 'value2', ...``.
+
+    Raises
+    ------
+    TypeError
+        If *values* is a string instead of an iterable, or any label is not a
+        string.
+    ValueError
+        If no labels are supplied, or any label is ``None`` or empty, contains
+        the NUL byte, exceeds 63 bytes in UTF‑8, or duplicates another label.
+
+    Examples
+    --------
+    >>> enum_values_clause(["QUEUED", "SUBMITTED", "DONE"])
+    "'QUEUED', 'SUBMITTED', 'DONE'"
+    """
+
+    validated = _validate_enum_labels(values)
+    return ", ".join(quote_literal(value) for value in validated)
 
 
 def drop_enum_sql(
@@ -273,6 +377,7 @@ def try_drop_enum(
 
 __all__ = [
     "drop_enum_sql",
+    "enum_values_clause",
     "render_enum_name",
     "try_drop_enum",
 ]

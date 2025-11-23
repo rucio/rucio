@@ -143,7 +143,7 @@ def _matches_any(
     return any((token or "").lower() in msg for token in tokens)
 
 
-def _qliteral(
+def quote_literal(
         value: 'Optional[str]'
 ) -> str:
     """
@@ -951,14 +951,14 @@ def drop_current_primary_key(
         return
 
     if dialect == "postgresql":
-        schema_init = _qliteral(schema) if schema else "NULL"
+        schema_init = quote_literal(schema) if schema else "NULL"
         op.execute(
             f"""
         DO $$
         DECLARE
             schemaname text := {schema_init};
             pkname     text;
-            tblname    text := {_qliteral(table_name)};
+            tblname    text := {quote_literal(table_name)};
         BEGIN
             IF schemaname IS NULL THEN
                 schemaname := current_schema();
@@ -984,9 +984,9 @@ def drop_current_primary_key(
 
     if dialect == "oracle":
         owner_expr = (
-            f"UPPER({_qliteral(schema)})" if schema else "SYS_CONTEXT('USERENV','CURRENT_SCHEMA')"
+            f"UPPER({quote_literal(schema)})" if schema else "SYS_CONTEXT('USERENV','CURRENT_SCHEMA')"
         )
-        tab_expr = f"UPPER({_qliteral(table_name)})"
+        tab_expr = f"UPPER({quote_literal(table_name)})"
         quoted_table = _quoted_table(table_name, schema)
 
         op.execute(
@@ -1519,6 +1519,7 @@ __all__ = [
     "qualify_index",
     "qualify_table",
     "quote_identifier",
+    "quote_literal",
     "rename_table",
     "try_create_table",
     "try_drop_constraint",
