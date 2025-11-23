@@ -19,9 +19,9 @@ from alembic.op import get_bind
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.migrate_repo import (
-    create_table,
     drop_table,
     is_current_dialect,
+    try_create_table,
 )
 from rucio.db.sqla.types import GUID, InternalScopeString, String
 
@@ -41,14 +41,14 @@ def upgrade():
             'prefixes': ['GLOBAL TEMPORARY'],
         }
         for idx in range(5):
-            create_table(
+            try_create_table(
                 f'TEMPORARY_SCOPE_NAME_{idx}',
                 sa.Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                 sa.Column("name", String(get_schema_value('NAME_LENGTH'))),
                 sa.PrimaryKeyConstraint('scope', 'name', name=f'TEMPORARY_SCOPE_NAME_{idx}_PK'),
                 **additional_kwargs,
             )
-            create_table(
+            try_create_table(
                 f'TEMPORARY_ASSOCIATION_{idx}',
                 sa.Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                 sa.Column("name", String(get_schema_value('NAME_LENGTH'))),
@@ -57,7 +57,7 @@ def upgrade():
                 sa.PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name=f'TEMPORARY_ASSOCIATION_{idx}_PK'),
                 **additional_kwargs,
             )
-            create_table(
+            try_create_table(
                 f'TEMPORARY_ID_{idx}',
                 sa.Column("id", GUID()),
                 sa.PrimaryKeyConstraint('id', name=f'TEMPORARY_ID_{idx}_PK'),
@@ -71,8 +71,13 @@ def downgrade():
     """
 
     if is_current_dialect('oracle'):
-        global_temp_tables = sa.inspect(get_bind()).get_temp_table_names()
+        inspector = sa.inspect(get_bind())
+        global_temp_tables = {tbl.lower() for tbl in inspector.get_temp_table_names()}
         for idx in range(5):
-            for table_name in [f'TEMPORARY_ID_{idx}', f'TEMPORARY_ASSOCIATION_{idx}', f'TEMPORARY_SCOPE_NAME_{idx}']:
-                if table_name in global_temp_tables:
+            for table_name in [
+                f'TEMPORARY_ID_{idx}',
+                f'TEMPORARY_ASSOCIATION_{idx}',
+                f'TEMPORARY_SCOPE_NAME_{idx}',
+            ]:
+                if table_name.lower() in global_temp_tables:
                     drop_table(table_name)
