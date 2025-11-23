@@ -21,6 +21,7 @@ from rucio.db.sqla.constants import RuleNotification
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
+    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -39,6 +40,7 @@ def upgrade():
     """
 
     rules_table = qualify_table('rules')
+    rules_notification_values = ['Y', 'N', 'C', 'P']
 
     if is_current_dialect('oracle', 'mysql'):
         add_column('rules', sa.Column('notification', sa.Enum(RuleNotification,
@@ -50,7 +52,7 @@ def upgrade():
         rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
         execute(
             f"""
-            CREATE TYPE {rules_notification_enum} AS ENUM('Y', 'N', 'C', 'P')
+            CREATE TYPE {rules_notification_enum} AS ENUM({enum_values_clause(rules_notification_values)})
             """
         )
         execute(

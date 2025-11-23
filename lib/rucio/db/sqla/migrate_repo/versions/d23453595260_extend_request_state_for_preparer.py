@@ -20,6 +20,7 @@ from alembic.op import execute, get_context
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
+    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -46,7 +47,7 @@ def upgrade():
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
-            condition=f'state in ({enum_values_str(new_enum_values)})',
+            condition=f"state in ({enum_values_clause(new_enum_values)})",
         )
     elif is_current_dialect('postgresql'):
 
@@ -63,7 +64,7 @@ def upgrade():
         try_drop_enum('REQUESTS_HISTORY_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_str(new_enum_values)})
+            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_clause(new_enum_values)})
             """
         )
         execute(
@@ -83,7 +84,7 @@ def upgrade():
         try_drop_enum('REQUESTS_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {requests_enum} AS ENUM({enum_values_str(new_enum_values)})
+            CREATE TYPE {requests_enum} AS ENUM({enum_values_clause(new_enum_values)})
             """
         )
         execute(
@@ -100,7 +101,7 @@ def upgrade():
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
-            condition=f'state in ({enum_values_str(new_enum_values)})',
+            condition=f"state in ({enum_values_clause(new_enum_values)})",
         )
 
 
@@ -119,7 +120,7 @@ def downgrade():
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
-            condition=f'state in ({enum_values_str(old_enum_values)})',
+            condition=f"state in ({enum_values_clause(old_enum_values)})",
         )
     elif is_current_dialect('postgresql'):
 
@@ -136,7 +137,7 @@ def downgrade():
         try_drop_enum('REQUESTS_HISTORY_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_str(old_enum_values)})
+            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_clause(old_enum_values)})
             """
         )
         execute(
@@ -156,7 +157,7 @@ def downgrade():
         try_drop_enum('REQUESTS_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {requests_enum} AS ENUM({enum_values_str(old_enum_values)})
+            CREATE TYPE {requests_enum} AS ENUM({enum_values_clause(old_enum_values)})
             """
         )
         execute(
@@ -174,9 +175,5 @@ def downgrade():
         create_check_constraint(
             constraint_name='REQUESTS_STATE_CHK',
             table_name='requests',
-            condition=f'state in ({enum_values_str(old_enum_values)})',
+            condition=f"state in ({enum_values_clause(old_enum_values)})",
         )
-
-
-def enum_values_str(enumvals):
-    return ', '.join(map(lambda x: x.join(("'", "'")), enumvals))

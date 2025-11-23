@@ -21,6 +21,7 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_check_constraint,
     drop_column,
+    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -39,11 +40,16 @@ def upgrade():
     """
 
     rules_table = qualify_table('rules')
+    rules_state_values = ['S', 'R', 'U', 'O', 'W', 'I']
 
     if is_current_dialect('oracle'):
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         try_drop_constraint('RULES_STATE_CHK', 'rules')
-        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
+        create_check_constraint(
+            'RULES_STATE_CHK',
+            'rules',
+            f"state IN ({enum_values_clause(rules_state_values)})",
+        )
 
     elif is_current_dialect('postgresql'):
         rules_state_enum = render_enum_name('RULES_STATE_CHK')
@@ -58,7 +64,7 @@ def upgrade():
         try_drop_enum('RULES_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {rules_state_enum} AS ENUM('S', 'R', 'U', 'O', 'W', 'I')
+            CREATE TYPE {rules_state_enum} AS ENUM({enum_values_clause(rules_state_values)})
             """
         )
         execute(
@@ -72,7 +78,11 @@ def upgrade():
     elif is_current_dialect('mysql'):
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
         try_drop_constraint('RULES_STATE_CHK', 'rules')
-        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O', 'W', 'I')")
+        create_check_constraint(
+            'RULES_STATE_CHK',
+            'rules',
+            f"state IN ({enum_values_clause(rules_state_values)})",
+        )
 
 
 def downgrade():
@@ -81,11 +91,16 @@ def downgrade():
     """
 
     rules_table = qualify_table('rules')
+    rules_state_values = ['S', 'R', 'U', 'O']
 
     if is_current_dialect('oracle', 'mysql'):
         drop_column('rules', 'ignore_account_limit')
         try_drop_constraint('RULES_STATE_CHK', 'rules')
-        create_check_constraint('RULES_STATE_CHK', 'rules', "state IN ('S', 'R', 'U', 'O')")
+        create_check_constraint(
+            'RULES_STATE_CHK',
+            'rules',
+            f"state IN ({enum_values_clause(rules_state_values)})",
+        )
 
     elif is_current_dialect('postgresql'):
         rules_state_enum = render_enum_name('RULES_STATE_CHK')
@@ -100,7 +115,7 @@ def downgrade():
         try_drop_enum('RULES_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {rules_state_enum} AS ENUM('S', 'R', 'U', 'O')
+            CREATE TYPE {rules_state_enum} AS ENUM({enum_values_clause(rules_state_values)})
             """
         )
         execute(

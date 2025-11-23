@@ -18,6 +18,7 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     create_check_constraint,
+    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -36,11 +37,15 @@ def upgrade():
     """
 
     replicas_table = qualify_table('replicas')
+    replicas_state_values = ['A', 'U', 'C', 'B', 'D', 'S', 'T']
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
-        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        create_check_constraint(
+            constraint_name='REPLICAS_STATE_CHK',
+            table_name='replicas',
+            condition=f"state in ({enum_values_clause(replicas_state_values)})",
+        )
 
     elif is_current_dialect('postgresql'):
         replicas_state_enum = render_enum_name('REPLICAS_STATE_CHK')
@@ -54,7 +59,7 @@ def upgrade():
         try_drop_enum('REPLICAS_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'S', 'T')
+            CREATE TYPE {replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
             """
         )
         execute(
@@ -67,8 +72,11 @@ def upgrade():
 
     elif is_current_dialect('mysql'):
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
-        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S', 'T')")
+        create_check_constraint(
+            constraint_name='REPLICAS_STATE_CHK',
+            table_name='replicas',
+            condition=f"state in ({enum_values_clause(replicas_state_values)})",
+        )
 
 
 def downgrade():
@@ -77,11 +85,15 @@ def downgrade():
     """
 
     replicas_table = qualify_table('replicas')
+    replicas_state_values = ['A', 'U', 'C', 'B', 'D', 'S']
 
     if is_current_dialect('oracle'):
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
-        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
+        create_check_constraint(
+            constraint_name='REPLICAS_STATE_CHK',
+            table_name='replicas',
+            condition=f"state in ({enum_values_clause(replicas_state_values)})",
+        )
 
     elif is_current_dialect('postgresql'):
         replicas_state_enum = render_enum_name('REPLICAS_STATE_CHK')
@@ -95,7 +107,7 @@ def downgrade():
         try_drop_enum('REPLICAS_STATE_CHK')
         execute(
             f"""
-            CREATE TYPE {replicas_state_enum} AS ENUM('A', 'U', 'C', 'B', 'D', 'S')
+            CREATE TYPE {replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
             """
         )
         execute(
@@ -108,5 +120,8 @@ def downgrade():
 
     elif is_current_dialect('mysql'):
         try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
-        create_check_constraint(constraint_name='REPLICAS_STATE_CHK', table_name='replicas',
-                                condition="state in ('A', 'U', 'C', 'B', 'D', 'S')")
+        create_check_constraint(
+            constraint_name='REPLICAS_STATE_CHK',
+            table_name='replicas',
+            condition=f"state in ({enum_values_clause(replicas_state_values)})",
+        )

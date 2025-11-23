@@ -17,11 +17,11 @@
 import sqlalchemy as sa
 from alembic.op import execute
 
-from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
+    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
@@ -41,17 +41,24 @@ def upgrade():
     """
 
     did_meta_table = qualify_table('did_meta')
+    did_meta_values = ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
     if is_current_dialect('oracle', 'mysql'):
-        add_column('did_meta',
-                   sa.Column('did_type', sa.Enum(DIDType,
-                                                 name='DID_META_DID_TYPE_CHK',
-                                                 create_constraint=True,
-                                                 values_callable=lambda obj: [e.value for e in obj])))
+        add_column(
+            'did_meta',
+            sa.Column(
+                'did_type',
+                sa.Enum(
+                    *did_meta_values,
+                    name='DID_META_DID_TYPE_CHK',
+                    create_constraint=True,
+                ),
+            ),
+        )
     elif is_current_dialect('postgresql'):
         did_meta_enum = render_enum_name('DID_META_DID_TYPE_CHK')
         execute(
             f"""
-            CREATE TYPE {did_meta_enum} AS ENUM('F', 'D', 'C', 'A', 'X', 'Y', 'Z')
+            CREATE TYPE {did_meta_enum} AS ENUM({enum_values_clause(did_meta_values)})
             """
         )
         execute(
