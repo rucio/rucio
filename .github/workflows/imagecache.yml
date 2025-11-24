@@ -13,7 +13,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Identify branches
         id: branches
         run: |
@@ -32,7 +32,7 @@ jobs:
       matrix:
         branch: ${{ fromJson(needs.setup.outputs.branches) }}
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           ref: ${{ matrix.branch }}
       - name: Check and get files
@@ -97,11 +97,11 @@ jobs:
         branch: ${{ fromJson(needs.setup.outputs.branches) }}
     steps:
       - name: Checkout rucio containers repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           repository: rucio/containers
       - name: Checkout rucio source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           path: dev/rucio
           ref: ${{ matrix.branch }}
