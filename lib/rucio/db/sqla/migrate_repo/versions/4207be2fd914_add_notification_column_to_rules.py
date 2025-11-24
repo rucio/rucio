@@ -68,26 +68,13 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    rules_table = qualify_table('rules')
-
     if is_current_dialect('oracle'):
         try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         drop_column('rules', 'notification')
 
     elif is_current_dialect('postgresql'):
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK",
-            ALTER COLUMN notification TYPE CHAR
-            """
-        )
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            DROP COLUMN notification
-            """
-        )
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+        drop_column('rules', 'notification')
         try_drop_enum('RULES_NOTIFICATION_CHK')
 
     elif is_current_dialect('mysql'):

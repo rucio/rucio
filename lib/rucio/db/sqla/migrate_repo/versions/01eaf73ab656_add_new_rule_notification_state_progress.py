@@ -102,10 +102,10 @@ def downgrade():
 
     elif is_current_dialect('postgresql'):
         rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
         execute(
             f"""
             ALTER TABLE {rules_table}
-            DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK",
             ALTER COLUMN notification TYPE CHAR
             """
         )
