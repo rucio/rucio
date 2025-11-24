@@ -22,6 +22,8 @@ from rucio.db.sqla.migrate_repo import (
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_alter_enum_add_value,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -49,24 +51,27 @@ def upgrade():
 
     elif is_current_dialect('postgresql'):
         replicas_state_enum = render_enum_name('REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            ALTER TABLE {replicas_table}
-            DROP CONSTRAINT IF EXISTS "REPLICAS_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
+
+        # 1) Old CHECK is no longer needed once we rely on the enum.
+        try_drop_constraint('REPLICAS_STATE_CHK', 'replicas')
+
+        # 2) Ensure the enum exists for CHAR+CHECK-only databases.
+        try_create_enum_if_absent('REPLICAS_STATE_CHK', replicas_state_values)
+
+        # 3) Add the new 'T' state if it isn't present yet.
+        try_alter_enum_add_value(
+            'REPLICAS_STATE_CHK',
+            'T',
+            after='S',
+            if_not_exists=True,
         )
-        try_drop_enum('REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
-            """
-        )
+
+        # 4) Attach/re-attach the enum type to the column.
         execute(
             f"""
             ALTER TABLE {replicas_table}
             ALTER COLUMN state TYPE {replicas_state_enum}
-            USING state::{replicas_state_enum}
+            USING state::text::{replicas_state_enum}
             """
         )
 

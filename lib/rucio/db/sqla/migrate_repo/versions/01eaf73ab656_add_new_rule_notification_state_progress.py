@@ -22,6 +22,8 @@ from rucio.db.sqla.migrate_repo import (
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_alter_enum_add_value,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -49,24 +51,27 @@ def upgrade():
 
     elif is_current_dialect('postgresql'):
         rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK",
-            ALTER COLUMN notification TYPE CHAR
-            """
+
+        # 1) Old CHECK becomes obsolete once we rely on the enum.
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+
+        # 2) Ensure the enum type exists (for databases that only had CHAR+CHECK).
+        try_create_enum_if_absent('RULES_NOTIFICATION_CHK', rules_notification_values)
+
+        # 3) Make sure the new label 'P' is present, in the right position.
+        try_alter_enum_add_value(
+            'RULES_NOTIFICATION_CHK',
+            'P',
+            after='C',
+            if_not_exists=True,
         )
-        try_drop_enum('RULES_NOTIFICATION_CHK')
-        execute(
-            f"""
-            CREATE TYPE {rules_notification_enum} AS ENUM({enum_values_clause(rules_notification_values)})
-            """
-        )
+
+        # 4) Attach (or re-attach) the enum type to the column.
         execute(
             f"""
             ALTER TABLE {rules_table}
             ALTER COLUMN notification TYPE {rules_notification_enum}
-            USING notification::{rules_notification_enum}
+            USING notification::text::{rules_notification_enum}
             """
         )
 

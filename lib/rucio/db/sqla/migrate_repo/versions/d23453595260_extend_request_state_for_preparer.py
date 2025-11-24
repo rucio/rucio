@@ -25,6 +25,8 @@ from rucio.db.sqla.migrate_repo import (
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_alter_enum_add_value,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -55,44 +57,41 @@ def upgrade():
         requests_history_enum = render_enum_name('REQUESTS_HISTORY_STATE_CHK')
         requests_enum = render_enum_name('REQUESTS_STATE_CHK')
 
-        execute(
-            f"""
-            ALTER TABLE {requests_history_table}
-            DROP CONSTRAINT IF EXISTS "REQUESTS_HISTORY_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
+        # 1) Drop legacy CHECK constraints if present.
+        try_drop_constraint('REQUESTS_HISTORY_STATE_CHK', 'requests_history')
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
+
+        # 2) Ensure both enum types exist with the final value set.
+        try_create_enum_if_absent('REQUESTS_HISTORY_STATE_CHK', new_enum_values)
+        try_create_enum_if_absent('REQUESTS_STATE_CHK', new_enum_values)
+
+        # 3) Extend both enums with 'P' where needed (idempotent).
+        try_alter_enum_add_value(
+            'REQUESTS_HISTORY_STATE_CHK',
+            'P',
+            after='M',
+            if_not_exists=True,
         )
-        try_drop_enum('REQUESTS_HISTORY_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_clause(new_enum_values)})
-            """
+        try_alter_enum_add_value(
+            'REQUESTS_STATE_CHK',
+            'P',
+            after='M',
+            if_not_exists=True,
         )
+
+        # 4) Attach/re-attach enums to both columns.
         execute(
             f"""
             ALTER TABLE {requests_history_table}
             ALTER COLUMN state TYPE {requests_history_enum}
-            USING state::{requests_history_enum}
-            """
-        )
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CONSTRAINT IF EXISTS "REQUESTS_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
-        )
-        try_drop_enum('REQUESTS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {requests_enum} AS ENUM({enum_values_clause(new_enum_values)})
+            USING state::text::{requests_history_enum}
             """
         )
         execute(
             f"""
             ALTER TABLE {requests_table}
             ALTER COLUMN state TYPE {requests_enum}
-            USING state::{requests_enum}
+            USING state::text::{requests_enum}
             """
         )
 

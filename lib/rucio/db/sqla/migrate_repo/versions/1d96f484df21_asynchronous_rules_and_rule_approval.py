@@ -25,6 +25,8 @@ from rucio.db.sqla.migrate_repo import (
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_alter_enum_add_value,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -54,24 +56,33 @@ def upgrade():
     elif is_current_dialect('postgresql'):
         rules_state_enum = render_enum_name('RULES_STATE_CHK')
         add_column('rules', sa.Column('ignore_account_limit', sa.Boolean(name='RULES_IGNORE_ACCOUNT_LIMIT_CHK', create_constraint=True), default=False))
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
+
+        # 1) Remove legacy CHECK if still present.
+        try_drop_constraint('RULES_STATE_CHK', 'rules')
+
+        # 2) Ensure the enum exists (for CHAR+CHECK installs).
+        try_create_enum_if_absent('RULES_STATE_CHK', rules_state_values)
+
+        # 3) Extend the enum on existing enum-based installs.
+        try_alter_enum_add_value(
+            'RULES_STATE_CHK',
+            'W',
+            after='O',
+            if_not_exists=True,
         )
-        try_drop_enum('RULES_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {rules_state_enum} AS ENUM({enum_values_clause(rules_state_values)})
-            """
+        try_alter_enum_add_value(
+            'RULES_STATE_CHK',
+            'I',
+            after='W',
+            if_not_exists=True,
         )
+
+        # 4) Attach/re-attach the enum type to the column.
         execute(
             f"""
             ALTER TABLE {rules_table}
             ALTER COLUMN state TYPE {rules_state_enum}
-            USING state::{rules_state_enum}
+            USING state::text::{rules_state_enum}
             """
         )
 
