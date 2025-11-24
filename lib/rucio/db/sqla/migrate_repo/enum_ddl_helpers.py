@@ -23,7 +23,9 @@ offered helpers span the meaningful enum operations PostgreSQL allows.
 
 from typing import TYPE_CHECKING
 
+import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql as pg
 
 from .ddl_helpers import (
     get_current_dialect,
@@ -35,7 +37,7 @@ from .ddl_helpers import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from typing import Optional
+    from typing import Optional, Union
 
 
 def _validate_identifier(
@@ -613,23 +615,73 @@ def create_enum_if_absent_sql(
 
 
 def try_create_enum_if_absent(
-        name: str,
-        values: 'Sequence[str]',
+        name_or_enum: 'Union[str, "sa.Enum", "pg.ENUM"]',
+        values: 'Optional[Sequence[str]]' = None,
         *,
         schema: 'Optional[str]' = None,
 ) -> None:
     """
     Execute :func:`create_enum_if_absent_sql` via Alembic's :func:`op.execute`.
 
-    This wrapper mirrors other helper functions to keep migrations concise when
-    no additional SQL composition is required.
+    What this does
+    --------------
+    * Accepts either an explicit ``name``/``values`` pair or a SQLAlchemy
+      ``Enum`` instance. This mirrors the flexibility offered by
+      :mod:`alembic`'s operations objects while keeping migrations concise.
+    * Validates that a usable name and value list are present before emitting
+      DDL, raising clear errors otherwise.
+    * Defers schema resolution to ``create_enum_if_absent_sql`` and
+      ``render_enum_name``, reusing the central helper logic.
+
+    Parameters
+    ----------
+    name_or_enum : str or sqlalchemy.Enum or sqlalchemy.dialects.postgresql.ENUM
+        Either the unqualified enum name or a SQLAlchemy enum object whose
+        ``name`` and ``enums`` attributes describe the type to create.
+    values : Sequence[str] or None, optional
+        Enum labels when *name_or_enum* is a string. Ignored when an enum
+        object is provided. Required when supplying a name directly.
+    schema : str or None, optional
+        Optional schema where the type should be created. When an enum object
+        is provided, this overrides ``enum.schema`` if supplied.
+
+    Raises
+    ------
+    TypeError
+        If *name_or_enum* is not a string or SQLAlchemy ``Enum`` instance.
+    ValueError
+        If enum labels are missing, the enum instance has no name, or its
+        value list is empty.
 
     Examples
     --------
     >>> try_create_enum_if_absent("did_type", ["FILE", "DATASET", "CONTAINER"], schema="rucio")
+    >>> did_type_enum = sa.Enum("FILE", "DATASET", "CONTAINER", name="did_type", schema="rucio")
+    >>> try_create_enum_if_absent(did_type_enum)
     """
 
-    op.execute(create_enum_if_absent_sql(name, values, schema=schema))
+    if isinstance(name_or_enum, (sa.Enum, pg.ENUM)):
+        enum_name = name_or_enum.name
+        enum_values = name_or_enum.enums
+        effective_schema = schema if schema is not None else name_or_enum.schema
+
+        if not enum_name:
+            raise ValueError("Enum must define a name before rendering DDL.")
+        if not enum_values:
+            raise ValueError("Enum must declare at least one value before rendering DDL.")
+
+    elif isinstance(name_or_enum, str):
+        if values is None:
+            raise ValueError("Enum values must be provided when specifying a name explicitly.")
+
+        enum_name = name_or_enum
+        enum_values = values
+        effective_schema = schema
+
+    else:
+        raise TypeError("try_create_enum_if_absent expects either a name or a SQLAlchemy Enum instance.")
+
+    op.execute(create_enum_if_absent_sql(enum_name, enum_values, schema=effective_schema))
 
 
 def try_alter_enum_add_value(
