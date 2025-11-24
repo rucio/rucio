@@ -24,6 +24,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
 )
@@ -39,22 +40,19 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    lifetime_did_type = get_backend_enum(DIDType, name='LIFETIME_EXCEPT_TYPE_CHK')
+    lifetime_state = get_backend_enum(LifetimeExceptionsState, name='LIFETIME_EXCEPT_STATE_CHK')
+
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('lifetime_except',
                      sa.Column('id', GUID()),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='LIFETIME_EXCEPT_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', lifetime_did_type),
                      sa.Column('account', sa.String(25)),
                      sa.Column('comments', sa.String(4000)),
                      sa.Column('pattern', sa.String(255)),
-                     sa.Column('state', sa.Enum(LifetimeExceptionsState,
-                                                name='LIFETIME_EXCEPT_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('state', lifetime_state),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('expires_at', sa.DateTime))

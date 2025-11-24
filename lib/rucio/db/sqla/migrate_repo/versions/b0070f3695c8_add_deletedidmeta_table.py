@@ -22,6 +22,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
 )
@@ -37,14 +38,13 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    deleted_did_type = get_backend_enum(DIDType, name='DEL_DID_META_DID_TYPE_CHK')
+
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('deleted_did_meta',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='DEL_DID_META_DID_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', deleted_did_type),
                      sa.Column('meta', JSON()),
                      sa.Column('created_at', sa.DateTime),
                      sa.Column('updated_at', sa.DateTime),

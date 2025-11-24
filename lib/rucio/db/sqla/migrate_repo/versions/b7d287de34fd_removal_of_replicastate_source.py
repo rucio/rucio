@@ -99,6 +99,7 @@ def upgrade():
             table_name='replicas',
             condition=f"state in ({enum_values_clause(replicas_state_values)})",
         )
+        try_drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         create_check_constraint(
             constraint_name='COLLECTION_REPLICAS_STATE_CHK',
             table_name='collection_replicas',

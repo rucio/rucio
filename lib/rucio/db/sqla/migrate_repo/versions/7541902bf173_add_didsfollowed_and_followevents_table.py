@@ -26,6 +26,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
 )
@@ -40,15 +41,15 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    dids_followed_type = get_backend_enum(DIDType, name='DIDS_FOLLOWED_TYPE_CHK')
+    dids_followed_events_type = get_backend_enum(DIDType, name='DIDS_FOLLOWED_EVENTS_TYPE_CHK')
+
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('dids_followed',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='DIDS_FOLLOWED_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', dids_followed_type),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
@@ -68,10 +69,7 @@ def upgrade():
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='DIDS_FOLLOWED_EVENTS_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', dids_followed_events_type),
                      sa.Column('event_type', sa.String(1024)),
                      sa.Column('payload', sa.Text),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),

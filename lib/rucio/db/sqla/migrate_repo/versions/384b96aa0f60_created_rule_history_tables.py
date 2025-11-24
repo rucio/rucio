@@ -24,6 +24,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
     try_drop_index,
@@ -40,6 +41,16 @@ def upgrade():
     Upgrade the database to this revision
     """
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        hist_recent_did_type = get_backend_enum(DIDType, name='RULES_HIST_RECENT_DIDTYPE_CHK')
+        hist_recent_state = get_backend_enum(RuleState, name='RULES_HIST_RECENT_STATE_CHK')
+        hist_recent_grouping = get_backend_enum(RuleGrouping, name='RULES_HIST_RECENT_GROUPING_CHK')
+        hist_recent_notification = get_backend_enum(RuleNotification, name='RULES_HIST_RECENT_NOTIFY_CHK')
+
+        hist_did_type = get_backend_enum(DIDType, name='RULES_HISTORY_DIDTYPE_CHK')
+        hist_state = get_backend_enum(RuleState, name='RULES_HISTORY_STATE_CHK')
+        hist_grouping = get_backend_enum(RuleGrouping, name='RULES_HISTORY_GROUPING_CHK')
+        hist_notification = get_backend_enum(RuleNotification, name='RULES_HISTORY_NOTIFY_CHK')
+
         create_table('rules_hist_recent',
                      sa.Column('history_id', GUID()),
                      sa.Column('id', GUID()),
@@ -47,14 +58,8 @@ def upgrade():
                      sa.Column('account', sa.String(25)),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='RULES_HIST_RECENT_DIDTYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
-                     sa.Column('state', sa.Enum(RuleState,
-                                                name='RULES_HIST_RECENT_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', hist_recent_did_type),
+                     sa.Column('state', hist_recent_state),
                      sa.Column('error', sa.String(255)),
                      sa.Column('rse_expression', sa.String(255)),
                      sa.Column('copies', sa.SmallInteger),
@@ -66,14 +71,8 @@ def upgrade():
                      sa.Column('locks_stuck_cnt', sa.BigInteger),
                      sa.Column('source_replica_expression', sa.String(255)),
                      sa.Column('activity', sa.String(50)),
-                     sa.Column('grouping', sa.Enum(RuleGrouping,
-                                                   name='RULES_HIST_RECENT_GROUPING_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
-                     sa.Column('notification', sa.Enum(RuleNotification,
-                                                       name='RULES_HIST_RECENT_NOTIFY_CHK',
-                                                       create_constraint=True,
-                                                       values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('grouping', hist_recent_grouping),
+                     sa.Column('notification', hist_recent_notification),
                      sa.Column('stuck_at', sa.DateTime),
                      sa.Column('purge_replicas', sa.Boolean()),
                      sa.Column('ignore_availability', sa.Boolean()),
@@ -87,14 +86,8 @@ def upgrade():
                      sa.Column('account', sa.String(25)),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='RULES_HISTORY_DIDTYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
-                     sa.Column('state', sa.Enum(RuleState,
-                                                name='RULES_HISTORY_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', hist_did_type),
+                     sa.Column('state', hist_state),
                      sa.Column('error', sa.String(255)),
                      sa.Column('rse_expression', sa.String(255)),
                      sa.Column('copies', sa.SmallInteger),
@@ -106,14 +99,8 @@ def upgrade():
                      sa.Column('locks_stuck_cnt', sa.BigInteger),
                      sa.Column('source_replica_expression', sa.String(255)),
                      sa.Column('activity', sa.String(50)),
-                     sa.Column('grouping', sa.Enum(RuleGrouping,
-                                                   name='RULES_HISTORY_GROUPING_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
-                     sa.Column('notification', sa.Enum(RuleNotification,
-                                                       name='RULES_HISTORY_NOTIFY_CHK',
-                                                       create_constraint=True,
-                                                       values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('grouping', hist_grouping),
+                     sa.Column('notification', hist_notification),
                      sa.Column('stuck_at', sa.DateTime),
                      sa.Column('purge_replicas', sa.Boolean()),
                      sa.Column('ignore_availability', sa.Boolean()),

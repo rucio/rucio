@@ -23,6 +23,7 @@ from rucio.db.sqla.migrate_repo import (
     create_index,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
     try_drop_index,
@@ -35,13 +36,13 @@ down_revision = '30d5206e9cad'
 
 
 def upgrade():
+    opendata_state = get_backend_enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK')
+
     create_table(
         'dids_opendata',
         sa.Column('scope', sa.String(length=get_schema_value('SCOPE_LENGTH')), nullable=False),
         sa.Column('name', sa.String(length=get_schema_value('NAME_LENGTH')), nullable=False),
-        sa.Column('state', sa.Enum(OpenDataDIDState, name='DID_OPENDATA_STATE_CHK',
-                                   values_callable=lambda obj: [e.value for e in obj]), nullable=True,
-                  server_default=OpenDataDIDState.DRAFT.value),
+        sa.Column('state', opendata_state, nullable=True, server_default=OpenDataDIDState.DRAFT.value),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('scope', 'name', name='OPENDATA_DID_PK'),

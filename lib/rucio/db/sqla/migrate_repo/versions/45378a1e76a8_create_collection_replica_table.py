@@ -26,6 +26,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_constraint,
     try_drop_enum,
@@ -42,22 +43,18 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    collection_replicas_type = get_backend_enum(DIDType, name='COLLECTION_REPLICAS_TYPE_CHK')
+    collection_replicas_state = get_backend_enum(ReplicaState, name='COLLECTION_REPLICAS_STATE_CHK')
+
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('collection_replicas',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='COLLECTION_REPLICAS_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', collection_replicas_type),
                      sa.Column('rse_id', GUID()),
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('length', sa.BigInteger),
-                     sa.Column('state', sa.Enum(ReplicaState,
-                                                name='COLLECTION_REPLICAS_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj]),
-                               default=ReplicaState.UNAVAILABLE),
+                     sa.Column('state', collection_replicas_state, default=ReplicaState.UNAVAILABLE),
                      sa.Column('accessed_at', sa.DateTime),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))

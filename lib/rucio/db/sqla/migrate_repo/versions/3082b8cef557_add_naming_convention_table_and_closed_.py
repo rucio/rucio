@@ -28,6 +28,7 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
 )
@@ -42,16 +43,15 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    naming_convention_type = get_backend_enum(KeyType, name='CVT_TYPE_CHK')
+
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         add_column('dids', sa.Column('closed_at', sa.DateTime))
         add_column('contents_history', sa.Column('deleted_at', sa.DateTime))
         create_table('naming_conventions',
                      sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
                      sa.Column('regexp', sa.String(255)),
-                     sa.Column('convention_type', sa.Enum(KeyType,
-                                                          name='CVT_TYPE_CHK',
-                                                          create_constraint=True,
-                                                          values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('convention_type', naming_convention_type),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         create_primary_key('NAMING_CONVENTIONS_PK', 'naming_conventions', ['scope'])

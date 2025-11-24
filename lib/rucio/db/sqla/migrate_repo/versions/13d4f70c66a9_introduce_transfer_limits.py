@@ -26,6 +26,7 @@ from rucio.db.sqla.migrate_repo import (
     create_primary_key,
     create_table,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
 )
@@ -40,14 +41,13 @@ def upgrade():
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('rse_transfer_limits')
 
+        transfer_limit_direction = get_backend_enum(TransferLimitDirection, name='TRANSFER_LIMITS_DIRECTION_TYPE_CHK')
+
         create_table('transfer_limits',
                      sa.Column('id', GUID()),
                      sa.Column('rse_expression', sa.String(3000)),
                      sa.Column('activity', sa.String(50)),
-                     sa.Column('direction', sa.Enum(TransferLimitDirection, name='TRANSFER_LIMITS_DIRECTION_TYPE_CHK',
-                                                    create_constraint=True,
-                                                    values_callable=lambda obj: [e.value for e in obj]),
-                               default=TransferLimitDirection.DESTINATION),
+                     sa.Column('direction', transfer_limit_direction, default=TransferLimitDirection.DESTINATION),
                      sa.Column('max_transfers', sa.BigInteger),
                      sa.Column('volume', sa.BigInteger),
                      sa.Column('deadline', sa.BigInteger),

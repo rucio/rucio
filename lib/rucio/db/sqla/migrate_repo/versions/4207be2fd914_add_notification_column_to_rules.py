@@ -15,16 +15,13 @@
 """ add notification column to rules """
 
 import sqlalchemy as sa
-from alembic.op import execute
 
 from rucio.db.sqla.constants import RuleNotification
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
+    get_backend_enum,
     is_current_dialect,
-    qualify_table,
-    render_enum_name,
-    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -39,23 +36,12 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    rules_table = qualify_table('rules')
-    rules_notification_values = ['Y', 'N', 'C', 'P']
+    rules_notification_type = get_backend_enum(RuleNotification, name='RULES_NOTIFICATION_CHK')
 
-    if is_current_dialect('oracle', 'mysql'):
-        add_column('rules', sa.Column('notification', sa.Enum(RuleNotification,
-                                                              name='RULES_NOTIFICATION_CHK',
-                                                              create_constraint=True,
-                                                              values_callable=lambda obj: [e.value for e in obj]),
-                                      default=RuleNotification.NO))
-    elif is_current_dialect('postgresql'):
-        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
-        try_create_enum_if_absent('RULES_NOTIFICATION_CHK', rules_notification_values)
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            ADD COLUMN notification {rules_notification_enum}
-            """
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column(
+            'rules',
+            sa.Column('notification', rules_notification_type, default=RuleNotification.NO),
         )
 
 

@@ -15,14 +15,13 @@
 """ add didtype_chck to requests """
 
 import sqlalchemy as sa
-from alembic.op import execute
 
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
+    get_backend_enum,
     is_current_dialect,
-    qualify_table,
     try_drop_enum,
 )
 
@@ -36,25 +35,10 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    requests_table = qualify_table('requests')
+    requests_did_type = get_backend_enum(DIDType, name='REQUESTS_DIDTYPE_CHK')
 
-    if is_current_dialect('oracle', 'mysql'):
-        add_column('requests', sa.Column('did_type',
-                                         sa.Enum(DIDType,
-                                                 name='REQUESTS_DIDTYPE_CHK',
-                                                 create_constraint=True,
-                                                 values_callable=lambda obj: [e.value for e in obj]),
-                                         default=DIDType.FILE))
-        # we don't want checks on the history table, fake the DID type
-        add_column('requests_history', sa.Column('did_type', sa.String(1)))
-
-    elif is_current_dialect('postgresql'):
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            ADD COLUMN did_type "REQUESTS_DIDTYPE_CHK"
-            """
-        )
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('requests', sa.Column('did_type', requests_did_type, default=DIDType.FILE))
         # we don't want checks on the history table, fake the DID type
         add_column('requests_history', sa.Column('did_type', sa.String(1)))
 

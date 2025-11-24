@@ -14,6 +14,8 @@
 
 """ Add did_type column + index on did_meta table """
 
+from enum import Enum
+
 import sqlalchemy as sa
 from alembic.op import execute
 
@@ -22,14 +24,24 @@ from rucio.db.sqla.migrate_repo import (
     alter_column,
     create_index,
     drop_column,
+    get_backend_enum,
     is_current_dialect,
     qualify_table,
-    render_enum_name,
-    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
     try_drop_index,
 )
+
+
+class DidMetaType(Enum):
+    FILE = 'F'
+    DATASET = 'D'
+    CONTAINER = 'C'
+    ARCHIVE = 'A'
+    DELETED_FILE = 'X'
+    DELETED_DATASET = 'Y'
+    DELETED_CONTAINER = 'Z'
+
 
 # Alembic revision identifiers
 revision = 'ccdbcd48206e'
@@ -41,29 +53,10 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    did_meta_table = qualify_table('did_meta')
-    did_meta_values = ['F', 'D', 'C', 'A', 'X', 'Y', 'Z']
-    if is_current_dialect('oracle', 'mysql'):
-        add_column(
-            'did_meta',
-            sa.Column(
-                'did_type',
-                sa.Enum(
-                    *did_meta_values,
-                    name='DID_META_DID_TYPE_CHK',
-                    create_constraint=True,
-                ),
-            ),
-        )
-    elif is_current_dialect('postgresql'):
-        did_meta_enum = render_enum_name('DID_META_DID_TYPE_CHK')
-        try_create_enum_if_absent('DID_META_DID_TYPE_CHK', did_meta_values)
-        execute(
-            f"""
-            ALTER TABLE {did_meta_table}
-            ADD COLUMN did_type {did_meta_enum}
-            """
-        )
+    did_meta_type = get_backend_enum(DidMetaType, name='DID_META_DID_TYPE_CHK')
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('did_meta', sa.Column('did_type', did_meta_type))
     create_index('DID_META_DID_TYPE_IDX', 'did_meta', ['did_type'])
 
 

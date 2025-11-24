@@ -27,6 +27,7 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_enum,
     try_drop_index,
@@ -44,6 +45,8 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    updated_col_rep_type = get_backend_enum(DIDType, name='UPDATED_COL_REP_TYPE_CHK')
+
     if is_current_dialect('oracle', 'mysql', 'postgresql'):
         add_column('collection_replicas', sa.Column('available_replicas_cnt', sa.BigInteger()))
         add_column('collection_replicas', sa.Column('available_bytes', sa.BigInteger()))
@@ -52,10 +55,7 @@ def upgrade():
                      sa.Column('id', GUID()),
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='UPDATED_COL_REP_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', updated_col_rep_type),
                      sa.Column('rse_id', GUID()),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))

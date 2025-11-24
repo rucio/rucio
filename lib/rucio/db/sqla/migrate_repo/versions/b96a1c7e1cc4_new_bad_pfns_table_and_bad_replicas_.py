@@ -29,6 +29,7 @@ from rucio.db.sqla.migrate_repo import (
     create_table,
     drop_column,
     drop_table,
+    get_backend_enum,
     is_current_dialect,
     try_drop_constraint,
     try_drop_enum,
@@ -46,15 +47,13 @@ def upgrade():
     Upgrade the database to this revision
     """
 
+    bad_pfns_state_type = get_backend_enum(BadPFNStatus, name='BAD_PFNS_STATE_CHK')
+
     if is_current_dialect('oracle', 'postgresql'):
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', sa.Enum(BadPFNStatus,
-                                                name='BAD_PFNS_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj]),
-                               default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', bad_pfns_state_type, default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
@@ -84,11 +83,7 @@ def upgrade():
         # Create new bad_pfns table
         create_table('bad_pfns',
                      sa.Column('path', sa.String(2048)),
-                     sa.Column('state', sa.Enum(BadPFNStatus,
-                                                name='BAD_PFNS_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj]),
-                               default=BadPFNStatus.SUSPICIOUS),
+                     sa.Column('state', bad_pfns_state_type, default=BadPFNStatus.SUSPICIOUS),
                      sa.Column('reason', sa.String(255)),
                      sa.Column('account', sa.String(25)),
                      sa.Column('expires_at', sa.DateTime),
