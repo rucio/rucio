@@ -34,7 +34,7 @@ from .ddl_helpers import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
     from typing import Optional
 
 
@@ -292,6 +292,73 @@ def enum_values_clause(
     return ", ".join(quote_literal(value) for value in validated)
 
 
+def create_enum_sql(
+        name: str,
+        values: 'Iterable[str]',
+        *,
+        schema: 'Optional[str]' = None,
+        if_not_exists: bool = False,
+) -> str:
+    """
+    Build a ``CREATE TYPE ... AS ENUM`` statement for PostgreSQL.
+
+    This function only *constructs* SQL — it does not execute anything.
+    Identifiers are validated and quoted; labels are validated, quoted and
+    kept in the given order (which defines the enum's collation order).
+
+    Parameters
+    ----------
+    name : str
+        Unqualified enum type name.
+    values : Iterable[str]
+        Iterable of enum labels. Order defines the enum's sort ordering.
+    schema : Optional[str]
+        Target schema. If omitted, `get_effective_schema` is used when available;
+        otherwise the type name is unqualified.
+    if_not_exists : bool, optional
+        Not implemented. Kept for parity with other helpers.
+        Use :func:`create_enum_if_absent_sql` for idempotent creation.
+
+    Returns
+    -------
+    str
+        A single SQL statement, for example:
+        ``CREATE TYPE "rucio"."request_state" AS ENUM ('QUEUED', 'SUBMITTED', 'DONE')``.
+
+    Raises
+    ------
+    NotImplementedError
+        If ``if_not_exists=True`` (use :func:`create_enum_if_absent_sql` instead).
+    TypeError
+        If ``name`` or any label fails type validation.
+    ValueError
+        If ``name`` or any label fails value validation (for example empty
+        identifiers, ``None`` labels, NUL bytes, excessive length, or duplicates).
+
+    Examples
+    --------
+    >>> from alembic import op
+    >>> sql = create_enum_sql(
+    ...     "request_state",
+    ...     ["QUEUED", "SUBMITTED", "DONE", "FAILED"],
+    ...     schema="rucio",
+    ... )
+    >>> op.execute(sql)
+    """
+
+    _assert_postgresql()
+    if if_not_exists:
+        raise NotImplementedError(
+            "PostgreSQL lacks 'CREATE TYPE IF NOT EXISTS'; use create_enum_if_absent_sql()."
+        )
+
+    _validate_identifier(name, allow_qualified=False)
+    validated_values = _validate_enum_labels(values)
+
+    parts = ["CREATE TYPE", render_enum_name(name, schema), "AS ENUM (", enum_values_clause(validated_values), ")"]
+    return " ".join(parts)
+
+
 def drop_enum_sql(
         name: str,
         *,
@@ -501,6 +568,70 @@ def alter_enum_add_value_sql(
     return stmt
 
 
+def create_enum_if_absent_sql(
+        name: str,
+        values: 'Sequence[str]',
+        *,
+        schema: 'Optional[str]' = None,
+) -> str:
+    """
+    Return a PL/pgSQL ``DO`` block that creates an enum only if missing.
+
+    PostgreSQL lacks ``CREATE TYPE IF NOT EXISTS``. The block emitted here is
+    the standard workaround; it traps ``duplicate_object`` and quietly skips the
+    creation when the type already exists.
+
+    Parameters
+    ----------
+    name : str
+        Unqualified enum type name.
+    values : Sequence[str]
+        Enum labels. Order defines the enum's sort ordering.
+    schema : Optional[str]
+        Optional schema where the type should be created.
+
+    Returns
+    -------
+    str
+        A ``DO $$ ... $$`` block that creates the type if it does not exist.
+
+    Caveats
+    -------
+    This pattern only guards against the presence of a type with the same name.
+    It does not verify that an existing type's label set matches ``values``.
+    If you need to reconcile label differences, use the other helpers to add/rename labels.
+
+    Examples
+    --------
+    >>> from alembic import op
+    >>> # Create the enum if it's not already present (idempotent)
+    >>> op.execute(create_enum_if_absent_sql("did_type", ["FILE", "DATASET", "CONTAINER"], schema="rucio"))
+    """
+
+    create_stmt = create_enum_sql(name, values, schema=schema, if_not_exists=False)
+    return f"DO $$ BEGIN {create_stmt}; EXCEPTION WHEN duplicate_object THEN NULL; END $$ LANGUAGE plpgsql;"
+
+
+def try_create_enum_if_absent(
+        name: str,
+        values: 'Sequence[str]',
+        *,
+        schema: 'Optional[str]' = None,
+) -> None:
+    """
+    Execute :func:`create_enum_if_absent_sql` via Alembic's :func:`op.execute`.
+
+    This wrapper mirrors other helper functions to keep migrations concise when
+    no additional SQL composition is required.
+
+    Examples
+    --------
+    >>> try_create_enum_if_absent("did_type", ["FILE", "DATASET", "CONTAINER"], schema="rucio")
+    """
+
+    op.execute(create_enum_if_absent_sql(name, values, schema=schema))
+
+
 def try_alter_enum_add_value(
         name: str,
         value: str,
@@ -540,9 +671,12 @@ def try_alter_enum_add_value(
 
 __all__ = [
     "alter_enum_add_value_sql",
+    "create_enum_if_absent_sql",
+    "create_enum_sql",
     "drop_enum_sql",
     "enum_values_clause",
     "render_enum_name",
     "try_alter_enum_add_value",
+    "try_create_enum_if_absent",
     "try_drop_enum",
 ]

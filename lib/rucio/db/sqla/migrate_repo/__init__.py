@@ -45,10 +45,13 @@ from .ddl_helpers import (
 )
 from .enum_ddl_helpers import (
     alter_enum_add_value_sql,
+    create_enum_if_absent_sql,
+    create_enum_sql,
     drop_enum_sql,
     enum_values_clause,
     render_enum_name,
     try_alter_enum_add_value,
+    try_create_enum_if_absent,
     try_drop_enum,
 )
 
@@ -57,6 +60,8 @@ __all__ = [
     "alter_column",
     "alter_enum_add_value_sql",
     "create_check_constraint",
+    "create_enum_if_absent_sql",
+    "create_enum_sql",
     "create_index",
     "create_primary_key",
     "create_table",
@@ -82,6 +87,7 @@ __all__ = [
     "render_enum_name",
     "try_create_table",
     "try_alter_enum_add_value",
+    "try_create_enum_if_absent",
     "try_drop_constraint",
     "try_drop_enum",
     "try_drop_index",
