@@ -31,12 +31,14 @@ from .ddl_helpers import (
     get_current_dialect,
     get_effective_schema,
     get_server_version_info,
+    is_current_dialect,
     quote_identifier,
     quote_literal,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from enum import Enum as PyEnum
     from typing import Optional, Union
 
 
@@ -721,12 +723,98 @@ def try_alter_enum_add_value(
     ))
 
 
+def get_backend_enum(
+        py_enum: 'type[PyEnum]',
+        *,
+        name: str,
+) -> 'sa.types.TypeEngine':
+    """
+    Return an SQLAlchemy ``Enum`` type appropriate for the current backend.
+
+    Parameters
+    ----------
+    py_enum : Type[enum.Enum]
+        Python enumeration defining the label set to persist in the database.
+        The enumeration's ``.value`` attributes are expected to be the labels
+        stored in the database (e.g. strings in Rucio).
+    name : str
+        Logical enum name. On PostgreSQL this becomes the underlying type name;
+        on other backends it is used for the generated CHECK constraint.
+
+    Returns
+    -------
+    sqlalchemy.types.TypeEngine
+        A SQLAlchemy type suitable for use in :class:`sqlalchemy.Column`
+        definitions.
+
+    Notes
+    -----
+    * **PostgreSQL** – ensures a native enum type exists (idempotently) via
+      :func:`try_create_enum_if_absent` and returns a
+      :class:`sqlalchemy.dialects.postgresql.ENUM` bound to that type. The enum
+      is created in the effective Alembic version-table schema reported by
+      :func:`get_effective_schema`.
+    * **Other backends** – returns a :class:`sqlalchemy.Enum` configured as a
+      CHECK-constraint-backed enum (``native_enum=False``) so that the column
+      remains a regular string type with a portable constraint.
+
+    Examples
+    --------
+    Define the Rucio request state enum and use it in a migration:
+
+    >>> from enum import Enum
+    >>> from alembic import op
+    >>> import sqlalchemy as sa
+    >>>
+    >>> class RequestState(Enum):
+    ...     QUEUED = "QUEUED"
+    ...     SUBMITTED = "SUBMITTED"
+    ...     DONE = "DONE"
+    >>>
+    >>> state_type = get_backend_enum(RequestState, name="request_state")
+    >>> op.create_table(
+    ...     "requests",
+    ...     sa.Column("id", sa.Integer(), primary_key=True),
+    ...     sa.Column("state", state_type, nullable=False),
+    ... )
+    """
+
+    # Turn Python Enum -> list of labels; this raises a clear error if the
+    # object passed in is not an Enum type.
+    try:
+        values = [member.value for member in py_enum]
+    except Exception as exc:
+        raise TypeError(
+            "py_enum must be an Enum subclass iterable over members with a 'value' attribute."
+        ) from exc
+    validated_values = _validate_enum_labels(values)
+
+    if is_current_dialect("postgresql"):
+        schema = get_effective_schema()
+        # Native Postgres enum; don't let SQLAlchemy emit CREATE TYPE.
+        pg_enum = pg.ENUM(*validated_values, name=name, schema=schema, create_type=False)
+
+        # Idempotent CREATE TYPE IF NOT EXISTS (implemented via DO $$ ... $$)
+        try_create_enum_if_absent(pg_enum)
+        return pg_enum
+
+    # Non-PG: CHECK-based Enum backed by a regular string column.
+    return sa.Enum(
+        py_enum,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        values_callable=lambda obj: [e.value for e in obj],
+    )
+
+
 __all__ = [
     "alter_enum_add_value_sql",
     "create_enum_if_absent_sql",
     "create_enum_sql",
     "drop_enum_sql",
     "enum_values_clause",
+    "get_backend_enum",
     "render_enum_name",
     "try_alter_enum_add_value",
     "try_create_enum_if_absent",
