@@ -1068,7 +1068,7 @@ def perm_get_signed_url(issuer: "InternalAccount", kwargs: dict[str, Any], sessi
     :param session: The DB session to use
     :returns: True if account is allowed to call the API call, otherwise False
     """
-    return _is_root(issuer)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='sign-gcs', session=session)
 
 
 def perm_add_bad_pfns(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
