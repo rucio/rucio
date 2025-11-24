@@ -19,6 +19,7 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
+    alter_column,
     create_check_constraint,
     drop_column,
     enum_values_clause,
@@ -116,13 +117,8 @@ def downgrade():
     elif is_current_dialect('postgresql'):
         rules_state_enum = render_enum_name('RULES_STATE_CHK')
         drop_column('rules', 'ignore_account_limit')
-        execute(
-            f"""
-            ALTER TABLE {rules_table}
-            DROP CONSTRAINT IF EXISTS "RULES_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
-        )
+        try_drop_constraint('RULES_STATE_CHK', 'rules')
+        alter_column('rules', 'state', type_=sa.CHAR(length=1))
         try_drop_enum('RULES_STATE_CHK')
         try_create_enum_if_absent('RULES_STATE_CHK', rules_state_values)
         execute(

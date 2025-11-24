@@ -15,14 +15,13 @@
 """ added staging_area column """
 
 import sqlalchemy as sa
-from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
+    alter_column,
     create_check_constraint,
     drop_column,
     is_current_dialect,
-    qualify_table,
     try_drop_constraint,
 )
 
@@ -60,8 +59,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle'):
         try_drop_constraint('RSE_STAGING_AREA_CHK', 'rses')
         try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
@@ -70,13 +67,8 @@ def downgrade():
         drop_column('rses', 'staging_area')
 
     elif is_current_dialect('postgresql'):
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CONSTRAINT IF EXISTS "REQUESTS_TYPE_CHK",
-            ALTER COLUMN request_type TYPE CHAR
-            """
-        )
+        try_drop_constraint('REQUESTS_TYPE_CHK', 'requests')
+        alter_column('requests', 'request_type', type_=sa.CHAR(length=1))
         create_check_constraint(constraint_name='REQUESTS_TYPE_CHK', table_name='requests',
                                 condition="request_type in ('U', 'D', 'T')")
         drop_column('rses', 'staging_area')

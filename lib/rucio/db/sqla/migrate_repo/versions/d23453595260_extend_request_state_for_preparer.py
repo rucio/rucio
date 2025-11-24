@@ -16,9 +16,11 @@
 Add PREPARING state to Request model.
 """
 
+import sqlalchemy as sa
 from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
+    alter_column,
     create_check_constraint,
     enum_values_clause,
     get_server_version_info,
@@ -129,13 +131,8 @@ def downgrade():
         requests_history_enum = render_enum_name('REQUESTS_HISTORY_STATE_CHK')
         requests_enum = render_enum_name('REQUESTS_STATE_CHK')
 
-        execute(
-            f"""
-            ALTER TABLE {requests_history_table}
-            DROP CONSTRAINT IF EXISTS "REQUESTS_HISTORY_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
-        )
+        try_drop_constraint('REQUESTS_HISTORY_STATE_CHK', 'requests_history')
+        alter_column('requests_history', 'state', type_=sa.CHAR(length=1))
         try_drop_enum('REQUESTS_HISTORY_STATE_CHK')
         try_create_enum_if_absent('REQUESTS_HISTORY_STATE_CHK', old_enum_values)
         execute(
@@ -145,13 +142,8 @@ def downgrade():
             USING state::{requests_history_enum}
             """
         )
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CONSTRAINT IF EXISTS "REQUESTS_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
-        )
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
+        alter_column('requests', 'state', type_=sa.CHAR(length=1))
         try_drop_enum('REQUESTS_STATE_CHK')
         try_create_enum_if_absent('REQUESTS_STATE_CHK', old_enum_values)
         execute(

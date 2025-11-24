@@ -117,24 +117,14 @@ def downgrade():
         )
 
         try_drop_constraint('ACCOUNT_MAP_ID_TYPE_FK', 'account_map')
-        execute(
-            f"""
-            ALTER TABLE {identities_table}
-            DROP CONSTRAINT IF EXISTS "IDENTITIES_TYPE_CHK",
-            ALTER COLUMN identity_type TYPE VARCHAR
-            """
-        )
+        try_drop_constraint('IDENTITIES_TYPE_CHK', 'identities')
+        alter_column('identities', 'identity_type', type_=sa.String())
         create_check_constraint(constraint_name='IDENTITIES_TYPE_CHK',
                                 table_name='identities',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")
 
-        execute(
-            f"""
-            ALTER TABLE {account_map_table}
-            DROP CONSTRAINT IF EXISTS "ACCOUNT_MAP_ID_TYPE_CHK",
-            ALTER COLUMN identity_type TYPE VARCHAR
-            """
-        )
+        try_drop_constraint('ACCOUNT_MAP_ID_TYPE_CHK', 'account_map')
+        alter_column('account_map', 'identity_type', type_=sa.String())
         create_check_constraint(constraint_name='ACCOUNT_MAP_ID_TYPE_CHK',
                                 table_name='account_map',
                                 condition="identity_type in ('X509', 'GSS', 'USERPASS')")

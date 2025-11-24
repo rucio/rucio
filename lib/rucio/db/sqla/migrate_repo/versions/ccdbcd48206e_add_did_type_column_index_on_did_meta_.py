@@ -19,6 +19,7 @@ from alembic.op import execute
 
 from rucio.db.sqla.migrate_repo import (
     add_column,
+    alter_column,
     create_index,
     drop_column,
     is_current_dialect,
@@ -78,13 +79,8 @@ def downgrade():
         drop_column('did_meta', 'did_type')
 
     elif is_current_dialect('postgresql'):
-        execute(
-            f"""
-            ALTER TABLE {did_meta_table}
-            DROP CONSTRAINT IF EXISTS "DID_META_DID_TYPE_CHK",
-            ALTER COLUMN did_type TYPE CHAR
-            """
-        )
+        try_drop_constraint('DID_META_DID_TYPE_CHK', 'did_meta')
+        alter_column('did_meta', 'did_type', type_=sa.CHAR(length=1))
         execute(
             f"""
             ALTER TABLE {did_meta_table}

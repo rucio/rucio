@@ -14,12 +14,12 @@
 
 """ add mismatch scheme state to requests """
 
-from alembic.op import execute
+import sqlalchemy as sa
 
 from rucio.db.sqla.migrate_repo import (
+    alter_column,
     create_check_constraint,
     is_current_dialect,
-    qualify_table,
     try_drop_constraint,
 )
 
@@ -49,21 +49,14 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    requests_table = qualify_table('requests')
-
     if is_current_dialect('oracle'):
         try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
 
     elif is_current_dialect('postgresql'):
-        execute(
-            f"""
-            ALTER TABLE {requests_table}
-            DROP CONSTRAINT IF EXISTS "REQUESTS_STATE_CHK",
-            ALTER COLUMN state TYPE CHAR
-            """
-        )
+        try_drop_constraint('REQUESTS_STATE_CHK', 'requests')
+        alter_column('requests', 'state', type_=sa.CHAR(length=1))
         create_check_constraint(constraint_name='REQUESTS_STATE_CHK', table_name='requests',
                                 condition="state in ('Q', 'G', 'S', 'D', 'F', 'L', 'N', 'O', 'A', 'U', 'W')")
 
