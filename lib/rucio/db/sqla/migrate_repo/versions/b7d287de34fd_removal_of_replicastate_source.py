@@ -22,6 +22,7 @@ from rucio.db.sqla.migrate_repo import (
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -65,11 +66,7 @@ def upgrade():
             """
         )
         try_drop_enum('REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
-            """
-        )
+        try_create_enum_if_absent('REPLICAS_STATE_CHK', replicas_state_values)
         execute(
             f"""
             ALTER TABLE {replicas_table}
@@ -86,11 +83,7 @@ def upgrade():
             """
         )
         try_drop_enum('COLLECTION_REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {collection_replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
-            """
-        )
+        try_create_enum_if_absent('COLLECTION_REPLICAS_STATE_CHK', replicas_state_values)
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}
@@ -147,11 +140,7 @@ def downgrade():
             """
         )
         try_drop_enum('REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
-            """
-        )
+        try_create_enum_if_absent('REPLICAS_STATE_CHK', replicas_state_values)
         execute(
             f"""
             ALTER TABLE {replicas_table}
@@ -168,11 +157,7 @@ def downgrade():
             """
         )
         try_drop_enum('COLLECTION_REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {collection_replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
-            """
-        )
+        try_create_enum_if_absent('COLLECTION_REPLICAS_STATE_CHK', replicas_state_values)
         execute(
             f"""
             ALTER TABLE {collection_replicas_table}

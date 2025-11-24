@@ -21,10 +21,10 @@ from rucio.db.sqla.constants import RuleNotification
 from rucio.db.sqla.migrate_repo import (
     add_column,
     drop_column,
-    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
 )
@@ -50,11 +50,7 @@ def upgrade():
                                       default=RuleNotification.NO))
     elif is_current_dialect('postgresql'):
         rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
-        execute(
-            f"""
-            CREATE TYPE {rules_notification_enum} AS ENUM({enum_values_clause(rules_notification_values)})
-            """
-        )
+        try_create_enum_if_absent('RULES_NOTIFICATION_CHK', rules_notification_values)
         execute(
             f"""
             ALTER TABLE {rules_table}

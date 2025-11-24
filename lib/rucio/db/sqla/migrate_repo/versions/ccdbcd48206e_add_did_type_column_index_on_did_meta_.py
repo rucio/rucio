@@ -21,10 +21,10 @@ from rucio.db.sqla.migrate_repo import (
     add_column,
     create_index,
     drop_column,
-    enum_values_clause,
     is_current_dialect,
     qualify_table,
     render_enum_name,
+    try_create_enum_if_absent,
     try_drop_constraint,
     try_drop_enum,
     try_drop_index,
@@ -56,11 +56,7 @@ def upgrade():
         )
     elif is_current_dialect('postgresql'):
         did_meta_enum = render_enum_name('DID_META_DID_TYPE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {did_meta_enum} AS ENUM({enum_values_clause(did_meta_values)})
-            """
-        )
+        try_create_enum_if_absent('DID_META_DID_TYPE_CHK', did_meta_values)
         execute(
             f"""
             ALTER TABLE {did_meta_table}

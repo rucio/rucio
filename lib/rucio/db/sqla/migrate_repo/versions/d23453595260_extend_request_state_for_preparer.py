@@ -137,11 +137,7 @@ def downgrade():
             """
         )
         try_drop_enum('REQUESTS_HISTORY_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {requests_history_enum} AS ENUM({enum_values_clause(old_enum_values)})
-            """
-        )
+        try_create_enum_if_absent('REQUESTS_HISTORY_STATE_CHK', old_enum_values)
         execute(
             f"""
             ALTER TABLE {requests_history_table}
@@ -157,11 +153,7 @@ def downgrade():
             """
         )
         try_drop_enum('REQUESTS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {requests_enum} AS ENUM({enum_values_clause(old_enum_values)})
-            """
-        )
+        try_create_enum_if_absent('REQUESTS_STATE_CHK', old_enum_values)
         execute(
             f"""
             ALTER TABLE {requests_table}

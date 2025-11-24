@@ -124,11 +124,7 @@ def downgrade():
             """
         )
         try_drop_enum('RULES_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {rules_state_enum} AS ENUM({enum_values_clause(rules_state_values)})
-            """
-        )
+        try_create_enum_if_absent('RULES_STATE_CHK', rules_state_values)
         execute(
             f"""
             ALTER TABLE {rules_table}

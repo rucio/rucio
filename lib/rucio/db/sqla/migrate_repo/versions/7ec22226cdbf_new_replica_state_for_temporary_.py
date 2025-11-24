@@ -110,11 +110,7 @@ def downgrade():
             """
         )
         try_drop_enum('REPLICAS_STATE_CHK')
-        execute(
-            f"""
-            CREATE TYPE {replicas_state_enum} AS ENUM({enum_values_clause(replicas_state_values)})
-            """
-        )
+        try_create_enum_if_absent('REPLICAS_STATE_CHK', replicas_state_values)
         execute(
             f"""
             ALTER TABLE {replicas_table}

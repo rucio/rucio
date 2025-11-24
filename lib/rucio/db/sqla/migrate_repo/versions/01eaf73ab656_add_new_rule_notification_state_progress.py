@@ -110,11 +110,7 @@ def downgrade():
             """
         )
         try_drop_enum('RULES_NOTIFICATION_CHK')
-        execute(
-            f"""
-            CREATE TYPE {rules_notification_enum} AS ENUM({enum_values_clause(rules_notification_values)})
-            """
-        )
+        try_create_enum_if_absent('RULES_NOTIFICATION_CHK', rules_notification_values)
         execute(
             f"""
             ALTER TABLE {rules_table}
