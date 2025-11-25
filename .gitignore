@@ -33,7 +33,6 @@ userkey.pem
 
 # ignore MANIFEST file
 MANIFEST
-lib/rucio_clients.egg-info
 
 # build directories
 .coverage
@@ -42,10 +41,10 @@ build/
 covhtml
 dist/
 examples/whip/results/
-lib/rucio.egg-info/
 cache/
 changed_files.txt
 docs/
+*.egg-info
 
 # Backup and temp files
 *.log
@@ -54,7 +53,6 @@ docs/
 *~
 .venv
 lib/rucio/vcsversion.py
-rucio.egg-info
 pylint.out
 
 # Mac OS X Finder
