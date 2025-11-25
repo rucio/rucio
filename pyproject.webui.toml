@@ -62,5 +62,9 @@ rucio = "lib/rucio"
 "rucio.web.ui.flask.common" = "lib/rucio/web/ui/flask/common"
 requirements = "requirements"
 
+[tool.setuptools.packages.find]
+where = ["lib"]
+include = ["rucio*"]
+
 [tool.setuptools.dynamic]
 version = {attr = "rucio.vcsversion.VERSION"}  # any module attribute compatible with ast.literal_eval
