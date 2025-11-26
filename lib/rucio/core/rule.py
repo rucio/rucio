@@ -652,6 +652,7 @@ def add_rules(
 
                         rule_lifetime: Optional[int] = rule.get('lifetime')
                         expires_at: Optional[datetime] = datetime.utcnow() + timedelta(seconds=rule_lifetime) if rule_lifetime is not None else None
+                        del rule['lifetime']
 
                         notify = {'Y': RuleNotification.YES, 'C': RuleNotification.CLOSE, 'P': RuleNotification.PROGRESS, None: RuleNotification.NO}.get(rule.get('notify'))
 
@@ -1910,7 +1911,8 @@ def update_rule(
                 rule.meta = json.dumps(options[key])
 
             else:
-                setattr(rule, key, options[key])
+                if hasattr(rule, key):
+                    setattr(rule, key, options[key])
 
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
 
