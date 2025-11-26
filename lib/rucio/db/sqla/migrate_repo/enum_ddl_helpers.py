@@ -19,6 +19,33 @@ The functions in this module build raw SQL strings for enum-related DDL that
 Alembic can execute with `alembic.op.execute`.  Each helper focuses on a
 single operation so that migrations remain explicit and easy to review. The
 offered helpers span the meaningful enum operations PostgreSQL allows.
+
+Key features
+------------
+* Identifiers and literals are quoted through SQLAlchemy’s dialect preparer so
+  that schema names and enum labels are emitted safely.
+* `render_enum_name` consistently applies the default Alembic schema when
+  no schema is provided explicitly.
+* Enum labels are validated to catch empty values, duplicates, or items that
+  exceed PostgreSQL’s 63-byte limit.
+* PostgreSQL-only behaviour is enforced early; attempting to use these helpers
+  on another dialect raises a clear error.
+* ``create_enum_if_absent_sql`` emits a ``DO`` block for idempotent enum
+  creation when PostgreSQL lacks ``CREATE TYPE IF NOT EXISTS``.
+
+Operational notes
+-----------------
+* PostgreSQL does not implement ``CREATE TYPE IF NOT EXISTS``. Use
+  :func:`create_enum_if_absent_sql` for idempotent creation.
+* For ``ALTER TYPE ... ADD VALUE`` transaction semantics:
+  - On PG < 12: this cannot run inside a transaction block.
+  - On PG ≥ 12: it can run in a transaction, but the new value cannot be
+    used until the transaction commits.
+* Some helpers depend on server features that only appear in PostgreSQL 10 or
+  later. When the server version is known, a helpful exception is raised if the
+  operation is unsupported.
+* The effective schema defaults to Alembic’s ``version_table_schema``. Supply a
+  schema argument directly when enums live elsewhere.
 """
 
 from typing import TYPE_CHECKING
