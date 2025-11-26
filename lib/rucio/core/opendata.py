@@ -282,7 +282,7 @@ def get_opendata_did_files(
         session: "Session",
 ) -> dict[str, Any]:
     """
-    Retrieve the files associated with an Opendata DID.
+    Retrieve the files and replicas associated with an Opendata DID.
 
     Parameters:
         scope: The scope of the Opendata DID.
@@ -291,7 +291,7 @@ def get_opendata_did_files(
         session: SQLAlchemy session to use for the query.
 
     Returns:
-        A dictionary containing the list of files, cache hit status, and time elapsed in milliseconds.
+        A dictionary containing the list of files including replicas, cache hit status, and time elapsed in milliseconds.
     """
 
     time_start = time.perf_counter()
@@ -441,7 +441,7 @@ def get_opendata_did(
                     extensions.add(filename.split(".")[-1])
 
         result["files_summary"] = {
-            "count": len(result["files"]),
+            "length": len(result["files"]),
             "bytes": bytes_sum,
             "extensions": list(extensions),
             "replicas_missing": replicas_missing,
