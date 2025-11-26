@@ -420,7 +420,7 @@ class AccountParameter(ErrorHandlingMethodView):
                   type:
                     description: "The account type."
                     type: string
-                    enum: ["USER", "GROUP", "SERVICE"]
+                    $ref: "#/components/schemas/AccountType"
                   email:
                     description: "The email for the account."
                     type: string
