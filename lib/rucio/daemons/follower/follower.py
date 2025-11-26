@@ -24,7 +24,8 @@ from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.common.utils import get_thread_with_periodic_running_function
 from rucio.core.did import create_reports
-from rucio.core.heartbeat import die, live, sanity_check
+from rucio.core.heartbeat import die, live
+from rucio.daemons.common import run_daemon_startup_checks
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -84,7 +85,7 @@ def run(
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
 
     hostname = socket.gethostname()
-    sanity_check(executable=DAEMON_NAME, hostname=hostname)
+    run_daemon_startup_checks(executable=DAEMON_NAME, hostname=hostname)
 
     if once:
         logging.info("executing one follower iteration only")
