@@ -17,7 +17,7 @@ from configparser import NoOptionError
 
 import pytest
 
-from rucio.common.config import config_get, config_get_bool, config_remove_option, config_set
+from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
@@ -479,7 +479,8 @@ class TestOpenDataCore:
 
             db_write_session.commit()
 
-            opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=False, session=db_write_session)
+            opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=False,
+                                                     session=db_write_session)
 
             assert opendata_did["scope"] == scope, "Scope does not match"
             assert opendata_did["name"] == name, "Name does not match"
@@ -491,7 +492,8 @@ class TestOpenDataCore:
 
             config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
-            opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=True, session=db_write_session)
+            opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=True,
+                                                     session=db_write_session)
 
             assert opendata_did["scope"] == scope, "Scope does not match"
             assert opendata_did["name"] == name, "Name does not match"
