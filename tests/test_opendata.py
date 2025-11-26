@@ -41,6 +41,13 @@ skip_unsupported_dialect = pytest.mark.skipif(
 
 OPENDATA_RSE_EXPRESSION = 'OpenData=True'
 
+
+@pytest.fixture(scope="module", autouse=True)
+def module_setup():
+    # Set OpenData RSE expression for tests
+    config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+
+
 class TestOpenDataCommon:
     def test_opendata_did_states(self):
         """
