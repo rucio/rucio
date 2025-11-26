@@ -45,6 +45,9 @@ OPENDATA_RSE_EXPRESSION = 'OpenData=True'
 @pytest.fixture(scope="module", autouse=True)
 def module_setup():
     # Set OpenData RSE expression for tests
+    if not config_has_section('opendata'):
+        config_add_section('opendata')
+
     config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
 
