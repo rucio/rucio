@@ -1682,6 +1682,7 @@ def update_rule(
                 except UndefinedPolicy:
                     lifetime = options['lifetime']
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
+
             if key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
