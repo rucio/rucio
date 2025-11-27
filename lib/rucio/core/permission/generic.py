@@ -67,6 +67,7 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'update_rule': perm_update_rule,
             'approve_rule': perm_approve_rule,
             'update_subscription': perm_update_subscription,
+            'delete_subscription': perm_delete_subscription,
             'reduce_rule': perm_reduce_rule,
             'move_rule': perm_move_rule,
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
@@ -539,6 +540,20 @@ def perm_move_rule(issuer: "InternalAccount", kwargs: dict[str, Any], session: "
 def perm_update_subscription(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
     """
     Checks if an account can update a subscription.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    if _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session):
+        return True
+
+    return False
+
+def perm_delete_subscription(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can delete a subscription.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
