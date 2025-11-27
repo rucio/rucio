@@ -1872,6 +1872,9 @@ def update_rule(
             elif key == 'cancel_requests':
                 pass
 
+            elif key == 'boost_rule':
+                pass
+
             elif key == 'priority':
                 try:
                     rule.priority = options[key]
