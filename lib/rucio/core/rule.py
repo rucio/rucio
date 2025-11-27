@@ -1912,6 +1912,10 @@ def update_rule(
                 rule.meta = json.dumps(options[key])
 
             else:
+                if not hasattr(rule, key):
+                    # This option exists in `valid_options` but is not defined
+                    # in the model nor is it handled above.
+                    raise RuntimeError(f'got an unexpected attribute {key!r}')
                 setattr(rule, key, options[key])
 
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
