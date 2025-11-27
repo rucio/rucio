@@ -313,10 +313,12 @@ def _is_locked(
     *,
     logger: "LoggerFunction" = logging.log
 ) -> bool:
-    logger(logging.INFO,
+    if str(rule.get("locked", "0")) in ("1", "True", "true"):
+        logger(logging.INFO,
            '(%s) Rule %s for %s:%s is locked',
            rse['rse'], rule['id'], rule['scope'], rule['name'])
-    return rule['locked']
+        return True
+    return False
 
 
 def _is_being_deleted(
