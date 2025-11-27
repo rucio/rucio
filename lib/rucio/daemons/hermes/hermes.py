@@ -21,10 +21,8 @@ import datetime
 import functools
 import json
 import logging
-import random
 import re
 import smtplib
-import socket
 import ssl
 import sys
 import threading
@@ -46,14 +44,16 @@ from rucio.common.config import (
 )
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
+from rucio.common.stomp_controller import StompController
 from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable
     from types import FrameType
 
+    from stomp import Connection
     from stomp.utils import Frame
 
     from rucio.common.types import LoggerFunction
@@ -82,7 +82,7 @@ class HermesListener(stomp.ConnectionListener):
     Hermes Listener
     """
 
-    def __init__(self, broker: str):
+    def __init__(self, broker: str, conn: "Connection"):
         """
         __init__
         """
@@ -98,63 +98,17 @@ class HermesListener(stomp.ConnectionListener):
 def setup_activemq(
         logger: "LoggerFunction"
 ) -> tuple[
-    Optional[list[stomp.Connection12]],
-    Optional[str],
-    Optional[str],
-    Optional[str],
-    Optional[bool]
+    "StompController",
+    Optional[list[Any]],
+    Optional[str]
 ]:
     """
     Deliver messages to ActiveMQ
 
     :param logger:             The logger object.
     """
-
-    logger(logging.INFO, "[broker] Resolving brokers")
-
-    brokers_alias = []
-    brokers_resolved = []
-    try:
-        brokers_alias = config_get_list("messaging-hermes", "brokers")
-    except Exception:
-        raise Exception("Could not load brokers from configuration")
-
-    logger(logging.INFO, "[broker] Resolving broker dns alias: %s", brokers_alias)
-    brokers_resolved = []
-    for broker in brokers_alias:
-        try:
-            addrinfos = socket.getaddrinfo(
-                broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP
-            )
-            brokers_resolved.extend(ai[4][0] for ai in addrinfos)
-        except socket.gaierror as ex:
-            logger(
-                logging.ERROR,
-                "[broker] Cannot resolve domain name %s (%s)",
-                broker,
-                str(ex),
-            )
-
-    logger(logging.DEBUG, "[broker] Brokers resolved to %s", brokers_resolved)
-
-    if not brokers_resolved:
-        logger(logging.FATAL, "[broker] No brokers resolved.")
-        return None, None, None, None, None
-
-    broker_timeout = 3
-    if not broker_timeout:  # Allow zero in config
-        broker_timeout = None
-
-    logger(logging.INFO, "[broker] Checking authentication method")
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool("messaging-hermes", "use_ssl")
-    except Exception:
-        logger(
-            logging.INFO,
-            "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
-        )
-
+    brokers_alias = config_get_list("messaging-hermes", "brokers")
+    use_ssl = config_get_bool("messaging-hermes", "use_ssl", default=True)
     port = config_get_int("messaging-hermes", "port")
     vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
     username = None
@@ -163,50 +117,32 @@ def setup_activemq(
         username = config_get("messaging-hermes", "username")
         password = config_get("messaging-hermes", "password")
         port = config_get_int("messaging-hermes", "nonssl_port")
-
-    conns = []
-    for broker in brokers_resolved:
-        if not use_ssl:
-            logger(
-                logging.INFO,
-                "[broker] setting up username/password authentication: %s",
-                broker,
-            )
-        else:
-            logger(
-                logging.INFO,
-                "[broker] setting up ssl cert/key authentication: %s",
-                broker,
-            )
-
-        con = stomp.Connection12(
-            host_and_ports=[(broker, port)],
-            vhost=vhost,
-            keepalive=True,
-            timeout=broker_timeout,
-        )
-        if use_ssl:
-            con.set_ssl(
-                key_file=config_get("messaging-hermes", "ssl_key_file"),
-                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
-            )
-
-        con.set_listener(
-            "rucio-hermes", HermesListener(con.transport._Transport__host_and_ports[0])
-        )
-
-        conns.append(con)
+    reconnect_attempts = config_get_int("messaging-hermes", "reconnect_attempts", default=100)
+    ssl_key_file = config_get("messaging-hermes", "ssl_key_file", raise_exception=False)
+    ssl_cert_file = config_get("messaging-hermes", "ssl_cert_file", raise_exception=False)
     destination = config_get("messaging-hermes", "destination")
-    return conns, destination, username, password, use_ssl
+
+    controller = StompController(
+        brokers=brokers_alias,
+        port=port,
+        use_ssl=use_ssl,
+        vhost=vhost,
+        username=username,
+        password=password,
+        ssl_key_file=ssl_key_file,
+        ssl_cert_file=ssl_cert_file,
+        timeout=None,
+        reconnect_attempts=reconnect_attempts,
+        logger=logger
+    )
+    controller.setup_connections()
+    return controller, controller.connections, destination
 
 
 def deliver_to_activemq(
     messages: "Iterable[dict[str, Any]]",
-    conns: "Sequence[stomp.Connection12]",
+    stomp_controller: "StompController",
     destination: str,
-    username: str,
-    password: str,
-    use_ssl: bool,
     logger: "LoggerFunction"
 ) -> list[str]:
     """
@@ -225,40 +161,8 @@ def deliver_to_activemq(
     to_delete = []
     for message in messages:
         try:
-            conn = random.sample(conns, 1)[0]
-            if not conn.is_connected():
-                host_and_ports = conn.transport._Transport__host_and_ports[0][0]
-                RECONNECT_COUNTER.labels(host=host_and_ports.split(".")[0]).inc()
-                if not use_ssl:
-                    logger(
-                        logging.INFO,
-                        "[broker] - connecting with USERPASS to %s",
-                        host_and_ports,
-                    )
-                    conn.connect(username, password, wait=True)
-                else:
-                    logger(
-                        logging.INFO,
-                        "[broker] - connecting with SSL to %s",
-                        host_and_ports,
-                    )
-                    conn.connect(wait=True)
-
-            conn.send(
-                body=json.dumps(
-                    {
-                        "event_type": str(message["event_type"]).lower(),
-                        "payload": message["payload"],
-                        "created_at": str(message["created_at"]),
-                    }
-                ),
-                destination=destination,
-                headers={
-                    "persistent": "true",
-                    "event_type": str(message["event_type"]).lower(),
-                },
-            )
-
+            stomp_controller.connect_and_send(message=message, destination=destination,
+                                              listener_name='rucio-hermes', listener=HermesListener, metric=METRICS)
             to_delete.append(message["id"])
         except ValueError:
             logger(
@@ -663,7 +567,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             logger(logging.ERROR, str(err))
     if "activemq" in services_list:
         try:
-            conns, destination, username, password, use_ssl = setup_activemq(logger)
+            stomp_controller, conns, destination = setup_activemq(logger)
             if not conns:
                 logger(
                     logging.ERROR,
@@ -780,11 +684,8 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             try:
                 messages_sent = deliver_to_activemq(
                     messages=message_dict["activemq"],
-                    conns=conns,  # type: ignore (argument could be None)
+                    stomp_controller=stomp_controller,
                     destination=destination,  # type: ignore (argument could be None)
-                    username=username,  # type: ignore (argument could be None)
-                    password=password,  # type: ignore (argument could be None)
-                    use_ssl=use_ssl,  # type: ignore (argument could be None)
                     logger=logger,
                 )
                 logger(
