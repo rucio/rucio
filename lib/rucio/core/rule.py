@@ -1683,13 +1683,13 @@ def update_rule(
                     lifetime = options['lifetime']
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
 
-            if key == 'source_replica_expression':
+            elif key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
-            if key == 'comment':
+            elif key == 'comment':
                 rule.comments = options['comment']
 
-            if key == 'activity':
+            elif key == 'activity':
                 validate_schema(
                     'activity', options['activity'], vo=rule.account.vo
                 )
