@@ -217,7 +217,7 @@ class DownloadClient:
         if self.client.vo != DEFAULT_VO:
             self.trace_tpl['vo'] = self.client.vo
         self.trace_tpl['eventType'] = 'download'
-        self.trace_tpl['eventVersion'] = 'api_%s' % version.RUCIO_VERSION[0]
+        self.trace_tpl['eventVersion'] = 'api_%s' % version.RUCIO_VERSION
 
         self.use_cea_threshold = 10
         self.extraction_tools = []

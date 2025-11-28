@@ -120,7 +120,7 @@ class UploadClient:
             'hostname': socket.getfqdn(),
             'account': self.client.account,
             'eventType': 'upload',
-            'eventVersion': version.RUCIO_VERSION[0],
+            'eventVersion': version.RUCIO_VERSION,
             'vo': self.client.vo if self.client.vo != DEFAULT_VO else None
         }
 
