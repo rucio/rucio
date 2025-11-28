@@ -77,7 +77,7 @@ def get_rse_info(
                     - port                ...     port used for this protocol
                     - impl                ...     naming the python class of the protocol implementation
                     - extended_attributes ...     additional information for the protocol
-                    - domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is better, zero is not supported)
+                    - domains             ...     a dict naming each domain and the priority of the protocol for each operation (lower is higher priority, None means not supported)
 
         :raises RSENotFound: if the provided RSE could not be found in the database.
     """
