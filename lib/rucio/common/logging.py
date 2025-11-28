@@ -404,9 +404,14 @@ def setup_logging(application: Optional["Flask"] = None, process_name: Optional[
     config_loglevel = getattr(logging, config_get('common', 'loglevel', raise_exception=False, default='DEBUG').upper())
 
     # Decide the handler stream (default stdout)
+    # Keep references to the streams before we potentially swap them around so the
+    # handler can keep writing to the original destination.
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
     stream_choice = (os.getenv('RUCIO_LOG_STREAM', '').strip().lower()
                      or str(config_get('common', 'logstream', raise_exception=False, default='stdout')).strip().lower())
-    stream = sys.stderr if stream_choice in ('stderr', 'err', '2') else sys.stdout
+    stream = original_stderr if stream_choice in ('stderr', 'err', '2') else original_stdout
 
     # Optionally route all process-level stdout to stderr (helps with mod_wsgi/CI)
     redirect_env = os.getenv('RUCIO_REDIRECT_STDOUT_TO_STDERR', '').strip().lower() in ('1', 'true', 'yes', 'on')
