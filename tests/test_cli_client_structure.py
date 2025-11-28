@@ -646,7 +646,7 @@ def test_rse_protocol():
     _, _, err = execute(f"rucio rse add {rse_name}")
     assert "ERROR" not in err
 
-    domain_json = """{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}}"""
+    domain_json = """{"wan": {"read": 0, "write": 0, "delete": 0, "third_party_copy_read": 0, "third_party_copy_write": 0}}"""
     cmd = f"rucio rse protocol add {rse_name} --host-name blocklistreplica --scheme file --prefix /rucio --port 0 --impl rucio.rse.protocols.posix.Default --domain-json '{domain_json}'"
     exitcode, _, err = execute(cmd)
     print(err)
