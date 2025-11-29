@@ -207,9 +207,9 @@ if test ${coverage}; then
     PYTEST_SH_ARGS="--cov-report term --cov-report xml:.coverage $PYTEST_SH_ARGS"
 fi
 
-for i in $iterations
+# Run once or twice depending on -2
+for i in $(seq 1 "$iterations")
 do
-
     if test ${selection}; then
         echo "Running the following tests:"
         echo $TESTS | tr " " "\n"
