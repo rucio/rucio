@@ -46,6 +46,7 @@ import requests
 from typing_extensions import ParamSpec
 
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.config_settings import Config
 from rucio.common.constants import BASE_SCHEME_MAP, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
 from rucio.common.extra import import_extras
@@ -664,7 +665,9 @@ def extract_scope(
         vo: str = DEFAULT_VO
 ) -> 'Sequence[str]':
     scope_extraction_algorithms = ScopeExtractionAlgorithms(vo)
-    extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
+    common_extract_scope = Config.common.extract_scope(raise_exception=False)
+    policy_extract_scope = Config.policy.extract_scope(raise_exception=False)
+    extract_scope_convention = common_extract_scope or policy_extract_scope
     if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
         extract_scope_convention = default_extract
     return scope_extraction_algorithms.extract_scope(did, scopes, extract_scope_convention)

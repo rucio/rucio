@@ -28,6 +28,7 @@ import click
 
 from rucio.client.client import Client
 from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.exception import (
     AccessDenied,
     CannotAuthenticate,
@@ -154,9 +155,9 @@ def exception_handler(function):
                 return SUCCESS
             logger.debug(traceback.format_exc())
             logger.error(error)
-            contact = config_get("policy", "support", raise_exception=False)
+            contact = Config.policy.support(raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ""
-            contact = config_get("policy", "support_rucio", default="https://github.com/rucio/rucio/issues")
+            contact = Config.policy.support_rucio()
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
             logger.error("\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s" % support)
             return FAILURE

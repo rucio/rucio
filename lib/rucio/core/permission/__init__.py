@@ -37,7 +37,7 @@ LOGGER = logging.getLogger('policy')
 permission_modules = {}
 
 try:
-    multivo = config.config_get_bool('common', 'multi_vo')
+    multivo = config.config_get_bool('common', 'multi_vo')  #
 except (NoOptionError, NoSectionError):
     multivo = False
 
