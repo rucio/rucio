@@ -23,6 +23,7 @@ FROM base AS python
             dnf config-manager --set-enabled crb && \
             dnf -y update && \
             dnf -y install boost-python3 python3-pip python3-devel && \
+            dnf remove --assumeyes python3-setuptools && \
             python3 -m pip --no-cache-dir install --upgrade pip && \
             python3 -m pip --no-cache-dir install --upgrade setuptools wheel; \
         elif [ "$PYTHON" == "3.10" ] ; then \
@@ -42,6 +43,7 @@ FROM base AS python
             rm -rf Python-${PYTHON_VERSION}.tgz && \
             echo "/usr/local/lib" > /etc/ld.so.conf.d/python${PYTHON}.conf && \
             ldconfig && \
+            dnf remove --assumeyes python3-setuptools && \
             python${PYTHON} -m pip --no-cache-dir install --upgrade pip && \
             python${PYTHON} -m pip --no-cache-dir install --upgrade setuptools wheel; \
         fi
@@ -145,11 +147,11 @@ FROM python AS rucio-runtime
     COPY etc/certs/rucio_ca.pem /opt/rucio/etc/rucio_ca.pem
     COPY etc/certs/ruciouser.pem /opt/rucio/etc/ruciouser.pem
     COPY etc/certs/ruciouser.key.pem /opt/rucio/etc/ruciouser.key.pem
-    
+
     # Create certs dir and symlink for compatibility
     RUN mkdir -p /opt/rucio/etc/certs && \
         ln -s /opt/rucio/etc/rucio_ca.pem /opt/rucio/etc/certs/rucio_ca.pem
-    
+
     RUN chmod 0400 /etc/grid-security/hostkey.pem && \
         chmod 0400 /opt/rucio/etc/ruciouser.key.pem
 
