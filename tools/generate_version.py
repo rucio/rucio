@@ -54,5 +54,5 @@ REVNO = '%s'
     VERSION_FILE.close()
 
     WEBUI_VERSION_FILE = open("lib/rucio/web/ui/static/webui_version", 'w')
-    WEBUI_VERSION_FILE.write('%s' % GIT_VERSION)
+    WEBUI_VERSION_FILE.write(f"{GIT_VERSION}\n")
     WEBUI_VERSION_FILE.close()
