@@ -102,7 +102,7 @@ class ScopeClient(BaseClient):
 
     def list_scopes(self) -> list[str]:
         """
-        List all available scopes.
+        List all scopes belonging to the client's authenticated account. 
 
         Returns
         -------
