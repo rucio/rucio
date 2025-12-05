@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add started_at to requests '''
+""" add started_at to requests """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
+
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '58bff7008037'
@@ -24,22 +28,20 @@ down_revision = '3c9df354071b'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('requests', sa.Column('started_at', sa.DateTime), schema=schema)
-        add_column('requests_history', sa.Column('started_at', sa.DateTime), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('requests', sa.Column('started_at', sa.DateTime))
+        add_column('requests_history', sa.Column('started_at', sa.DateTime))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('requests', 'started_at', schema=schema)
-        drop_column('requests_history', 'started_at', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('requests', 'started_at')
+        drop_column('requests_history', 'started_at')
