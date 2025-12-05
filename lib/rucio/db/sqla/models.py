@@ -1867,3 +1867,32 @@ def unregister_models(engine: Engine) -> None:
     :returns: None
     """
     BASE.metadata.drop_all(engine)
+
+
+def normalize_checksums(md5: Optional[str] = None,
+                        adler32: Optional[str] = None,
+                        checksum: Optional[Any] = None) -> Optional[dict[str, Optional[str]]]:
+    """
+    Return a canonical checksum dict or None.
+
+    Rules:
+    - If checksum is a non-empty dict (DB canonical JSON), return it as-is (preserve keys).
+    - If checksum is None or an empty dict, build a checksum dict from available legacy columns (md5/adler32).
+    - If neither checksum nor legacy columns provide values, return None.
+
+    The returned dict may contain other checksum types in the future (e.g. 'sha1'); those are preserved.
+    """
+    # If DB column returns a non-empty dict, prefer it (canonical)
+    if isinstance(checksum, dict) and checksum:
+        return checksum
+
+    # If checksum is truthy but not a dict, don't attempt parsing here.
+    # We treat non-dict values as absent and fall back to legacy columns.
+    # Synthesize from legacy columns when DB checksum is absent or empty
+    out: dict[str, Optional[str]] = {}
+    if md5:
+        out['md5'] = md5
+    if adler32:
+        out['adler32'] = adler32
+
+    return out if out else None
