@@ -100,7 +100,10 @@ class Receiver:
         logger: "LoggerFunction" = logging.log
     ) -> None:
         external_host = msg.get('endpnt', None)
-        request_id = msg['file_metadata'].get('request_id', None)
+        try:
+            request_id = msg['file_metadata']['request_id']
+        except Exception:
+            request_id = None
         try:
             tt_status_report = FTS3CompletionMessageTransferStatusReport(external_host, request_id=request_id, fts_message=msg)
             if tt_status_report.get_db_fields_to_update(session=session, logger=logger):  # type: ignore
