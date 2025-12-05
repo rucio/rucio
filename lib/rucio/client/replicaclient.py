@@ -183,7 +183,7 @@ class ReplicaClient(BaseClient):
         sort:
             Sort the replicas: ``geoip`` - based on src/dst IP topographical distance
         domain:
-            Define the domain. None is fallback to 'wan', otherwise 'wan, 'lan', or 'all'
+            Define the domain. Choose from ['wan', 'lan', 'all']. Otherwise, the server will choose based on the client's location.
         signature_lifetime:
             If supported, in seconds, restrict the lifetime of the signed PFN.
         nrandom:
