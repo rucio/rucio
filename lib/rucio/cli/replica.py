@@ -44,7 +44,7 @@ def replica_list():
     default=False,
 )
 @click.option("--pfns", is_flag=True, help="Show only the PFNs", default=False)
-@click.option("--domain", default=None, type=click.Choice(["wan", "lan", "all"]), help="Force the networking domain")
+@click.option("--domain", default=None, type=click.Choice(["wan", "lan", "all"]), help="Force the networking domain. If None, the server will choose based on the client's location.")
 @click.option(
     "--link",
     help="Symlink PFNs with directory substitution.\
