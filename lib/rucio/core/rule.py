@@ -1682,13 +1682,14 @@ def update_rule(
                 except UndefinedPolicy:
                     lifetime = options['lifetime']
                 rule.expires_at = datetime.utcnow() + timedelta(seconds=lifetime) if lifetime is not None else None
-            if key == 'source_replica_expression':
+
+            elif key == 'source_replica_expression':
                 rule.source_replica_expression = options['source_replica_expression']
 
-            if key == 'comment':
+            elif key == 'comment':
                 rule.comments = options['comment']
 
-            if key == 'activity':
+            elif key == 'activity':
                 validate_schema(
                     'activity', options['activity'], vo=rule.account.vo
                 )
@@ -1871,6 +1872,9 @@ def update_rule(
             elif key == 'cancel_requests':
                 pass
 
+            elif key == 'boost_rule':
+                pass
+
             elif key == 'priority':
                 try:
                     rule.priority = options[key]
@@ -1908,6 +1912,10 @@ def update_rule(
                 rule.meta = json.dumps(options[key])
 
             else:
+                if not hasattr(rule, key):
+                    # This option exists in `valid_options` but is not defined
+                    # in the model nor is it handled above.
+                    raise RuntimeError(f'got an unexpected attribute {key!r}')
                 setattr(rule, key, options[key])
 
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -2906,23 +2914,9 @@ def insert_rule_history(
     :param session:   The Database session.
     """
     if recent:
-        models.ReplicationRuleHistoryRecent(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
-                                            did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
-                                            expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
-                                            locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
-                                            activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                            ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
-                                            updated_at=rule.updated_at, child_rule_id=rule.child_rule_id, eol_at=rule.eol_at,
-                                            split_container=rule.split_container, meta=rule.meta).save(session=session)
+        models.ReplicationRuleHistoryRecent(**rule.to_dict()).save(session=session)
     if longterm:
-        models.ReplicationRuleHistory(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
-                                      did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
-                                      expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
-                                      locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
-                                      activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
-                                      ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
-                                      updated_at=rule.updated_at, child_rule_id=rule.child_rule_id, eol_at=rule.eol_at,
-                                      split_container=rule.split_container, meta=rule.meta).save(session=session)
+        models.ReplicationRuleHistory(**rule.to_dict()).save(session=session)
 
 
 @transactional_session
