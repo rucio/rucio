@@ -79,7 +79,7 @@ def test_help_menus():
     assert exitcode == 0
     assert "ERROR" not in err
     out = out.split("\n")
-    commands = [cmd.split(" ") for cmd in out[out.index("Commands:")+1:] if len(cmd) > 3]  # command has two spaces in front of it
+    commands = [cmd.split(" ") for cmd in out[out.index("Commands:") + 1:] if len(cmd) > 3]  # command has two spaces in front of it
     commands = [cmd[2] for cmd in commands]
 
     for command in commands:
@@ -92,7 +92,7 @@ def test_help_menus():
         # test the subcommands/operations as well
         out = out.split("\n")
         try:
-            subcommands = [cmd.split(" ") for cmd in out[out.index("Commands:")+1:] if len(cmd) > 3]
+            subcommands = [cmd.split(" ") for cmd in out[out.index("Commands:") + 1:] if len(cmd) > 3]
             subcommands = [cmd[2] for cmd in subcommands]
             for subcommand in subcommands:
                 menu = f"rucio {command} {subcommand} --help"
