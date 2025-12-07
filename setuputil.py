@@ -48,7 +48,6 @@ dev_requirements = [
     'pytest-xdist',
     'pytest-cov',
     'pyflakes',
-    'flake8',
     'pylint',
     'isort',
     'xmltodict',
