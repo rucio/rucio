@@ -163,7 +163,7 @@ select = [
     "I",    # isort
     "N",    # pep8-naming
     "S",    # bandit
-    "TCH",  # flake8-type-checking
+    "TC",   # flake8-type-checking
     "UP",   # pyupgrade
     "TID",  # flake8-tidy-imports
     "PLE",  # pylint
