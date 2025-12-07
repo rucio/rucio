@@ -16,6 +16,7 @@ from rucio.vcsversion import BRANCH_NICK, REVISION_ID, VERSION
 
 RUCIO_VERSION = VERSION
 
+
 def version_string() -> str:
     """ Get the version string """
     return VERSION

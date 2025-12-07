@@ -51,6 +51,7 @@ class TestOpenDataCommon:
 
         assert opendata_did_state_from_common == opendata_did_state_from_enum, "'OpenDataDIDState' enum does not match expected states from 'OPENDATA_DID_STATE_LITERAL'"
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCore:
     def test_opendata_dids_add(self, mock_scope, root_account, db_write_session):
@@ -447,6 +448,7 @@ class TestOpenDataCore:
         finally:
             config_set('opendata', 'rule_enable', 'False')
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:
     def test_opendata_dids_list_client(self, mock_scope, rucio_client):
@@ -537,6 +539,7 @@ class TestOpenDataClient:
         meta = opendata_did["meta"]
         assert meta == {}, "'meta' should be empty"
 
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataAPI:
     api_endpoint = '/opendata/dids'
@@ -604,6 +607,7 @@ class TestOpenDataAPI:
             headers=request_headers,
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCLI:
