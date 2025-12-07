@@ -517,6 +517,7 @@ class OpenDataDOI(BASE, ModelBase):
         Index('OPENDATA_DOI_CREATED_AT_IDX', 'created_at'),
     )
 
+
 class OpenDataRecord(BASE, ModelBase):
     """Mapping between OpenData DIDs and Open Data Portal Record IDs"""
     __tablename__ = 'dids_opendata_record'
@@ -536,6 +537,7 @@ class OpenDataRecord(BASE, ModelBase):
         Index('OPENDATA_RECORD_UPDATED_AT_IDX', 'updated_at'),
         Index('OPENDATA_RECORD_CREATED_AT_IDX', 'created_at'),
     )
+
 
 class OpenDataMeta(BASE, ModelBase):
     """Mapping between OpenData DIDs and DOIs"""

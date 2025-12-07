@@ -466,6 +466,7 @@ def test_judge_double_rule_on_container(
         assert len(locks) == 2  # 2 locks
         assert all([lock["state"] == LockState.OK for lock in locks])  # all OK
 
+
 @pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_judge_double_container_with_existing_rule(
     did_factory: "TemporaryDidFactory",
