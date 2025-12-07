@@ -160,6 +160,9 @@ exclude = [
 
 [tool.ruff.lint]
 select = [
+    "E",    # All default pycodestyle error families
+    "W",    # All default pycodestyle warning families
+    "F",    # Default pyflakes rules
     "I",    # isort
     "N",    # pep8-naming
     "S",    # bandit
@@ -171,20 +174,13 @@ select = [
 
 extend-select = [
     "D419",    # Empty docstring (suggests bad documentation hygiene.)
-    "E722",    # Do not use bare except, specify exception
-    "F401",    # Unused import
-    "F702",    # Not in loop
-    "F841",    # Unused variable
     "PLR0124", # Comparison with itself – almost always a bug, but rare.
     "PLR1711", # Useless return - stylistic but can be misleading.
     "PLW0127", # Self-assigning variable
     "PLW3301", # Nested min/max – niche readability case.
-    "W291",    # Trailing whitespace (low-hanging fruit that improves cleanliness)
-    "W292",    # Missing newline at end-of-file
 ]
 
 ignore = [
-    "ALL",
     "E731", # Do not assign a lambda expression, use a def
     "N818",  # Unnecessary - we have valid suffixes like 'NotFound', 'Denied', 'Mismatch', etc.
     "UP008", # Use `super()` instead of `super(__class__, self)`
