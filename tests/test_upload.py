@@ -714,7 +714,7 @@ def test_upload_recursive(structure, is_valid_container, rse_factory, scope, upl
             if isinstance(value, list):
                 for item in value:
                     if isinstance(item, str):
-                        file_path = os.path.join(dir_path, directory,  ''.join(choice(ascii_uppercase) for _ in range(5)))
+                        file_path = os.path.join(dir_path, directory, ''.join(choice(ascii_uppercase) for _ in range(5)))
                         os.makedirs(os.path.dirname(file_path), exist_ok=True)
                         execute(f'dd if=/dev/urandom of={file_path} count={2} bs=1')
 

@@ -1020,7 +1020,7 @@ def test_upload_with_guid(rse_factory, mock_scope):
         assert f"Successfully uploaded file {tmp_file.name.split('/')[-1]}" in err
 
 
-def test_upload_with_pfn(rse_factory, mock_scope, file_factory,  vo):
+def test_upload_with_pfn(rse_factory, mock_scope, file_factory, vo):
     rse, _ = rse_factory.make_posix_rse()
     scope = mock_scope.external
     # Upload with PFN

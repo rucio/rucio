@@ -201,8 +201,8 @@ def _sample(a: int, b: int = 3, *, k: str = "x") -> str:
     "args, kwargs, expected",
     [
         #  (args)   (kwargs)   expected‑return‑value
-        ((1,),      {},        "4-x"),   # uses all defaults
-        ((2, 5),    {"k": "y"}, "7-y"),  # overrides both defaults
+        ((1,), {}, "4-x"),   # uses all defaults
+        ((2, 5), {"k": "y"}, "7-y"),  # overrides both defaults
     ],
 )
 def test_clone_function_behaves_like_original(args, kwargs, expected):
