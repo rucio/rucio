@@ -593,7 +593,7 @@ class BaseClient:
             return False
 
         request_refresh_url = build_url(self.auth_host, path='auth/oidc_refresh')
-        refresh_result = self._send_request(request_refresh_url,method=HTTPMethod.GET, get_token=True)
+        refresh_result = self._send_request(request_refresh_url, method=HTTPMethod.GET, get_token=True)
         if refresh_result.status_code == codes.ok:
             if 'X-Rucio-Auth-Token-Expires' not in refresh_result.headers or \
                     'X-Rucio-Auth-Token' not in refresh_result.headers:
