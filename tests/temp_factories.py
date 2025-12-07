@@ -502,7 +502,7 @@ class TemporaryDidFactory:
             if isinstance(scope, InternalScope):
                 scope = scope.external
             name = did['name']
-            self.client.add_did(scope, name, did_type=did_type,  lifetime=-1)  # Lifetime set to -1 so undertaker can delete it
+            self.client.add_did(scope, name, did_type=did_type, lifetime=-1)  # Lifetime set to -1 so undertaker can delete it
 
     def make_dataset(
             self,
