@@ -46,13 +46,17 @@ create_missing_python_type_annotations_report() {
     # This does not include tests, tools, database and bin files.
     # :param $1: The name of the output file.
 
-    flake8 lib/rucio \
-        --ignore=ANN101 \
-        --exclude tools,lib/rucio/db,lib/rucio/client,lib/rucio/common,lib/rucio/rse,bin \
-        --output-file $1 \
-        --select ANN || true
+    ruff check lib/rucio \
+        --select ANN \
+        --output-format concise \
+        --extend-exclude tools \
+        --extend-exclude lib/rucio/db \
+        --extend-exclude lib/rucio/client \
+        --extend-exclude lib/rucio/common \
+        --extend-exclude lib/rucio/rse \
+        --extend-exclude bin \
+        --output-file $1 || true
 }
 
 
-ensure_install "flake8"
-ensure_install "flake8-annotations"
+ensure_install "ruff"
