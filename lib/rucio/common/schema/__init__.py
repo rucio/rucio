@@ -139,7 +139,7 @@ def validate_schema(name: str, obj: Any, vo: str = DEFAULT_VO) -> None:
             schema = _get_generic_schema_module().SCHEMAS.get(name, {})
         try:
             validate(obj, schema)
-        except ValidationError as error:  # NOQA: F841
+        except ValidationError as error:
             raise exception.InvalidObject(f'Problem validating {name}: {error}')
 
 
