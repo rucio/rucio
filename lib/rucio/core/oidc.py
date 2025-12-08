@@ -332,7 +332,7 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
             if 'issuer_id' in kwargs:
                 client_secret = secrets[kwargs.get('issuer_id', ADMIN_ISSUER_ID)]
             elif 'issuer' in kwargs:
-                client_secret = next((secrets[i] for i in secrets if 'issuer' in secrets[i] and  # NOQA: W504
+                client_secret = next((secrets[i] for i in secrets if 'issuer' in secrets[i] and
                                       kwargs.get('issuer') in secrets[i]['issuer']), None)
             redirect_url = kwargs.get('redirect_uri', None)
             if not redirect_url:
@@ -341,7 +341,7 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
                 redirect_url = choice(redirect_urls)
             if not redirect_url:
                 raise CannotAuthenticate("Could not pick any redirect URL(s) from the ones defined "
-                                         + "in Rucio OIDC Client configuration file.")  # NOQA: W503
+                                         + "in Rucio OIDC Client configuration file.")
             auth_args["redirect_uri"] = redirect_url
             oidc_client = OIDC_CLIENTS[client_secret["issuer"]]
             auth_args["client_id"] = oidc_client.client_id
@@ -512,7 +512,7 @@ def get_token_oidc(
         oauth_req_params = session.execute(query).scalar()
         if oauth_req_params is None:
             raise CannotAuthenticate("User related Rucio OIDC session could not keep "
-                                     + "track of responses from outstanding requests.")  # NOQA: W503
+                                     + "track of responses from outstanding requests.")
         req_url = urlparse(oauth_req_params.redirect_msg or '')
         issuer = req_url.scheme + "://" + req_url.netloc
         req_params = parse_qs(req_url.query)
@@ -533,7 +533,7 @@ def get_token_oidc(
         nonce = oauth_req_params.nonce
         if oidc_tokens['id_token']['nonce'] != nonce:
             raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client"
-                                     + " session. This points to possible replay attack !")  # NOQA: W503
+                                     + " session. This points to possible replay attack !")
 
         # starting to fill dictionary with parameters for token DB row
         jwt_row_dict, extra_dict = {}, {}
@@ -1218,7 +1218,7 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
             METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         else:
             raise CannotAuthorize("OIDC identity '%s' of the '%s' account is did not " % (token_object.identity, token_object.account)
-                                  + "succeed requesting a new access and refresh tokens.")  # NOQA: W503
+                                  + "succeed requesting a new access and refresh tokens.")
         return new_token
 
     except Exception as error:

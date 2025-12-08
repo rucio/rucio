@@ -683,13 +683,13 @@ class BaseClient:
                         break
                     else:
                         print("The Rucio Auth Server did not respond as expected. Please, "
-                              + "try again and make sure you typed the correct code.")  # NOQA: W503
+                              + "try again and make sure you typed the correct code.")
                         count += 1
 
         else:
             print("\nAccording to the OAuth2/OIDC standard you should NOT be sharing \n"
-                  + "your password with any 3rd party application, therefore, \n"  # NOQA: W503
-                  + "we strongly discourage you from following this --oidc-auto approach.")  # NOQA: W503
+                  + "your password with any 3rd party application, therefore, \n"
+                  + "we strongly discourage you from following this --oidc-auto approach.")
             print("-------------------------------------------------------------------------")
             auth_res = self._send_request(auth_url, method=HTTPMethod.GET, get_token=True)
             # getting the login URL and logging in the user
