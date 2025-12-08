@@ -16,10 +16,10 @@ import operator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import inspect, update
+from sqlalchemy import and_, false, inspect, null, update
 from sqlalchemy.exc import CompileError, InvalidRequestError, NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import true
+from sqlalchemy.sql.expression import case, select, true
 
 from rucio.common import exception
 from rucio.core import account_counter, rse_counter
@@ -66,9 +66,32 @@ class DidColumnMeta(DidMetaPlugin):
         :returns: DID metadata as a dictionary.
         """
         try:
-            row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name). \
-                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            return row.to_dict()
+            opendata_subquery = select(
+                models.OpenDataDid.scope,
+                models.OpenDataDid.name
+            ).subquery()
+
+            stmt = select(
+                models.DataIdentifier,
+                case((opendata_subquery.c.scope.isnot(null()), true()), else_=false()).label("is_opendata")
+            ).outerjoin(
+                opendata_subquery,
+                and_(
+                    models.DataIdentifier.scope == opendata_subquery.c.scope,
+                    models.DataIdentifier.name == opendata_subquery.c.name
+                )
+            ).where(
+                models.DataIdentifier.scope == scope,
+                models.DataIdentifier.name == name
+            )
+
+            row = session.execute(stmt).one()
+
+            data_identifier, is_opendata = row
+            result = data_identifier.to_dict()
+            result["is_opendata"] = is_opendata
+            return result
+
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
