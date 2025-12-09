@@ -158,6 +158,26 @@ script-files = [
   "bin/rucio-undertaker"
 ]
 
+[tool.setuptools.data-files]
+"rucio/tools" = [
+  "tools/merge_rucio_configs.py",
+  "tools/bootstrap.py",
+  "tools/reset_database.py"
+]
+
+"rucio/etc" = [
+  "etc/*.template"
+]
+
+"rucio/etc/web" = [
+  "etc/web/*.template"
+]
+
+"rucio/etc/mail_templates" = [
+  "etc/mail_templates/*.tmpl"
+]
+
+
 [tool.setuptools.package-dir]
 "" = "lib"
 rucio = "lib/rucio"
@@ -165,6 +185,7 @@ bin = "bin"
 etc = "etc"
 tools = "tools"
 requirements = "requirements"
+
 
 [tool.setuptools.packages.find]
 where = ["lib"]
