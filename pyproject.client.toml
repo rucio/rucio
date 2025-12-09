@@ -76,6 +76,8 @@ Repository = "https://github.com/rucio/rucio.git"
 Changelog = "https://rucio.cern.ch/documentation/release-notes/"
 
 [tool.setuptools]
+include-package-data = true
+
 script-files = [
   "bin/rucio",
   "bin/rucio-abacus-account",
