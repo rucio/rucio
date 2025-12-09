@@ -4,10 +4,8 @@
 - [ ] Issue: #___
 - [ ] Branch: `patch-[issue]-[desc]`
 - [ ] Title: `<component>: <message> Fix #<issue>`
-- [ ] Added regression test
-- [ ] Doesn't break existing functionality
-- [ ] Updated docs (if needed)
-- [ ] CI passing
+- [ ] Added regression tests
+- [ ] Updated documentation (if needed)
 
 ## Description
 
