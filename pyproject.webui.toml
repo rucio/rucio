@@ -54,6 +54,9 @@ Repository = "https://github.com/rucio/rucio.git"
 "Bug Tracker" = "https://github.com/rucio/rucio/issues"
 Changelog = "https://rucio.cern.ch/documentation/release-notes/"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.package-dir]
 rucio = "lib/rucio"
 "rucio.web" = "lib/rucio/web"

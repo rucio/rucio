@@ -288,6 +288,9 @@ extend-ignore-names = [
 # an import to be moved into a type-checking block.
 quote-annotations = true
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.package-dir]
 "" = "lib"
 
