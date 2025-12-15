@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import datetime
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple, Union, cast
 
+from requests import Session
 from rucio.common import exception
 from rucio.common.constants import DEFAULT_VO, SuspiciousAvailability
 from rucio.common.schema import validate_schema
@@ -297,6 +298,59 @@ def list_replicas(
             yield rep
 
 
+def _check_replicas_permissions(
+        action: str,
+        session: Session,
+        rse: str,
+        files: "Iterable[dict[str, Any]]",
+        issuer: str,
+        ignore_availability: bool = False,
+        vo: str = DEFAULT_VO
+) -> Tuple[str, bool]:
+    """
+    Check permissions to add/delete/update replicas. Helper function for add/delete_replicas()
+    and update_replicas_states().
+
+    :param action: The action that will be performed (must match a has_permission() entry)
+    :param session: database session
+    :param rse: The RSE name.
+    :param files: The list of files.
+    :param issuer: The issuer account.
+    :param ignore_availability: Ignore blocked RSEs.
+    :param vo: The VO to act on.
+    :return: The RSE ID.
+    :return: ignore_availability final value
+    """
+
+    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+
+    # scopes is a temporary dict where the key is the scope name (str)
+    # and the value is the matching InternalScope object
+    scopes = dict()
+    for f in files:
+        if f['scope'] not in scopes:
+            scopes[f['scope']] = InternalScope(f['scope'], vo=vo)
+        f['scope'] = scopes[f['scope']]
+        f['rse_id'] = rse_id
+        if 'account' in f:
+            f['account'] = InternalAccount(f['account'], vo=vo)
+
+    kwargs = {'rse': rse, 'rse_id': rse_id, 'scopes': list(scopes.values())}
+
+    auth_result = permission.has_permission(
+        issuer=issuer,
+        vo=vo,
+        action=action,
+        kwargs=kwargs,
+        session=session,
+    )
+    if not auth_result.allowed:
+        raise exception.AccessDenied(
+            'Account %s can not add file replicas on %s. %s' % (issuer, rse, auth_result.message))
+
+    return rse_id, ignore_availability
+
+
 def add_replicas(
         rse: str,
         files: "Iterable[dict[str, Any]]",
@@ -318,20 +372,17 @@ def add_replicas(
     validate_schema(name='dids', obj=files, vo=vo)
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-
-        kwargs = {'rse': rse, 'rse_id': rse_id}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='add_replicas', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied('Account %s can not add file replicas on %s. %s' % (issuer, rse, auth_result.message))
-        if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
-            ignore_availability = False
+        rse_id, ignore_availability = _check_replicas_permissions(
+            action='add_replicas',
+            session=session,
+            rse=rse,
+            files=files,
+            issuer=issuer,
+            ignore_availability=ignore_availability,
+            vo=vo,
+        )
 
         issuer_account = InternalAccount(issuer, vo=vo)
-        for f in files:
-            f['scope'] = InternalScope(f['scope'], vo=vo)
-            if 'account' in f:
-                f['account'] = InternalAccount(f['account'], vo=vo)
 
         replica.add_replicas(rse_id=rse_id, files=files, account=issuer_account, ignore_availability=ignore_availability, session=session)
 
@@ -355,17 +406,15 @@ def delete_replicas(
     validate_schema(name='r_dids', obj=files, vo=vo)
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-
-        kwargs = {'rse': rse, 'rse_id': rse_id}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='delete_replicas', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied('Account %s can not delete file replicas on %s. %s' % (issuer, rse, auth_result.message))
-        if not permission.has_permission(issuer=issuer, vo=vo, action='skip_availability_check', kwargs=kwargs, session=session):
-            ignore_availability = False
-
-        for f in files:
-            f['scope'] = InternalScope(f['scope'], vo=vo)
+        rse_id, ignore_availability = _check_replicas_permissions(
+            action='delete_replicas',
+            session=session,
+            rse=rse,
+            files=files,
+            issuer=issuer,
+            ignore_availability=ignore_availability,
+            vo=vo,
+        )
 
         replica.delete_replicas(rse_id=rse_id, files=files, ignore_availability=ignore_availability, session=session)
 
@@ -389,19 +438,16 @@ def update_replicas_states(
     validate_schema(name='dids', obj=files, vo=vo)
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+        _check_replicas_permissions(
+            action='update_replicas_states',
+            session=session,
+            rse=rse,
+            files=files,
+            issuer=issuer,
+            vo=vo,
+        )
 
-        kwargs = {'rse': rse, 'rse_id': rse_id}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='update_replicas_states', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied('Account %s can not update file replicas state on %s. %s' % (issuer, rse, auth_result.message))
-        replicas = []
-        for file in files:
-            rep = file
-            rep['rse_id'] = rse_id
-            rep['scope'] = InternalScope(rep['scope'], vo=vo)
-            replicas.append(rep)
-        replica.update_replicas_states(replicas=replicas, session=session)
+        replica.update_replicas_states(replicas=files, session=session)
 
 
 def list_dataset_replicas(

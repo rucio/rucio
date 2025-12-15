@@ -689,20 +689,29 @@ def perm_declare_suspicious_file_replicas(issuer: "InternalAccount", kwargs: dic
 
 def perm_add_replicas(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
     """
-    Checks if an account can add replicas.
+    Checks if an account can add replicas. If the RSE is not a special one (name terminated by some magic words)
+    or if the account is not an administrator, for each replica scope (passed in kwargs['scopes'] for convenience),
+    the ownership is checked: if the account is not owning all of them, permission is denied.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
-        or str(kwargs.get('rse', '')).endswith('USERDISK')\
-        or str(kwargs.get('rse', '')).endswith('MOCK')\
-        or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
-        or _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin', session=session)
 
+    if str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
+        or str(kwargs.get('rse', '')).endswith('MOCK')\
+        or _is_root(issuer)\
+        or has_account_attribute(account=issuer, key='admin', session=session):
+        permission_given = True
+    else:
+        permission_given = True
+        for scope in kwargs['scopes']:
+            if not rucio.core.scope.is_scope_owner(scope, account=issuer, session=session):
+                permission_given = False
+                break
+
+    return permission_given
 
 def perm_skip_availability_check(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
     """
@@ -730,14 +739,26 @@ def perm_delete_replicas(issuer: "InternalAccount", kwargs: dict[str, Any], sess
 
 def perm_update_replicas_states(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
     """
-    Checks if an account can delete replicas.
+    Checks if an account can add replicas. If the account is not an administrator,,
+    for each replica scope (passed in kwargs['scopes'] for convenience), the ownership is checked: if the account
+    is not owning all of them, permission is denied.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+    if  _is_root(issuer)\
+        or has_account_attribute(account=issuer, key='admin', session=session):
+        permission_given = True
+    else:
+        permission_given = True
+        for scope in kwargs['scopes']:
+            if not rucio.core.scope.is_scope_owner(scope, account=issuer, session=session):
+                permission_given = False
+                break
+
+    return permission_given
 
 
 def perm_queue_requests(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
