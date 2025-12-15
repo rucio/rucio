@@ -170,11 +170,14 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
     :param delay_seconds: The delay to query replicas in BEING_DELETED state. Used to calculate refresh trigger time.
     :param logger: Logging function to use
 
-    :returns: List of files that need database cleanup. In traditional mode (default),
-              this contains all successfully deleted files. In immediate cleanup mode,
-              this only contains files that failed immediate cleanup.
+    :returns: Tuple containing:
+              - List of files that need database cleanup. In traditional mode (default),
+                this contains all successfully deleted files. In immediate cleanup mode,
+                this only contains files that failed immediate cleanup.
+              - Number of replicas successfully processed (for metric accounting).
     """
     deleted_files = []
+    successful_replicas = 0
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
@@ -247,6 +250,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                            'will only delete the catalog and not do physical deletion',
                            replica['scope'], replica['name'], replica['pfn'], rse_name)
                     deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+                    successful_replicas += 1
                     # Add to pending database deletions for batched cleanup (only if immediate cleanup enabled)
                     if enable_immediate_cleanup:
                         pending_db_deletions.append({'scope': replica['scope'], 'name': replica['name']})
@@ -270,6 +274,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 METRICS.timer('delete.{scheme}.{rse}').labels(scheme=prot.attributes['scheme'], rse=rse_name).observe(duration)
 
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+                successful_replicas += 1
                 # Add to pending database deletions for batched cleanup (only if immediate cleanup enabled)
                 if enable_immediate_cleanup:
                     pending_db_deletions.append({'scope': replica['scope'], 'name': replica['name']})
@@ -288,6 +293,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 deletion_dict['duration'] = duration
                 add_message('deletion-not-found', deletion_dict)
                 deleted_files.append({'scope': replica['scope'], 'name': replica['name']})
+                successful_replicas += 1
                 # Add to pending database deletions for batched cleanup (only if immediate cleanup enabled)
                 if enable_immediate_cleanup:
                     pending_db_deletions.append({'scope': replica['scope'], 'name': replica['name']})
@@ -429,7 +435,7 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
         EXCLUDED_RSE_GAUGE.labels(rse=rse_name).set(1)
     finally:
         prot.close()
-    return deleted_files
+    return deleted_files, successful_replicas
 
 
 def _rse_deletion_hostname(rse: RseData, scheme: Optional[str]) -> Optional[str]:
@@ -853,7 +859,7 @@ def _run_once(
                 is_staging = rse.columns['staging_area']
 
                 # First, delete the physical files associated with a replica
-                deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, delay_seconds, logger=logger)
+                deleted_files, successful_replicas = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, delay_seconds, logger=logger)
                 logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                 # Then delete any remaining replicas that weren't handled by immediate cleanup
@@ -864,7 +870,7 @@ def _run_once(
                     logger(logging.DEBUG, 'Main loop cleanup SUCCESS - deleted %d remaining replicas in %.2f seconds', len(deleted_files), time.time() - del_start)
                 else:
                     logger(logging.DEBUG, 'Main loop cleanup - no files remaining, all handled by immediate cleanup optimization')
-                METRICS.counter('deletion.done').inc(len(file_replicas))
+                METRICS.counter('deletion.done').inc(len(successful_replicas))
 
                 # Debug: Track cycle metrics
                 cycle_total_replicas_processed += len(file_replicas)
