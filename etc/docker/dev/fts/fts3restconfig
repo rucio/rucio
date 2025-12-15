@@ -24,11 +24,6 @@ OAuth2 = True
 pool_timeout=10
 pool_size=10
 
-[providers]
-provider1 = https://indigoiam/
-provider1_ClientId = d6dad80f-11f7-4cf4-a4ef-fbd081ec7f98
-provider1_ClientSecret = AJWL5JZtM6I2iaj7XHYq98kPGo6-8Wde2ScSHJhHNvCLeKppTj9fBmeq2xGWi3RCFlj6cPJFjz-BxXIBva4kDYo
-
 [roles]
 Public = vo:transfer;all:datamanagement
 lcgadmin = all:config
