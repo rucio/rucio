@@ -138,7 +138,7 @@ def get_rses_to_process(
     return rses_to_process
 
 
-def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, delay_seconds: int = 600, logger=logging.log):
+def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, delay_seconds: int = 600, logger=logging.log) -> tuple[list[dict[str, Any]], int]:
     """
     Delete replicas from storage and manage database cleanup.
 
@@ -176,8 +176,8 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                 this only contains files that failed immediate cleanup.
               - Number of replicas successfully processed (for metric accounting).
     """
-    deleted_files = []
-    successful_replicas = 0
+    deleted_files: list[dict[str, Any]] = []
+    successful_replicas: int = 0
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
@@ -870,7 +870,7 @@ def _run_once(
                     logger(logging.DEBUG, 'Main loop cleanup SUCCESS - deleted %d remaining replicas in %.2f seconds', len(deleted_files), time.time() - del_start)
                 else:
                     logger(logging.DEBUG, 'Main loop cleanup - no files remaining, all handled by immediate cleanup optimization')
-                METRICS.counter('deletion.done').inc(len(successful_replicas))
+                METRICS.counter('deletion.done').inc(successful_replicas)
 
                 # Debug: Track cycle metrics
                 cycle_total_replicas_processed += len(file_replicas)
