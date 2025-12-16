@@ -341,8 +341,7 @@ fi
 SPECIFIED_RELEASE=""
 USE_MASTER="false"
 USE_LATEST="false"
-PROFILES=()           # Named profiles
-PROFILE_COUNT=0       # Track how many named profiles were provided
+PROFILES=()           # Named profiles (array); count via ${#PROFILES[@]}
 ANY_PROFILE_ARG=false # Will be set true if -p/--profile is used at all
 EXPOSE_PORTS=false    # Track whether we want to expose ports
 
@@ -388,7 +387,6 @@ while [[ $# -gt 0 ]]; do
       else
         # Next token is a profile name
         PROFILES+=("$2")
-        ((PROFILE_COUNT++))
         shift 2
       fi
       ;;
@@ -430,7 +428,7 @@ if [[ -n "$SPECIFIED_RELEASE" ]]; then
 fi
 
 if $ANY_PROFILE_ARG; then
-  if (( PROFILE_COUNT > 0 )); then
+  if (( ${#PROFILES[@]} > 0 )); then
     echo "Deploy unprofiled services + named profiles: ${PROFILES[*]}"
   else
     echo "Deploy only unprofiled/base services (no named profiles)."
@@ -556,7 +554,7 @@ export RUCIO_TAG="$RUCIO_TAG"
 export RUCIO_DEV_PREFIX="$RUCIO_DEV_PREFIX"
 
 # Export the DEV_PROFILES environment variable for containers
-if (( PROFILE_COUNT > 0 )); then
+if (( ${#PROFILES[@]} > 0 )); then
   export DEV_PROFILES=$(IFS=,; echo "${PROFILES[*]}")
 else
   export DEV_PROFILES=""
@@ -566,7 +564,7 @@ cd "$RUCIO_REPO_ROOT/etc/docker/dev"
 
 # Build an array of '--profile' arguments if the user gave them
 profile_args=()
-if (( PROFILE_COUNT > 0 )); then
+if (( ${#PROFILES[@]} > 0 )); then
   for prof in "${PROFILES[@]}"; do
     profile_args+=( --profile "$prof" )
   done
@@ -594,7 +592,7 @@ fi
 
 # If we have no named profiles, that means the user specified `-p` with no name,
 # so we do not pass --profile at all => only unprofiled containers will run.
-if (( PROFILE_COUNT == 0 )); then
+if (( ${#PROFILES[@]} == 0 )); then
   echo ">>> Starting only unprofiled/base containers (no named profiles)."
   $COMPOSE_CMD "${compose_files[@]}" pull || true
   # Bring them up
