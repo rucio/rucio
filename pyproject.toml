@@ -205,7 +205,6 @@ ignore = [
     "S602",  # Pending https://github.com/astral-sh/ruff/issues/4045
     "S603",  # Pending https://github.com/astral-sh/ruff/issues/4045
     "S608",  # Pending https://github.com/rucio/rucio/issues/6669
-    "SIM210",
 ]
 
 [tool.ruff.lint.isort]
