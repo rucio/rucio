@@ -730,3 +730,81 @@ def update_fts_database_token_provider(
         if conn and conn.open:
             conn.close()
             logger.debug("Database connection closed")
+
+
+def main():
+    """Main execution function.
+
+    Orchestrates the complete IAM setup workflow:
+    1. Load configuration
+    2. Initialize IAM client
+    3. Register/update OAuth2 clients
+    4. Update configuration files and databases
+
+    Exits with code 1 on any errors.
+    """
+    logger.info("Starting IAM Setup Script")
+    logger.info("=" * 60)
+
+    try:
+        # Load configuration from environment variables
+        config = Config.from_env()
+
+        # Initialize IAM client
+        iam_client = IAMClient(config.issuer_url)
+
+        # Ensure config file exists
+        config_path = Path(config.config_file)
+        ensure_config_file(config_path)
+
+        # Get admin token using client credentials grant
+        admin_token = get_admin_token(iam_client, config)
+
+        # Update admin client with required scopes
+        update_admin_client(iam_client, config, admin_token)
+
+        # Get user admin token using password grant
+        # Required for registering clients with client_credentials grant type
+        # See: https://indigo-iam.github.io/v/v1.12.1/blog/2024/03/25/iam-v1.8.4/
+        user_admin_token = get_user_admin_token(iam_client, config)
+
+        # Register Rucio client
+        rucio_client_id, rucio_client_secret = register_rucio_client(
+            iam_client, user_admin_token, config
+        )
+
+        # Update Rucio configuration file with new credentials
+        update_config_file(
+            config_path,
+            config.issuer_url,
+            rucio_client_id,
+            rucio_client_secret,
+            config.client_id,
+            config.client_secret,
+        )
+
+        # Register FTS client for token exchange
+        fts_client_id, fts_client_secret = register_fts_client(
+            iam_client, user_admin_token, config
+        )
+
+        # Update FTS database with new credentials
+        update_fts_database_token_provider(config, fts_client_id, fts_client_secret)
+
+        logger.info("=" * 60)
+        logger.info("IAM Setup completed successfully!")
+        logger.info("Configuration saved to: %s", config_path)
+
+    except (
+        ValueError,
+        requests.exceptions.RequestException,
+        OSError,
+        json.JSONDecodeError,
+    ) as e:
+        logger.error("=" * 60)
+        logger.error("Setup failed: %s", e, exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
