@@ -507,7 +507,7 @@ services:
     profiles:
       - iam
     environment:
-      - IAM_JAVA_OPTS=-Djava.security.egd=file:/dev/urandom -Dspring.profiles.active=prod,oidc,cern,registration,wlcg-scopes -agentlib:jdwp=transport=dt_socket,server=y,address=1044,suspend=n -Dlogging.file.name=/var/log/iam/iam.log
+      - IAM_JAVA_OPTS=-Djava.security.egd=file:/dev/urandom -Dspring.profiles.active=prod,oidc,cern,registration,wlcg-scopes,h2-test -agentlib:jdwp=transport=dt_socket,server=y,address=1044,suspend=n -Dlogging.file.name=/var/log/iam/iam.log
       - IAM_JWT_DEFAULT_PROFILE=wlcg
       - IAM_HOST=indigoiam
       - IAM_PORT=8090
