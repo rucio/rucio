@@ -142,10 +142,15 @@ Log levels:
 - **DEBUG**: Detailed API interaction (when enabled)
 """
 
+import json
 import logging
 import os
 import sys
 from dataclasses import dataclass
+from typing import Any, Optional
+
+import requests
+from requests.auth import HTTPBasicAuth
 
 logging.basicConfig(
     level=logging.INFO,
@@ -229,3 +234,116 @@ class Config:
         logger.info("Using IAM Issuer URL: %s", config.issuer_url)
         logger.info("Config file path: %s", config.config_file)
         return config
+
+
+class IAMClient:
+    """Client for interacting with INDIGO IAM API.
+
+    Provides methods for making authenticated requests to the IAM REST API,
+    including OAuth2 token endpoints and client registration endpoints.
+
+    Attributes:
+        issuer_url: Base URL of the IAM instance (without trailing slash)
+        session: Persistent HTTP session for connection pooling
+    """
+
+    def __init__(self, issuer_url: str):
+        """Initialize IAM client.
+
+        Args:
+            issuer_url: Base URL of the IAM instance
+        """
+        self.issuer_url = issuer_url.rstrip("/")
+        self.session = requests.Session()
+        self.session.headers.update({"User-Agent": "IAM-Setup-Script/1.0"})
+        self.session.verify = True
+
+    def post(
+        self,
+        endpoint: str,
+        data: Optional[dict] = None,
+        json_body: Optional[dict] = None,
+        auth: Optional[HTTPBasicAuth] = None,
+        headers: Optional[dict] = None,
+    ) -> dict[str, Any]:
+        """Make a POST request to the IAM API.
+
+        Args:
+            endpoint: API endpoint path (e.g., '/token')
+            data: Form-encoded data for the request body
+            json_body: JSON data for the request body
+            auth: HTTP Basic authentication credentials
+            headers: Additional HTTP headers
+
+        Returns:
+            Dict containing the JSON response
+
+        Raises:
+            requests.exceptions.HTTPError: On HTTP error responses
+            requests.exceptions.Timeout: On request timeout
+            requests.exceptions.ConnectionError: On connection failures
+            json.JSONDecodeError: On invalid JSON response
+        """
+        url = f"{self.issuer_url}{endpoint}"
+        logger.debug("POST %s", url)
+
+        try:
+            response = self.session.post(
+                url, data=data, json=json_body, auth=auth, headers=headers, timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError:
+            logger.error("HTTP Error %s for %s", response.status_code, url)
+            logger.error("Response: %s", response.text)
+            raise
+        except requests.exceptions.Timeout:
+            logger.error("Request timeout for %s", url)
+            raise
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Connection error for %s: %s", url, e)
+            raise
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse JSON response: %s", e)
+            raise
+
+    def put(
+        self,
+        endpoint: str,
+        json_body: Optional[dict] = None,
+        headers: Optional[dict] = None,
+    ) -> dict[str, Any]:
+        """Make a PUT request to the IAM API.
+
+        Args:
+            endpoint: API endpoint path
+            json_body: JSON data for the request body
+            headers: Additional HTTP headers
+
+        Returns:
+            Dict containing the JSON response, or empty dict if no response body
+
+        Raises:
+            requests.exceptions.HTTPError: On HTTP error responses
+            requests.exceptions.Timeout: On request timeout
+            requests.exceptions.ConnectionError: On connection failures
+        """
+        url = f"{self.issuer_url}{endpoint}"
+        logger.debug("PUT %s", url)
+
+        try:
+            response = self.session.put(
+                url, json=json_body, headers=headers, timeout=30
+            )
+            response.raise_for_status()
+            return response.json() if response.text else {}
+        except requests.exceptions.HTTPError:
+            logger.error("HTTP Error %s for %s", response.status_code, url)
+            logger.error("Response: %s", response.text)
+            raise
+        except requests.exceptions.Timeout:
+            logger.error("Request timeout for %s", url)
+            raise
+        except requests.exceptions.ConnectionError as e:
+            logger.error("Connection error for %s: %s", url, e)
+            raise
