@@ -468,7 +468,7 @@ services:
     profiles:
       - iam
     healthcheck:
-      test: mysql -u indigoiam -psecret indigoiam -e "select * from client_details where client_name='rucio'" | grep 'rucio' > /dev/null
+      test: ["CMD", "sh", "-c", "mysql -u indigoiam -psecret indigoiam -e 'show databases;' > /dev/null 2>&1"]
       interval: 5s
       retries: 10
     environment:
@@ -477,7 +477,6 @@ services:
     volumes:
       - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
       - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
-      - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
       - vol-iam-db-mysql:/var/lib/mysql
 
   indigoiam:
@@ -502,7 +501,7 @@ services:
 
   indigoiam-login-service:
     container_name: dev-indigoiam-login-service-1
-    image: indigoiam/iam-login-service:v1.8.2p2
+    image: indigoiam/iam-login-service:v1.12.1
     platform: linux/amd64
     profiles:
       - iam
@@ -564,9 +563,9 @@ services:
       sh -c "
         apt-get update && apt-get install -y ca-certificates &&
         update-ca-certificates &&
-        pip install requests PyMySQL
+        pip install requests PyMySQL &&
         export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt &&
-        python /iam/init-iam.py &&
+        python /iam/init-iam.py
       "
     depends_on:
       indigoiam-login-service:
