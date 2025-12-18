@@ -421,3 +421,97 @@ def update_admin_client(
     )
 
     logger.info("'%s' updated successfully", config.client_id)
+
+
+def get_user_admin_token(
+    client: IAMClient,
+    config: Config
+) -> str:
+    """Obtain an access token using admin user password credentials.
+
+    Uses the OAuth2 password grant to obtain an access token with admin user privileges.
+    This is required by IAM for registering clients with the client_credentials
+    grant type.
+    Ref: https://indigo-iam.github.io/v/v1.12.1/blog/2024/03/25/iam-v1.8.4/
+
+    Args:
+        client: IAM API client instance
+        config: Configuration containing admin user credentials
+
+    Returns:
+        Access token string
+
+    Raises:
+        ValueError: If access token is not present in response
+        requests.exceptions.RequestException: On API request failure
+    """
+    logger.info("Requesting Admin User Password Token...")
+
+    token_resp = client.post(
+        "/token",
+        data={
+            "grant_type": "password",
+            "username": config.username,
+            "password": config.password,
+        },
+        auth=HTTPBasicAuth(config.client_id, config.client_secret),
+    )
+
+    user_token = token_resp.get("access_token")
+    if not user_token:
+        raise ValueError("Failed to obtain user admin access token")
+
+    logger.info("User Admin Token retrieved successfully")
+    return user_token
+
+
+def register_rucio_client(
+    client: IAMClient,
+    user_admin_token: str,
+    config: Config
+) -> tuple[str, str]:
+    """Register the Rucio client required by rucio.
+    Registers an OAuth2 client that supports the Authorization Code Flow
+    for web-based user authentication with Rucio.
+    Registers an OAuth2 client that supports the Client Credentials Flow
+    for machine-to-machine storage operations with XRootD endpoints and FTS.
+
+    Args:
+        client: IAM API client instance
+        user_admin_token: User admin access token for authentication
+
+    Returns:
+        Tuple of (client_id, client_secret)
+
+    Raises:
+        ValueError: If client credentials are missing from response
+        requests.exceptions.RequestException: On API request failure
+    """
+    logger.info("Registering 'rucio-admin' client...")
+
+    registration_payload = {
+        "client_name": "rucio",
+        "scope": f"{config.auth_scopes} {config.admin_scopes}",
+        "grant_types": ["authorization_code", "client_credentials", "refresh_token"],
+        "redirect_uris": [
+            "https://rucio/auth/oidc_token",
+            "https://rucio/auth/oidc_code",
+        ],
+        "token_endpoint_auth_method": "client_secret_basic",
+        "response_types": ["code"],
+    }
+
+    response = client.post(
+        "/iam/api/client-registration",
+        json_body=registration_payload,
+        headers={"Authorization": f"Bearer {user_admin_token}"},
+    )
+
+    client_id = response.get("client_id")
+    client_secret = response.get("client_secret")
+
+    if not client_id or not client_secret:
+        raise ValueError("Failed to register rucio-admin - missing credentials")
+
+    logger.info("Rucio admin client registered successfully (ID: %s)", client_id)
+    return client_id, client_secret
