@@ -147,6 +147,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Optional
 
 import requests
@@ -349,6 +350,20 @@ class IAMClient:
             raise
 
 
+def ensure_config_file(config_path: Path) -> None:
+    """Ensure the configuration file exists, creating it if necessary.
+
+    Args:
+        config_path: Path to the configuration file
+    """
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not config_path.exists():
+        config_path.write_text("{}")
+        logger.info("Created new JSON config at %s", config_path)
+    else:
+        logger.info("Using existing JSON config: %s", config_path)
+
 
 def get_admin_token(
     client: IAMClient,
@@ -515,3 +530,57 @@ def register_rucio_client(
 
     logger.info("Rucio admin client registered successfully (ID: %s)", client_id)
     return client_id, client_secret
+
+
+def update_config_file(
+    config_path: Path,
+    issuer_url: str,
+    rucio_client_id: str,
+    rucio_client_secret: str,
+    scim_client_id: str,
+    scim_client_secret: str,
+) -> None:
+    """Update the Rucio IDP secrets JSON configuration file.
+
+    Creates or updates the JSON file with OAuth2 client credentials and IAM settings.
+    Preserves existing configuration keys not related to 'indigoiam'.
+
+    Args:
+        config_path: Path to the configuration file
+        issuer_url: IAM issuer URL
+        rucio_client_id: Rucio auth client ID
+        rucio_client_secret: Rucio auth client secret
+        scim_client_id: Rucio admin (SCIM) client ID
+        scim_client_secret: Rucio admin (SCIM) client secret
+
+    Raises:
+        OSError: On file I/O errors
+        json.JSONDecodeError: On invalid existing JSON
+    """
+    logger.info("Updating JSON configuration...")
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except json.JSONDecodeError:
+        logger.warning("Existing config file is invalid JSON, starting fresh")
+        cfg = {}
+
+    cfg["indigoiam"] = {
+        "client_id": rucio_client_id,
+        "client_secret": rucio_client_secret,
+        "issuer": issuer_url if issuer_url.endswith("/") else f"{issuer_url}/",
+        "redirect_uris": [
+            "https://rucio/auth/oidc_token",
+            "https://rucio/auth/oidc_code",
+        ],
+        "SCIM": {
+            "client_id": scim_client_id,
+            "client_secret": scim_client_secret,
+        },
+    }
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+
+    logger.info("JSON configuration updated successfully at %s", config_path)
