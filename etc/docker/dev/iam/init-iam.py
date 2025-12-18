@@ -150,6 +150,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+import pymysql
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -584,3 +585,148 @@ def update_config_file(
         json.dump(cfg, f, indent=2)
 
     logger.info("JSON configuration updated successfully at %s", config_path)
+
+
+def register_fts_client(
+    client: IAMClient,
+    admin_token: str,
+    config: Config
+) -> tuple[str, str]:
+    """Register the FTS client for token exchange and refresh operations.
+
+    Registers an OAuth2 client that supports Token Exchange and Refresh Token grants
+    for FTS file transfer operations.
+
+    Args:
+        client: IAM API client instance
+        admin_token: Access token for authentication
+        fts_scopes: Space-separated list of OAuth2 scopes required by FTS
+
+    Returns:
+        Tuple of (client_id, client_secret)
+
+    Raises:
+        ValueError: If client credentials are missing from response
+        requests.exceptions.RequestException: On API request failure
+    """
+    logger.info("Registering 'fts-client' for token exchange...")
+
+    registration_payload = {
+        "client_name": "fts-client",
+        "scope": f"{config.admin_scopes}",
+        "grant_types": [
+            "refresh_token",
+            "urn:ietf:params:oauth:grant-type:token-exchange",
+        ],
+        "token_endpoint_auth_method": "client_secret_basic",
+        "response_types": [],
+        # audience might not be needed, test
+        # "audience": ["fts"],
+    }
+
+    response = client.post(
+        "/iam/api/client-registration",
+        json_body=registration_payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    client_id = response.get("client_id")
+    client_secret = response.get("client_secret")
+
+    if not client_id or not client_secret:
+        raise ValueError("Failed to register fts-client - missing credentials")
+
+    logger.info("FTS client registered successfully (ID: %s)", client_id)
+    return client_id, client_secret
+
+
+
+def update_fts_database_token_provider(
+    config: Config,
+    fts_client_id: str,
+    fts_client_secret: str
+) -> None:
+    """Update FTS database with OAuth2 token provider credentials.
+
+    Performs an UPSERT operation on the t_token_provider table to insert or update
+    the OAuth2 client credentials used by FTS for token exchange. The unique key
+    is the combination of (name, issuer).
+
+    Args:
+        config: Configuration containing database connection details
+        fts_client_id: FTS OAuth2 client ID
+        fts_client_secret: FTS OAuth2 client secret
+
+    Raises:
+        pymysql.err.Error: On database errors
+        Exception: On unexpected errors during database operations
+    """
+    logger.info(
+        "Connecting to FTS database (%s) to update t_token_provider...",
+        config.ftsdb_host,
+    )
+
+    provider_name = "indigoiam"
+    required_submission_scope = "fts"
+    issuer_url = config.issuer_url
+
+    conn = None
+    try:
+        # Establish connection to the database
+        conn = pymysql.connect(
+            host=config.ftsdb_host,
+            user=config.ftsdb_user,
+            password=config.ftsdb_password,
+            database=config.ftsdb_name,
+        )
+
+        with conn.cursor() as cursor:
+            sql_upsert = """
+            INSERT INTO t_token_provider (
+                name,
+                issuer,
+                client_id,
+                client_secret,
+                required_submission_scope
+            )
+            VALUES (%s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                client_id = VALUES(client_id),
+                client_secret = VALUES(client_secret),
+                required_submission_scope = VALUES(required_submission_scope)
+            """
+
+
+            cursor.execute(
+                sql_upsert,
+                (
+                    provider_name,
+                    issuer_url,
+                    fts_client_id,
+                    fts_client_secret,
+                    required_submission_scope,
+                ),
+            )
+
+            rows_affected = cursor.rowcount
+            conn.commit()
+
+            # rowcount: 1 = INSERT, 2 = UPDATE with changes, 0 = UPDATE without changes
+            logger.info(
+                "Successfully performed UPSERT on t_token_provider for '%s'." \
+                "Rows affected: %d",
+                provider_name,
+                rows_affected,
+            )
+
+    except pymysql.err.Error as e:
+        logger.error("FTS Database error: %s", e)
+        raise
+    except Exception as e:
+        logger.error("Unexpected error during database update: %s", e)
+        raise
+
+    finally:
+        if conn and conn.open:
+            conn.close()
+            logger.debug("Database connection closed")
