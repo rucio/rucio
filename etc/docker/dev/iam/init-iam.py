@@ -347,3 +347,77 @@ class IAMClient:
         except requests.exceptions.ConnectionError as e:
             logger.error("Connection error for %s: %s", url, e)
             raise
+
+
+
+def get_admin_token(
+    client: IAMClient,
+    config: Config
+) -> str:
+    """Obtain an access token using admin client credentials.
+
+    Uses the OAuth2 client credentials grant to obtain an access token
+    with administrative privileges for IAM API operations.
+
+    Args:
+        client: IAM API client instance
+        config: Configuration containing admin credentials
+
+    Returns:
+        Access token string
+
+    Raises:
+        ValueError: If access token is not present in response
+        requests.exceptions.RequestException: On API request failure
+    """
+    logger.info("Requesting Admin Client Credentials Token...")
+
+    token_resp = client.post(
+        "/token",
+        data={"grant_type": "client_credentials"},
+        auth=HTTPBasicAuth(config.client_id, config.client_secret),
+    )
+
+    admin_token = token_resp.get("access_token")
+    if not admin_token:
+        raise ValueError("Failed to obtain admin access token")
+
+    logger.info("Admin Token retrieved successfully")
+    return admin_token
+
+
+
+def update_admin_client(
+    client: IAMClient,
+    config: Config,
+    admin_token: str
+) -> None:
+    """Update the admin client configuration to ensure correct grant types and scopes.
+
+    Args:
+        client: IAM API client instance
+        config: Configuration containing admin client details
+        admin_token: Access token for authentication
+
+    Raises:
+        requests.exceptions.RequestException: On API request failure
+    """
+    logger.info("Updating '%s' client...", config.client_id)
+
+    update_payload = {
+        "client_id": config.client_id,
+        "client_secret": config.client_secret,
+        "client_name": "iam-admin",
+        "grant_types": ["client_credentials", "password"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "client_secret_basic",
+        "scope": "iam:admin.write iam:admin.read scim:write scim:read",
+    }
+
+    client.put(
+        f"/iam/api/clients/{config.client_id}",
+        json_body=update_payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    logger.info("'%s' updated successfully", config.client_id)
