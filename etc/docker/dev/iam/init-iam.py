@@ -143,7 +143,9 @@ Log levels:
 """
 
 import logging
+import os
 import sys
+from dataclasses import dataclass
 
 logging.basicConfig(
     level=logging.INFO,
@@ -152,3 +154,78 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+@dataclass
+class Config:
+    """Configuration loaded from environment variables.
+
+    Attributes:
+        client_id: Admin OAuth2 client ID for IAM API access
+        client_secret: Admin OAuth2 client secret
+        username: IAM admin username for password grant
+        password: IAM admin password
+        issuer_url: Base URL of the IAM instance
+        config_file: Path to Rucio IDP secrets JSON file
+        ftsdb_host: FTS MySQL database hostname
+        ftsdb_user: FTS database username
+        ftsdb_password: FTS database password
+        ftsdb_name: FTS database name
+    """
+
+    client_id: str
+    client_secret: str
+    username: str
+    password: str
+    issuer_url: str
+    config_file: str
+    ftsdb_host: str
+    ftsdb_user: str
+    ftsdb_password: str
+    ftsdb_name: str
+    admin_scopes: str
+    auth_scopes: str
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Load configuration from environment variables.
+
+        Returns:
+            Config: Populated configuration object
+
+        Raises:
+            SystemExit: If IAM_ISSUER_URL is not set
+        """
+        issuer_url = os.environ.get("IAM_ISSUER_URL")
+        if not issuer_url:
+            logger.error("IAM_ISSUER_URL environment variable is required")
+            sys.exit(1)
+
+        config = cls(
+            client_id=os.environ.get("TEST_ADMIN_SCOPED_CLIENT_ID", "admin-client-rw"),
+            client_secret=os.environ.get("TEST_ADMIN_SCOPED_CLIENT_SECRET", "secret"),
+            username=os.environ.get("ADMIN_USERNAME", "admin"),
+            password=os.environ.get("ADMIN_PASSWORD", "password"),
+            issuer_url=issuer_url,  # type: ignore
+            config_file=os.environ.get(
+                "RUCIO_IDPSECRETS_CONFIG_PATH", "/auth_config.json"
+            ),
+            ftsdb_host=os.environ.get("FTS_DB_HOST", "ftsdb"),
+            ftsdb_user=os.environ.get("FTS_DB_USER", "fts"),
+            ftsdb_password=os.environ.get("FTS_DB_PASSWORD", "fts"),
+            ftsdb_name=os.environ.get("FTS_DB_NAME", "fts"),
+            admin_scopes=os.environ.get(
+                "ADMIN_SCOPES",
+                (
+                    "storage.stage:/rucio "
+                    "storage.modify:/rucio "
+                    "storage.create:/rucio "
+                    "storage.read:/rucio "
+                    "fts offline_access"
+                ),
+            ),
+            auth_scopes=os.environ.get("AUTH_SCOPES", "openid profile email"),
+        )
+
+        logger.info("Using IAM Issuer URL: %s", config.issuer_url)
+        logger.info("Config file path: %s", config.config_file)
+        return config
