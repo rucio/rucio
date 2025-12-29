@@ -12,26 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import click
+from rich.text import Text
+from tabulate import tabulate
 
-from rucio.cli.bin_legacy.rucio import list_account_usage
-from rucio.cli.bin_legacy.rucio_admin import (
-    add_account,
-    add_account_attribute,
-    ban_account,
-    delete_account,
-    delete_account_attribute,
-    delete_limits,
-    identity_delete,
-    info_account,
-    list_account_attributes,
-    list_accounts,
-    list_identities,
-    set_limits,
-    unban_account,
-    update_account,
-)
-from rucio.cli.bin_legacy.rucio_admin import identity_add as legacy_identity_add
-from rucio.cli.utils import Arguments
+from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.common.exception import InputValidationError
+from rucio.common.utils import get_bytes_value_from_string, sizefmt
 
 
 @click.group()
@@ -51,19 +37,40 @@ def add_(ctx, account_type, account_name, email):
     Example:
         $ rucio account add
     """
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account_type": account_type, "account": account_name, "email": email})
-    add_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.add_account(
+        account=account_name,
+        type_=account_type,
+        email=email
+    )
+    print('Added new account: %s' % account)
 
 
 @account.command("list")
 @click.option("--type", "type_", type=click.Choice(["USER", "GROUP", "SERVICE"]))
 @click.option("--id", help="Filter by identity (e.g. DN)")
 @click.option("--filter", help="Filter arguments in form `key=value,another_key=next_value`")  # TODO Explicit numeration of these possible keys
+@click.option('--csv', help="Output result as a CSV", is_flag=True)
 @click.pass_context
-def list_(ctx, type_, id, filter):
+def list_(ctx, type_, id, filter, csv):
     """List all accounts that match given filters"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account_type": type_, "identity": id, "filters": filter})
-    list_accounts(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    filters = {}
+    if filter:
+        for key, value in [(_.split('=')[0], _.split('=')[1]) for _ in filter.split(',')]:
+            filters[key] = value
+    accounts = ctx.obj.client.list_accounts(identity=id, account_type=type_, filters=filters)
+    if csv:
+        print(*(account['account'] for account in accounts), sep=',')
+    elif ctx.obj.use_rich:
+        table = generate_table([
+            [account['account']] for account in accounts],
+            headers=['ACCOUNT'],
+            col_alignments=['left']
+        )
+        ctx.obj.spinner.stop()
+        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        for account in accounts:
+            print(account['account'])
 
 
 @account.command("show")
@@ -73,7 +80,19 @@ def show(ctx, account_name):
     """
     Show info about a single account
     """
-    info_account(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    info = ctx.obj.client.get_account(account=account_name)
+    if ctx.obj.use_rich:
+        keyword_style = {**CLITheme.ACCOUNT_STATUS, **CLITheme.ACCOUNT_TYPE}
+        table_data = [(k, Text(str(v), style=keyword_style.get(str(v), 'default'))) for k, v in sorted(info.items())]
+        table = generate_table(
+            table_data,
+            row_styles=['none'],
+            col_alignments=['left', 'left']
+        )
+        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        for k in info:
+            print(k.ljust(10) + ' : ' + str(info[k]))
 
 
 @account.command("remove")
@@ -84,7 +103,8 @@ def remove(ctx, account_name):
     Remove an account
     (WARNING: Permanently disables the account. If you want to temporarily disable, use `account update [account-name] --ban`)
     """
-    delete_account(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.delete_account(account_name)
+    print('Deleted account: %s' % account_name)
 
 
 @account.command("update")
@@ -94,14 +114,18 @@ def remove(ctx, account_name):
 @click.pass_context
 def update(ctx, ban, account_name, email):
     """Update account settings"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "key": "email", "value": email})
     if ban is not None:
         if ban:
-            ban_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+            ctx.obj.client.update_account(
+                account=account_name, key='status', value='SUSPENDED'
+            )
+            print('Account %s banned' % account_name)
         else:
-            unban_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+            ctx.obj.client.update_account(account=account_name, key='status', value='ACTIVE')
+            print('Account %s unbanned' % account_name)
     else:
-        update_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+        ctx.obj.client.update_account(account=account_name, key='email', value=email)
+        print('email of account %s changed to %s' % (account_name, email))
 
 
 @account.group()
@@ -114,7 +138,16 @@ def attribute():
 @click.pass_context
 def attribute_list(ctx, account_name):
     "List the attributes for a given account"
-    list_account_attributes(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    attributes = next(ctx.obj.client.list_account_attributes(account_name))
+    table_data = []
+    for attr in attributes:
+        table_data.append([attr['key'], attr['value']])
+
+    if ctx.obj.use_rich:
+        table = generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
+        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['Key', 'Value']))
 
 
 @attribute.command("add")
@@ -124,7 +157,7 @@ def attribute_list(ctx, account_name):
 @click.pass_context
 def attribute_add(ctx, account_name, key, value):
     """Add a new attribute [key] to an account"""
-    add_account_attribute(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "key": key, "value": value}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
 
 
 @attribute.command("remove")
@@ -133,7 +166,7 @@ def attribute_add(ctx, account_name, key, value):
 @click.pass_context
 def attribute_remove(ctx, account_name, key):
     """Remove an attribute from an account without reassigning it"""
-    delete_account_attribute(Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.delete_account_attribute(account=account_name, key=key)
 
 
 @account.group("limit")
@@ -141,14 +174,47 @@ def limit():
     """View or modify account limits - limit how much data an account can store on an RSE"""
 
 
-@limit.command("list", help="Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.")
+@limit.command("list")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
 @click.pass_context
 def limit_list(ctx, account_name, rse):
-    """List the limits and current usage for an account"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "usage_account": account_name, "rse": rse})
-    list_account_usage(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    """
+    Shows the space used, the quota limit and the quota left
+    for an account for every RSE where the user have quota.
+    """
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.update(status='Fetching account usage')
+        ctx.obj.spinner.start()
+
+    usage = ctx.obj.client.get_local_account_usage(account=account_name, rse=rse)
+    table_data = []
+    for item in usage:
+        remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+        table_data.append([item['rse'], sizefmt(item['bytes'], ctx.obj.human), sizefmt(item['bytes_limit'], ctx.obj.human), sizefmt(remaining, ctx.obj.human)])
+    table_data.sort()
+
+    if ctx.obj.use_rich:
+        table1 = generate_table(table_data, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+    else:
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    table_data = []
+    usage = ctx.obj.client.get_global_account_usage(account=account_name)
+    for item in usage:
+        if (rse and rse in item['rse_expression']) or not rse:
+            remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
+            table_data.append([item['rse_expression'], sizefmt(item['bytes'], ctx.obj.human), sizefmt(item['bytes_limit'], ctx.obj.human), sizefmt(remaining, ctx.obj.human)])
+    table_data.sort()
+
+    if ctx.obj.use_rich:
+        table2 = generate_table(table_data, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+    else:
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.stop()
+        print_output(table1, table2, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @limit.command("add")
@@ -161,22 +227,35 @@ def limit_list(ctx, account_name, rse):
 @click.pass_context
 def limit_add(ctx, account_name, rse, bytes_, locality):
     """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "rse": rse, "bytes": bytes_, "locality": locality})
-    set_limits(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    byte_limit = None
+    limit_input = bytes_.lower()
+
+    if limit_input == 'inf' or limit_input == 'infinity':
+        byte_limit = -1
+    else:
+        byte_limit = get_bytes_value_from_string(limit_input)
+        if not byte_limit:
+            try:
+                byte_limit = int(limit_input)
+            except ValueError:
+                msg = f'\
+                    The limit could not be set. Either you misspelled infinity or your input ({bytes_.lower()}) could not be converted to integer or you used a wrong pattern. \
+                    Please use a format like 10GB with B,KB,MB,GB,TB,PB as units (not case sensitive)'
+                raise InputValidationError(msg)
+
+    ctx.obj.client.set_account_limit(account=account_name, rse=rse, bytes_=byte_limit, locality=locality.lower())
+    print('Set account limit for account %s on RSE %s: %s' % (account_name, rse, sizefmt(byte_limit, True)))
 
 
 @limit.command("remove")
-@click.argument(
-    "account-name",
-)
+@click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Full RSE name", required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
 def limit_remove(ctx, account_name, rse, locality):
     """Remove existing limits for an account on an RSE"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "rse": rse, "locality": locality})
-    delete_limits(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
-
+    ctx.obj.client.delete_account_limit(account=account_name, rse=rse, locality=locality)
+    print('Deleted account limit for account %s and RSE %s' % (account_name, rse))
 
 @account.group("identity")
 def identity():
@@ -188,8 +267,16 @@ def identity():
 @click.pass_context
 def identity_list(ctx, account_name):
     """See all the IDs for [account-name]"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name})
-    list_identities(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    table_data = []
+    identities = ctx.obj.client.list_identities(account=account_name)
+    for identity in identities:
+        if ctx.obj.use_rich:
+            table_data.append([identity['identity'], identity['type']])
+        else:
+            print('Identity: %(identity)s,\ttype: %(type)s' % identity)
+    if ctx.obj.use_rich:
+        table = generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
+        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @identity.command("add")
@@ -201,8 +288,15 @@ def identity_list(ctx, account_name):
 @click.pass_context
 def identity_add(ctx, account_name, type_, id, email, password):
     """Add a new identity for [account-name]"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "authtype": type_, "identity": id, "email": email, "password": password})
-    legacy_identity_add(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if email == "":
+        raise InputValidationError('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
+
+    if type_ == 'USERPASS' and not password:
+        raise InputValidationError('Missing --password argument')
+
+    ctx.obj.client.add_identity(account=account_name, identity=id, authtype=type_, email=email, password=password)
+    print('Added new identity to account: %s-%s' % (id, account_name))
+
 
 
 @identity.command("remove")
@@ -212,5 +306,5 @@ def identity_add(ctx, account_name, type_, id, email, password):
 @click.pass_context
 def identity_remove(ctx, account_name, type_, id):
     """Revoke a given ID's access from an account"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account": account_name, "authtype": type_, "identity": id})
-    identity_delete(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.del_identity(account_name, id, authtype=type_)
+    print('Deleted identity: %s' % id)
