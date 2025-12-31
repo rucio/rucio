@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import click
-from rucio.client.configclient import ConfigClient
-from rucio.common.exception import ConfigNotFound, AccessDenied
+from rucio.cli.bin_legacy.rucio_admin import get_config, set_config_option, delete_config_option
+from rucio.cli.utils import Arguments
 
 @click.group()
 def config():
@@ -26,52 +26,36 @@ def config():
 @config.command()
 @click.argument('section')
 @click.argument('option', required=False)
-def get(section, option):
+@click.pass_context
+def get(ctx, section, option):
     """
     Get a configuration value.
     """
-    client = ConfigClient()
-    try:
-        value = client.get_config(section, option)
-        if option:
-            print(value)
-        else:
-            for k, v in value.items():
-                print(f"{k} = {v}")
-    except ConfigNotFound:
-        print("Configuration not found.")
-    except Exception as e:
-        print(f"Error: {e}")
+    # The legacy function expects an object with .section and .option attributes
+    args = Arguments(section=section, option=option)
+    get_config(args, ctx.obj['client'], ctx.obj['logger'], ctx.obj['console'], ctx.obj['spinner'])
 
 @config.command()
 @click.argument('section')
 @click.argument('option')
 @click.argument('value')
-def set(section, option, value):
+@click.pass_context
+def set(ctx, section, option, value):
     """
     Set a configuration value.
     """
-    client = ConfigClient()
-    try:
-        client.set_config(section, option, value)
-        print("Configuration set.")
-    except AccessDenied:
-        print("Access denied: You do not have permission to set configuration.")
-    except Exception as e:
-        print(f"Error: {e}")
+    # The legacy function expects .section, .option, and .value
+    args = Arguments(section=section, option=option, value=value)
+    set_config_option(args, ctx.obj['client'], ctx.obj['logger'], ctx.obj['console'], ctx.obj['spinner'])
 
 @config.command()
 @click.argument('section')
 @click.argument('option')
-def delete(section, option):
+@click.pass_context
+def delete(ctx, section, option):
     """
     Delete a configuration value.
     """
-    client = ConfigClient()
-    try:
-        client.delete_config(section, option)
-        print("Configuration deleted.")
-    except AccessDenied:
-        print("Access denied: You do not have permission to delete configuration.")
-    except Exception as e:
-        print(f"Error: {e}")
+    # The legacy function expects .section and .option
+    args = Arguments(section=section, option=option)
+    delete_config_option(args, ctx.obj['client'], ctx.obj['logger'], ctx.obj['console'], ctx.obj['spinner'])
