@@ -11,77 +11,67 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import click
-
-from rucio.cli.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
-from rucio.cli.utils import Arguments
-
+from rucio.common.exception import AccessDenied
 
 @click.group()
 def config():
-    "Modify the configuration table"
-
-
-# TODO Limit to just the section names
-@config.command("list")
-@click.option("-s", "--section", help="Filter by sections")
-@click.option("-k", "--key", help="Show key's value, section required.")
-@click.pass_context
-def list_(ctx: click.Context, section: str, key: str):
-    """List the sections or content of sections in the rucio.cfg"""
-    get_config(Arguments({"no_pager": ctx.obj.no_pager, "section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
-
-
-@config.command("add")
-@click.option("-s", "--section", help="Section name", required=True)
-@click.option('--key', help='Attribute key', required=True)
-@click.option('--value', help='Attribute value', required=True)
-@click.pass_context
-def add_(ctx: click.Context, section: str, key: str, value: str):
     """
-    Add a new key/value to a section.
-
-    \b
-    Example, Add a key to an existing section:
-        $ rucio config add --section my-section --key key --value value
+    Configuration management.
     """
-    has_option = ctx.obj.client.get_config().get(section, {}).get(key) is not None
-    if has_option:
-        msg = f"Config already has field {section}: {key}, please use \n\
-            rucio config update --section {section} --key {key} --value {value}"
-        raise ValueError(msg)
+    pass
 
-    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key, "value": value})
-    set_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
-
-
-@config.command("remove")
-@click.option("-s", "--section", help="Section", required=True)
-@click.option("-k", "--key", help="Key in section", required=True)
+@config.command()
+@click.argument('section')
+@click.argument('option', required=False)
 @click.pass_context
-def remove(ctx: click.Context, section: str, key: str):
-    """Remove the section.key from the config."""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key})
-    delete_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
-
-
-# @config.command("show")
-# @click.pass_context
-def show(ctx):
-    """Show a single sections options"""
-
-
-@config.command("update")
-@click.option("-s", "--section", required=True)
-@click.option("-k", "--key", help='Attribute key', required=True)
-@click.option("-v", "--value", help='Attribute value', required=True)
-@click.pass_context
-def update(ctx: click.Context, section: str, key: str, value: str):
-    """Modify an existing command"""
-    has_option = ctx.obj.client.get_config().get(section, {}).get(key) is not None
-    if has_option:
-        ctx.obj.client.set_config_option(section, key, value)
+def get(ctx, section, option):
+    """
+    Get matching configuration.
+    """
+    client = ctx.obj['client']
+    res = client.get_config(section=section, option=option)
+    if not isinstance(res, dict):
+        print('[%s]\n%s=%s' % (section, option, str(res)))
     else:
-        msg = f"{section} {key} not present. Please use \n\
-            rucio config add --section {section} --key {key} --value {value}"
-        raise ValueError(msg)
+        print_header = True
+        for i in list(res.keys()):
+            if print_header:
+                if section is not None:
+                    print('[%s]' % section)
+                else:
+                    print('[%s]' % i)
+            if not isinstance(res[i], dict):
+                print('%s=%s' % (i, str(res[i])))
+                print_header = False
+            else:
+                for j in list(res[i].keys()):
+                    print('%s=%s' % (j, str(res[i][j])))
+
+@config.command()
+@click.argument('section')
+@click.argument('option')
+@click.argument('value')
+@click.pass_context
+def set(ctx, section, option, value):
+    """
+    Set matching configuration.
+    """
+    client = ctx.obj['client']
+    client.set_config_option(section=section, option=option, value=value)
+    print('Set configuration: %s.%s=%s' % (section, option, value))
+
+@config.command()
+@click.argument('section')
+@click.argument('option')
+@click.pass_context
+def delete(ctx, section, option):
+    """
+    Delete matching configuration.
+    """
+    client = ctx.obj['client']
+    if client.delete_config_option(section=section, option=option):
+        print('Deleted section \'%s\' option \'%s\'' % (section, option))
+    else:
+        print('Section \'%s\' option \'%s\' not found' % (section, option))

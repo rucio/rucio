@@ -12,3 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from rucio.cli import command  # noqa: F401
+from rucio.cli import config  # noqa: F401
