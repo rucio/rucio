@@ -223,10 +223,10 @@ class Config:
             admin_scopes=os.environ.get(
                 "ADMIN_SCOPES",
                 (
-                    "storage.stage:/rucio "
-                    "storage.modify:/rucio "
-                    "storage.create:/rucio "
-                    "storage.read:/rucio "
+                    "storage.stage:/ "
+                    "storage.modify:/ "
+                    "storage.create:/ "
+                    "storage.read:/ "
                     "fts offline_access"
                 ),
             ),
@@ -668,7 +668,7 @@ def update_fts_database_token_provider(
 
     provider_name = "indigoiam"
     required_submission_scope = "fts"
-    issuer_url = config.issuer_url
+    issuer = config.issuer_url
 
     conn = None
     try:
@@ -691,6 +691,7 @@ def update_fts_database_token_provider(
             )
             VALUES (%s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
+                name = VALUES(name),
                 client_id = VALUES(client_id),
                 client_secret = VALUES(client_secret),
                 required_submission_scope = VALUES(required_submission_scope)
@@ -701,7 +702,7 @@ def update_fts_database_token_provider(
                 sql_upsert,
                 (
                     provider_name,
-                    issuer_url,
+                    issuer,
                     fts_client_id,
                     fts_client_secret,
                     required_submission_scope,
