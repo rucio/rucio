@@ -14,15 +14,14 @@
 # limitations under the License.
 
 import sys
+from typing import Optional
 
 from rucio.cli.bin_legacy.rucio_admin import main as main_legacy
+from rucio.common.exception import RucioException
 from rucio.common.utils import setup_logger
 
 
-def make_warning():
-    logger = setup_logger(module_name=__name__)
-
-    base_warning = "This method is being deprecated."
+def _get_command() -> tuple[Optional[str], str]:
     args = [arg for arg in sys.argv if arg[0] != "-" or arg in ("-h", "--help", "--version")]
     try:
         first_command = args[1]
@@ -33,65 +32,84 @@ def make_warning():
     except IndexError:
         second_command = "-h"
 
-    if (first_command not in ("-h", "--version", "--help")) and (first_command is not None):
-        command_map = {
-            "data": {"import": "upload", "export": "download"},
-            "account": {
-                "-h": "account -h",
-                "add": "account add",
-                "delete": "account remove",
-                "info": "account show",
-                "update": "account update",
-                "set-limits": "account limit add",
-                "get-limits": "account limit list",
-                "delete-limits": "account limit remove",
-                "ban": "account update --ban",
-                "unban": "account update --unban",
-                "list-attributes": "account attribute list",
-                "add-attribute": "account attribute add",
-                "delete-attribute": "account attribute remove",
-            },
-            "identity": {"-h": "account identity -h", "add": "account identity add", "delete": "account identity remove"},
-            "rse": {
-                "-h": "rse -h",
-                "add": "rse add",
-                "list": "rse list",
-                "update": "rse update",
-                "info": "rse show",
-                "set-attribute": "rse attribute add",
-                "delete-attribute": "rse attribute remove",
-                "delete-distance": "rse distance remove",
-                "get-distance": "rse distance show",
-                "set-distance": "rse distance update",
-                "get-attribute": "rse attribute list",
-                "add-protocol": "rse protocol add",
-                "delete-protocol": "rse protocol remove",
-                "delete": "rse remove",
-                "add-qos-policy": "rse qos add",
-                "add-distance": "rse distance add",
-                "delete-qos-policy": "rse qos remove",
-                "list-qos-policies": "rse qos list",
-                "set-limit": "rse limit add",
-                "delete-limit": "rse limit remove",
-            },
-            "scope": {"-h": "scope -h", "add": "scope add", "list": "scope list"},
-            "config": {"-h": "config -h", "get": "config list", "set": "config add", "delete": "config remove"},
-            "subscription": {"-h": "subscription -h", "add": "subscription add", "list": "subscription", "update": "subscription update", "reevaluate": "subscription touch"},
-            "replicas": {"-h": "replica -h", "quarantine": "replica state update quarantine", "declare-bad": "replica state update bad", "declare-temporary-unavailable": "replica state update unavailable", "set-tombstone": "replica remove"},
-        }
+    return first_command, second_command
+
+
+def map_legacy_command(first_command: Optional[str], second_command: str) -> Optional[str]:
+    command_map = {
+        "data": {"import": "upload", "export": "download"},
+        "account": {
+            "-h": "account -h",
+            "add": "account add",
+            "delete": "account remove",
+            "info": "account show",
+            "update": "account update",
+            "set-limits": "account limit add",
+            "get-limits": "account limit list",
+            "delete-limits": "account limit remove",
+            "ban": "account update --ban",
+            "unban": "account update --unban",
+            "list-attributes": "account attribute list",
+            "add-attribute": "account attribute add",
+            "delete-attribute": "account attribute remove",
+        },
+        "identity": {"-h": "account identity -h", "add": "account identity add", "delete": "account identity remove"},
+        "rse": {
+            "-h": "rse -h",
+            "add": "rse add",
+            "list": "rse list",
+            "update": "rse update",
+            "info": "rse show",
+            "set-attribute": "rse attribute add",
+            "delete-attribute": "rse attribute remove",
+            "delete-distance": "rse distance remove",
+            "get-distance": "rse distance show",
+            "set-distance": "rse distance update",
+            "get-attribute": "rse attribute list",
+            "add-protocol": "rse protocol add",
+            "delete-protocol": "rse protocol remove",
+            "delete": "rse remove",
+            "add-qos-policy": "rse qos add",
+            "add-distance": "rse distance add",
+            "delete-qos-policy": "rse qos remove",
+            "list-qos-policies": "rse qos list",
+            "set-limit": "rse limit add",
+            "delete-limit": "rse limit remove",
+        },
+        "scope": {"-h": "scope -h", "add": "scope add", "list": "scope list"},
+        "config": {"-h": "config -h", "get": "config list", "set": "config add", "delete": "config remove"},
+        "subscription": {"-h": "subscription -h", "add": "subscription add", "list": "subscription", "update": "subscription update", "reevaluate": "subscription touch"},
+        "replicas": {"-h": "replica -h", "quarantine": "replica state update quarantine", "declare-bad": "replica state update bad", "declare-temporary-unavailable": "replica state update unavailable", "set-tombstone": "replica remove"},
+    }
+    new_command = None
+    if first_command is not None:
         try:
             new_command = command_map[first_command]
             new_command = new_command[second_command]
+
         except KeyError:
-            new_command = "-h"
+            new_command = None
 
-        warning = f"{base_warning} Please replace your command with `rucio {new_command}`"
+    return new_command
+
+
+def make_warning():
+    error_msg = "rucio-admin is being deprecated in 4X.X.X. Use `--legacy` to access it"
+    new_command = map_legacy_command(*_get_command())
+    if new_command is not None:
+        error_msg += f" or use `rucio {new_command}`."
     else:
-        warning = base_warning + " Please view rucio -h for an updated help menu."
-
-    logger.warning(warning)
+        error_msg += " or view rucio -h for updated commands."
+    return error_msg
 
 
 if __name__ == "__main__":
-    make_warning()
-    main_legacy()
+    msg = make_warning()
+
+    if "--legacy" in sys.argv:
+        logger = setup_logger(module_name=__name__)
+        logger.warning(msg)
+        sys.argv.pop(sys.argv.index("--legacy"))
+        main_legacy()
+    else:
+        raise RucioException(msg)

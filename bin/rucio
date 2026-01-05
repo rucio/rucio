@@ -15,15 +15,14 @@
 
 import argparse
 import sys
-from typing import TYPE_CHECKING, Optional
+from multiprocessing import Process
+from typing import Optional
 
 from rucio.cli.bin_legacy.rucio import get_parser
 from rucio.cli.bin_legacy.rucio import main as main_legacy
 from rucio.cli.command import main
+from rucio.common.exception import RucioException
 from rucio.common.utils import setup_logger
-
-if TYPE_CHECKING:
-    from logging import Logger
 
 
 def _get_first_command(args: list[str]) -> Optional[str]:
@@ -36,15 +35,15 @@ def _get_first_command(args: list[str]) -> Optional[str]:
     )
 
 
-def make_warning(logger: "Logger") -> None:
-    base_warning = "This method is being deprecated."
+def make_warning() -> str:
+    warning = "This method is being deprecated in version 4X.X.X. Use `--legacy` to access it"
     new_command = map_legacy_command()
     if new_command is not None:
-        warning = f"{base_warning} Please replace your command with `rucio {' '.join(new_command)}`"
+        warning += f" or use `rucio {' '.join(new_command)}`."
     else:
-        warning = base_warning + " Please view rucio -h for an updated help menu."
+        warning += " or view rucio -h for updated commands."
 
-    logger.warning(warning)
+    return warning
 
 
 def map_legacy_command() -> Optional[list[str]]:
@@ -110,9 +109,10 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
 
     logger = setup_logger(module_name=__name__)
+    msg = make_warning()
 
     if args.legacy:
-        make_warning(logger)
+        logger.warning(msg)
         sys.argv.pop(sys.argv.index('--legacy'))
         main_legacy()
 
@@ -120,18 +120,18 @@ if __name__ == "__main__":
         main()  # pylint: disable=E1120
 
     else:
-        try:
-            get_parser().parse_args()
-            make_warning(logger)
-            main_legacy()
-
-        # Make a custom warning - show the new help menu when invalid commands are called.
-        except argparse.ArgumentError:
+        # These calls are done as subprocesses to manually set the error codes
+        # and to avoid parse_args from throwing an exitcode before we can log the error
+        subprocess = Process(target=get_parser().parse_args)
+        subprocess.start()
+        subprocess.join()
+        if subprocess.exitcode != 0:
             logger.error("Invalid argument(s) - %s " % sys.argv[1:])
-            command = map_legacy_command()
-            if command is not None:
-                sys.argv = ["rucio"] + command + ["-h"]
-            else:
-                sys.argv = ["rucio", "-h"]
-
-            main()  # pylint: disable=E1120
+            logger.error(msg)
+            sys.argv = ["rucio", "-h"]
+            subprocess = Process(target=main)
+            subprocess.start()
+            subprocess.join()
+            sys.exit(1)
+        else:
+            raise RucioException(msg)
