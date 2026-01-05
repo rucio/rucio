@@ -189,6 +189,8 @@ class SubscriptionClient(BaseClient):
         """
         Mark a subscription as inactive
 
+        .. versionadded:: 38.0.0
+
         Parameters
         ----------
         name : Name of the subscription

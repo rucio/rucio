@@ -157,6 +157,8 @@ class RequestClient(BaseClient):
     ) -> 'Iterator[dict[str, Any]]':
         """Returns all the transfer limits
 
+        .. versionadded:: 38.0.0
+
         :returns: transfer limits
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
@@ -182,6 +184,8 @@ class RequestClient(BaseClient):
             waitings: Optional[int] = None,
     ) -> Literal[True]:
         """Set the transfer limit for a given RSE
+
+        .. versionadded:: 38.0.0
 
         :param rse_expression: RSE expression string.
         :param activity: The activity.
@@ -215,6 +219,8 @@ class RequestClient(BaseClient):
             direction: TransferLimitDirection = TransferLimitDirection.DESTINATION
     ) -> Literal[True]:
         """Delete the transfer limit for a given RSE
+
+        .. versionadded:: 38.0.0
 
         :param rse_expression: RSE expression string.
         :param activity: The activity.

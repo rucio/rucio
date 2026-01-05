@@ -39,6 +39,9 @@ class OpenDataClient(BaseClient):
     def get_opendata_host(self, *, public: bool) -> str:
         """
         Get the Opendata host URL for the public or private endpoint.
+
+        .. versionadded:: 38.0.0
+
         The private opendata host is the regular rucio server, while the public opendata host can be configured separately (defaults to the same as the private one).
 
         Parameters:
@@ -61,6 +64,8 @@ class OpenDataClient(BaseClient):
     ) -> dict[str, Any]:
         """
         Return a list of Opendata DIDs, optionally filtered by state and access type.
+
+        .. versionadded:: 38.0.0
 
         Parameters:
             state: The state to filter DIDs by. If None, all states are included.
@@ -102,6 +107,8 @@ class OpenDataClient(BaseClient):
         """
         Adds an existing Rucio DID (Data Identifier) to the Opendata catalog.
 
+        .. versionadded:: 38.0.0
+
         Parameters:
             scope: The scope under which the DID is registered.
             name: The name of the DID.
@@ -132,6 +139,8 @@ class OpenDataClient(BaseClient):
     ) -> bool:
         """
         Remove an existing Opendata DID from the Opendata catalog.
+
+        .. versionadded:: 38.0.0
 
         Parameters:
             scope: The scope under which the DID is registered.
@@ -167,6 +176,8 @@ class OpenDataClient(BaseClient):
     ) -> dict[str, Any]:
         """
         Update an existing Opendata DID in the Opendata catalog.
+
+        .. versionadded:: 38.0.0
 
         Parameters:
             scope: The scope under which the DID is registered.
@@ -225,6 +236,8 @@ class OpenDataClient(BaseClient):
     ) -> dict[str, Any]:
         """
         Retrieve information about an OpenData DID (Data Identifier).
+
+        .. versionadded:: 38.0.0
 
         Parameters:
             scope: The scope under which the DID is registered.

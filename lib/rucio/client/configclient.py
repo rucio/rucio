@@ -153,6 +153,8 @@ class ConfigClient(BaseClient):
         """
         Delete a whole section from the config
 
+        .. versionadded:: 39.0.0
+
         Parameters
         ----------
         section :
