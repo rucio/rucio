@@ -546,7 +546,7 @@ services:
     image: python:3.11-slim
     profiles:
       - iam
-    container_name: indigoiam_init
+    container_name: dev-indigoiam_init-1
     environment:
       TEST_ADMIN_SCOPED_CLIENT_ID: "admin-client-rw"
       TEST_ADMIN_SCOPED_CLIENT_SECRET: "secret"
