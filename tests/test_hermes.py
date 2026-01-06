@@ -260,7 +260,7 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
     # Checking ElasticSearch
     pattern = "%a, %d %b %Y %H:%M:%S %Z"
     assert service_dict["elastic"] == 0
-    data = ' { "query": { "match_all": {} } }'
+    data = ' { "query": { "match": { "payload.rse": "%s" } } }' % mock_rse
     headers = {"Content-Type": "application/json"}
     response = requests.post(
         "http://elasticsearch:9200/_search?size=1000", data=data, headers=headers
