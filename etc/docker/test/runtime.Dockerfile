@@ -170,7 +170,8 @@ FROM rucio-runtime AS requirements
         python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade fts3 && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
-        python3 -m pip --no-cache-dir install --upgrade -r /tmp/requirements/requirements.server.txt -r /tmp/requirements/requirements.dev.txt
+        python3 -m pip --no-cache-dir install --upgrade -r /tmp/requirements/requirements.server.txt -r /tmp/requirements/requirements.dev.txt && \
+        rm -f /etc/httpd/conf.d/ssl.conf
     RUN curl https://rclone.org/install.sh | bash
 
 FROM requirements AS final
