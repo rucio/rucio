@@ -293,6 +293,15 @@ def delete_subscription(name: str,
         subscription = session.execute(stmt).scalar_one()
     except NoResultFound:
         raise SubscriptionNotFound(f"Subscription for account '{account}' named '{name}' not found")
+    
+    # Delete dependent rules
+    stmt = delete(
+        models.ReplicationRule
+    ).where(
+        models.ReplicationRule.subscription_id == subscription.id
+    )
+    
+    session.execute(stmt)
 
     subscription.delete(session=session)
 
