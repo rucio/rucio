@@ -6,7 +6,7 @@
 #
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.2
+aiohttp==3.13.3
     # via geoip2
 aiosignal==1.4.0
     # via aiohttp
@@ -88,6 +88,8 @@ globus-sdk==4.1.0
     # via -r requirements.server.in
 google-auth==2.42.1
     # via -r requirements.server.in
+greenlet==3.2.4
+    # via sqlalchemy
 gssapi==1.10.1
     # via pyspnego
 idna==3.11
