@@ -59,10 +59,11 @@ def add_(ctx, account_type, account_name, email):
 @click.option("--type", "type_", type=click.Choice(["USER", "GROUP", "SERVICE"]))
 @click.option("--id", help="Filter by identity (e.g. DN)")
 @click.option("--filter", help="Filter arguments in form `key=value,another_key=next_value`")  # TODO Explicit numeration of these possible keys
+@click.option("--csv", is_flag=True, help='List result as a csv')
 @click.pass_context
-def list_(ctx, type_, id, filter):
+def list_(ctx, type_, id, filter, csv):
     """List all accounts that match given filters"""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "account_type": type_, "identity": id, "filters": filter})
+    args = Arguments({"no_pager": ctx.obj.no_pager, "account_type": type_, "identity": id, "filters": filter, 'csv': csv})
     list_accounts(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 

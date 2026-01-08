@@ -127,7 +127,6 @@ if __name__ == "__main__":
         subprocess.join()
         if subprocess.exitcode != 0:
             logger.error("Invalid argument(s) - %s " % sys.argv[1:])
-            logger.error(msg)
             sys.argv = ["rucio", "-h"]
             subprocess = Process(target=main)
             subprocess.start()

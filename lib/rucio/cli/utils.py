@@ -55,6 +55,7 @@ def exception_handler(function):
 
     @wraps(function)
     def new_funct(*args, **kwargs):
+        exit = SUCCESS
         try:
             return function(*args, **kwargs)
         except click.exceptions.Exit as error:
@@ -62,64 +63,65 @@ def exception_handler(function):
             # This error is raised when the help menu is called
             logger.debug("Exited click context")
             if ("-h" not in sys.argv) or ("--help" not in sys.argv):
-                return error.exit_code
-            return SUCCESS
+                exit = error.exit_code
+            exit = SUCCESS
         except click.MissingParameter as error:
             error.show()
             msg = f"{error}. Please check the command help (-h/--help)."
             logger.error(msg)
-            return 2  # Always return an error 2 for an incorrect specification
+            exit = 2  # Always return an error 2 for an incorrect specification
         except (InputValidationError, click.exceptions.UsageError) as error:
             logger.error(error)
             logger.debug("This means that one you provided an invalid combination of parameters, or incorrect types. Please check the command help (-h/--help).")
-            return FAILURE
+            exit = FAILURE
         except NotImplementedError as error:
             logger.error(f"Cannot run that operation/command combination {error}")
-            return FAILURE
+            exit = FAILURE
         except DataIdentifierNotFound as error:
             logger.error(error)
             logger.debug("This means that the Data IDentifier you provided is not known by Rucio.")
-            return error.error_code
+            exit = error.error_code
         except AccessDenied as error:
             logger.error(error)
             logger.debug("This error is a permission issue. You cannot run this command with your account.")
-            return error.error_code
+            exit = error.error_code
         except DataIdentifierAlreadyExists as error:
             logger.error(error)
             logger.debug("This means that the Data IDentifier you try to add is already registered in Rucio.")
-            return error.error_code
+            exit = error.error_code
         except RSENotFound as error:
             logger.error(error)
             logger.debug("This means that the Rucio Storage Element you provided is not known by Rucio.")
-            return error.error_code
+            exit = error.error_code
         except InvalidRSEExpression as error:
             logger.error(error)
             logger.debug("This means the RSE expression you provided is not syntactically correct.")
-            return error.error_code
+            exit = error.error_code
         except DuplicateContent as error:
             logger.error(error)
             logger.debug("This means that the DID you want to attach is already in the target DID.")
-            return error.error_code
+            exit = error.error_code
         except Duplicate as error:
+            logger.debug("Called to duplicate")
             logger.error(error)
             logger.debug("This means that you are trying to add something that already exists.")
-            return error.error_code
+            exit = error.error_code
         except TypeError as error:
             logger.error(error)
             logger.debug("This means the parameter you passed has a wrong type.")
-            return FAILURE
+            exit = FAILURE
         except RuleNotFound as error:
             logger.error(error)
             logger.debug("This means the rule you specified does not exist.")
-            return error.error_code
+            exit = error.error_code
         except UnsupportedOperation as error:
             logger.error(error)
             logger.debug("This means you cannot change the status of the DID.")
-            return error.error_code
+            exit = error.error_code
         except MissingDependency as error:
             logger.error(error)
             logger.debug("This means one dependency is missing.")
-            return error.error_code
+            exit = error.error_code
         except KeyError as error:
             if "x-rucio-auth-token" in str(error):
                 used_account = None
@@ -138,10 +140,10 @@ def exception_handler(function):
                 contact = config_get("policy", "support", raise_exception=False)
                 support = ("Please follow up with all relevant information at: " + contact) if contact else ""
                 logger.error("\nThe object is missing this property: %s\n" 'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n' "%s" % (str(error), support))
-            return FAILURE
+            exit = FAILURE
         except RucioException as error:
             logger.error(error)
-            return error.error_code
+            exit = error.error_code
         except Exception as error:
             if isinstance(error, IOError) and getattr(error, "errno", None) == errno.EPIPE:
                 # Ignore Broken Pipe
@@ -151,7 +153,7 @@ def exception_handler(function):
                 # to devnull to avoid another BrokenPipeError at shutdown
                 devnull = os.open(os.devnull, os.O_WRONLY)
                 os.dup2(devnull, sys.stdout.fileno())
-                return SUCCESS
+                exit = SUCCESS
             logger.debug(traceback.format_exc())
             logger.error(error)
             contact = config_get("policy", "support", raise_exception=False)
@@ -159,8 +161,11 @@ def exception_handler(function):
             contact = config_get("policy", "support_rucio", default="https://github.com/rucio/rucio/issues")
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
             logger.error("\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s" % support)
-            return FAILURE
+            exit = FAILURE
 
+        if exit != SUCCESS:
+            exit = FAILURE if exit != 2 else 2
+        raise SystemExit(exit)
     return new_funct
 
 

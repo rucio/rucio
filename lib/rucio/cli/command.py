@@ -13,7 +13,6 @@
 # limitations under the License.
 import importlib
 import signal
-import sys
 import time
 
 import click
@@ -63,14 +62,8 @@ class LazyGroup(click.Group):
         return cmd_object
 
     @exception_handler
-    def _invoke_with_handler(self, ctx: click.Context):
-        return super().invoke(ctx)
-
     def invoke(self, ctx: click.Context):
-        result = self._invoke_with_handler(ctx)
-        if result not in (None, 0):
-            sys.exit(1 if result != 2 else 2)
-        return result
+        return super().invoke(ctx)
 
 
 @click.group(
@@ -89,7 +82,8 @@ class LazyGroup(click.Group):
         "upload": "rucio.cli.upload.upload_command",
         "opendata": "rucio.cli.opendata.opendata",
     },
-    context_settings={"help_option_names": ["-h", "--help"]}
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
 @click.option("--account", "--issuer", "issuer", help="Rucio account to use.")
 @click.option("--auth-host", help="The Rucio Authentication host")
@@ -242,7 +236,7 @@ def main(
 
 
 @click.pass_context
-def _teardown(ctx):
+def _teardown(ctx: click.Context):
     time_elapsed = time.time() - ctx.obj.start_time
 
     if ctx.obj.use_rich:

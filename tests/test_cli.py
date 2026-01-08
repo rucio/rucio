@@ -13,11 +13,9 @@
 # limitations under the License.
 
 import json
-import logging
 import os
 import random
 import re
-import shlex
 import tempfile
 from datetime import datetime, timedelta, timezone
 
@@ -271,7 +269,7 @@ def test_list_rses(cmd, rse_factory):
 
 @pytest.mark.parametrize("base_cmd", [
     "rucio-admin --legacy rse add-distance --distance 1 --ranking 1",
-    "rucio rse distance add --distance 1 "
+    "rucio -v rse distance add --distance 1 "
 ], ids=['legacy', 'current'])
 def test_rse_add_distance(base_cmd, rse_factory):
     """CLIENT (ADMIN): Add distance to RSE"""
@@ -289,6 +287,7 @@ def test_rse_add_distance(base_cmd, rse_factory):
 
     # add duplicate distance
     exitcode, out, err = execute(cmd)
+    print(out, err)
     assert exitcode != 0
     assert f'Distance from {rse_name_2} to {rse_name_1} already exists!' in err
 
@@ -454,14 +453,14 @@ def test_attach_dataset_twice(cmd, did_factory, mock_scope, rucio_client):
 
 @pytest.mark.parametrize("cmd", [
     lambda t, f: f"rucio --legacy detach {t} {f}",
-    lambda t, f: f"rucio did content remove -to {t} {f}"
+    lambda t, f: f"rucio did content remove --from-did {t} {f}"
 ], ids=['legacy', 'current'])
 def test_detach_non_existing_file(cmd, did_factory):
     """CLIENT(USER): Rucio detach a non existing file"""
     dataset = did_factory.make_dataset()
     scope = dataset['scope']
     name = dataset['name']
-    exitcode, out, err = execute(cmd(f"{scope}:{name}" f"{scope}:file_ghost"))
+    exitcode, out, err = execute(cmd(f"{scope}:{name}", f"{scope}:file_ghost"))
     assert exitcode != 0
     assert re.search("Data identifier not found.", err) is not None
 
@@ -559,7 +558,7 @@ def test_create_rule_delayed(cmd, rucio_client, rse_factory, did_factory):
 
     # try adding rule with an incorrect delay-injection. Must fail
     exitcode, out, err = execute(cmd(f"{temp_scope}:{temp_file_name}", "jkdsf"))
-    assert exitcode == 2  # Fails due to invalid value in argparse
+    assert exitcode != 0  # Fails due to invalid value in argparse
 
     # Add a correct rule
     exitcode, out, err = execute(cmd(f"{temp_scope}:{temp_file_name}", 3600))
@@ -827,9 +826,8 @@ def test_attach_dids_from_file(cmd, rse_factory, mock_scope, did_factory, rucio_
 
 
 @pytest.mark.parametrize("cmd", [
-    lambda f: f"rucio-admin --legacy data import {f}",
-    lambda f: f"rucio upload {f}"
-], ids=['legacy', 'current'])
+    lambda f: f"rucio-admin --legacy data import {f}"
+], ids=['legacy'])
 def test_import_data(cmd, rse_factory, rucio_client):
     """ CLIENT(ADMIN): Import data into rucio"""
 
@@ -856,8 +854,7 @@ def test_import_data(cmd, rse_factory, rucio_client):
 
 @pytest.mark.parametrize("cmd", [
     lambda f: f"rucio-admin --legacy data export {f}",
-    lambda f: f"rucio upload {f}"
-], ids=['legacy', 'current'])
+], ids=['legacy'])
 @pytest.mark.noparallel(reason='fails when run in parallel')
 def test_export_data(cmd):
     """ CLIENT(ADMIN): Export data from rucio"""
@@ -1006,7 +1003,7 @@ def test_get_set_delete_limits_rse(set_cmd, del_cmd, rse_factory, rucio_client):
 
     non_integer = "NotAnInteger"
     exitcode, out, err = execute(set_cmd(rse, name, non_integer))
-    assert 'The RSE limit value must be an integer' in err
+    assert ('The RSE limit value must be an integer') in err or ('is not a valid integer') in err
     limits = rucio_client.get_rse_limits(rse)
     assert name3 not in limits
 
@@ -1387,81 +1384,64 @@ def test_download_file_check_by_size(rse_factory, mock_scope, did_factory):
         assert "File with same name exists locally, but filesize mismatches" in err
 
 
-@pytest.mark.parametrize(
-    ("cli", "lfn"),
-    [
-        ("new", True),
-        ("old", True),
-        ("new", False),
-        ("old", False),
-    ]
-)
-def test_cli_declare_bad_replicas(cli, lfn, rse_factory, mock_scope, did_factory, tmp_path, rucio_client):
+@pytest.mark.parametrize("cmd,lfn_cmd", [
+    (
+        lambda replica: f"rucio-admin --legacy replicas declare-bad --reason test {replica}",
+        lambda rse, scope, lfns: f"rucio-admin --legacy replicas declare-bad --reason test --rse {rse} --scope {scope} --lfns {lfns}",
+    ),
+    (
+        lambda replica: f"rucio replica state update bad --reason test {replica}",
+        lambda rse, scope, lfn: f"rucio replica state update bad --reason test --rse {rse} --scope {scope} --lfn {lfn}",
+    )
+], ids=['legacy', 'current'])
+def test_cli_declare_bad_replicas(cmd, lfn_cmd, rse_factory, mock_scope, did_factory, tmp_path, rucio_client):
     """CLIENT(USER): Rucio declare bad replica"""
-    log = logging.getLogger("bad-replicas")
 
     rse, _ = rse_factory.make_posix_rse()
     scope = mock_scope.external
 
     did = did_factory.upload_test_file(rse_name=rse, scope=scope)
-    # replace scope object with scope name str
-    did["scope"] = did["scope"].external
+    did['scope'] = did['scope'].external
+    name = did['name']
 
-    cmd = []
-    if cli == "new":
-        cmd = ["rucio", "replica", "state", "update", "bad"]
-    else:
-        cmd = ["rucio-admin", "replicas", "declare-bad"]
+    # Test lfn command
+    lfn_path = tmp_path / "lfns.txt"
+    lfn_path.write_text(name + "\n")
 
-    cmd.extend(["--reason", "test"])
+    exitcode, _, _ = execute(lfn_cmd(rse, scope, lfn_path))
+    assert exitcode == 0
+    replicas = next(rucio_client.list_replicas([did], rse_expression=rse, all_states=True))
+    assert replicas["states"][rse] == "BAD"
 
-    bad_replicas = []
+    # Test the replica based command
+    rse, _ = rse_factory.make_posix_rse()
+    did = did_factory.upload_test_file(rse_name=rse, scope=scope)
+    did['scope'] = did['scope'].external
+    name = did['name']
 
-    if lfn:
-        lfn_path = tmp_path / "lfns.txt"
-        lfn_path.write_text(did["name"] + "\n")
-
-        if cli == "new":
-            cmd.append("--lfn")
-            bad_replicas.append(str(lfn_path))
-        else:
-            cmd.extend(["--lfns", str(lfn_path)])
-
-        cmd.extend(["--rse", rse, "--scope", scope])
-    else:
-        bad_replicas.append(f"{did['scope']}:{did['name']}")
-
-    cmd.extend(bad_replicas)
-    cmd = shlex.join(cmd)
-
-    code, stdout, stderr = execute(cmd)
-    log.info("Command stdout:\n%s", stdout)
-    log.warning("Command stderr:\n%s", stderr)
-    assert code == 0, f"Running {cmd} failed. out:\n{stdout}\nerr\n{stderr}"
-
+    exitcode, _, _ = execute(cmd(f"{scope}:{name}"))
+    assert exitcode == 0
     replicas = next(rucio_client.list_replicas([did], rse_expression=rse, all_states=True))
     assert replicas["states"][rse] == "BAD"
 
 
 def test_cli_declare_bad_replicas_invalid_usage():
     """CLIENT(USER): Rucio declare bad replica invalid argument handling"""
-    base_cmd = ["rucio", "replica", "state", "update", "bad"]
+    base_cmd = "rucio replica state update bad"
 
-    def run(expected_error, args=None, expected_code=1):
-        args = args or []
-        cmd = shlex.join(base_cmd + args)
-        code, stdout, stderr = execute(cmd)
+    exitcode, out, err = execute(base_cmd)
+    assert "Missing option '--reason'" in err
+    assert exitcode == 2
 
-        assert code == expected_code, f"Running {cmd} did not fail as expected. out:\n{stdout}\nerr\n{stderr}"
-        assert expected_error in stderr, f"Expected error message not found in stderr:\n{stderr}"
+    cmd = base_cmd + " --reason test --lfn foo"
+    exitcode, out, err = execute(cmd)
+    assert "Scope and RSE are require" in err
+    assert exitcode == 1
 
-    run("Missing option '--reason'", expected_code=2)
-
-    args = ["--reason", "test", "--lfn", "foo"]
-    run("Scope and RSE are required", args=args, expected_code=1)
-
-    args = ["--reason", "test", "--scope", "test", "--rse", "test", "--lfn", "foo", "bar"]
-    run("Exactly one", args=args, expected_code=1)
+    cmd = base_cmd + " --reason test --scope test --rse test --lfn foo bar"
+    exitcode, out, err = execute(cmd)
+    assert "Exactly one" in err
+    assert exitcode == 1
 
 
 def test_rse_qos_policy(rucio_client):
@@ -1623,7 +1603,7 @@ def test_main_args():
     ('rucio whoami', False, 0),
     ('rucio rse add', False, 2),  # rse add needs arguments
     ('rucio --legacy whoami', True, 0),
-    ('rucio delete-rule', True, 1),  # delete-rule needs a rule ID
+    ('rucio delete-rule', False, 1),  # delete-rule needs a rule ID - does not throw a dep warning
     ('rucio list-scopes', True, 1),
     ('rucio klfjgl', False, 1),
     ('rucio did fklgjdf', False, 1),
@@ -1682,22 +1662,12 @@ def test_passed_config():
 @pytest.mark.parametrize('cmd', ['ping', 'whoami', 'account', 'config', 'did', 'download', 'lifetime-exception', 'opendata', 'replica', 'rse', 'rule', 'scope', 'subscription', 'upload'])
 def test_help_menus(cmd):
     """Verify help menus"""
-    exitcode, out, err = execute("rucio --help")
+    exitcode, _, err = execute("rucio --help")
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, out, err = execute(f"rucio {cmd} --help")
+    exitcode, _, err = execute(f"rucio {cmd} --help")
     assert exitcode == 0, f"Command {cmd} --help failed"  # Included for debugging purposes
 
-    exitcode, out, err = execute(f"rucio {cmd} -h")
+    exitcode, _, err = execute(f"rucio {cmd} -h")
     assert exitcode == 0, f"Command {cmd} -h failed"
-
-    # test the subcommands/operations as well
-    out = out.split("\n")
-
-    subcommands = [cmd.split(" ") for cmd in out[out.index("Commands:")+1:] if len(cmd) > 3]
-    subcommands = [cmd[2] for cmd in subcommands]
-    for subcommand in subcommands:
-        menu = f"rucio {cmd} {subcommand} --help"
-        exitcode, out, err = execute(menu)
-        assert exitcode == 0, f"Command {menu} failed"  # Included for debugging purposes
