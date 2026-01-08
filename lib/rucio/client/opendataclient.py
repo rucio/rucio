@@ -49,6 +49,10 @@ class OpenDataClient(BaseClient):
 
         Returns:
             The Opendata host URL.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         if public and self.opendata_host_from_config is not None:
@@ -77,6 +81,10 @@ class OpenDataClient(BaseClient):
         Raises:
             ValueError: If both `state` and `public=True` are provided.
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         base_url = self.opendata_public_dids_base_url if public else self.opendata_private_dids_base_url
@@ -118,6 +126,10 @@ class OpenDataClient(BaseClient):
 
         Raises:
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
@@ -151,6 +163,10 @@ class OpenDataClient(BaseClient):
 
         Raises:
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
@@ -193,6 +209,10 @@ class OpenDataClient(BaseClient):
         Raises:
             ValueError: If none of 'meta', 'state', or 'doi' are provided.
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
@@ -251,6 +271,10 @@ class OpenDataClient(BaseClient):
         Returns:
             A dictionary containing metadata about the specified DID.
             May include file list, extended metadata, and DOI details depending on the parameters.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         base_url = self.opendata_public_dids_base_url if public else self.opendata_private_dids_base_url
