@@ -71,7 +71,7 @@ def add_messages(messages: "MessagesListType", *, session: "Session") -> None:
                     msg['payload_nolimit'] = msg_payload
                     msg['payload'] = 'nolimit'
                 msgs.append(msg)
-            except TypeError as err:  # noqa: F841
+            except TypeError as err:
                 raise InvalidObject(f'Invalid JSON for payload: {err}')
     for messages_chunk in chunks(msgs, 1000):
         stmt = insert(

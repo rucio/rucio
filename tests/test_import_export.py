@@ -216,9 +216,6 @@ def importer_example_data(vo, jdoe_account):
                 'MinFreeSpace': 20000,
                 'lfn2pfn_algorithm': 'hash2',
                 'verify_checksum': False,
-                'availability_delete': True,
-                'availability_read': False,
-                'availability_write': True
             },
             example_data.old_rse_1: {
                 'rse_type': RSEType.TAPE,
@@ -253,9 +250,6 @@ def importer_example_data(vo, jdoe_account):
                 'MinFreeSpace': 10000,
                 'verify_checksum': False,
                 'lfn2pfn_algorithm': 'hash3',
-                'availability_delete': False,
-                'availability_read': False,
-                'availability_write': True
             },
             example_data.old_rse_2: {},
             example_data.old_rse_3: {}

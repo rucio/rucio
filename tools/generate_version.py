@@ -20,7 +20,7 @@ base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(base_path)
 os.chdir(base_path)
 
-import subprocess  # noqa: E402
+import subprocess  # noqa: E402,S404
 
 
 def run_git_command(cmd):

@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import re
-import subprocess
+import subprocess  # noqa: S404
 import urllib.parse as urlparse
 from threading import Timer
 

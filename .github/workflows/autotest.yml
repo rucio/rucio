@@ -55,7 +55,7 @@ jobs:
         id: count_updated
         shell: bash
         run: |
-          pip install flake8 flake8-annotations
+          pip install ruff
           source tools/count_missing_type_annotations_utils.sh
           create_missing_python_type_annotations_report ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }}
           echo "The current number of missing python type annotations: $(wc -l < ${{ env.UPDATED_PYTHON_TYPE_ANNOTATIONS_REPORT_FILE }})"

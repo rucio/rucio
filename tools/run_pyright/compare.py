@@ -86,9 +86,9 @@ def print_regressions(collection: list[tuple[ReportDiagnosticWithoutRange, int]]
             candidate_line_list: list[str] = []
             for candidate in all_problems.get(diagnostic, []):
                 if candidate.range_start_line == candidate.range_end_line:
-                    candidate_line_list.append(f'{candidate.range_start_line+1}')
+                    candidate_line_list.append(f'{candidate.range_start_line + 1}')
                 else:
-                    candidate_line_list.append(f'{candidate.range_start_line+1}-{candidate.range_end_line+1}')
+                    candidate_line_list.append(f'{candidate.range_start_line + 1}-{candidate.range_end_line + 1}')
 
             prefix = f'  - {count} {diagnostic.severity.value}s with message'
             message = _indent(diagnostic.message, ' ' * (len(prefix) + 4))

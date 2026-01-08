@@ -85,7 +85,7 @@ import multiprocessing
 import os
 import pathlib
 import shutil
-import subprocess
+import subprocess  # noqa: S404
 import sys
 import time
 import traceback

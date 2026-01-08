@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from json import dumps
 from typing import TYPE_CHECKING
 from unittest import mock
-from xml.etree import ElementTree
+from xml.etree import ElementTree  # noqa S405
 
 import pytest
 import xmltodict

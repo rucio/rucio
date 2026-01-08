@@ -4,7 +4,7 @@ on:
   schedule:
     # Clean untagged images every 7 days (Sundays at 02:00 UTC)
     - cron: '0 2 * * 0'
-    # Clean tagged images every 30 days (1st of month at 03:00 UTC)  
+    # Clean tagged images every 30 days (1st of month at 03:00 UTC)
     - cron: '0 3 1 * *'
   workflow_dispatch:
     inputs:
@@ -23,28 +23,28 @@ jobs:
     name: Delete untagged images older than 7 days
     runs-on: ubuntu-latest
     if: |
-      (github.event.schedule == '0 2 * * 0') || 
+      (github.event.schedule == '0 2 * * 0') ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.cleanup_type == 'untagged' || github.event.inputs.cleanup_type == 'both')) ||
       (github.event_name == 'pull_request')
     steps:
       - name: Delete untagged images older than 7 days
         run: |
           echo "Cleaning untagged images older than 7 days..."
-          
+
           # Calculate cutoff date (7 days ago)
           CUTOFF_DATE=$(date -d '7 days ago' --iso-8601=seconds)
           echo "Cutoff date: $CUTOFF_DATE"
-          
+
           # Get all package versions
           VERSIONS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/users/${{ github.repository_owner }}/packages/container/rucio%2Frucio-dev-runtime/versions?per_page=100")
-          
+
           # Process each version
           echo "$VERSIONS" | jq -c '.[]' | while read -r VERSION; do
             VERSION_ID=$(echo "$VERSION" | jq -r '.id')
             UPDATED_AT=$(echo "$VERSION" | jq -r '.updated_at')
             TAGS=$(echo "$VERSION" | jq -r '.metadata.container.tags | length')
-            
+
             # Check if image has no tags (untagged)
             if [ "$TAGS" = "0" ]; then
               # Check if older than 7 days
@@ -58,44 +58,44 @@ jobs:
               fi
             fi
           done
-          
+
           echo "Untagged image cleanup completed :)"
 
   cleanup-tagged:
     name: Delete tagged images older than 30 days
     runs-on: ubuntu-latest
     if: |
-      (github.event.schedule == '0 3 1 * *') || 
+      (github.event.schedule == '0 3 1 * *') ||
       (github.event_name == 'workflow_dispatch' && (github.event.inputs.cleanup_type == 'tagged' || github.event.inputs.cleanup_type == 'both')) ||
       (github.event_name == 'pull_request')
     steps:
       - name: Delete tagged images older than 30 days
         run: |
           echo "Cleaning tagged images older than 30 days..."
-          
+
           # Calculate cutoff date (30 days ago)
           CUTOFF_DATE=$(date -d '30 days ago' --iso-8601=seconds)
           echo "Cutoff date: $CUTOFF_DATE"
-          
+
           VERSIONS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/users/${{ github.repository_owner }}/packages/container/rucio%2Frucio-dev-runtime/versions?per_page=100")
-          
+
           echo "$VERSIONS" | jq -c '.[]' | while read -r VERSION; do
             VERSION_ID=$(echo "$VERSION" | jq -r '.id')
             UPDATED_AT=$(echo "$VERSION" | jq -r '.updated_at')
             TAGS=$(echo "$VERSION" | jq -r '.metadata.container.tags')
             TAG_COUNT=$(echo "$TAGS" | jq -r 'length')
-            
+
             # Check if image has tags and exclude buildcache images
             if [ "$TAG_COUNT" -gt "0" ]; then
               TAG_LIST=$(echo "$TAGS" | jq -r '.[]')
-              
+
               # Skip buildcache images (they should be kept)
               if echo "$TAG_LIST" | grep -q "buildcache"; then
                 echo "Skipping buildcache image with tags: $TAG_LIST"
                 continue
               fi
-              
+
               if [[ "$UPDATED_AT" < "$CUTOFF_DATE" ]]; then
                 echo "Deleting tagged image ID: $VERSION_ID with tags: $TAG_LIST (updated: $UPDATED_AT)"
                 curl -s -X DELETE \
@@ -106,5 +106,5 @@ jobs:
               fi
             fi
           done
-          
+
           echo "Tagged image cleanup completed :)"

@@ -236,6 +236,7 @@ def get_opendata_doi(
     else:
         return result["doi"]
 
+
 def get_opendata_record_id(
         *,
         scope: "InternalScope",
@@ -269,6 +270,7 @@ def get_opendata_record_id(
         return None
     else:
         return int(result["record_id"])
+
 
 def get_opendata_did_files(
         *,
@@ -577,7 +579,7 @@ def update_opendata_did(
         ValueError: If there is an error during the update process.
     """
 
-    if not any([ state, meta, doi, record_id]):
+    if not any([state, meta, doi, record_id]):
         raise exception.InputValidationError(
             "Either 'state', 'meta', 'doi', or 'record_id' must be provided to update the Opendata DID.")
     if not _check_opendata_did_exists(scope=scope, name=name, session=session):
@@ -598,6 +600,7 @@ def update_opendata_did(
         result |= update_opendata_record_id(scope=scope, name=name, record_id=record_id, session=session)
 
     return result
+
 
 def update_opendata_meta(
         *,
@@ -925,6 +928,7 @@ def update_opendata_doi(
         raise exception.InputValidationError(f"Invalid data: {error}")
 
     return {"scope": scope, "name": name, "doi_new": doi, "doi_old": doi_before}
+
 
 def update_opendata_record_id(
         *,

@@ -19,7 +19,7 @@ import itertools
 import json
 import os
 import pathlib
-import subprocess
+import subprocess  # noqa: S404
 import sys
 from functools import partial
 

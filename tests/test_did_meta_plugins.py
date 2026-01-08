@@ -443,10 +443,10 @@ class TestDidMetaExternalPostgresJSON:
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
         postgres_json_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key1, value=meta_value1)
         postgres_json_meta.set_metadata(scope=mock_scope, name=did_name, key=meta_key2, value=meta_value2)
-        
+
         assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key1] == meta_value1
         assert postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)[meta_key2] == meta_value2
-       
+
         postgres_json_meta.delete_metadata(scope=mock_scope, name=did_name, key=meta_key2)
         metadata = postgres_json_meta.get_metadata(scope=mock_scope, name=did_name)
         assert metadata[meta_key1] == meta_value1

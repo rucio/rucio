@@ -50,7 +50,7 @@ function wait_for_database() {
 if [ "$SUITE" == "client" ]; then
     tools/run_tests.sh -i
 
-    cp "$SOURCE_PATH"/etc/docker/test/extra/rucio_client.cfg "$RUCIO_HOME"/etc/rucio.cfg    
+    cp "$SOURCE_PATH"/etc/docker/test/extra/rucio_client.cfg "$RUCIO_HOME"/etc/rucio.cfg
     srchome
     tools/pytest.sh -v --tb=short tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py
 

@@ -17,7 +17,7 @@ import logging
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # noqa: S404
 import tempfile
 from typing import TYPE_CHECKING
 

@@ -22,7 +22,6 @@ from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import exc
 
-import rucio.core.account_counter
 import rucio.core.rse
 from rucio.common import exception
 from rucio.common.config import config_get_bool

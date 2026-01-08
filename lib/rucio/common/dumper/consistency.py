@@ -16,7 +16,7 @@ import datetime
 import logging
 import os
 import re
-import subprocess
+import subprocess  # noqa: S404
 import tempfile
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 

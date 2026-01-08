@@ -1117,7 +1117,7 @@ class TestAuthCoreAPIoidc:
         # ---------------------------
         # Check hat the final result has issuer same as admin OIDC identity issuer of the subject token
         assert (('https://test_issuer/' in db_token.identity) and (self.adminClientSUB in db_token.identity)
-                or (('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)))  # NOQA: W503
+                or (('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)))
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
         assert req_scope == db_token.oidc_scope
@@ -1414,7 +1414,7 @@ class TestAuthCoreAPIoidc:
         # ---------------------------
         # Check hat the final result has issuer same as admin OIDC identity issuer of the subject token
         assert (('https://test_issuer/' in db_token.identity) and (self.adminClientSUB in db_token.identity)
-                or (('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)))  # NOQA: W503
+                or (('https://test_other_issuer/' in db_token.identity) and (self.adminClientSUB_otherISS in db_token.identity)))
         # ---------------------------
         # Check hat the final result has issuer same as user OIDC identity issuer of the subject token
         assert req_scope == db_token.oidc_scope

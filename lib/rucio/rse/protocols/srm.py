@@ -15,7 +15,7 @@
 import os
 import re
 import urllib.parse as urlparse
-from subprocess import getstatusoutput
+from subprocess import getstatusoutput  # noqa: S404
 
 from rucio.common import exception
 from rucio.common.utils import execute

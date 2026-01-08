@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import subprocess
+import subprocess  # noqa: S404
 import sys
 from typing import Union
 
@@ -48,7 +48,6 @@ dev_requirements = [
     'pytest-xdist',
     'pytest-cov',
     'pyflakes',
-    'flake8',
     'pylint',
     'isort',
     'xmltodict',

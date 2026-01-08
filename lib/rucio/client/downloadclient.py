@@ -21,7 +21,7 @@ import random
 import secrets
 import shutil
 import signal
-import subprocess
+import subprocess  # noqa: S404
 import time
 from queue import Empty, Queue, deque
 from threading import Thread
