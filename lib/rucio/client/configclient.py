@@ -160,7 +160,13 @@ class ConfigClient(BaseClient):
 
         Returns
         -------
-            True if option was removed successfully.
+            True :
+                if option was removed successfully.
+
+
+        Note:
+        -----
+        Added in version 39.0.0
         """
         path = '/'.join([self.CONFIG_BASEURL, section])
         url = build_url(choice(self.list_hosts), path=path)
