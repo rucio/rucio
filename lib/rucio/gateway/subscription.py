@@ -133,7 +133,11 @@ def update_subscription(
                     for rule in metadata['replication_rules']:
                         validate_schema(name='activity', obj=rule.get('activity', 'default'), vo=vo)
             if 'state' in metadata and metadata['state'] is not None:
-                metadata['state'] = SubscriptionState(metadata['state'])
+                try:
+                    metadata['state'] = SubscriptionState(metadata['state'])
+                except ValueError as err:
+                    msg = f"Invalid subscription state: {metadata['state']}"
+                    raise InvalidObject(msg) from err
 
         except ValueError as error:
             raise TypeError(error)
