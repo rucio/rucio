@@ -14,12 +14,14 @@
 # limitations under the License.
 
 import argparse
+import os
 import sys
 from typing import TYPE_CHECKING, Optional
 
 from rucio.cli.bin_legacy.rucio import get_parser
 from rucio.cli.bin_legacy.rucio import main as main_legacy
 from rucio.cli.command import main
+from rucio.common.config import clean_cached_config, config_get
 from rucio.common.utils import setup_logger
 
 if TYPE_CHECKING:
@@ -96,28 +98,10 @@ def map_legacy_command() -> Optional[list[str]]:
 
     return new_command
 
-
-if __name__ == "__main__":
+def run_command(args, use_multi_host_functionality):
     commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download", "opendata")
-
-    parser = argparse.ArgumentParser(add_help=False)
-    # Check for legacy flag
-    parser.add_argument("--legacy", action="store_true")
-    # Check for commands in the new command list
-    parser.add_argument("-h", "--help", action="store_true")
-    parser.add_argument("--version", action="store_true")
-
-    args, _ = parser.parse_known_args()
-
-    logger = setup_logger(module_name=__name__)
-
-    if args.legacy:
-        make_warning(logger)
-        sys.argv.pop(sys.argv.index('--legacy'))
-        main_legacy()
-
-    elif (any(arg in commands for arg in sys.argv)) or args.help or args.version:
-        main()  # pylint: disable=E1120
+    if (any(arg in commands for arg in sys.argv)) or args.help or args.version:
+            main(standalone_mode = not use_multi_host_functionality)  # pylint: disable=E1120
 
     else:
         try:
@@ -134,4 +118,44 @@ if __name__ == "__main__":
             else:
                 sys.argv = ["rucio", "-h"]
 
-            main()  # pylint: disable=E1120
+                main(standalone_mode = not use_multi_host_functionality)  # pylint: disable=E1120
+
+
+if __name__ == "__main__":
+    
+
+    parser = argparse.ArgumentParser(add_help=False)
+    # Check for legacy flag
+    parser.add_argument("--legacy", action="store_true")
+    # Check for commands in the new command list
+    parser.add_argument("-h", "--help", action="store_true")
+    parser.add_argument("--version", action="store_true")
+
+    args, _ = parser.parse_known_args()
+
+    logger = setup_logger(module_name=__name__)
+
+    if args.legacy:
+        make_warning(logger)
+        sys.argv.pop(sys.argv.index('--legacy'))
+        main_legacy()
+    else:
+        mutli_ri_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
+        use_multi_ri = False
+        if not "--config" in sys.argv:
+            for arg in sys.argv:
+                if arg in [x.strip() for x in mutli_ri_commands.split(',')]:
+                    use_multi_ri = True
+        
+    if use_multi_ri:
+        multi_ri_servers = config_get('client', 'multi_host_servers')
+        for host in [x.strip() for x in multi_ri_servers.split(',')]:
+            config = config_get(host, 'config_file')
+            clean_cached_config()
+            os.environ['RUCIO_CONFIG'] = config
+            print('Result from {}.'.format(host))
+            
+            run_command(args, use_multi_ri)
+    else:
+        run_command(args, use_multi_ri)
+    
