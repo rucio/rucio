@@ -13,7 +13,10 @@
 # limitations under the License.
 
 import click
-from rucio.common.exception import AccessDenied
+
+from rucio.cli.bin_legacy.rucio_admin import get_config, set_config_option, delete_config_option
+from rucio.cli.utils import Arguments
+
 
 @click.group()
 def config():
@@ -22,56 +25,39 @@ def config():
     """
     pass
 
+
 @config.command()
-@click.argument('section')
-@click.argument('option', required=False)
+@click.option('--section', dest='section', help='Section name')
+@click.option('--option', dest='option', help='Option name')
 @click.pass_context
-def get(ctx, section, option):
+def get(ctx, **kwargs):
     """
     Get matching configuration.
     """
-    client = ctx.obj['client']
-    res = client.get_config(section=section, option=option)
-    if not isinstance(res, dict):
-        print('[%s]\n%s=%s' % (section, option, str(res)))
-    else:
-        print_header = True
-        for i in list(res.keys()):
-            if print_header:
-                if section is not None:
-                    print('[%s]' % section)
-                else:
-                    print('[%s]' % i)
-            if not isinstance(res[i], dict):
-                print('%s=%s' % (i, str(res[i])))
-                print_header = False
-            else:
-                for j in list(res[i].keys()):
-                    print('%s=%s' % (j, str(res[i][j])))
+    args = Arguments(**kwargs)
+    get_config(args, ctx.obj['client'], ctx.obj['logger'], ctx.obj['console'], ctx.obj['spinner'])
+
 
 @config.command()
-@click.argument('section')
-@click.argument('option')
-@click.argument('value')
+@click.option('--section', dest='section', required=True, help='Section name')
+@click.option('--option', dest='option', required=True, help='Option name')
+@click.option('--value', dest='value', required=True, help='Value')
 @click.pass_context
-def set(ctx, section, option, value):
+def set(ctx, **kwargs):
     """
     Set matching configuration.
     """
-    client = ctx.obj['client']
-    client.set_config_option(section=section, option=option, value=value)
-    print('Set configuration: %s.%s=%s' % (section, option, value))
+    args = Arguments(**kwargs)
+    set_config_option(args, ctx.obj['client'], ctx.obj['logger'], ctx.obj['console'], ctx.obj['spinner'])
+
 
 @config.command()
-@click.argument('section')
-@click.argument('option')
+@click.option('--section', dest='section', required=True, help='Section name')
+@click.option('--option', dest='option', required=True, help='Option name')
 @click.pass_context
-def delete(ctx, section, option):
+def delete(ctx, **kwargs):
     """
     Delete matching configuration.
     """
-    client = ctx.obj['client']
-    if client.delete_config_option(section=section, option=option):
-        print('Deleted section \'%s\' option \'%s\'' % (section, option))
-    else:
-        print('Section \'%s\' option \'%s\' not found' % (section, option))
+    args = Arguments(**kwargs)
+    delete_config_option(args, ctx.obj['client'], ctx.obj['logger'], ctx.obj['console'], ctx.obj['spinner'])
