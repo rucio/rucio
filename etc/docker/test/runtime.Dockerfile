@@ -53,7 +53,6 @@ FROM python AS gfal2
     RUN dnf install -y epel-release.noarch && \
         dnf install -y 'dnf-command(config-manager)' && \
         dnf config-manager --enable crb && \
-        dnf -y update && \
         dnf -y install gfal2-devel && \
         if [ "$PYTHON" == "3.9" ] ; then \
             dnf -y install gfal2-python3 && \
@@ -98,7 +97,6 @@ FROM python AS rucio-runtime
     RUN dnf install -y epel-release.noarch && \
         dnf install -y 'dnf-command(config-manager)' && \
         dnf config-manager --enable crb && \
-        dnf -y update && \
         dnf install -y \
         xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel \
         httpd httpd-devel \
@@ -165,8 +163,7 @@ FROM python AS rucio-runtime
 FROM rucio-runtime AS requirements
     # Install Python dependencies
     COPY requirements /tmp/requirements
-    RUN dnf -y update --nobest && \
-        dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
+    RUN dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
         python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade fts3 && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \
