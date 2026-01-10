@@ -187,6 +187,34 @@ class TestSubscriptionCoreGateway:
         with pytest.raises(SubscriptionNotFound):
             update_subscription(name=subscription_name, account='root', metadata={'filter': {'project': ['toto', ]}}, issuer='root', vo=vo)
 
+    def test_update_subscription_invalid_state(self, vo, rse_factory):
+        """ SUBSCRIPTION (Gateway): Invalid subscription state should raise InvalidObject """
+        subscription_name = uuid()
+        rse1, _ = rse_factory.make_mock_rse()
+
+        add_subscription(
+            name=subscription_name,
+            account='root',
+            filter_={'project': self.projects},
+            replication_rules=[{'rse_expression': rse1, 'copies': 1, 'activity': self.activity}],
+            lifetime=100000,
+            retroactive=False,
+            dry_run=False,
+            comments='test',
+            issuer='root',
+            vo=vo
+        )
+
+        # try to update with an invalid state
+        with pytest.raises(InvalidObject):
+            update_subscription(
+                name=subscription_name,
+                account='root',
+                metadata={'state': 'NOT_A_REAL_STATE'},
+                issuer='root',
+                vo=vo
+            )
+
     def test_list_rules_states(self, vo, rse_factory, root_account):
         """ SUBSCRIPTION (Gateway): Test listing of rule states for subscription """
         tmp_scope = InternalScope('mock_' + uuid()[:8], vo=vo)
