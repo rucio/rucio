@@ -57,8 +57,12 @@ if not multivo:
         package_module = importlib.import_module(policy)
         check_policy_module_version(package_module)
         policy = policy + ".permission"
-    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+    except (NoOptionError, NoSectionError):
         policy = 'rucio.core.permission.' + fallback_policy.lower()
+    except ModuleNotFoundError:
+        raise exception.PolicyPackageNotFound(policy)
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     try:
         module = importlib.import_module(policy)
@@ -91,8 +95,12 @@ def load_permission_for_vo(vo: str) -> None:
         package_module = importlib.import_module(policy)
         check_policy_module_version(package_module)
         policy = policy + ".permission"
-    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+    except (NoOptionError, NoSectionError):
         policy = 'rucio.core.permission.' + generic_fallback.lower()
+    except ModuleNotFoundError:
+        raise exception.PolicyPackageNotFound(policy)
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     try:
         module = importlib.import_module(policy)
