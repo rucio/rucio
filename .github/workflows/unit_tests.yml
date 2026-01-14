@@ -37,9 +37,4 @@ jobs:
             run: pip install -r requirements/requirements.dev.txt
 
           - name: Run unit tests
-            run: pytest tests/rucio --cov=lib/rucio
-
-          - name: Upload coverage reports to Codecov
-            uses: codecov/codecov-action@v5.5.2
-            with:
-              token: ${{ secrets.CODECOV_TOKEN }}
+            run: pytest tests/rucio
