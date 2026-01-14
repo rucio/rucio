@@ -16,7 +16,7 @@
 """
 Test runner used by Rucio's CI/autotest tooling.
 
-``donkeyrider.py`` collects matrix entries from ``etc/docker/test/matrix.yml``
+GitHub Actions workflows collect matrix entries from ``etc/docker/test/matrix.yml``
 (via :mod:`tools.test.matrix_parser`), resolves runtime images, and pipes a JSON
 payload into this module. From that payload we derive a sequence of *cases*
 (distribution × python version × test suite × database) and execute them either
@@ -610,11 +610,7 @@ def run_with_httpd(
 
 def main():
     """
-    Entry point consumed by ``donkeyrider.py`` via ``python -m``.
-
-    ``donkeyrider`` serialises the expanded matrix, resolved images and optional runtime
-    overrides into JSON and pipes it into ``run_tests``. The function keeps backward
-    compatibility with historical payloads.
+    Entry point for GitHub Actions workflows.
     """
     obj = json.load(sys.stdin)
     cases = (obj["matrix"],) if isinstance(obj["matrix"], dict) else obj["matrix"]
