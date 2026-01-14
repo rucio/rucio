@@ -69,8 +69,18 @@ if not _is_multivo():
         package_module = importlib.import_module(policy)
         check_policy_module_version(package_module)
         policy = policy + ".schema"
-    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+    except (NoOptionError, NoSectionError):
         policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+    except ModuleNotFoundError:
+        if config.is_client():
+            # policy package may not be required/installed on client, but client may
+            # share config file with server, so only a warning for this case
+            LOGGER.warning('Unable to find policy package %s' % policy)
+            policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+        else:
+            raise exception.PolicyPackageNotFound(policy)
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     try:
         module = importlib.import_module(policy)
@@ -105,8 +115,16 @@ def load_schema_for_vo(vo: str) -> None:
         package_module = importlib.import_module(policy)
         check_policy_module_version(package_module)
         policy = policy + ".schema"
-    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+    except (NoOptionError, NoSectionError):
         policy = 'rucio.common.schema.' + generic_fallback.lower()
+    except ModuleNotFoundError:
+        if config.is_client():
+            LOGGER.warning('Unable to find policy package %s' % policy)
+            policy = 'rucio.common.schema.' + generic_fallback.lower()
+        else:
+            raise exception.PolicyPackageNotFound(policy)
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     try:
         module = importlib.import_module(policy)
