@@ -387,7 +387,7 @@ class TestJudgeEvaluator:
             assert len(get_replica_locks(scope=file['scope'], name=file['name'])) == 2
 
 
-@pytest.mark.flaky(reruns=3, reruns_delay=5)
+@pytest.mark.noparallel(reason="side-effects due to running judge evaluator")
 def test_judge_double_rule_on_container(
     did_factory: "TemporaryDidFactory",
     rse_factory: "TemporaryRSEFactory",
@@ -467,7 +467,7 @@ def test_judge_double_rule_on_container(
         assert all([lock["state"] == LockState.OK for lock in locks])  # all OK
 
 
-@pytest.mark.flaky(reruns=3, reruns_delay=5)
+@pytest.mark.noparallel(reason="side-effects due to running judge evaluator")
 def test_judge_double_container_with_existing_rule(
     did_factory: "TemporaryDidFactory",
     rse_factory: "TemporaryRSEFactory",
