@@ -142,9 +142,11 @@ class LazyGroup(click.Group):
     "--oidc-scope",
     default="openid profile",
     help="""
-        Defines which (OIDC) information user will share with Rucio. Rucio requires at least -sc='openid profile'.
+        Defines which (OIDC) information user will share with Rucio.
+        Rucio requires at least -sc='openid profile'.
         To request refresh token for Rucio, scope must include 'openid offline_access'
-        and there must be no active access token saved on the side of the currently used Rucio Client,
+        and there must be no active access token saved on the
+        side of the currently used Rucio Client.
     """,
 )
 @click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
@@ -199,6 +201,7 @@ def main(
     ctx.obj.console = console
     ctx.obj.no_pager = no_pager
     ctx.obj.pager = get_pager()
+    ctx.obj.tablefmt = 'psql'
 
     if use_rich:
         install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
