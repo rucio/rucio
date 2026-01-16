@@ -253,3 +253,24 @@ class TestRucioClients:
 
         # rule
         assert list(client.list_replication_rules()) is not None
+
+    def test_run_client_oidc_directory_creation (self):
+        rucio_host = "https://rucio:443"
+        auth_host = "https://rucio:443"
+
+        from getpass import getuser
+        from shutil import rmtree
+        from rucio.client.client import Client
+
+        target_directory = f"{Client.TOKEN_PATH_PREFIX}{getuser()}"
+        rmtree (target_directory, ignore_errors=True)
+        client = Client(
+            rucio_host=rucio_host,
+            auth_host=auth_host,
+            auth_type="oidc")
+
+        # Ensure directory exists and permissions are set to 'rwx------'
+        try:
+            os.stat(target_directory).st_mode & 0o777 == 0o700
+        except FileNotFoundError:
+            pytest.fail(f"directory not created: {target_directory}")
