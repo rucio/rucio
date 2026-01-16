@@ -167,10 +167,10 @@ def find_image(images: dict, case: dict):
     """
     Return the runtime image tag matching the matrix attributes.
 
-    ``images`` is the structure produced by :mod:`tools.test.build_images` (and forwarded
-    through ``donkeyrider``). Each entry describes the image in terms of distribution, Python
-    version, and optional identifiers. The metadata recorded for the image must be a subset
-    of the matrix case so that the case attributes satisfy the requirements encoded by the image.
+    ``images`` is a mapping of image tags to metadata derived from the JSON payload read in
+    :func:`main`. Each entry describes the image in terms of distribution, Python version, and
+    optional identifiers. The metadata recorded for the image must be a subset of the matrix
+    case so that the case attributes satisfy the requirements encoded by the image.
     """
     for image, idgroup in images.items():
         if matches(idgroup, case):
@@ -207,7 +207,7 @@ def run_tests(cases: list, images: dict, tests: Optional[list[str]] = None):
         variables and flags such as ``RUN_HTTPD`` which choose the orchestration mode.
     images:
         Mapping used by :func:`find_image` to resolve cases to container images. When ``runtime_images``
-        are provided by :mod:`tools.test.donkeyrider`, they override the default build matrix.
+        are present in the JSON payload, they override the default ``images`` mapping.
     tests:
         Optional test selectors forwarded to ``tools/test/test.sh`` and, in turn, to ``tools/run_tests.sh``.
         When set, the runner drops to a filtered pytest invocation rather than executing the full suite.
