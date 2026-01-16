@@ -166,7 +166,7 @@ psycopg-binary==3.2.12
     # via psycopg
 psycopg-pool==3.2.7
     # via psycopg
-pyasn1==0.6.1
+pyasn1==0.6.2
     # via
     #   pyasn1-modules
     #   rsa
