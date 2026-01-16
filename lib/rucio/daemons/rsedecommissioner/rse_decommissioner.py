@@ -106,7 +106,7 @@ def run_once(
 
         if config['status'] != DecommissioningStatus.PROCESSING:
             logger(logging.INFO, 'Skipping RSE %s which has decommissioning status "%s"',
-                   config['status'])
+                   rse['rse'], config['status'].value)
             continue
 
         try:
@@ -228,7 +228,7 @@ def decommission_rse(
     # Iterate over rules locking datasets / replicas at the RSE.
     stop_reason = None
     for rule in profile.discover(logger=logger):
-        outcome = profile.process(rule, logger=logger)
+        outcome = profile.process(rse, rule, logger=logger)
 
         if outcome == HandlerOutcome.UNTOUCHED:
             num_untouched += 1
