@@ -99,7 +99,7 @@ class LazyGroup(click.Group):
 @click.option("--certificate", help="Client certificate file")
 @click.option("--client-key", help="Client key for x509 Authentication")
 @click.option("--config", help="The Rucio configuration file to use", envvar="RUCIO_CONFIG")
-@click.option("-H", "--host", help="The Rucio API host")
+@click.option("-H", "--hostname", help="The Rucio API host")
 # oidc auth
 @click.option("--oidc-user", help="OIDC username")
 @click.option("--oidc-password", help="OIDC password")
@@ -162,7 +162,7 @@ def main(
     ctx: click.Context,
     config: str,
     verbose: bool,
-    host: str,
+    hostname: str,
     auth_host: str,
     issuer: str,
     auth_strategy: str,
@@ -208,7 +208,7 @@ def main(
     args = Arguments(
         {
             "config": config,
-            "host": host,
+            "host": hostname,
             "issuer": issuer,
             "auth_host": auth_host,
             "auth_strategy": auth_strategy,
