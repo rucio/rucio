@@ -20,7 +20,7 @@ from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, InvalidObject, RuleNotFound, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.gateway.rule import list_replication_rules
-from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription
+from rucio.gateway.subscription import add_subscription, get_subscription_by_id, list_subscription_rule_states, list_subscriptions, update_subscription, delete_subscription
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, response_headers, try_stream
 
@@ -208,6 +208,46 @@ class Subscription(ErrorHandlingMethodView):
             return generate_http_error_flask(404, error)
 
         return 'Created', 201
+    
+    def delete(self, account, name):
+        """
+        ---
+        summary: Delete a subscription
+        tags:
+          - Subscription
+        parameters:
+        - name: account
+          in: path
+          description: "The account name."
+          schema:
+            type: string
+          style: simple
+          required: true
+        - name: name
+          in: path
+          description: "The subscription name."
+          schema:
+            type: string
+          style: simple
+          required: true
+        responses:
+          200:
+            description: "OK"
+          401:
+            description: "Invalid Auth Token"
+          404:
+            description: "No subscription found for the given name"
+        """
+        try:
+            delete_subscription(name=name, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except (InvalidObject, TypeError) as error:
+            return generate_http_error_flask(400, InvalidObject.__name__, error.args[0])
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+        except SubscriptionNotFound as error:
+            return generate_http_error_flask(404, error)
+
+        return '', 200
 
     def post(self, account, name):
         """
