@@ -976,7 +976,7 @@ class LocalUsage(ErrorHandlingMethodView):
         description: "Not acceptable"
     """
     unique = request.args.get('unique', 'false').lower() in ['true', '1']
-    
+
     try:
         def generate(issuer: str, vo: str) -> "Iterator[str]":
             for usage in get_local_account_usage(account=account, rse=rse, unique=unique, issuer=issuer, vo=vo):

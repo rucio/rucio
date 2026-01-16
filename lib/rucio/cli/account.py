@@ -146,7 +146,14 @@ def limit():
 @limit.command("list", help="Shows the space used, the quota limit and the quota left for an account for every RSE where the user have quota.")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
-@click.option("--unique", is_flag=True, default=False, help="Count unique replicas to avoid double-counting when multiple locks exist. Warning: This is computationally expensive as it queries replicas directly ratherthan using cached counters. Use sparingly, especially for accounts with many replicas.")
+@click.option(
+    "--unique",
+    is_flag=True,
+    default=False,
+    help="Count unique replicas to avoid double-counting when multiple locks exist. "
+        "Warning: This is computationally expensive as it queries replicas directly "
+        "rather than using cached counters. Use sparingly, especially for accounts "
+        "with many replicas.")
 @click.pass_context
 def limit_list(ctx: click.Context, account_name: str, rse: Optional[str], unique: bool) -> None:
     """List the limits and current usage for an account"""

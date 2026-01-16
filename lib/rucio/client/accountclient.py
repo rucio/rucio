@@ -468,11 +468,11 @@ class AccountClient(BaseClient):
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local'])
         url = build_url(choice(self.list_hosts), path=path)
-        
+
         params = {}
         if unique:
             params['unique'] = 'true'
-        
+
         res = self._send_request(url, method=HTTPMethod.GET, params=params)
         if res.status_code == codes.ok:
             return self._load_json_data(res)
