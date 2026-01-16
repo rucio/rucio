@@ -23,6 +23,7 @@ from jinja2.exceptions import TemplateNotFound
 from werkzeug.datastructures import Headers
 
 from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound, InvalidRequest
 from rucio.common.extra import import_extras
@@ -1498,7 +1499,7 @@ class SAML(ErrorHandlingMethodView):
             return '', 200, headers
 
         # Path to the SAML config folder
-        saml_path = config_get('saml', 'config_path')
+        saml_path = Config.saml.cfg()
 
         req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
         auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)

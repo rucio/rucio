@@ -27,6 +27,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_int
+from rucio.common.config_settings import Config
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
 
 graceful_stop = threading.Event()
 METRICS = MetricManager(module=__name__)
-REGION = MemcacheRegion(expiration_time=config_get_int('necromancer', 'cache_time', False, 600))
+REGION = MemcacheRegion(Config.necromancer.cache_time(raise_exception=False))
 DAEMON_NAME = 'necromancer'
 
 
