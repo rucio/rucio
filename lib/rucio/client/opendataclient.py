@@ -39,6 +39,9 @@ class OpenDataClient(BaseClient):
     def get_opendata_host(self, *, public: bool) -> str:
         """
         Get the Opendata host URL for the public or private endpoint.
+
+        .. versionadded:: 38.0.0
+
         The private opendata host is the regular rucio server, while the public opendata host can be configured separately (defaults to the same as the private one).
 
         Parameters:
@@ -46,6 +49,10 @@ class OpenDataClient(BaseClient):
 
         Returns:
             The Opendata host URL.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         if public and self.opendata_host_from_config is not None:
@@ -62,6 +69,8 @@ class OpenDataClient(BaseClient):
         """
         Return a list of Opendata DIDs, optionally filtered by state and access type.
 
+        .. versionadded:: 38.0.0
+
         Parameters:
             state: The state to filter DIDs by. If None, all states are included.
             public: If True, queries the public Opendata endpoint. Defaults to False.
@@ -72,6 +81,10 @@ class OpenDataClient(BaseClient):
         Raises:
             ValueError: If both `state` and `public=True` are provided.
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         base_url = self.opendata_public_dids_base_url if public else self.opendata_private_dids_base_url
@@ -102,6 +115,8 @@ class OpenDataClient(BaseClient):
         """
         Adds an existing Rucio DID (Data Identifier) to the Opendata catalog.
 
+        .. versionadded:: 38.0.0
+
         Parameters:
             scope: The scope under which the DID is registered.
             name: The name of the DID.
@@ -111,6 +126,10 @@ class OpenDataClient(BaseClient):
 
         Raises:
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
@@ -133,6 +152,8 @@ class OpenDataClient(BaseClient):
         """
         Remove an existing Opendata DID from the Opendata catalog.
 
+        .. versionadded:: 38.0.0
+
         Parameters:
             scope: The scope under which the DID is registered.
             name: The name of the DID.
@@ -142,6 +163,10 @@ class OpenDataClient(BaseClient):
 
         Raises:
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
@@ -168,6 +193,8 @@ class OpenDataClient(BaseClient):
         """
         Update an existing Opendata DID in the Opendata catalog.
 
+        .. versionadded:: 38.0.0
+
         Parameters:
             scope: The scope under which the DID is registered.
             name: The name of the DID.
@@ -182,6 +209,10 @@ class OpenDataClient(BaseClient):
         Raises:
             ValueError: If none of 'meta', 'state', or 'doi' are provided.
             Exception: If the request fails or the server returns an error.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
@@ -226,6 +257,8 @@ class OpenDataClient(BaseClient):
         """
         Retrieve information about an OpenData DID (Data Identifier).
 
+        .. versionadded:: 38.0.0
+
         Parameters:
             scope: The scope under which the DID is registered.
             name: The name of the DID.
@@ -238,6 +271,10 @@ class OpenDataClient(BaseClient):
         Returns:
             A dictionary containing metadata about the specified DID.
             May include file list, extended metadata, and DOI details depending on the parameters.
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
 
         base_url = self.opendata_public_dids_base_url if public else self.opendata_private_dids_base_url

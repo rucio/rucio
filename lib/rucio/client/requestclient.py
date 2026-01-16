@@ -157,7 +157,13 @@ class RequestClient(BaseClient):
     ) -> 'Iterator[dict[str, Any]]':
         """Returns all the transfer limits
 
+        .. versionadded:: 38.0.0
+
         :returns: transfer limits
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -183,6 +189,8 @@ class RequestClient(BaseClient):
     ) -> Literal[True]:
         """Set the transfer limit for a given RSE
 
+        .. versionadded:: 38.0.0
+
         :param rse_expression: RSE expression string.
         :param activity: The activity.
         :param direction: The direction in which this limit applies (source/destination)
@@ -194,6 +202,10 @@ class RequestClient(BaseClient):
         :param waitings: Current number of waiting transfers
 
         :returns: True if the transfer limit was deleted
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -216,11 +228,17 @@ class RequestClient(BaseClient):
     ) -> Literal[True]:
         """Delete the transfer limit for a given RSE
 
+        .. versionadded:: 38.0.0
+
         :param rse_expression: RSE expression string.
         :param activity: The activity.
         :param direction: The direction in which this limit applies (source/destination)
 
         :returns: True if the transfer limit was deleted
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
