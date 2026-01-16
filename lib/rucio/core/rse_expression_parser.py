@@ -15,14 +15,13 @@
 import abc
 import re
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from dogpile.cache.api import NoValue
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.exception import InvalidRSEExpression, RSEWriteBlocked
 from rucio.core.rse import get_rse_attribute, get_rses_with_attribute, list_rses
-from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -40,8 +39,11 @@ PATTERN = r'^%s(%s|%s|%s)*' % (PRIMITIVE, UNION, INTERSECTION, COMPLEMENT)
 REGION = MemcacheRegion(expiration_time=600)
 
 
-@transactional_session
-def parse_expression(expression, filter_=None, *, session: "Session"):
+def parse_expression(
+        expression: str,
+        session: "Session",
+        filter_: Optional[dict[str, Any]] = None
+) -> list[dict]:
     """
     Parse a RSE expression and return the list of RSE dictionaries.
 
@@ -54,16 +56,16 @@ def parse_expression(expression, filter_=None, *, session: "Session"):
     result = REGION.get(sha256(expression.encode()).hexdigest())
     if type(result) is NoValue:
         # Evaluate the correctness of the parentheses
-        parantheses_open_count = 0
-        parantheses_close_count = 0
+        parentheses_open_count = 0
+        parentheses_close_count = 0
         for char in expression:
             if (char == '('):
-                parantheses_open_count += 1
+                parentheses_open_count += 1
             elif (char == ')'):
-                parantheses_close_count += 1
-            if (parantheses_close_count > parantheses_open_count):
+                parentheses_close_count += 1
+            if (parentheses_close_count > parentheses_open_count):
                 raise InvalidRSEExpression('Problem with parentheses.')
-        if (parantheses_open_count != parantheses_close_count):
+        if (parentheses_open_count != parentheses_close_count):
             raise InvalidRSEExpression('Problem with parentheses.')
 
         # Check the expression pattern
@@ -85,7 +87,7 @@ def parse_expression(expression, filter_=None, *, session: "Session"):
     if filter_ and filter_.get('vo'):
         filter_ = filter_.copy()  # Make a copy so we can pop('vo') without affecting the object `filter` outside this function
         vo = filter_.pop('vo')
-        for rse in result:
+        for rse in result:  # type: ignore (result will not be None here, but this is not seen by the analyzer)
             if rse.get('vo') == vo:
                 vo_result.append(rse)
     else:
@@ -97,7 +99,7 @@ def parse_expression(expression, filter_=None, *, session: "Session"):
     # Filter
     final_result = []
     if filter_:
-        for rse in vo_result:
+        for rse in vo_result:  # type: ignore (result will not be None here, but this is not seen by the analyzer)
             if filter_.get('availability_write', False):
                 if rse.get('availability_write'):
                     final_result.append(rse)
@@ -107,10 +109,10 @@ def parse_expression(expression, filter_=None, *, session: "Session"):
         final_result = vo_result
 
     # final_result = [{rse-info}]
-    return final_result
+    return final_result  # type: ignore (result will not be None here, but this is not seen by the analyzer)
 
 
-def __resolve_term_expression(expression):
+def __resolve_term_expression(expression: str) -> tuple["BaseExpressionElement", str]:
     """
     Resolves a Term Expression and returns an object of type BaseExpressionElement
 
@@ -124,7 +126,7 @@ def __resolve_term_expression(expression):
 
     while True:
         if len(expression) == 0:
-            return (left_term, original_expression)
+            return (left_term, original_expression)  # type: ignore (term will not be None here, but this is not seen by the analyzer)
         elif expression[0] == "(":
             if left_term is None:
                 left_term, termexpression = __resolve_term_expression(__extract_term(expression))
@@ -133,8 +135,8 @@ def __resolve_term_expression(expression):
             else:
                 right_term, termexpression = __resolve_term_expression(__extract_term(expression))
                 expression = expression[len(termexpression) + 2:]
-                operator.set_left_term(left_term)
-                operator.set_right_term(right_term)
+                operator.set_left_term(left_term)  # type: ignore (operator will not be None here, but this is not seen by the analyzer)
+                operator.set_right_term(right_term)  # type: ignore (operator will not be None here, but this is not seen by the analyzer)
                 left_term = operator
                 operator = None
                 continue
@@ -158,21 +160,22 @@ def __resolve_term_expression(expression):
             else:
                 right_term, primitiveexpression = __resolve_primitive_expression(expression)
                 expression = expression[len(primitiveexpression):]
-                operator.set_left_term(left_term)
-                operator.set_right_term(right_term)
+                operator.set_left_term(left_term)  # type: ignore (operator will not be None here, but this is not seen by the analyzer)
+                operator.set_right_term(right_term)  # type: ignore (operator will not be None here, but this is not seen by the analyzer)
                 left_term = operator
                 operator = None
                 continue
 
 
-def __resolve_primitive_expression(expression):
+def __resolve_primitive_expression(expression: str) -> tuple:
     """
     Resolve a primitive expression and return a RSEAttribute object
 
     :param expression:    String of the expression
     :returns:             Tuple of RSEAttribute, primitive expression
     """
-    primitiveexpression = re.match(PRIMITIVE, expression).group()
+    match = re.match(PRIMITIVE, expression)
+    primitiveexpression = match.group() if match else ""
     if ('=' in primitiveexpression):
         keyvalue = primitiveexpression.split("=")
         return (RSEAttributeEqualCheck(keyvalue[0], keyvalue[1]), primitiveexpression)
@@ -188,21 +191,21 @@ def __resolve_primitive_expression(expression):
         return (RSEAttributeEqualCheck(key=primitiveexpression), primitiveexpression)
 
 
-def __extract_term(expression):
+def __extract_term(expression: str) -> str:
     """
     Extract a term from an expression with parentheses
 
     :param expression:  The expression starting with a '('
     :return:            The extracted term string
     """
-    open_parantheses = 0
+    open_parentheses = 0
     i = 0
     for char in expression:
         if (char == '('):
-            open_parantheses += 1
+            open_parentheses += 1
         elif (char == ')'):
-            open_parantheses -= 1
-        if (open_parantheses == 0):
+            open_parentheses -= 1
+        if (open_parentheses == 0):
             return expression[1:i]
         i = i + 1
     raise SystemError('This point in the code should not be reachable')
@@ -210,7 +213,7 @@ def __extract_term(expression):
 
 class BaseExpressionElement(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Resolve the ExpressionElement and return a set of RSE ids
 
@@ -226,7 +229,7 @@ class RSEAll(BaseExpressionElement):
     Representation of all RSEs
     """
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
@@ -244,7 +247,7 @@ class RSEAttributeEqualCheck(BaseExpressionElement):
     Representation of an RSE Attribute with Equal Check
     """
 
-    def __init__(self, key, value=True):
+    def __init__(self, key: str, value: Union[str, bool] = True) -> None:
         """
         Creates an RSEAttribute representation
 
@@ -254,7 +257,7 @@ class RSEAttributeEqualCheck(BaseExpressionElement):
         self.key = key
         self.value = value
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
@@ -272,7 +275,7 @@ class RSEAttributeSmallerCheck(BaseExpressionElement):
     Representation of an RSE Attribute with Smaller (<) Check
     """
 
-    def __init__(self, key, value=True):
+    def __init__(self, key: str, value: Union[str, bool] = True) -> None:
         """
         Creates an RSEAttribute representation
 
@@ -282,7 +285,7 @@ class RSEAttributeSmallerCheck(BaseExpressionElement):
         self.key = key
         self.value = value
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
@@ -307,7 +310,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
     Representation of an RSE Attribute with Larger (>) Check
     """
 
-    def __init__(self, key, value=True):
+    def __init__(self, key: str, value: Union[str, bool] = True) -> None:
         """
         Creates an RSEAttribute representation
 
@@ -317,7 +320,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
         self.key = key
         self.value = value
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
@@ -339,7 +342,7 @@ class RSEAttributeLargerCheck(BaseExpressionElement):
 
 class BaseRSEOperator(BaseExpressionElement, metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def set_left_term(self, left_term):
+    def set_left_term(self, left_term: BaseExpressionElement) -> None:
         """
         Set the left site of the term
 
@@ -348,7 +351,7 @@ class BaseRSEOperator(BaseExpressionElement, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def set_right_term(self, right_term):
+    def set_right_term(self, right_term: BaseExpressionElement) -> None:
         """
         Set the right site of the term
 
@@ -362,7 +365,7 @@ class ComplementOperator(BaseRSEOperator):
     Representation of the complement operator
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Create a ComplementOperator representation
         """
@@ -370,24 +373,24 @@ class ComplementOperator(BaseRSEOperator):
         self.left_term = None
         self.right_term = None
 
-    def set_left_term(self, left_term):
+    def set_left_term(self, left_term: BaseExpressionElement) -> None:
         """
         Inherited from :py:func:`BaseRSEOperator.set_left_term`
         """
         self.left_term = left_term
 
-    def set_right_term(self, right_term):
+    def set_right_term(self, right_term: BaseExpressionElement) -> None:
         """
         Inherited from :py:func:`BaseRSEOperator.set_right_term`
         """
         self.right_term = right_term
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        left_term_tuple = self.left_term.resolve_elements(session=session)
-        right_term_tuple = self.right_term.resolve_elements(session=session)
+        left_term_tuple = self.left_term.resolve_elements(session=session)  # type: ignore (term will not be None here)
+        right_term_tuple = self.right_term.resolve_elements(session=session)  # type: ignore (term will not be None here)
         return (left_term_tuple[0] - right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
 
 
@@ -396,7 +399,7 @@ class UnionOperator(BaseRSEOperator):
     Representation of the or operator
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Create a UnionOperator representation
         """
@@ -404,24 +407,24 @@ class UnionOperator(BaseRSEOperator):
         self.left_term = None
         self.right_term = None
 
-    def set_left_term(self, left_term):
+    def set_left_term(self, left_term: BaseExpressionElement) -> None:
         """
         Inherited from :py:func:`BaseRSEOperator.set_left_term`
         """
         self.left_term = left_term
 
-    def set_right_term(self, right_term):
+    def set_right_term(self, right_term: BaseExpressionElement) -> None:
         """
         Inherited from :py:func:`BaseRSEOperator.set_right_term`
         """
         self.right_term = right_term
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        left_term_tuple = self.left_term.resolve_elements(session=session)
-        right_term_tuple = self.right_term.resolve_elements(session=session)
+        left_term_tuple = self.left_term.resolve_elements(session=session)  # type: ignore (term will not be None here)
+        right_term_tuple = self.right_term.resolve_elements(session=session)  # type: ignore (term will not be None here)
         return (left_term_tuple[0] | right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))
 
 
@@ -430,7 +433,7 @@ class IntersectOperator(BaseRSEOperator):
     Representation of the intersect operator
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Create a IntersectOperator representation
         """
@@ -438,22 +441,22 @@ class IntersectOperator(BaseRSEOperator):
         self.left_term = None
         self.right_term = None
 
-    def set_left_term(self, left_term):
+    def set_left_term(self, left_term: BaseExpressionElement) -> None:
         """
         Inherited from :py:func:`BaseRSEOperator.set_left_term`
         """
         self.left_term = left_term
 
-    def set_right_term(self, right_term):
+    def set_right_term(self, right_term: BaseExpressionElement) -> None:
         """
         Inherited from :py:func:`BaseRSEOperator.set_right_term`
         """
         self.right_term = right_term
 
-    def resolve_elements(self, session):
+    def resolve_elements(self, session: "Session") -> tuple[set[str], dict[str, dict[str, Any]]]:
         """
         Inherited from :py:func:`BaseExpressionElement.resolve_elements`
         """
-        left_term_tuple = self.left_term.resolve_elements(session=session)
-        right_term_tuple = self.right_term.resolve_elements(session=session)
+        left_term_tuple = self.left_term.resolve_elements(session=session)  # type: ignore (term will not be None here)
+        right_term_tuple = self.right_term.resolve_elements(session=session)  # type: ignore (term will not be None here)
         return (left_term_tuple[0] & right_term_tuple[0], dict(list(left_term_tuple[1].items()) + list(right_term_tuple[1].items())))

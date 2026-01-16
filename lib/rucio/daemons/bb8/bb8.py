@@ -31,6 +31,8 @@ from rucio.core.rse import get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import get_active_locks, rebalance_rse
 from rucio.daemons.common import HeartbeatHandler, run_daemon
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -108,7 +110,8 @@ def run_once(
     else:
         # List the RSEs represented by rse_expression
         try:
-            rses = [rse for rse in parse_expression(rse_expression)]
+            with db_session(DatabaseOperationType.READ) as session:
+                rses = [rse for rse in parse_expression(rse_expression, session=session)]
             list_rses2 = [rse["rse"] for rse in rses]
         except InvalidRSEExpression as err:
             logger(logging.ERROR, err)
@@ -117,7 +120,8 @@ def run_once(
         list_rses1 = []
         for rse_exp in payload_cnt:
             if rse_exp:
-                list_rses1 = [rse["rse"] for rse in parse_expression(rse_exp)]
+                with db_session(DatabaseOperationType.READ) as session:
+                    list_rses1 = [rse["rse"] for rse in parse_expression(rse_exp, session=session)]
         for rse in list_rses2:
             if rse in list_rses1:
                 logger(
@@ -290,14 +294,16 @@ def run_once(
                         vo_str,
                     )
                     expr = destination_rse["rse"]
-                    rebalance_rse(
-                        rse_id=source_rse["id"],
-                        max_bytes=available_target_rebalance_volume,
-                        dry_run=dry_run,
-                        comment="Background rebalancing",
-                        force_expression=expr,
-                        logger=logger,
-                    )
+                    with db_session(DatabaseOperationType.WRITE) as session:
+                        rebalance_rse(
+                            rse_id=source_rse["id"],
+                            session=session,
+                            max_bytes=available_target_rebalance_volume,
+                            dry_run=dry_run,
+                            comment="Background rebalancing",
+                            force_expression=expr,
+                            logger=logger,
+                        )
 
                     destination_rse[
                         "receive_volume"
