@@ -69,3 +69,7 @@ tools/test.file.1G
 
 # VSCode
 .vscode/
+
+# Node.js dependencies for commitlint
+node_modules/
+package-lock.json
