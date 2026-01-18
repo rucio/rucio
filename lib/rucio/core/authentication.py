@@ -28,10 +28,10 @@ from sqlalchemy import delete, null, or_, select
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool
-from rucio.common.exception import CannotAuthenticate, RucioException
+from rucio.common.exception import CannotAuthenticate
 from rucio.common.utils import chunks, date_to_str, generate_uuid
 from rucio.core.account import account_exists
-from rucio.db.sqla import filter_thread_work, models
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
 
@@ -443,72 +443,6 @@ def redirect_auth_oidc(
             return redirect_result
     except Exception:
         raise CannotAuthenticate(traceback.format_exc())
-
-
-@transactional_session
-def delete_expired_tokens(
-    total_workers: int,
-    worker_number: int,
-    limit: int = 1000,
-    *,
-    session: "Session"
-) -> int:
-    """
-    Delete expired tokens.
-
-    :param total_workers:      Number of total workers.
-    :param worker_number:      id of the executing worker.
-    :param limit:              Maximum number of tokens to delete.
-    :param session:            Database session in use.
-
-    :returns: number of deleted rows
-    """
-
-    # get expired tokens
-    try:
-        # delete all expired tokens except tokens which have refresh token that is still valid
-        query = select(
-            models.Token.token
-        ).where(
-            models.Token.expired_at <= datetime.datetime.utcnow(),
-            or_(
-                models.Token.refresh_expired_at == null(),
-                models.Token.refresh_expired_at <= datetime.datetime.utcnow()
-            )
-        ).order_by(
-            models.Token.expired_at
-        )
-
-        query = filter_thread_work(session=session, query=query, total_threads=total_workers, thread_id=worker_number, hash_variable='token')
-
-        # limiting the number of tokens deleted at once
-        query = query.limit(limit)
-        # Oracle does not support chaining order_by(), limit(), and
-        # with_for_update(). Use a nested query to overcome this.
-        if session.bind.dialect.name == 'oracle':
-            query = select(
-                models.Token.token
-            ).where(
-                models.Token.token.in_(query)
-            ).with_for_update(
-                skip_locked=True
-            )
-        else:
-            query = query.with_for_update(skip_locked=True)
-        # remove expired tokens
-        deleted_tokens = 0
-        for tokens in session.execute(query).scalars().partitions(10):
-            query = delete(
-                models.Token
-            ).where(
-                models.Token.token.in_(tokens)
-            )
-            deleted_tokens += session.execute(query).rowcount
-
-    except Exception as error:
-        raise RucioException(error.args)
-
-    return deleted_tokens
 
 
 @read_session
