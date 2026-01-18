@@ -31,7 +31,6 @@ from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate, RucioException
 from rucio.common.utils import chunks, date_to_str, generate_uuid
 from rucio.core.account import account_exists
-from rucio.core.oidc import validate_jwt
 from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.constants import IdentityType
 from rucio.db.sqla.session import read_session, transactional_session
@@ -575,6 +574,8 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
             # identify JWT access token and validate
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
+                # imported here to avoid circular import
+                from rucio.core.oidc import validate_jwt
                 value = validate_jwt(token, session=session)
             else:
                 raise CannotAuthenticate(traceback.format_exc())
@@ -592,21 +593,42 @@ def token_dictionary(token: models.Token) -> "TokenDict":
 
 
 @transactional_session
-def __delete_expired_tokens_account(account: "InternalAccount", *, session: "Session") -> None:
-    """"
+def __delete_expired_tokens_account(
+    account: "InternalAccount",
+    *,
+    session: "Session",
+    check_refresh_token: bool = False
+) -> None:
+    """
     Deletes expired tokens from the database.
 
     :param account: Account to delete expired tokens.
     :param session: The database session in use.
+    :param check_refresh_token: If True, also deletes tokens where the
+                                refresh token (if it exists) has expired.
     """
+    where_clauses = [
+        models.Token.expired_at < datetime.datetime.utcnow(),
+        models.Token.account == account
+    ]
+
+    # refresh token check if the option is enabled
+    if check_refresh_token:
+        where_clauses.append(
+            or_(
+                models.Token.refresh_expired_at == null(),
+                models.Token.refresh_expired_at < datetime.datetime.utcnow()
+            )
+        )
+
     select_query = select(
         models.Token.token
     ).where(
-        models.Token.expired_at < datetime.datetime.utcnow(),
-        models.Token.account == account
+        *where_clauses
     ).with_for_update(
         skip_locked=True
     )
+
     tokens = session.execute(select_query).scalars().all()
 
     for chunk in chunks(tokens, 100):

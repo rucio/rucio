@@ -40,8 +40,9 @@ from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
 from rucio.common.stopwatch import Stopwatch
-from rucio.common.utils import all_oidc_req_claims_present, build_url, val_to_space_sep_str
+from rucio.common.utils import all_oidc_req_claims_present, build_url, chunks, val_to_space_sep_str
 from rucio.core.account import account_exists
+from rucio.core.authentication import __delete_expired_tokens_account
 from rucio.core.identity import exist_identity_account, get_default_account
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import filter_thread_work, models
@@ -462,6 +463,9 @@ def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
                                                    refresh_lifetime=refresh_lifetime,
                                                    ip=ip)
         oauth_session_params.save(session=session)
+        # now delete expired oauth requests for this account
+        _delete_oauth_request(account, session=session)
+
         # If user selected authentication via web browser, a redirection
         # URL is returned instead of the direct URL pointing to the IdP.
         if not auto:
@@ -534,7 +538,7 @@ def get_token_oidc(
         if oidc_tokens['id_token']['nonce'] != nonce:
             raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client"
                                      + " session. This points to possible replay attack !")
-
+        account = oauth_req_params.account
         # starting to fill dictionary with parameters for token DB row
         jwt_row_dict, extra_dict = {}, {}
         jwt_row_dict['identity'] = oidc_identity_string(oidc_tokens['id_token']['sub'],
@@ -595,6 +599,7 @@ def get_token_oidc(
 
         new_token = __save_validated_token(oidc_tokens['access_token'], jwt_row_dict, extra_dict=extra_dict, session=session)
         METRICS.counter(name='IdP_authorization.access_token.saved').inc()
+        __delete_expired_tokens_account(account=account, session=session, check_refresh_token=True)
         if 'refresh_token' in oidc_tokens:
             METRICS.counter(name='IdP_authorization.refresh_token.saved').inc()
         # In case authentication via browser was requested,
@@ -1461,3 +1466,35 @@ def oidc_identity_string(sub: str, iss: str):
 
 def token_dictionary(token: models.Token):
     return {'token': token.token, 'expires_at': token.expired_at}
+
+
+@transactional_session
+def _delete_oauth_request(
+    account: str,
+    *,
+    session: "Session"
+) -> None:
+    """
+    Delete an OAuth request by its account and expiration time.
+
+    :param account: The account associated with the OAuth request.
+    :param session: Database session in use.
+    """
+    query = select(
+        models.OAuthRequest.state
+    ).where(
+        models.OAuthRequest.expired_at <= datetime.utcnow(),
+        models.OAuthRequest.account == account
+    ).with_for_update(
+        skip_locked=True
+    )
+
+    oauth_requests = session.execute(query).scalars()
+
+    for chunk in chunks(oauth_requests, 100):
+        delete_query = delete(
+            models.OAuthRequest
+        ).where(
+            models.OAuthRequest.state.in_(chunk)
+        )
+        session.execute(delete_query)
