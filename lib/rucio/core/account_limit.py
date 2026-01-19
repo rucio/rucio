@@ -321,7 +321,7 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
         counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
     else:
         # One RSE
-        stmt.where(
+        stmt = stmt.where(
             models.AccountUsage.rse_id == rse_id
         )
         limits = get_local_account_limit(account=account, rse_ids=[rse_id], session=session)
