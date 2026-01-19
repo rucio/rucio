@@ -1189,6 +1189,33 @@ def _list_replicas(
         }
 
 
+@read_session
+def replica_exists(
+        scope: InternalScope,
+        name: str,
+        rse_id: int,
+        *,
+        session: "Session"
+) -> bool:
+    """
+    Returns true if a replica of the given file exists on the given RSE.
+    :param scope: The scope of the file.
+    :param name: The name of the file.
+    :param rse_id: The ID of the RSE to check.
+    :param session: The database session in use.
+    """
+    stmt = select(
+        models.RSEFileAssociation.rse_id
+    ).select_from(
+        models.RSEFileAssociation
+    ).where(
+        and_(models.RSEFileAssociation.rse_id == rse_id,
+             models.RSEFileAssociation.scope == scope,
+             models.RSEFileAssociation.name == name)
+    )
+    return session.execute(stmt).first() is not None
+
+
 @stream_session
 def list_replicas(
         dids: "Sequence[dict[str, Any]]",
