@@ -918,66 +918,74 @@ class UsageHistory(ErrorHandlingMethodView):
 
 class LocalUsage(ErrorHandlingMethodView):
 
-    @check_accept_header_wrapper_flask(['application/x-json-stream'])
-    def get(self, account: str, rse: Optional[str] = None) -> Response:
-        """
-        ---
-        summary: Get local account usage
-        description: "Returns the local account usage."
-        tags:
-          - Account
-        parameters:
-        - name: account
-          in: path
-          description: "The account identifier."
-          schema:
-            type: string
-          style: simple
-        - name: rse
-          in: path
-          description: "The rse identifier."
-          schema:
-            type: string
-          style: simple
-        responses:
-          200:
-            description: "OK"
-            content:
-              application/x-json-stream:
-                schema:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      rse_id:
-                        description: "The rse id."
-                        type: string
-                      bytes:
-                        description: "The number of bytes used."
-                        type: integer
-                      bytes_limit:
-                        description: "The maximum number of bytes."
-                        type: integer
-                      bytes_remaining:
-                        description: "The remaining number of bytes."
-                        type: integer
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "Account or rse not found"
-          406:
-            description: "Not acceptable"
-        """
-        try:
-            def generate(issuer: str, vo: str) -> "Iterator[str]":
-                for usage in get_local_account_usage(account=account, rse=rse, issuer=issuer, vo=vo):
-                    yield dumps(usage, cls=APIEncoder) + '\n'
+  @check_accept_header_wrapper_flask(['application/x-json-stream'])
+  def get(self, account: str, rse: Optional[str] = None) -> Response:
+    """
+    ---
+    summary: Get local account usage
+    description: "Returns the local account usage."
+    tags:
+    - Account
+    parameters:
+    - name: account
+      in: path
+      description: "The account identifier."
+      schema:
+        type: string
+      style: simple
+    - name: rse
+      in: path
+      description: "The rse identifier."
+      schema:
+        type: string
+      style: simple
+    - name: unique
+      in: query
+      description: "If true, count unique replicas to avoid double-counting when multiple locks exist."
+      schema:
+        type: boolean
+        default: false
+      style: simple
+    responses:
+      200:
+        description: "OK"
+        content:
+          application/x-json-stream:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  rse_id:
+                    description: "The rse id."
+                    type: string
+                  bytes:
+                    description: "The number of bytes used."
+                    type: integer
+                  bytes_limit:
+                    description: "The maximum number of bytes."
+                    type: integer
+                  bytes_remaining:
+                    description: "The remaining number of bytes."
+                    type: integer
+      401:
+        description: "Invalid Auth Token"
+      404:
+        description: "Account or rse not found"
+      406:
+        description: "Not acceptable"
+    """
+    unique = request.args.get('unique', 'false').lower() in ['true', '1']
 
-            return try_stream(generate(issuer=request.environ['issuer'], vo=request.environ['vo']))
-        except (AccountNotFound, RSENotFound) as error:
-            return generate_http_error_flask(404, error)
-        except AccessDenied as error:
-            return generate_http_error_flask(401, error)
+    try:
+        def generate(issuer: str, vo: str) -> "Iterator[str]":
+            for usage in get_local_account_usage(account=account, rse=rse, unique=unique, issuer=issuer, vo=vo):
+                yield dumps(usage, cls=APIEncoder) + '\n'
+        return try_stream(generate(issuer=request.environ['issuer'], vo=request.environ['vo']))
+    except (AccountNotFound, RSENotFound) as error:
+        return generate_http_error_flask(404, error)
+    except AccessDenied as error:
+        return generate_http_error_flask(401, error)
 
 
 class GlobalUsage(ErrorHandlingMethodView):
