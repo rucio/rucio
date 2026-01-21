@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Literal, Optional
+
 import click
 from rich.text import Text
 from tabulate import tabulate
@@ -30,7 +32,7 @@ def account():
 @click.argument("account-type", type=click.Choice(["USER", "GROUP", "SERVICE"]))
 @click.option("--email", type=str, help="Email address associated with the account")
 @click.pass_context
-def add_(ctx, account_type, account_name, email):
+def add_(ctx: click.Context, account_type: Literal['USER', 'GROUP', 'SERVICE'], account_name: str, email: str):
     """Add an account of type [ACCOUNT-TYPE] with the name [ACCOUNT-NAME]
 
     \b
@@ -51,7 +53,7 @@ def add_(ctx, account_type, account_name, email):
 @click.option("--filter", help="Filter arguments in form `key=value,another_key=next_value`")  # TODO Explicit numeration of these possible keys
 @click.option('--csv', help="Output result as a CSV", is_flag=True)
 @click.pass_context
-def list_(ctx, type_, id, filter, csv):
+def list_(ctx: click.Context, type_: Optional[Literal['USER', 'GROUP', 'SERVICE']], id: Optional[str], filter: Optional[str], csv: bool):
     """List all accounts that match given filters"""
     filters = {}
     if filter:
@@ -76,7 +78,7 @@ def list_(ctx, type_, id, filter, csv):
 @account.command("show")
 @click.argument("account-name")
 @click.pass_context
-def show(ctx, account_name):
+def show(ctx: click.Context, account_name: str):
     """
     Show info about a single account
     """
@@ -98,7 +100,7 @@ def show(ctx, account_name):
 @account.command("remove")
 @click.argument("account-name")
 @click.pass_context
-def remove(ctx, account_name):
+def remove(ctx: click.Context, account_name: str):
     """
     Remove an account
     (WARNING: Permanently disables the account. If you want to temporarily disable, use `account update [account-name] --ban`)
@@ -112,7 +114,7 @@ def remove(ctx, account_name):
 @click.option("--email", help="Email address associated with the account")
 @click.option("--ban/--unban", default=None, help="Temporarily disable/enable an account")
 @click.pass_context
-def update(ctx, ban, account_name, email):
+def update(ctx: click.Context, ban: Optional[bool], account_name: str, email: Optional[str]):
     """Update account settings"""
     if ban is not None:
         if ban:
@@ -136,7 +138,7 @@ def attribute():
 @attribute.command("list")
 @click.argument("account-name")
 @click.pass_context
-def attribute_list(ctx, account_name):
+def attribute_list(ctx: click.Context, account_name: str):
     "List the attributes for a given account"
     attributes = next(ctx.obj.client.list_account_attributes(account_name))
     table_data = []
@@ -155,7 +157,7 @@ def attribute_list(ctx, account_name):
 @click.option('--key', help='Attribute key', required=True)
 @click.option('--value', help='Attribute value', required=True)
 @click.pass_context
-def attribute_add(ctx, account_name, key, value):
+def attribute_add(ctx: click.Context, account_name: str, key: str, value: str):
     """Add a new attribute [key] to an account"""
     ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
 
@@ -164,7 +166,7 @@ def attribute_add(ctx, account_name, key, value):
 @click.argument("account-name")
 @click.option("--key", help="Attribute key", required=True)
 @click.pass_context
-def attribute_remove(ctx, account_name, key):
+def attribute_remove(ctx: click.Context, account_name: str, key: str):
     """Remove an attribute from an account without reassigning it"""
     ctx.obj.client.delete_account_attribute(account=account_name, key=key)
 
@@ -178,7 +180,7 @@ def limit():
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
 @click.pass_context
-def limit_list(ctx, account_name, rse):
+def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
     """
     Shows the space used, the quota limit and the quota left
     for an account for every RSE where the user have quota.
@@ -225,7 +227,7 @@ def limit_list(ctx, account_name, rse):
 @click.option("--bytes", "bytes_", help='Value of the limit; can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"', required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
-def limit_add(ctx, account_name, rse, bytes_, locality):
+def limit_add(ctx: click.Context, account_name: str, rse: str, bytes_: str, locality: str):
     """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
     byte_limit = None
     limit_input = bytes_.lower()
@@ -252,7 +254,7 @@ def limit_add(ctx, account_name, rse, bytes_, locality):
 @click.option("--rse", "--rse-name", help="Full RSE name", required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
-def limit_remove(ctx, account_name, rse, locality):
+def limit_remove(ctx: click.Context, account_name: str, rse: str, locality: str):
     """Remove existing limits for an account on an RSE"""
     ctx.obj.client.delete_account_limit(account=account_name, rse=rse, locality=locality)
     print('Deleted account limit for account %s and RSE %s' % (account_name, rse))
@@ -265,7 +267,7 @@ def identity():
 @identity.command("list")
 @click.argument("account-name", required=True)
 @click.pass_context
-def identity_list(ctx, account_name):
+def identity_list(ctx: click.Context, account_name: str):
     """See all the IDs for [account-name]"""
     table_data = []
     identities = ctx.obj.client.list_identities(account=account_name)
@@ -286,7 +288,7 @@ def identity_list(ctx, account_name):
 @click.option("--email", help="Email address associated with the identity", required=True)
 @click.option("--password", help="Password if authtype is USERPASS")
 @click.pass_context
-def identity_add(ctx, account_name, type_, id, email, password):
+def identity_add(ctx: click.Context, account_name: str, type_: str, id: str, email: str, password: Optional[str]):
     """Add a new identity for [account-name]"""
     if email == "":
         raise InputValidationError('Error: --email argument can\'t be an empty string. Failed to grant an identity access to an account')
@@ -304,7 +306,7 @@ def identity_add(ctx, account_name, type_, id, email, password):
 @click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"]), help="Authentication type", required=True)
 @click.option("--id", help="Identity", required=True)
 @click.pass_context
-def identity_remove(ctx, account_name, type_, id):
+def identity_remove(ctx: click.Context, account_name: str, type_: str, id: str):
     """Revoke a given ID's access from an account"""
     ctx.obj.client.del_identity(account_name, id, authtype=type_)
     print('Deleted identity: %s' % id)
