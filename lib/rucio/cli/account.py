@@ -55,7 +55,7 @@ def list_(ctx, type_, id, filter, csv):
     """List all accounts that match given filters"""
     filters = {}
     if filter:
-        for key, value in [(_.split('=')[0], _.split('=')[1]) for _ in filter.split(',')]:
+        for key, value in [(s.split('=')[0], s.split('=')[1]) for s in filter.split(',')]:
             filters[key] = value
     accounts = ctx.obj.client.list_accounts(identity=id, account_type=type_, filters=filters)
     if csv:
