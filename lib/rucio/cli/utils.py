@@ -43,7 +43,7 @@ from rucio.common.exception import (
     RuleNotFound,
     UnsupportedOperation,
 )
-from rucio.common.utils import setup_logger
+from rucio.common.utils import extract_scope, setup_logger
 
 SUCCESS = 0
 FAILURE = 1
@@ -260,3 +260,13 @@ class JSONType(click.ParamType):
             return json.loads(value)
         except json.JSONDecodeError as e:
             self.fail(f"Invalid JSON: {e}", param, ctx)
+
+
+def get_scope(did, client):
+    try:
+        scope, name = extract_scope(did)
+        return scope, name
+    except TypeError:
+        scopes = client.list_scopes()
+        scope, name = extract_scope(did, scopes)
+        return scope, name
