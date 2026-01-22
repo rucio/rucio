@@ -75,7 +75,6 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent):
         else:
             raise InputValidationError('A DID must be provided. Use -h to list the options.')
     else:
-        filters = {}
         table_data = []
 
         try:
@@ -91,10 +90,9 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent):
 
         if recursive and '*' in name:
             raise InputValidationError('Option recursive cannot be used with wildcards.')
-        # TODO Modify statement, filters can never have "name" as it is not modified until this point
         else:
-            if filters:
-                if ('name' in filters) and (name != '*'):
+            if filter_:
+                if ('name' in filter_) and (name != '*'):
                     raise ValueError('Must have a wildcard in did name if filtering by name.')
 
         filters, type_ = parse_did_filter_from_string_fe(filter_, name)
