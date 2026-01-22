@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
+from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus, InvalidObject 
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (
@@ -353,6 +353,10 @@ class TestDIDGateway:
         assert st
         with pytest.raises(DataIdentifierNotFound):
             did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None, vo=vo)
+
+    def test_get_dataset_by_guid_invalid_guid(self, vo):
+        with pytest.raises(InvalidObject):
+            list(did.get_dataset_by_guid('foo', vo=vo))
 
 
 class TestDIDClients:

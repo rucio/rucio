@@ -15,6 +15,7 @@
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional
 
+import uuid 
 import rucio.gateway.permission
 from rucio.common.constants import DEFAULT_VO, RESERVED_KEYS
 from rucio.common.exception import AccessDenied, InvalidObject, RucioException
@@ -65,11 +66,14 @@ def list_dids(
             or_group['scope'] = InternalScope(or_group['scope'], vo=vo)
 
     with db_session(DatabaseOperationType.READ) as session:
-        result = did.list_dids(scope=internal_scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
-                               limit=limit, offset=offset, long=long, recursive=recursive, session=session)
+        try:
+            result = did.list_dids(scope=internal_scope, filters=filters, did_type=did_type, ignore_case=ignore_case,
+                                limit=limit, offset=offset, long=long, recursive=recursive, session=session)
 
-        for d in result:
-            yield gateway_update_return_dict(d, session=session)
+            for d in result:
+                yield gateway_update_return_dict(d, session=session)
+        except ValueError as e:
+            raise InvalidObject(f"Invalid GUID provided in filters. Details: {str(e)}")
 
 
 def add_did(
@@ -688,12 +692,19 @@ def get_dataset_by_guid(
     :returns: A DID
     """
     with db_session(DatabaseOperationType.READ) as session:
-        dids = did.get_dataset_by_guid(guid=guid, session=session)
+        try:
+            dids = did.get_dataset_by_guid(guid=guid, session=session)
 
-        for d in dids:
-            if d['scope'].vo != vo:
-                raise RucioException('GUID unavailable on VO {}'.format(vo))
-            yield gateway_update_return_dict(d, session=session)
+            for d in dids:
+                if d['scope'].vo != vo:
+                    raise RucioException('GUID unavailable on VO {}'.format(vo))
+                yield gateway_update_return_dict(d, session=session)
+
+        except ValueError: 
+            raise InvalidObject(
+                f"The provided GUID: {guid} is not a valid UUID\n"
+                "Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            )
 
 
 def list_parent_dids(
