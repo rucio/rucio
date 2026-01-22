@@ -341,7 +341,7 @@ def content_list_(ctx, dids, short):
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
     if short:
-        for did, dummy in table_data:  # TODO change "dummy" var name
+        for did, _ in table_data:
             print(did)
     else:
         if ctx.obj.use_rich:
