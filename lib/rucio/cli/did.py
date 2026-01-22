@@ -56,24 +56,21 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent):
             ctx.obj.spinner.update(status='Fetching parent DIDs')
             ctx.obj.spinner.start()
 
-        if did_pattern:
-            table_data = []
-            scope, name = get_scope(did_pattern, ctx.obj.client)
-            for dataset in ctx.obj.client.list_parent_dids(scope=scope, name=name):
-                if ctx.obj.use_rich:
-                    table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=CLITheme.DID_TYPE.get(dataset['type'], 'default'))])
-                else:
-                    table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
-
+        table_data = []
+        scope, name = get_scope(did_pattern, ctx.obj.client)
+        for dataset in ctx.obj.client.list_parent_dids(scope=scope, name=name):
             if ctx.obj.use_rich:
-                table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
-                ctx.obj.spinner.stop()
-                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+                table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=CLITheme.DID_TYPE.get(dataset['type'], 'default'))])
             else:
-                print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
-        # TODO: Remove, unreachable as "did_pattern" is required in all cases.
+                table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
+
+        if ctx.obj.use_rich:
+            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            ctx.obj.spinner.stop()
+            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
-            raise InputValidationError('A DID must be provided. Use -h to list the options.')
+            print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
+
     else:
         table_data = []
 
