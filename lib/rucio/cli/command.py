@@ -15,6 +15,7 @@ import importlib
 import signal
 import sys
 import time
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -161,30 +162,30 @@ class LazyGroup(click.Group):
 @click.pass_context
 def main(
     ctx: click.Context,
-    config: str,
+    config: Optional[str],
     verbose: bool,
-    host: str,
-    auth_host: str,
-    issuer: str,
-    auth_strategy: str,
-    timeout: float,
-    user_agent: str,
-    vo: str,
-    no_pager: bool,
-    user: str,
-    password: str,
-    oidc_user: str,
-    oidc_password: str,
-    oidc_scope: str,
-    oidc_audience: str,
-    oidc_auto: str,
-    oidc_polling: str,
-    oidc_refresh_lifetime: str,
-    oidc_issuer: str,
-    certificate: str,
-    client_key: str,
-    ca_certificate: str,
+    host: Optional[str],
+    auth_host: Optional[str],
+    issuer: Optional[str],
+    auth_strategy: Optional[str],
+    timeout: Optional[str],
+    user_agent: Optional[str],
     robot: bool,
+    vo: Optional[str],
+    no_pager: bool,
+    user: Optional[str],
+    password: Optional[str],
+    oidc_user: Optional[str],
+    oidc_password: Optional[str],
+    oidc_scope: Optional[str],
+    oidc_audience: Optional[str],
+    oidc_auto: bool,
+    oidc_polling: bool,
+    oidc_refresh_lifetime: Optional[str],
+    oidc_issuer: Optional[str],
+    certificate: Optional[str],
+    client_key: Optional[str],
+    ca_certificate: Optional[str],
 ):
     ctx.ensure_object(Arguments)
     ctx.obj.start_time = time.time()
