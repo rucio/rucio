@@ -358,6 +358,15 @@ class TestDIDGateway:
         with pytest.raises(InvalidObject):
             list(did.get_dataset_by_guid('foo', vo=vo))
 
+    def test_list_dids_with_invalid_guid(self, vo):
+    with pytest.raises(InvalidObject):
+        list(did.list_dids(
+            scope='test',
+            filters=[{'guid': 'foo'}],
+            did_type='file',
+            vo=vo
+        ))
+
 
 class TestDIDClients:
 
