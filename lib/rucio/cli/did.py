@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
+from typing import Literal, Optional, Union
 
 import click
 from rich.text import Text
@@ -45,7 +46,7 @@ def did():
 @click.argument("did-pattern", nargs=1, required=True)
 @click.option("--parent", default=False, is_flag=True, help="List the parents of the DID - must use a full DID scope and name")
 @click.pass_context
-def list_(ctx, did_pattern, recursive, filter_, short, parent):
+def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, short: bool, parent: bool):
     """
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
@@ -120,7 +121,7 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent):
 @did.command("show")
 @click.argument("dids", nargs=-1)
 @click.pass_context
-def show(ctx, dids):
+def show(ctx: click.Context, dids: tuple[str, ...]):
     """List attributes, statuses, or parents for data identifiers"""
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching DID stats')
@@ -156,7 +157,7 @@ def show(ctx, dids):
 @click.option("--monotonic", is_flag=True, default=False, help="Monotonic status to True.")
 @click.option("--lifetime", type=int, help="Lifetime in seconds.")
 @click.pass_context
-def add_(ctx, did_name, dtype, monotonic, lifetime):
+def add_(ctx: click.Context, did_name: str, dtype: Literal['container', 'dataset'], monotonic: bool, lifetime: Optional[int]):
     """Create a new collection-type DID"""
     scope, name = get_scope(did_name, ctx.obj.client)
     if dtype == "container":
@@ -172,7 +173,7 @@ def add_(ctx, did_name, dtype, monotonic, lifetime):
 @click.option("--open", "operation", flag_value="open", help="Reopen a dataset or container (only for privileged users)")
 @click.option("--close", "operation", flag_value="close", help="Close a dataset or container.")
 @click.pass_context
-def update(ctx, dids, rse, operation):
+def update(ctx: click.Context, dids: tuple[str, ...], rse: Optional[str], operation: Literal['touch', 'open', 'close']):
     """Touch one or more DIDs and set the last accessed date to the current date, or mark them as open or closed."""
 
     if operation == "touch":
@@ -198,7 +199,7 @@ def update(ctx, dids, rse, operation):
 @click.option("--undo", is_flag=True, default=False, help="Undo erase DIDs. Only works if has been less than 24 hours since erase operation.")
 @click.argument("dids", nargs=-1)
 @click.pass_context
-def remove(ctx, dids, undo):
+def remove(ctx: click.Context, dids: tuple[str, ...], undo: bool):
     """
     This command sets the lifetime of the DID in order to expire in the next 24 hours.
     Expired DIDs are force-deleted (and their replicas purged).
@@ -240,7 +241,7 @@ def content():
 @content.command("history")
 @click.argument("dids", nargs=-1, required=True)
 @click.pass_context
-def content_history(ctx, dids):
+def content_history(ctx: click.Context, dids: tuple[str, ...]):
     """List the content history of a collection-type DID"""
     table_data = []
     if ctx.obj.use_rich:
@@ -268,29 +269,31 @@ def content_history(ctx, dids):
 @click.option("-f", "--from-file", is_flag=True, default=False, help="[DIDs] is a file instead of a list of did names. The file should contain one did per line.")
 @click.argument("dids", nargs=-1)
 @click.pass_context
-def content_add_(ctx, to_did, from_file, dids):
+def content_add_(ctx: click.Context, to_did: str, from_file: bool, dids: tuple[str, ...]):
     """Attach a list [dids] of data identifiers (file or collection-type) to another data identifier (collection-type)"""
     scope, name = get_scope(to_did, ctx.obj.client)
     limit = 499
 
     if from_file:
-        if len(dids) > 1:
+        if len(dids) != 1:
             raise ValueError('If --from-file option is active, only one file is supported. The file should contain a list of dids, one per line.')
         try:
             f = open(dids[0], 'r')
-            dids = [did.rstrip() for did in f.readlines()]
+            dids_list = [did.rstrip() for did in f.readlines()]
         except OSError as error:
             ctx.obj.logger.error("Can't open file '" + dids[0] + "'.")
             raise OSError from error
+    else:
+        dids_list = list(dids)
 
-    dids = [{'scope': get_scope(did, ctx.obj.client)[0], 'name': get_scope(did, ctx.obj.client)[1]} for did in dids]
-    if len(dids) <= limit:
-        ctx.obj.client.attach_dids(scope=scope, name=name, dids=dids)
+    did_objs = [{'scope': get_scope(did, ctx.obj.client)[0], 'name': get_scope(did, ctx.obj.client)[1]} for did in dids_list]
+    if len(did_objs) <= limit:
+        ctx.obj.client.attach_dids(scope=scope, name=name, dids=did_objs)
     else:
         ctx.obj.logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
         missing_dids = []
-        for i, chunk in enumerate(chunks(dids, limit)):
-            ctx.obj.logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
+        for i, chunk in enumerate(chunks(did_objs, limit)):
+            ctx.obj.logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(did_objs)) / float(limit)))))
             try:
                 ctx.obj.client.attach_dids(scope=scope, name=name, dids=chunk)
             except Exception:
@@ -305,10 +308,10 @@ def content_add_(ctx, to_did, from_file, dids):
 
 
 @content.command("remove")
-@click.option("-f", "--from-did", help="Collection-type DID to remove DIDs from")
+@click.option("-f", "--from-did", help="Collection-type DID to remove DIDs from", required=True)
 @click.argument("dids", nargs=-1)
 @click.pass_context
-def content_remove(ctx, dids, from_did):
+def content_remove(ctx: click.Context, dids: tuple[str, ...], from_did: str):
     """Detach [dids], a list of DIDs (file or collection-type) from another Data Identifier (collection type)"""
     scope, name = get_scope(from_did, ctx.obj.client)
     did_objs = []
@@ -323,7 +326,7 @@ def content_remove(ctx, dids, from_did):
 @click.argument("dids", nargs=-1, required=True)
 @click.option("--short", is_flag=True, default=False, help="Just dump the list of DIDs.")
 @click.pass_context
-def content_list_(ctx, dids, short):
+def content_list_(ctx: click.Context, dids: list[str], short: bool):
     """List the content of a collection-type DID"""
     table_data = []
     if ctx.obj.use_rich:
@@ -360,19 +363,19 @@ def metadata():
 @click.option('--key', help='Attribute key', required=True)
 @click.option('--value', help='Attribute value', required=True)
 @click.pass_context
-def metadata_add_(ctx, did, key, value):
+def metadata_add_(ctx: click.Context, did: str, key: str, value: Union[str, float]):
     """Add metadata to a DID"""
     if key == 'lifetime':
-        value = None if value.lower() == 'none' else float(value)
+        value = None if value.lower() == 'none' else float(value)  # type: ignore
     scope, name = get_scope(did, ctx.obj.client)
     ctx.obj.client.set_metadata(scope=scope, name=name, key=key, value=value)
 
 
 @metadata.command("remove")
 @click.argument("did")
-@click.option("--key", help="Key to remove from a DID's metadata.")
+@click.option("--key", help="Key to remove from a DID's metadata.", required=True)
 @click.pass_context
-def metadata_remove(ctx, did, key):
+def metadata_remove(ctx: click.Context, did: str, key: str):
     """Remove metadata from a DID"""
     scope, name = get_scope(did, ctx.obj.client)
     ctx.obj.client.delete_metadata(scope=scope, name=name, key=key)
@@ -382,7 +385,7 @@ def metadata_remove(ctx, did, key):
 @click.argument("dids", nargs=-1)
 @click.option("--plugin", help="Filter down to metadata from specific metadata plugin")
 @click.pass_context
-def metadata_list_(ctx, dids, plugin):
+def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[str]):
     """List metadata for a list of DIDs"""
     if plugin is None:
         plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
