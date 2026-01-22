@@ -147,6 +147,7 @@ class LazyGroup(click.Group):
         and there must be no active access token saved on the side of the currently used Rucio Client,
     """,
 )
+@click.option("-R", "--robot", is_flag=True, default=False, help="All size output are in bytes and without the units")
 @click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
 @click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
 # userpass/gss/saml auth
@@ -183,6 +184,7 @@ def main(
     certificate: str,
     client_key: str,
     ca_certificate: str,
+    robot: bool,
 ):
     ctx.ensure_object(Arguments)
     ctx.obj.start_time = time.time()
@@ -199,6 +201,7 @@ def main(
     ctx.obj.console = console
     ctx.obj.no_pager = no_pager
     ctx.obj.pager = get_pager()
+    ctx.obj.human = not robot
 
     if use_rich:
         install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
