@@ -167,7 +167,7 @@ def add_(ctx, did_name, dtype, monotonic, lifetime):
         ctx.obj.client.add_container(scope=scope, name=name, statuses={'monotonic': monotonic}, lifetime=lifetime)
     else:
         ctx.obj.client.add_dataset(scope=scope, name=name, statuses={'monotonic': monotonic}, lifetime=lifetime)
-    print('Added %s:%s' % (scope, name))  # TODO Change to f-string
+    print(f'Added {scope}:{name}')
 
 @did.command("update")
 @click.argument("dids", nargs=-1)
@@ -305,7 +305,7 @@ def content_add_(ctx, to_did, from_file, dids):
             for chunk in chunks(missing_dids, limit):
                 ctx.obj.client.attach_dids(scope=scope, name=name, dids=chunk)
 
-    print('DIDs successfully attached to %s:%s' % (scope, name))  # TODO: Make an f-string
+    print(f'DIDs successfully attached to {scope}:{name}')
 
 
 @content.command("remove")
@@ -320,7 +320,7 @@ def content_remove(ctx, dids, from_did):
         cscope, cname = get_scope(did, ctx.obj.client)
         did_objs.append({'scope': cscope, 'name': cname})
     ctx.obj.client.detach_dids(scope=scope, name=name, dids=did_objs)
-    print('DIDs successfully detached from %s:%s' % (scope, name))  # TODO: Replace with f-string
+    print(f'DIDs successfully detached from {scope}:{name}')
 
 
 @content.command("list")
