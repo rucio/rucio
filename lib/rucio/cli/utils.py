@@ -262,7 +262,7 @@ class JSONType(click.ParamType):
             self.fail(f"Invalid JSON: {e}", param, ctx)
 
 
-def get_scope(did, client):
+def get_scope(did: str, client: Client) -> tuple[str, str]:
     try:
         scope, name = extract_scope(did)
         return scope, name
