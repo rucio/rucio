@@ -108,7 +108,7 @@ def get_account_info(
 
     with db_session(DatabaseOperationType.READ) as session:
         acc = account_core.get_account(internal_account, session=session)
-        acc.account = acc.account.external
+        acc.account = acc.account.external  # type: ignore (acc.account exists)
         return acc
 
 
