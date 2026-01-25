@@ -11,6 +11,8 @@ repos:
     description: Run the `add_header` script to verify the file headers
     entry: tools/add_header
     language: system
+    args: [--disable-progress-bar]
+    pass_filenames: false
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.14.9
   hooks:
