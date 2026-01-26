@@ -33,18 +33,18 @@ def list_(ctx: click.Context, section: Optional[str], key: Optional[str]):
         print(f'[{section}]\n{key}={result}')
     else:
         print_header = True
-        for i in list(result.keys()):
+        for config_section, option in result.items():
             if print_header:
                 if section is not None:
                     print(f'[{section}]')
                 else:
-                    print(f'[{i}]')
-            if not isinstance(result[i], dict):
-                print(f'{i}={result[i]}')
+                    print(f'[{config_section}]')
+            if not isinstance(option, dict):
+                print(f'{section}={option}')
                 print_header = False
             else:
-                for j in list(result[i].keys()):
-                    print(f'{j}={result[i][j]}')
+                for config_key, value in option.items():
+                    print(f'{config_key}={value}')
 
 
 @config.command("add")
