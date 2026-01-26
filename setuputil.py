@@ -52,7 +52,6 @@ dev_requirements = [
     'isort',
     'xmltodict',
     'pytz',
-    'pycodestyle',
     'pydoc-markdown',
     'docspec_python',
     'sh',
