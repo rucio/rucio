@@ -77,7 +77,8 @@ def remove(ctx: click.Context, section: str, key: str):
     if ctx.obj.client.delete_config_option(section=section, option=key):
         print(f"Deleted section '{section}' option '{key}'")
     else:
-        print(f"Section '{section}' option '{key}' not found")  # TODO Return failure
+        msg = f"Section '{section}' option '{key}' not found"
+        raise ValueError(msg)
 
 
 # @config.command("show")
