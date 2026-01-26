@@ -26,23 +26,23 @@ def config():
 @click.pass_context
 def list_(ctx: click.Context, section: str, key: str):
     """List the sections or content of sections in the rucio.cfg"""
-    res = ctx.obj.client.get_config(section=section, option=key)
-    if not isinstance(res, dict):
-        print('[%s]\n%s=%s' % (section, key, str(res)))  # TODO: Replace with f-string
+    result = ctx.obj.client.get_config(section=section, option=key)
+    if not isinstance(result, dict):
+        print(f'[{section}]\n{key}={result}')
     else:
-        print_header = True #
-        for i in list(res.keys()):
+        print_header = True
+        for i in list(result.keys()):
             if print_header:
                 if section is not None:
-                    print('[%s]' % section)
+                    print(f'[{section}]')
                 else:
-                    print('[%s]' % i)
-            if not isinstance(res[i], dict):
-                print('%s=%s' % (i, str(res[i])))
+                    print(f'[{i}]')
+            if not isinstance(result[i], dict):
+                print(f'{i}={result[i]}')
                 print_header = False
             else:
-                for j in list(res[i].keys()):
-                    print('%s=%s' % (j, str(res[i][j])))
+                for j in list(result[i].keys()):
+                    print(f'{j}={result[i][j]}')
 
 
 @config.command("add")
@@ -65,7 +65,7 @@ def add_(ctx: click.Context, section: str, key: str, value: str):
         raise ValueError(msg)
 
     ctx.obj.client.set_config_option(section=section, option=key, value=value)
-    print('Set configuration: %s.%s=%s' % (section, key, value))  # TODO Replace with f-strings
+    print(f'Set configuration: {section}.{key}={value}')
 
 
 @config.command("remove")
@@ -75,9 +75,9 @@ def add_(ctx: click.Context, section: str, key: str, value: str):
 def remove(ctx: click.Context, section: str, key: str):
     """Remove the section.key from the config."""
     if ctx.obj.client.delete_config_option(section=section, option=key):
-        print('Deleted section \'%s\' option \'%s\'' % (section, key)) # TODO Replace with f-string
+        print(f"Deleted section '{section}' option '{key}'")
     else:
-        print('Section \'%s\' option \'%s\' not found' % (section, key))  # TODO Return failure
+        print(f"Section '{section}' option '{key}' not found")  # TODO Return failure
 
 
 # @config.command("show")
