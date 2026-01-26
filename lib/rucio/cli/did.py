@@ -35,7 +35,7 @@ def did():
     """,
 )  # TODO Shorten this help and make supplying this easier
 @click.option("--short", is_flag=True, default=False, help="Just dump the list of DIDs.")
-@click.argument("did-pattern", nargs=-1, required=True)
+@click.argument("did-pattern", nargs=1, required=True)
 @click.option("--parent", default=False, is_flag=True, help="List the parents of the DID - must use a full DID scope and name")
 @click.pass_context
 def list_(ctx, did_pattern, recursive, filter_, short, parent):
@@ -45,8 +45,7 @@ def list_(ctx, did_pattern, recursive, filter_, short, parent):
     With the filter option, you can specify a list of metadata that the Data IDentifier should match
     """
     if parent:
-        for did in did_pattern:
-            list_parent_dids(Arguments({"no_pager": ctx.obj.no_pager, "did": did}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+        list_parent_dids(Arguments({"no_pager": ctx.obj.no_pager, "did": did_pattern}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
     else:
         args = Arguments({"no_pager": ctx.obj.no_pager, "did": did_pattern, "recursive": recursive, "filter": filter_, "short": short})
         list_dids(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
