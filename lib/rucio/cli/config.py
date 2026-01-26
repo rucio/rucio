@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Optional
+
 import click
 
 
@@ -24,7 +26,7 @@ def config():
 @click.option("-s", "--section", help="Filter by sections")
 @click.option("-k", "--key", help="Show key's value, section required.")
 @click.pass_context
-def list_(ctx: click.Context, section: str, key: str):
+def list_(ctx: click.Context, section: Optional[str], key: Optional[str]):
     """List the sections or content of sections in the rucio.cfg"""
     result = ctx.obj.client.get_config(section=section, option=key)
     if not isinstance(result, dict):
