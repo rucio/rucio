@@ -13,9 +13,6 @@
 # limitations under the License.
 import click
 
-from rucio.cli.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
-from rucio.cli.utils import Arguments
-
 
 @click.group()
 def config():
@@ -29,7 +26,23 @@ def config():
 @click.pass_context
 def list_(ctx: click.Context, section: str, key: str):
     """List the sections or content of sections in the rucio.cfg"""
-    get_config(Arguments({"no_pager": ctx.obj.no_pager, "section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    res = ctx.obj.client.get_config(section=section, option=key)
+    if not isinstance(res, dict):
+        print('[%s]\n%s=%s' % (section, key, str(res)))  # TODO: Replace with f-string
+    else:
+        print_header = True #
+        for i in list(res.keys()):
+            if print_header:
+                if section is not None:
+                    print('[%s]' % section)
+                else:
+                    print('[%s]' % i)
+            if not isinstance(res[i], dict):
+                print('%s=%s' % (i, str(res[i])))
+                print_header = False
+            else:
+                for j in list(res[i].keys()):
+                    print('%s=%s' % (j, str(res[i][j])))
 
 
 @config.command("add")
@@ -51,8 +64,8 @@ def add_(ctx: click.Context, section: str, key: str, value: str):
             rucio config update --section {section} --key {key} --value {value}"
         raise ValueError(msg)
 
-    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key, "value": value})
-    set_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.set_config_option(section=section, option=key, value=value)
+    print('Set configuration: %s.%s=%s' % (section, key, value))  # TODO Replace with f-strings
 
 
 @config.command("remove")
@@ -61,8 +74,10 @@ def add_(ctx: click.Context, section: str, key: str, value: str):
 @click.pass_context
 def remove(ctx: click.Context, section: str, key: str):
     """Remove the section.key from the config."""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key})
-    delete_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if ctx.obj.client.delete_config_option(section=section, option=key):
+        print('Deleted section \'%s\' option \'%s\'' % (section, key)) # TODO Replace with f-string
+    else:
+        print('Section \'%s\' option \'%s\' not found' % (section, key))  # TODO Return failure
 
 
 # @config.command("show")
