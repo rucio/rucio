@@ -1856,8 +1856,13 @@ class DownloadClient:
             did_name = did[1]
         elif len(did) == 1:
             if self.extract_scope_convention == 'belleii':
-                scopes = [scope for scope in self.client.list_scopes()]
-                did_scope, did_name = extract_scope(did[0], scopes)
+                listed_scopes = [scope for scope in self.client.list_scopes()]
+                # TODO remove backwards compatiblity check. See #8125
+                if not isinstance(listed_scopes[0], str):
+                    scopes = [str(s['scope']) for s in listed_scopes]  # type: ignore
+                else:
+                    scopes = listed_scopes
+                did_scope, did_name = extract_scope(did[0], scopes)  # type: ignore
             else:
                 did = did_str.split('.')
                 did_scope = did[0]
