@@ -963,7 +963,7 @@ def _build_list_replicas_pfn(
     if sign_urls and protocol.attributes['scheme'] == 'https':
         service = get_rse_attribute(rse_id, RseAttr.SIGN_URL, session=session)
         if service:
-            pfn = get_signed_url(rse_id=rse_id, service=service, operation='read', url=pfn, lifetime=signature_lifetime)
+            pfn = get_signed_url(rse_id=rse_id, service=service, operation='read', url=pfn, lifetime=signature_lifetime)  # type: ignore Does not accept the overwrite
 
     # server side root proxy handling if location is set.
     # supports root and http destinations
