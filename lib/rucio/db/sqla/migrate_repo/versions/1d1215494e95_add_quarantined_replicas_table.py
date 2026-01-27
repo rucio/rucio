@@ -12,15 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add quarantined_replicas table '''
+""" add quarantined_replicas table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key
 
 from rucio.common.schema import get_schema_value
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -29,11 +35,11 @@ down_revision = '575767d9f89'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('quarantined_replicas',
                      sa.Column('rse_id', GUID()),
                      sa.Column('path', sa.String(1024)),
@@ -64,10 +70,10 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('quarantined_replicas')
         drop_table('quarantined_replicas_history')

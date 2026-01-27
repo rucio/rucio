@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Add status column in messages '''
+""" Add status column in messages """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
+
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = 'a193a275255c'
@@ -24,24 +28,20 @@ down_revision = 'a118956323f8'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        add_column('messages', sa.Column('services', sa.String(2048)), schema=schema[:-1])
-        add_column('messages_history', sa.Column('services', sa.String(2048)), schema=schema[:-1])
+    if is_current_dialect('oracle', 'postgresql', 'mysql'):
+        add_column('messages', sa.Column('services', sa.String(2048)))
+        add_column('messages_history', sa.Column('services', sa.String(2048)))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
-        drop_column('messages', 'services', schema=schema[:-1])
-        drop_column('messages_history', 'services', schema=schema[:-1])
+    if is_current_dialect('oracle', 'postgresql', 'mysql'):
+        drop_column('messages', 'services')
+        drop_column('messages_history', 'services')

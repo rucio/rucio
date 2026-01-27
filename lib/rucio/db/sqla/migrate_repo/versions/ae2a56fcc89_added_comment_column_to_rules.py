@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added comment column to rules '''
+""" added comment column to rules """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
 
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.models import String
 
 # Alembic revision identifiers
@@ -26,24 +29,22 @@ down_revision = '45378a1e76a8'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('rules', sa.Column('comments', String(255)), schema=schema)
-        add_column('rules_hist_recent', sa.Column('comments', String(255)), schema=schema)
-        add_column('rules_history', sa.Column('comments', String(255)), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('rules', sa.Column('comments', String(255)))
+        add_column('rules_hist_recent', sa.Column('comments', String(255)))
+        add_column('rules_history', sa.Column('comments', String(255)))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('rules', 'comments', schema=schema)
-        drop_column('rules_hist_recent', 'comments', schema=schema)
-        drop_column('rules_history', 'comments', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('rules', 'comments')
+        drop_column('rules_hist_recent', 'comments')
+        drop_column('rules_history', 'comments')

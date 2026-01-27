@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Add deleted_did_meta table '''
+""" Add deleted_did_meta table """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_index, create_primary_key, create_table, drop_table
 
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_table,
+    get_backend_enum,
+    is_current_dialect,
+    try_drop_enum,
+)
 from rucio.db.sqla.types import JSON
 
 # Alembic revision identifiers
@@ -27,18 +34,17 @@ down_revision = 'b5493606bbf5'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    deleted_did_type = get_backend_enum(DIDType, name='DEL_DID_META_DID_TYPE_CHK')
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('deleted_did_meta',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='DEL_DID_META_DID_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', deleted_did_type),
                      sa.Column('meta', JSON()),
                      sa.Column('created_at', sa.DateTime),
                      sa.Column('updated_at', sa.DateTime),
@@ -49,9 +55,13 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('deleted_did_meta')
+
+        # On PostgreSQL drop the enum type once the table has been removed.
+        if is_current_dialect('postgresql'):
+            try_drop_enum('DEL_DID_META_DID_TYPE_CHK')
