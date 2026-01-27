@@ -189,6 +189,8 @@ class SubscriptionClient(BaseClient):
         """
         Mark a subscription as inactive
 
+        .. versionadded:: 38.0.0
+
         Parameters
         ----------
         name : Name of the subscription
@@ -198,6 +200,11 @@ class SubscriptionClient(BaseClient):
         ------
         NotFound
             If subscription is not found
+
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         if not account:
             account = self.account
