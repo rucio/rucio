@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import configparser
 import importlib
 import logging
 import os
@@ -22,8 +23,9 @@ from packaging.specifiers import SpecifierSet
 
 from rucio.common import config
 from rucio.common.client import get_client_vo
+from rucio.common.config_settings import Config as ConfigSettings
 from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES, POLICY_ALGORITHM_TYPES_LITERAL
-from rucio.common.exception import InvalidAlgorithmName, InvalidPolicyPackageAlgorithmType, PolicyPackageIsNotVersioned, PolicyPackageVersionError
+from rucio.common.exception import ConfigNotFound, InvalidAlgorithmName, InvalidPolicyPackageAlgorithmType, PolicyPackageIsNotVersioned, PolicyPackageVersionError
 from rucio.version import current_version
 
 if TYPE_CHECKING:
@@ -65,6 +67,16 @@ def _get_supported_versions_from_policy_package(module: 'ModuleType') -> Specifi
         supported_versionset = ','.join(supported_versionset)
 
     return SpecifierSet(supported_versionset)
+
+
+def get_lfn2pfn_algorithm_default() -> str:
+    """Returns the default algorithm name for LFN2PFN translation for this server."""
+    default_lfn2pfn = "hash"
+    try:
+        default_lfn2pfn = ConfigSettings.policy.lfn2pfn_algorithm_default()
+    except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound, RuntimeError):
+        pass
+    return default_lfn2pfn
 
 
 class PolicyPackageAlgorithms:

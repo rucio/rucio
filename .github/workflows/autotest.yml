@@ -38,6 +38,64 @@ jobs:
           pip install ruff
       - name: Run Ruff
         run: ruff check --output-format=github .
+
+  python_config_annotations:
+    if: |
+      !startsWith(github.ref_name, 'release')
+      && !startsWith(github.base_ref, 'release')
+      && github.event_name != 'schedule'
+      && github.ref_type != 'tag'
+    name: Check Configuration Annotations
+    runs-on: ubuntu-latest
+    env:
+      UPDATED_CONFIG_ANNOTATIONS_REPORT_FILE: ../updated_config_annotation_report.txt
+      INITIAL_CONFIG_ANNOTATIONS_REPORT_FILE: ../initial_config_annotation_report.txt
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Install client and common
+        id: install_common
+        shell: bash
+        run: sudo python3 setup_rucio_client.py install
+      - name: Count current number of configuration annotations
+        id: count_updated
+        shell: bash
+        run: |
+          python3 tools/generate_configuration_setting.py --count > ${{env.UPDATED_CONFIG_ANNOTATIONS_REPORT_FILE}}
+          echo "The current number of annotations for configuration settings : $(cat < ${{ env.UPDATED_CONFIG_ANNOTATIONS_REPORT_FILE }})"
+          sudo rm -rf /home/runner/work/rucio/rucio/*
+      - name: Checkout ancestor commit with rucio/master
+        uses: ./.github/actions/checkout_ancestor_commit
+        with:
+          paths_to_copy: |
+            tools/generate_configuration_setting.py
+            lib/rucio/common/config_settings.py
+            lib/rucio/common/config.py
+            lib/rucio/common/types.py
+      - name: Count initial number of configuration annotations
+        id: count_initial
+        shell: bash
+        run: |
+          sudo python3 setup_rucio_client.py install
+          python3 tools/generate_configuration_setting.py --count > ${{env.INITIAL_CONFIG_ANNOTATIONS_REPORT_FILE}}
+          echo "The current number of annotations for configuration settings : $(cat < ${{ env.INITIAL_CONFIG_ANNOTATIONS_REPORT_FILE}})"
+          sudo rm -rf /home/runner/work/rucio/rucio/*
+      - name: Diff of missing annotations
+        shell: bash
+        run: |
+          INITIAL_CONFIG_ANNOTATIONS=$(cat < ${{ env.INITIAL_CONFIG_ANNOTATIONS_REPORT_FILE }})
+          UPDATE_CONFIG_ANNOTATIONS=$(cat < ${{ env.UPDATED_CONFIG_ANNOTATIONS_REPORT_FILE }})
+
+          echo "The initial ratio of documented configuration parameters to undocumented parameters: $INITIAL_CONFIG_ANNOTATIONS"
+          echo "The updated ratio of documented configuration parameters to undocumented parameters: $UPDATE_CONFIG_ANNOTATIONS"
+          if [ $INITIAL_CONFIG_ANNOTATIONS -lt $UPDATE_CONFIG_ANNOTATIONS ]; then
+            echo "A new configuration parameter was added as a string and not as a defined option"
+            echo "Please ensure the new parameter is called from rucio.common.config_settings"
+            echo "`option = Config.[section].[option]()`"
+            echo "where Config.[section].[option] is a ConfigOption type."
+            echo "Adding documentation comments ensures all parameters are up to date and documentation is accessible to users."
+            exit 1
+          fi
   python_annotations:
     if: |
       !startsWith(github.ref_name, 'release')

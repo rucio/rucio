@@ -201,7 +201,7 @@ class DownloadClient:
         self.is_tape_excluded = True
         self.is_admin = False
         if check_admin:
-            account_attributes = list(self.client.list_account_attributes(self.client.account))
+            account_attributes = list(self.client.list_account_attributes(str(self.client.account)))
             for attr in account_attributes[0]:
                 if attr['key'] == 'admin':
                     self.is_admin = attr['value'] is True
