@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+import rucio.core.did as rdid
 from rucio.common import exception
 from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
@@ -32,6 +33,7 @@ from rucio.core.did import (
     get_did_atime,
     get_metadata,
     get_users_following_did,
+    list_content_history,
     list_dids,
     list_new_dids,
     remove_did_from_followed,
@@ -68,6 +70,16 @@ class TestDIDCore:
         for dsn in dsns:
             add_did(scope=mock_scope, name=dsn['name'], did_type='DATASET', account=root_account)
         delete_dids(dids=dsns, account=root_account)
+
+    def test_list_content_history(self, mock_scope, monkeypatch):
+        """ DATA IDENTIFIERS (CORE): List Content History """
+        def mock_add_messages(*args, **kwargs):
+            raise Exception("Caught!")
+        tmp_dsn1 = did_name_generator('dataset')
+        with monkeypatch.context() as m:
+            m.setattr(rdid, "add_messages", mock_add_messages)
+            for d in list_content_history(scope=mock_scope, name=tmp_dsn1):
+                print(d)
 
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch DIDs accessed_at timestamp"""
