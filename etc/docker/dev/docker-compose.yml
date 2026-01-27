@@ -62,6 +62,9 @@ services:
       - RUCIO_SOURCE_DIR=/rucio_source
       - RDBMS
       - DEV_PROFILES
+      - RUCIO_LOG_STREAM=stderr
+      - RUCIO_LOGGING_REDIRECT_STDOUT_TO_STDERR=true
+      - PYTHONUNBUFFERED=true
     depends_on:
       oracle:
         condition: service_healthy
