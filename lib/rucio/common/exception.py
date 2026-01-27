@@ -1303,3 +1303,14 @@ class OpenDataDuplicateRecordID(OpenDataError):
         super(OpenDataDuplicateRecordID, self).__init__(*args)
         self._message = f"Data identifier with the same Record ID ({record_id}) already exists in the open data catalog."
         self.error_code = 123
+
+
+class StartupCheckError(RucioException):
+    """
+    Raised when a startup diagnostic check fails.
+    """
+
+    def __init__(self, *args):
+        super(StartupCheckError, self).__init__(*args)
+        self._message = "Startup diagnostic failed."
+        self.error_code = 124
