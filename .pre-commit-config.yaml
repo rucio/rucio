@@ -4,6 +4,15 @@ repos:
   hooks:
   - id: end-of-file-fixer
   - id: trailing-whitespace
+- repo: https://github.com/PyCQA/flake8
+  rev: 7.1.1
+  hooks:
+  - id: flake8
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.9.3
+  hooks:
+  - id: ruff
+    args: [ --fix ]
 - repo: local
   hooks:
   - id: add-header
@@ -11,6 +20,16 @@ repos:
     description: Run the `add_header` script to verify the file headers
     entry: tools/add_header
     language: system
+  - id: import-linter
+    name: Import Dependency Check
+    entry: bash -c 'PYTHONPATH=lib lint-imports "$@"' --
+    args: [--config, .importlinter]
+    language: python
+    additional_dependencies: ['import-linter']
+    files: \.py$
+    require_serial: true
+    types: [python]
+    pass_filenames: false
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.14.9
   hooks:
