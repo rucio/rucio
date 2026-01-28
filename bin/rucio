@@ -102,7 +102,7 @@ def map_legacy_command() -> Optional[list[str]]:
 def run_command(args, use_multi_host_functionality):
     commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download", "opendata")
     if (any(arg in commands for arg in sys.argv)) or args.help or args.version:
-            main(standalone_mode = not use_multi_host_functionality)  # pylint: disable=E1120
+        main(standalone_mode = not use_multi_host_functionality)  # pylint: disable=E1120
 
     else:
         try:
