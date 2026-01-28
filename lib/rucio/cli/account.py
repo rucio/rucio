@@ -301,7 +301,6 @@ def identity_add(ctx: click.Context, account_name: str, type_: str, id: str, ema
     print('Added new identity to account: %s-%s' % (id, account_name))
 
 
-
 @identity.command("remove")
 @click.argument("account-name", required=True)
 @click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"]), help="Authentication type", required=True)

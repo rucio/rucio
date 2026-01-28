@@ -124,7 +124,6 @@ def run_command(args, use_multi_host_functionality):
 
 if __name__ == "__main__":
 
-
     parser = argparse.ArgumentParser(add_help=False)
     # Check for legacy flag
     parser.add_argument("--legacy", action="store_true")
