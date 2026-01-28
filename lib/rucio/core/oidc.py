@@ -15,7 +15,7 @@
 import hashlib
 import json
 import logging
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import traceback
 from datetime import datetime, timedelta
 from math import floor

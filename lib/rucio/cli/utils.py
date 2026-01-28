@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import signal
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import sys
 import traceback
 from configparser import NoOptionError, NoSectionError

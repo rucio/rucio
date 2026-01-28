@@ -16,7 +16,7 @@ import logging
 import os
 import os.path
 import shutil
-from subprocess import call
+from subprocess import call  # noqa: S404 -- subprocess used for external commands
 
 from rucio.common import exception
 from rucio.common.checksum import adler32
