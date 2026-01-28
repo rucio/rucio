@@ -157,6 +157,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+preview = true
 select = [
     "E",    # All default pycodestyle error families
     "W",    # All default pycodestyle warning families

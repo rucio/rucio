@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import json
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import sys
 
 import requests

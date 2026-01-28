@@ -259,6 +259,7 @@ def limit_remove(ctx: click.Context, account_name: str, rse: str, locality: str)
     ctx.obj.client.delete_account_limit(account=account_name, rse=rse, locality=locality)
     print('Deleted account limit for account %s and RSE %s' % (account_name, rse))
 
+
 @account.group("identity")
 def identity():
     """Manage identities for an account - used to login"""
@@ -298,7 +299,6 @@ def identity_add(ctx: click.Context, account_name: str, type_: str, id: str, ema
 
     ctx.obj.client.add_identity(account=account_name, identity=id, authtype=type_, email=email, password=password)
     print('Added new identity to account: %s-%s' % (id, account_name))
-
 
 
 @identity.command("remove")
