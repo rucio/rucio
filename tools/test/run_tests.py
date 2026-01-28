@@ -85,7 +85,7 @@ import multiprocessing
 import os
 import pathlib
 import shutil
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import sys
 import time
 import traceback
