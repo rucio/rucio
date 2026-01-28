@@ -14,7 +14,7 @@
 
 import logging
 import os
-from xml.dom import minidom
+from xml.dom import minidom  # noqa: S408 -- trusted XML input
 
 import requests
 
