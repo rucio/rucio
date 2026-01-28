@@ -259,6 +259,7 @@ def limit_remove(ctx: click.Context, account_name: str, rse: str, locality: str)
     ctx.obj.client.delete_account_limit(account=account_name, rse=rse, locality=locality)
     print('Deleted account limit for account %s and RSE %s' % (account_name, rse))
 
+
 @account.group("identity")
 def identity():
     """Manage identities for an account - used to login"""
