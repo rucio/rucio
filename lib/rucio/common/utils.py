@@ -40,7 +40,7 @@ from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 from uuid import uuid4 as uuid
-from xml.etree import ElementTree
+from xml.etree import ElementTree  # noqa: S405 -- trusted XML input
 
 import requests
 from typing_extensions import ParamSpec
