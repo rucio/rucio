@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
