@@ -157,6 +157,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+preview = true  # Go to https://docs.astral.sh/ruff/rules/ to see which rules are additionally added
 select = [
     "I",    # isort
     "N",    # pep8-naming
