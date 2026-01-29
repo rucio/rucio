@@ -384,7 +384,7 @@ def _poll_transfers(
 
             # should touch transfers.
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
-            transfer_core.touch_transfer(transfertool_obj.external_host, transfer_id)
+            request_core.touch_requests_by_external_id(external_id=transfer_id)
         except (DatabaseException, DatabaseError) as error:
             if (re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0])
                     or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0])

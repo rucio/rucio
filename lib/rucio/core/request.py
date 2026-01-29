@@ -919,12 +919,17 @@ def update_request(
         started_at: Optional[datetime.datetime] = None,
         staging_started_at: Optional[datetime.datetime] = None,
         staging_finished_at: Optional[datetime.datetime] = None,
+        submitted_at: Optional[datetime.datetime] = None,
         source_rse_id: Optional[str] = None,
         err_msg: Optional[str] = None,
         attributes: Optional[dict[str, str]] = None,
         priority: Optional[int] = None,
         transfertool: Optional[str] = None,
+        external_id: Optional[str] = None,
+        external_host: Optional[str] = None,
+        dest_url: Optional[str] = None,
         *,
+        expected_state: Optional[RequestState] = None,
         raise_on_missing: bool = False,
         session: "Session",
 ) -> bool:
@@ -944,6 +949,8 @@ def update_request(
             update_items[models.Request.staging_started_at] = staging_started_at
         if staging_finished_at is not None:
             update_items[models.Request.staging_finished_at] = staging_finished_at
+        if submitted_at is not None:
+            update_items[models.Request.submitted_at] = submitted_at
         if source_rse_id is not None:
             update_items[models.Request.source_rse_id] = source_rse_id
         if err_msg is not None:
@@ -954,11 +961,18 @@ def update_request(
             update_items[models.Request.priority] = priority
         if transfertool is not None:
             update_items[models.Request.transfertool] = transfertool
+        if external_id is not None:
+            update_items[models.Request.external_id] = external_id
+        if external_host is not None:
+            update_items[models.Request.external_host] = external_host
+        if dest_url is not None:
+            update_items[models.Request.dest_url] = dest_url
 
         stmt = update(
             models.Request
         ).where(
-            models.Request.id == request_id
+            models.Request.id == request_id,
+            *([models.Request.state == expected_state] if expected_state is not None else [])
         ).execution_options(
             synchronize_session=False
         ).values(
@@ -1090,6 +1104,40 @@ def touch_requests_by_rule(
         ).values({
             models.Request.updated_at: datetime.datetime.utcnow() + datetime.timedelta(minutes=20)
         })
+        session.execute(stmt)
+    except IntegrityError as error:
+        raise RucioException(error.args)
+
+
+@METRICS.count_it
+@transactional_session
+def touch_requests_by_external_id(
+        external_id: str,
+        *,
+        session: "Session",
+) -> None:
+    """
+    Update the timestamp of requests matching the external transfer id.
+    Fails silently if no matching requests exist.
+    Only touches requests that haven't been updated in the last 30 seconds.
+
+    :param external_id:    External transfer job id as a string.
+    :param session:        Database session to use.
+    """
+    try:
+        stmt = update(
+            models.Request
+        ).prefix_with(
+            "/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle'
+        ).where(
+            models.Request.external_id == external_id,
+            models.Request.state == RequestState.SUBMITTED,
+            models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30)
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            updated_at=datetime.datetime.utcnow()
+        )
         session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
