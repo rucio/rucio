@@ -148,6 +148,18 @@ def _handle_requests(
                     timeout=timeout,
                     logger=logger,
                 )
+
+                requests_to_cancel = request_core.get_requests_to_cancel(
+                    state=RequestState.SUBMITTED,
+                    # all request_ids from chunk = {external_id: {request_id: {}}}
+                    request_ids=list(itertools.chain.from_iterable(chunk.values())),
+                )
+                if requests_to_cancel:
+                    transfer_core.cancel_transfers(
+                        transfertool_obj=transfertool_obj,
+                        transfers=requests_to_cancel,
+                        logger=logger,
+                    )
             except Exception:
                 logger(logging.ERROR, 'Exception', exc_info=True)
 
