@@ -345,10 +345,10 @@ def _poll_transfers(
         else:
             return
     except RequestException as error:
-        logger(logging.ERROR, "Failed to contact FTS server: %s" % (str(error)))
+        logger(logging.ERROR, "Failed to contact transfertool server: %s" % (str(error)))
         return
     except Exception:
-        logger(logging.ERROR, "Failed to query FTS info", exc_info=True)
+        logger(logging.ERROR, "Failed to query transfertool", exc_info=True)
         return
 
     tss = time.time()
@@ -368,7 +368,7 @@ def _poll_transfers(
                     transfer_core.mark_transfer_lost(request, logger=logger)
                 METRICS.counter('transfer_lost').inc()
             elif isinstance(transf_resp, Exception):
-                logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (transfertool_obj, transfer_id, transf_resp))
+                logger(logging.WARNING, "Failed to poll %s job (%s): %s" % (transfertool_obj, transfer_id, transf_resp))
                 METRICS.counter('query_transfer_exception').inc()
             else:
                 for request_id in request_ids.intersection(transf_resp):
