@@ -18,7 +18,7 @@ import sys
 from dataclasses import dataclass
 from typing import Any, Optional
 from urllib.parse import urlparse
-from xml.etree import ElementTree
+from xml.etree import ElementTree  # noqa: S405 -- trusted XML input
 
 import requests
 from requests.adapters import HTTPAdapter

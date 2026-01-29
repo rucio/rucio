@@ -19,7 +19,7 @@ import getopt
 import os
 import re
 import signal
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import sys
 import time
 from socket import gethostname
