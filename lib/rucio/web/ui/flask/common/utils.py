@@ -407,17 +407,15 @@ def userpass_auth():
             vos_with_desc = get_vo_descriptions(ui_vo)
             return render_template('login.html', account=None, vo=None, possible_vos=vos_with_desc, userpass_support=USERPASS_SUPPORT)
 
-    if not ui_account:
-        if MULTI_VO:
-            return render_template('problem.html', msg='Cannot get find any account associated with %s identity at VO %s.' % (html.escape(username), html.escape(ui_vo)))
-        else:
-            return render_template('problem.html', msg='Cannot get find any account associated with %s identity.' % (html.escape(username)))
-    token = get_token(auth.get_auth_token_user_pass, acc=ui_account, vo=ui_vo, idt=username, pwd=password)
+    token = None
+    if ui_account:
+        token = get_token(auth.get_auth_token_user_pass, acc=ui_account, vo=ui_vo, idt=username, pwd=password)
+
     if not token:
         if MULTI_VO:
-            return render_template('problem.html', msg='Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s at VO %s.') % (html.escape(username), html.escape(ui_account), html.escape(ui_vo))
+            return render_template('problem.html', msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(ui_vo))
         else:
-            return render_template('problem.html', msg='Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (html.escape(username), html.escape(ui_account))
+            return render_template('problem.html', msg='Authentication failed. Please check your credentials and try again.')
 
     return finalize_auth(token, 'userpass')
 
@@ -477,17 +475,15 @@ def saml_auth(method, data=None):
                 vos_with_desc = get_vo_descriptions(ui_vo)
                 return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
-        if not ui_account:
-            if MULTI_VO:
-                return render_template("problem.html", msg='Cannot get find any account associated with %s identity at VO %s.' % (html.escape(saml_nameid), html.escape(ui_vo)))
-            else:
-                return render_template("problem.html", msg='Cannot get find any account associated with %s identity.' % (html.escape(saml_nameid)))
-        token = get_token(auth.get_auth_token_saml, acc=ui_account, vo=ui_vo, idt=saml_nameid)
+        token = None
+        if ui_account:
+            token = get_token(auth.get_auth_token_saml, acc=ui_account, vo=ui_vo, idt=saml_nameid)
+
         if not token:
             if MULTI_VO:
-                return render_template("problem.html", msg=('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s at VO %s.') % (html.escape(saml_nameid), html.escape(ui_account), html.escape(ui_vo)))
+                return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(ui_vo))
             else:
-                return render_template("problem.html", msg=('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (html.escape(saml_nameid), html.escape(ui_account)))
+                return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
         return finalize_auth(token, 'saml')
 
     # If method is POST, check the received SAML response and redirect to home if valid
@@ -526,18 +522,15 @@ def saml_auth(method, data=None):
                     vos_with_desc = get_vo_descriptions(ui_vo)
                     return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
-            if not ui_account:
-                if MULTI_VO:
-                    return render_template("problem.html", msg='Cannot get find any account associated with %s identity at VO %s.' % (html.escape(saml_nameid), html.escape(ui_vo)))
-                else:
-                    return render_template("problem.html", msg='Cannot get find any account associated with %s identity.' % (html.escape(saml_nameid)))
-            token = get_token(auth.get_auth_token_saml, acc=ui_account, vo=ui_vo, idt=saml_nameid)
+            token = None
+            if ui_account:
+                token = get_token(auth.get_auth_token_saml, acc=ui_account, vo=ui_vo, idt=saml_nameid)
+
             if not token:
                 if MULTI_VO:
-                    return render_template("problem.html",
-                                           msg=('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s at VO %s.') % (html.escape(saml_nameid), html.escape(ui_account), html.escape(ui_vo)))
+                    return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(ui_vo))
                 else:
-                    return render_template("problem.html", msg=('Cannot get auth token. It is possible that the presented identity %s is not mapped to any Rucio account %s.') % (html.escape(saml_nameid), html.escape(ui_account)))
+                    return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
             return finalize_auth(token, 'saml', cookie_extra)
 
         return render_template("problem.html", msg="Not authenticated")
