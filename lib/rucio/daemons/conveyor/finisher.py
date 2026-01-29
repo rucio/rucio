@@ -82,7 +82,6 @@ def _fetch_requests(
         limit=db_bulk,
         total_workers=total_workers,
         worker_number=worker_number,
-        mode_all=True,
         include_dependent=False,
         hash_variable='rule_id',
     )
