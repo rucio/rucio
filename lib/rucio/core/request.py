@@ -755,7 +755,6 @@ def get_and_mark_next(
         activity: Optional[str] = None,
         total_workers: int = 0,
         worker_number: int = 0,
-        mode_all: bool = False,
         hash_variable: str = 'id',
         activity_shares: Optional[dict[str, Any]] = None,
         include_dependent: bool = True,
@@ -882,21 +881,17 @@ def get_and_mark_next(
             )
         query_result = session.execute(query).scalars()
         if query_result:
-            if mode_all:
-                for res in query_result:
-                    res_dict = res.to_dict()
-                    res_dict['request_id'] = res_dict['id']
-                    res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
+            for res in query_result:
+                res_dict = res.to_dict()
+                res_dict['request_id'] = res_dict['id']
+                res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
 
-                    dst_id = res_dict['dest_rse_id']
-                    src_id = res_dict['source_rse_id']
-                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True, load_attributes=True)
-                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True, load_attributes=True) if src_id is not None else None
+                dst_id = res_dict['dest_rse_id']
+                src_id = res_dict['source_rse_id']
+                res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True, load_attributes=True)
+                res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True, load_attributes=True) if src_id is not None else None
 
-                    result.append(res_dict)
-            else:
-                for res in query_result:
-                    result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
+                result.append(res_dict)
 
             request_ids = {r['request_id'] for r in result}
             if processed_by and request_ids:

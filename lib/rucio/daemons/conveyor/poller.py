@@ -84,7 +84,6 @@ def _fetch_requests(
         older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
         total_workers=total_workers,
         worker_number=worker_number,
-        mode_all=True,
         hash_variable='id',
         activity=activity,
         activity_shares=activity_shares,
