@@ -1356,7 +1356,8 @@ class ReplicaLock(BASE, ModelBase):
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='LOCKS_ACCOUNT_FK'),
                    CheckConstraint('STATE IS NOT NULL', name='LOCKS_STATE_NN'),
                    CheckConstraint('ACCOUNT IS NOT NULL', name='LOCKS_ACCOUNT_NN'),
-                   Index('LOCKS_RULE_ID_IDX', 'rule_id'))
+                   Index('LOCKS_RULE_ID_IDX', 'rule_id'),
+                   Index('LOCKS_ACCOUNT_IDX', 'account'))
 
 
 class DatasetLock(BASE, ModelBase):

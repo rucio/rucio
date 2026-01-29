@@ -448,7 +448,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def get_local_account_usage(self, account: str, rse: Optional[str] = None) -> "Iterator[dict[str, Any]]":
+    def get_local_account_usage(self, account: str, rse: Optional[str] = None, unique: bool = False) -> "Iterator[dict[str, Any]]":
         """
         List the account usage for one or all rses of this account.
 
@@ -458,13 +458,22 @@ class AccountClient(BaseClient):
             The account name.
         rse :
             The rse name.
+        unique :
+            If True, count unique replicas to avoid double-counting when multiple locks exist.
+            Warning: This is computationally expensive as it queries replicas directly rather
+            than using cached counters. Use sparingly, especially for accounts with many replicas.
         """
         if rse:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local', rse])
         else:
             path = '/'.join([self.ACCOUNTS_BASEURL, account, 'usage', 'local'])
         url = build_url(choice(self.list_hosts), path=path)
-        res = self._send_request(url, method=HTTPMethod.GET)
+
+        params = {}
+        if unique:
+            params['unique'] = 'true'
+
+        res = self._send_request(url, method=HTTPMethod.GET, params=params)
         if res.status_code == codes.ok:
             return self._load_json_data(res)
         else:
