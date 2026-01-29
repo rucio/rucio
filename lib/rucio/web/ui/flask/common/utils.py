@@ -347,12 +347,12 @@ def x509token_auth(data=None):
 
     if not ui_account:
         if MULTI_VO:
-            msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account at VO: %s." % (html.escape(dn), html.escape(ui_vo))
+            msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account at VO: %s." % (html.escape(dn), html.escape(str(ui_vo) if ui_vo else ""))
         else:
             msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account." % (html.escape(dn))
     else:
         if MULTI_VO:
-            msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s at VO: %s." % (html.escape(dn), html.escape(ui_account), html.escape(ui_vo))
+            msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s at VO: %s." % (html.escape(dn), html.escape(ui_account), html.escape(str(ui_vo) if ui_vo else ""))
         else:
             msg = "<br><br>Your certificate (%s) is not mapped to (possibly any) rucio account: %s." % (html.escape(dn), html.escape(ui_account))
 
@@ -413,7 +413,7 @@ def userpass_auth():
 
     if not token:
         if MULTI_VO:
-            return render_template('problem.html', msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(ui_vo))
+            return render_template('problem.html', msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(str(ui_vo) if ui_vo else ""))
         else:
             return render_template('problem.html', msg='Authentication failed. Please check your credentials and try again.')
 
@@ -481,7 +481,7 @@ def saml_auth(method, data=None):
 
         if not token:
             if MULTI_VO:
-                return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(ui_vo))
+                return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(str(ui_vo) if ui_vo else ""))
             else:
                 return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
         return finalize_auth(token, 'saml')
@@ -528,7 +528,7 @@ def saml_auth(method, data=None):
 
             if not token:
                 if MULTI_VO:
-                    return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(ui_vo))
+                    return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(str(ui_vo) if ui_vo else ""))
                 else:
                     return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
             return finalize_auth(token, 'saml', cookie_extra)
