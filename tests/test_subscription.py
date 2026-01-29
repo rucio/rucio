@@ -251,6 +251,229 @@ class TestSubscriptionCoreGateway:
         for rule in list_subscription_rule_states(account='root', name=subscription_name, vo=vo):
             assert rule[3] == 2
 
+    def test_list_subscription_rule_states_backward_compat(self, vo, rse_factory, root_account, scope_factory):
+        """ SUBSCRIPTION (Gateway): Test list_subscription_rule_states without include_details (backward compatibility) """
+        _, scopes = scope_factory([vo])
+        tmp_scope = scopes[0]
+
+        rse, _ = rse_factory.make_mock_rse()
+        subscription_name = uuid()
+
+        # Create subscription with comments
+        sub_id = add_subscription(
+            name=subscription_name,
+            account='root',
+            filter_={'scope': [tmp_scope.external]},
+            replication_rules=[{'rse_expression': 'MOCK', 'copies': 1, 'activity': self.activity}],
+            lifetime=100000,
+            retroactive=False,
+            dry_run=False,
+            comments='Test subscription',
+            issuer='root',
+            vo=vo
+        )
+
+        # Add dataset and rule
+        dsn = did_name_generator('dataset')
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        add_rule(
+            dids=[{'scope': tmp_scope, 'name': dsn}],
+            account=root_account,
+            copies=1,
+            rse_expression=rse,
+            grouping='NONE',
+            weight=None,
+            lifetime=None,
+            locked=False,
+            subscription_id=sub_id
+        )
+
+        # Test default behavior (include_details=false)
+        results = list(list_subscription_rule_states(account='root', name=subscription_name, vo=vo))
+
+        assert len(results) == 1
+        result = results[0]
+
+        # Should return SubscriptionRuleState namedtuple
+        assert hasattr(result, '_fields')
+        assert result._fields == ('account', 'name', 'state', 'count')
+        assert result.account == 'root'
+        assert result.name == subscription_name
+        assert result.state in ['R', 'O', 'S', 'U', 'W', 'I']  # Valid rule states
+        assert result.count == 1
+
+        # Should NOT have subscription metadata
+        assert not hasattr(result, 'subscription_state')
+        assert not hasattr(result, 'comments')
+
+    def test_list_subscription_rule_states_with_details(self, vo, rse_factory, root_account, scope_factory):
+        """ SUBSCRIPTION (Gateway): Test list_subscription_rule_states with include_details=true """
+        _, scopes = scope_factory([vo])
+        tmp_scope = scopes[0]
+
+        rse, _ = rse_factory.make_mock_rse()
+        subscription_name = uuid()
+        comment_text = 'Test subscription with details'
+
+        # Create subscription with comments
+        sub_id = add_subscription(
+            name=subscription_name,
+            account='root',
+            filter_={'scope': [tmp_scope.external]},
+            replication_rules=[{'rse_expression': 'MOCK', 'copies': 1, 'activity': self.activity}],
+            lifetime=100000,
+            retroactive=False,
+            dry_run=False,
+            comments=comment_text,
+            issuer='root',
+            vo=vo
+        )
+
+        # Add dataset and rule
+        dsn = did_name_generator('dataset')
+        add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+        add_rule(
+            dids=[{'scope': tmp_scope, 'name': dsn}],
+            account=root_account,
+            copies=1,
+            rse_expression=rse,
+            grouping='NONE',
+            weight=None,
+            lifetime=None,
+            locked=False,
+            subscription_id=sub_id
+        )
+
+        # Test with include_details=true
+        results = list(list_subscription_rule_states(
+            account='root',
+            name=subscription_name,
+            include_details=True,
+            vo=vo
+        ))
+
+        assert len(results) == 1
+        result = results[0]
+
+        # Should return dict, not namedtuple
+        assert isinstance(result, dict)
+
+        # Check basic fields
+        assert result['account'] == 'root'
+        assert result['name'] == subscription_name
+        assert result['state'] in ['R', 'O', 'S', 'U', 'W', 'I']
+        assert result['count'] == 1
+
+        # Check subscription metadata fields
+        assert 'subscription_state' in result
+        assert result['subscription_state'] in ['A', 'I', 'N', 'U', 'B']
+        assert 'last_processed' in result
+        assert 'lifetime' in result
+        assert 'expired_at' in result
+        assert 'comments' in result
+        assert result['comments'] == comment_text
+
+    def test_list_subscription_rule_states_no_rules(self, vo):
+        """ SUBSCRIPTION (Gateway): Test that subscriptions without rules are included with LEFT OUTER JOIN """
+        subscription_name = uuid()
+
+        # Create subscription without adding any rules
+        add_subscription(
+            name=subscription_name,
+            account='root',
+            filter_={'scope': ['test']},
+            replication_rules=[{'rse_expression': 'MOCK', 'copies': 1, 'activity': self.activity}],
+            lifetime=100000,
+            retroactive=False,
+            dry_run=False,
+            comments='Subscription without rules',
+            issuer='root',
+            vo=vo
+        )
+
+        # Test default behavior - should now return subscription with count=0
+        results = list(list_subscription_rule_states(account='root', name=subscription_name, vo=vo))
+
+        # With LEFT OUTER JOIN, should return 1 row with NULL rule.state and count=0
+        assert len(results) == 1
+        result = results[0]
+        assert result.account == 'root'
+        assert result.name == subscription_name
+        assert result.state is None  # No rules, so state is NULL
+        assert result.count == 0
+
+        # Test with include_details=true
+        results_detailed = list(list_subscription_rule_states(
+            account='root',
+            name=subscription_name,
+            include_details=True,
+            vo=vo
+        ))
+
+        assert len(results_detailed) == 1
+        result = results_detailed[0]
+        assert result['count'] == 0
+        assert result['subscription_state'] in ['A', 'I', 'N', 'U', 'B']
+        assert result['comments'] == 'Subscription without rules'
+
+    def test_list_subscription_rule_states_multiple_states(self, vo, rse_factory, root_account, scope_factory):
+        """ SUBSCRIPTION (Gateway): Test subscription with rules in different states """
+        _, scopes = scope_factory([vo])
+        tmp_scope = scopes[0]
+
+        rse1, _ = rse_factory.make_mock_rse()
+        subscription_name = uuid()
+
+        # Create subscription
+        sub_id = add_subscription(
+            name=subscription_name,
+            account='root',
+            filter_={'scope': [tmp_scope.external]},
+            replication_rules=[{'rse_expression': 'MOCK', 'copies': 1, 'activity': self.activity}],
+            lifetime=100000,
+            retroactive=False,
+            dry_run=False,
+            comments='Multi-state test',
+            issuer='root',
+            vo=vo
+        )
+
+        # Add multiple rules
+        for i in range(3):
+            dsn = did_name_generator('dataset')
+            add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
+            add_rule(
+                dids=[{'scope': tmp_scope, 'name': dsn}],
+                account=root_account,
+                copies=1,
+                rse_expression=rse1,
+                grouping='NONE',
+                weight=None,
+                lifetime=None,
+                locked=False,
+                subscription_id=sub_id
+            )
+
+        # Test with include_details - should aggregate by state
+        results = list(list_subscription_rule_states(
+            account='root',
+            name=subscription_name,
+            include_details=True,
+            vo=vo
+        ))
+
+        # All rules might be in same state or different states
+        assert len(results) >= 1
+
+        # Sum all counts
+        total_count = sum(r['count'] for r in results)
+        assert total_count == 3
+
+        # All results should have same subscription metadata
+        for result in results:
+            assert result['subscription_state'] in ['A', 'I', 'N', 'U', 'B']
+            assert result['comments'] == 'Multi-state test'
+
 
 def test_create_and_update_and_list_subscription(rse_factory, rest_client, auth_token):
     """ SUBSCRIPTION (REST): Test the creation of a new subscription, update it, list it """
