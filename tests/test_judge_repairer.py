@@ -25,10 +25,9 @@ from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import failed_transfer, get_replica_locks, successful_transfer
 from rucio.core.replica import get_replica
-from rucio.core.request import cancel_request_did
+from rucio.core.request import queue_request_cancellation
 from rucio.core.rse import add_rse, add_rse_attribute, update_rse
 from rucio.core.rule import add_rule, get_rule
-from rucio.core.transfer import cancel_transfers
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.db.sqla import models
@@ -260,10 +259,8 @@ class TestJudgeRepairer:
         successful_transfer(scope=scope, name=files[1]['name'], rse_id=get_replica_locks(scope=files[1]['scope'], name=files[2]['name'])[0].rse_id, nowait=False)
         failed_transfer(scope=scope, name=files[2]['name'], rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
         failed_transfer(scope=scope, name=files[3]['name'], rse_id=get_replica_locks(scope=files[3]['scope'], name=files[3]['name'])[0].rse_id)
-        transfs = cancel_request_did(scope=scope, name=files[2]['name'], dest_rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
-        cancel_transfers(transfs)
-        transfs = cancel_request_did(scope=scope, name=files[3]['name'], dest_rse_id=get_replica_locks(scope=files[3]['scope'], name=files[2]['name'])[0].rse_id)
-        cancel_transfers(transfs)
+        queue_request_cancellation(scope=scope, name=files[2]['name'], dest_rse_id=get_replica_locks(scope=files[2]['scope'], name=files[2]['name'])[0].rse_id)
+        queue_request_cancellation(scope=scope, name=files[3]['name'], dest_rse_id=get_replica_locks(scope=files[3]['scope'], name=files[2]['name'])[0].rse_id)
 
         assert (rule_id == get_rule(rule_id)['id'].replace('-', '').lower())
         assert (RuleState.STUCK == get_rule(rule_id)['state'])

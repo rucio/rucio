@@ -29,7 +29,17 @@ from rucio.common import exception
 from rucio.common.constants import TransferLimitDirection
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
-from rucio.core.request import get_request_stats, re_sync_all_transfer_limits, release_all_waiting_requests, release_waiting_requests_fifo, release_waiting_requests_grouped_fifo, reset_stale_waiting_requests, set_transfer_limit_stats
+from rucio.core.request import (
+    cancel_requests,
+    get_request_stats,
+    get_requests_to_cancel,
+    re_sync_all_transfer_limits,
+    release_all_waiting_requests,
+    release_waiting_requests_fifo,
+    release_waiting_requests_grouped_fifo,
+    reset_stale_waiting_requests,
+    set_transfer_limit_stats,
+)
 from rucio.core.rse import RseCollection, RseData
 from rucio.core.transfer import applicable_rse_transfer_limits
 from rucio.daemons.common import ProducerConsumerDaemon, db_workqueue
@@ -119,6 +129,12 @@ def throttler(
         if release_groups is None:
             return
         logger = logging.log
+
+        # Cancel waiting requests that are scheduled for cancellation
+        requests_to_cancel = get_requests_to_cancel(state=RequestState.WAITING)
+        if requests_to_cancel:
+            cancel_requests([r['request_id'] for r in requests_to_cancel])
+
         logger(logging.INFO, "Throttler - schedule requests")
         try:
             _handle_requests(release_groups, logger=logger)

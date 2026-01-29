@@ -1243,9 +1243,12 @@ def delete_rule(
         rule.delete(session=session)
 
         for transfer in transfers_to_delete:
-            transfers_to_cancel = request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'],
-                                                                  dest_rse_id=transfer['rse_id'], session=session)
-            transfer_core.cancel_transfers(transfers_to_cancel)
+            request_core.queue_request_cancellation(
+                scope=transfer['scope'],
+                name=transfer['name'],
+                dest_rse_id=transfer['rse_id'],
+                session=session,
+            )
 
 
 @transactional_session
@@ -1701,13 +1704,12 @@ def update_rule(
                     models.ReplicaLock.state == LockState.REPLICATING
                 )
                 for lock in session.execute(query).scalars().all():
-                    transfers_to_cancel = request_core.cancel_request_did(
+                    request_core.queue_request_cancellation(
                         scope=lock.scope,
                         name=lock.name,
                         dest_rse_id=lock.rse_id,
                         session=session
                     )
-                    transfer_core.cancel_transfers(transfers_to_cancel)
                     query = select(
                         models.RSEFileAssociation.md5,
                         models.RSEFileAssociation.bytes,
@@ -1805,13 +1807,12 @@ def update_rule(
                         for lock2 in session.execute(query).scalars().all():
                             lock2.state = LockState.STUCK
                             rule_ids_to_stuck.add(lock2.rule_id)
-                        transfers_to_cancel = request_core.cancel_request_did(
+                        request_core.queue_request_cancellation(
                             scope=lock.scope,
                             name=lock.name,
                             dest_rse_id=lock.rse_id,
                             session=session
                         )
-                        transfer_core.cancel_transfers(transfers_to_cancel)
                         query = select(
                             models.RSEFileAssociation
                         ).where(
@@ -3578,8 +3579,12 @@ def __evaluate_did_detach(
             account_counter.decrease(rse_id=rse_id, account=rule.account, files=len(account_counter_decreases[rse_id]), bytes_=sum(account_counter_decreases[rse_id]), session=session)
 
         for transfer in transfers_to_delete:
-            transfers_to_cancel = request_core.cancel_request_did(scope=transfer['scope'], name=transfer['name'], dest_rse_id=transfer['rse_id'], session=session)
-            transfer_core.cancel_transfers(transfers_to_cancel)
+            request_core.queue_request_cancellation(
+                scope=transfer['scope'],
+                name=transfer['name'],
+                dest_rse_id=transfer['rse_id'],
+                session=session,
+            )
 
 
 @transactional_session

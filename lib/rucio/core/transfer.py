@@ -18,7 +18,6 @@ import operator
 import re
 import sys
 import time
-import traceback
 from collections import defaultdict
 from typing import TYPE_CHECKING, cast
 
@@ -1323,37 +1322,31 @@ def update_transfer_priority(transfers_to_update, logger=logging.log):
             logger(logging.DEBUG, "Updated transfer %s priority in transfertool to %s: %s" % (transfer_id, priority, res['http_message']))
 
 
-def cancel_transfers(transfers_to_cancel, logger=logging.log):
+def cancel_transfers(
+        transfertool_obj: "Transfertool",
+        transfers: "list[dict[str, Any]]",
+        logger: "LoggerFunction" = logging.log,
+) -> None:
     """
-    Cancel transfers in fts
+    Cancel transfers in the external transfertool and optionally update request state.
 
-    :param transfers_to_cancel: dict {external_host1: {transfer_id1, transfer_id2}, external_host2: [...], ...}
-    :param logger: decorated logger instance
+    :param transfertool_obj: Transfertool object to use for cancellation.
+    :param transfers:        List of dicts with 'external_id' key (required) and optionally 'request_id'.
+                             If 'request_id' is present, the request state is updated to CANCELLED.
+    :param logger:           Logger function.
     """
-
-    for external_host, transfer_ids in transfers_to_cancel.items():
-        transfertool_obj = FTS3Transfertool(external_host=external_host)
-        for transfer_id in transfer_ids:
+    for transfer in transfers:
+        external_id = transfer.get('external_id')
+        if external_id is not None:
             try:
-                transfertool_obj.cancel(transfer_ids=[transfer_id])
-                logger(logging.DEBUG, "Cancelled FTS3 transfer %s on %s" % (transfer_id, transfertool_obj))
+                transfertool_obj.cancel(transfer_ids=[external_id])
+                logger(logging.DEBUG, 'Cancelled transfer %s on %s', external_id, transfertool_obj)
             except Exception as error:
-                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, str(error)))
+                logger(logging.WARNING, 'Could not cancel transfer %s on %s: %s', external_id, transfertool_obj, str(error))
 
-
-@METRICS.count_it
-def cancel_transfer(transfertool_obj, transfer_id):
-    """
-    Cancel a transfer based on external transfer id.
-
-    :param transfertool_obj: Transfertool object to be used for cancellation.
-    :param transfer_id:      External-ID as a 32 character hex string.
-    """
-
-    try:
-        transfertool_obj.cancel(transfer_ids=[transfer_id])
-    except Exception:
-        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
+        request_id = transfer.get('request_id')
+        if request_id is not None:
+            request_core.cancel_requests(request_ids=[request_id])
 
 
 @transactional_session
