@@ -1811,11 +1811,10 @@ def list_account_usage(args, client, logger, console, spinner):
         spinner.update(status='Fetching account usage')
         spinner.start()
 
-    unique = getattr(args, 'unique', False)
     usage = client.get_local_account_usage(
         account=args.usage_account,
         rse=args.rse,
-        unique=unique
+        unique=args.unique
     )
     table_data = []
     for item in usage:

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""add_index_on_locks_account"""    # noqa: D`400, D415
+"""add_index_on_locks_account"""    # noqa: D400, D415
 
 from alembic import context
 from alembic.op import create_index, drop_index
@@ -23,7 +23,7 @@ down_revision = '3b943000da18'
 
 
 def upgrade():
-    """Upgrade schema."""
+    """Upgrade the database to this revision."""
     dialect_name = context.get_context().dialect.name
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else None
 
@@ -32,7 +32,7 @@ def upgrade():
 
 
 def downgrade():
-    """Downgrade schema."""
+    """Downgrade the database to the previous revision."""
     dialect_name = context.get_context().dialect.name
     schema = context.get_context().version_table_schema if context.get_context().version_table_schema else None
 
