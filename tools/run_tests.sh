@@ -186,7 +186,7 @@ fi
 
 if test ${activate_rse}; then
     echo 'Activating default RSEs (XRD1, XRD2, XRD3, SSH1)'
-    tools/docker_activate_rses.sh
+    tools/docker_activate_rses.py
 fi
 
 if test ${init_only}; then
