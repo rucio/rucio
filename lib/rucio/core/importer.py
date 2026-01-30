@@ -87,7 +87,7 @@ def import_rses(
         new_protocols = rse.get('protocols')
         if new_protocols:
             # update existing, add missing and remove left over protocols
-            old_protocols = [{'scheme': protocol['scheme'], 'hostname': protocol['hostname'], 'port': protocol['port']} for protocol in rse_module.get_rse_protocols(rse_id=rse_id, session=session)['protocols']]
+            old_protocols = [{'scheme': protocol['scheme'], 'hostname': protocol['hostname'], 'port': protocol['port']} for protocol in rse_module.get_rse_protocols(rse_id=rse_id, use_cache=False, session=session)['protocols']]
             missing_protocols = [new_protocol for new_protocol in new_protocols if {'scheme': new_protocol['scheme'], 'hostname': new_protocol['hostname'], 'port': new_protocol['port']} not in old_protocols]
             outdated_protocols = [new_protocol for new_protocol in new_protocols if {'scheme': new_protocol['scheme'], 'hostname': new_protocol['hostname'], 'port': new_protocol['port']} in old_protocols]
             new_protocols = [{'scheme': protocol['scheme'], 'hostname': protocol['hostname'], 'port': protocol['port']} for protocol in new_protocols]
@@ -126,10 +126,13 @@ def import_rses(
 
         # Attributes
         attributes = rse.get('attributes', {})
-        attributes[RseAttr.LFN2PFN_ALGORITHM] = rse.get('lfn2pfn_algorithm')
-        attributes[RseAttr.VERIFY_CHECKSUM] = rse.get('verify_checksum')
+        # For legacy reasons, the following two attributes can be set at the top level
+        if RseAttr.LFN2PFN_ALGORITHM in rse:
+            attributes[RseAttr.LFN2PFN_ALGORITHM] = rse[RseAttr.LFN2PFN_ALGORITHM]
+        if RseAttr.VERIFY_CHECKSUM in rse:
+            attributes[RseAttr.VERIFY_CHECKSUM] = rse[RseAttr.VERIFY_CHECKSUM]
 
-        old_attributes = rse_module.list_rse_attributes(rse_id=rse_id, session=session)
+        old_attributes = rse_module.list_rse_attributes(rse_id=rse_id, use_cache=False, session=session)
         missing_attributes = [attribute for attribute in old_attributes if attribute not in attributes]
 
         for attr in attributes:
