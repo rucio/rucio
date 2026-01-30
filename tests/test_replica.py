@@ -32,7 +32,8 @@ from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_access_cnt, get_did_atime, list_files, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_rse_coverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
-from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
+from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute, get_rse_usage
+from rucio.core.rse_counter_obsolete import check_obsolete_replicas
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
 from rucio.db.sqla import models
@@ -554,6 +555,23 @@ class TestReplicaCore:
         name = did_name_generator('file')
         with pytest.raises(ReplicaNotFound):
             set_tombstone(rse_id, mock_scope, name)
+
+    def test_check_obsolete_replicas(self, rse_factory, mock_scope, root_account):
+        """ REPLICA (CORE): check obsolete replicas for a given rse """
+        # Set tombstone on replicas
+        rse, rse_id = rse_factory.make_mock_rse()
+        nbfiles = 3
+        for _ in range(nbfiles):
+            name = did_name_generator('file')
+            add_replica(rse_id, mock_scope, name, 4, root_account)
+            assert get_replica(rse_id, mock_scope, name)['tombstone'] is None
+            set_tombstone(rse_id, mock_scope, name)
+            assert get_replica(rse_id, mock_scope, name)['tombstone'] == OBSOLETE
+        check_obsolete_replicas(rse_id)
+        # we expect 3 files, 12 bytes in total for our rse_id.
+        res = get_rse_usage(rse_id, 'obsolete')[0]  # 3 files, 12 bytes
+        assert res['used'] == 12
+        assert res['files'] == 3
 
     def test_core_default_tombstone_correctly_set(self, rse_factory, did_factory, root_account):
         """ REPLICA (CORE): Per-RSE default tombstone is correctly taken into consideration"""
