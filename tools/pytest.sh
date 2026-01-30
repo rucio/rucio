@@ -64,8 +64,7 @@ fi
 XDIST_ARGS=()
 if [[ "$RUN_XDIST" == "True" ]]; then
   if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
-    # run on 3 processes instead of 2 on GitHub Actions
-    PROCESS_COUNT="3"
+    PROCESS_COUNT=$((2 * $(nproc)))
   else
     PROCESS_COUNT="auto"
   fi
