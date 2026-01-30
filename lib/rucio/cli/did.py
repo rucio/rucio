@@ -273,7 +273,7 @@ def content_add_(ctx, to_did, from_file, dids):
     limit = 499
 
     if from_file:
-        if len(dids) > 1:
+        if len(dids) != 1:
             raise ValueError('If --from-file option is active, only one file is supported. The file should contain a list of dids, one per line.')
         try:
             f = open(dids[0], 'r')
@@ -281,7 +281,8 @@ def content_add_(ctx, to_did, from_file, dids):
         except OSError as error:
             ctx.obj.logger.error("Can't open file '" + dids[0] + "'.")
             raise OSError from error
-
+    else:
+        dids = list(dids)
     dids = [{'scope': get_scope(did, ctx.obj.client)[0], 'name': get_scope(did, ctx.obj.client)[1]} for did in dids]
     if len(dids) <= limit:
         ctx.obj.client.attach_dids(scope=scope, name=name, dids=dids)
