@@ -23,7 +23,6 @@ atlas:
       - rucio_tests/test_authentication.py
       - rucio_tests/test_bb8.py
       - rucio_tests/test_rse_protocol_s3.py
-      - rucio_tests/test_oauthmanager.py
       - rucio_tests/test_rse_lfn2path.py
       - rucio_tests/test_oidc.py
       - rucio_tests/test_pfns.py
@@ -104,7 +103,6 @@ belleii:
       - rucio_tests/test_api_external_representation.py
       - rucio_tests/test_authentication.py
       - rucio_tests/test_rse_protocol_s3.py
-      - rucio_tests/test_oauthmanager.py
       - rucio_tests/test_oidc.py
       - rucio_tests/test_pfns.py
       - rucio_tests/test_meta.py

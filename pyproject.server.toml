@@ -147,7 +147,6 @@ script-files = [
   "bin/rucio-minos",
   "bin/rucio-minos-temporary-expiration",
   "bin/rucio-necromancer",
-  "bin/rucio-oauth-manager",
   "bin/rucio-reaper",
   "bin/rucio-replica-recoverer",
   "bin/rucio-rse-decommissioner",
