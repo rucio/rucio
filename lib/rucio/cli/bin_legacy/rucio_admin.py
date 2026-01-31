@@ -721,7 +721,7 @@ def set_limit_rse(args, client, logger, console, spinner):
     try:
         args.value = int(args.value)
         if client.set_rse_limits(args.rse, args.name, args.value):
-            logger.info('Set RSE limit successfully for %s: %s = %s' % (args.rse, args.name, args.value))
+            logger.info('Set RSE limit successfully for %s: %s = %s', args.rse, args.name, args.value)
     except ValueError:
         logger.error('The RSE limit value must be an integer')
 
@@ -737,10 +737,10 @@ def delete_limit_rse(args, client, logger, console, spinner):
     """
     limits = client.get_rse_limits(args.rse)
     if args.name not in limits.keys():
-        logger.error('Limit %s not defined in RSE %s' % (args.name, args.rse))
+        logger.error('Limit %s not defined in RSE %s', args.name, args.rse)
     else:
         if client.delete_rse_limits(args.rse, args.name):
-            logger.info('Deleted RSE limit successfully for %s: %s' % (args.rse, args.name))
+            logger.info('Deleted RSE limit successfully for %s: %s', args.rse, args.name)
 
     return SUCCESS
 
@@ -1359,7 +1359,7 @@ def set_tombstone(args, client, logger, console, spinner):
         scope, name = get_scope(did, client)
         replicas.append({'scope': scope, 'name': name, 'rse': rse})
     client.set_tombstone(replicas)
-    logger.info('Set tombstone successfully on: %s' % args.dids)
+    logger.info('Set tombstone successfully on: %s', args.dids)
     return SUCCESS
 
 

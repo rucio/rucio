@@ -165,6 +165,8 @@ select = [
     "N",    # pep8-naming
     "S",    # bandit
     "TC",   # flake8-type-checking
+    "G",    # flake8-logging-format
+    "TCH",  # flake8-type-checking
     "UP",   # pyupgrade
     "TID",  # flake8-tidy-imports
     "PLE",  # pylint

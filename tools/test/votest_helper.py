@@ -36,20 +36,20 @@ def validate(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if 'data' not in kwargs:
-            logger.error(f"Please specify a kwarg data for {func.__name__}")
+            logger.error("Please specify a kwarg data for %s", func.__name__)
             sys.exit(1)
         if 'vo' not in kwargs:
-            logger.error(f"Please specify a kwarg vo for {func.__name__}")
+            logger.error("Please specify a kwarg vo for %s", func.__name__)
         if 'section' not in kwargs:
-            logger.error(f"Please specify a kwarg section for {func.__name__}")
+            logger.error("Please specify a kwarg section for %s", func.__name__)
         data = kwargs['data']
         vo = kwargs['vo']
         section = kwargs['section']
         if vo not in data:
-            logger.error(f"{vo} is not defined in the matrix configuration file.")
+            logger.error("%s is not defined in the matrix configuration file.", vo,)
             sys.exit(1)
         if section not in data[vo]:
-            logger.error(f"No {section} found for installing policy packages for vo {vo}")
+            logger.error("No {section} found for installing policy packages for vo %s", vo,)
             sys.exit(1)
         output = func(*args, **kwargs)
         return output
@@ -64,7 +64,7 @@ def get_config(data: dict, vo: str, section: str):
 def get_installation_cmd(data: dict, vo: str):
     installation_cmd = get_config(data=data, vo=vo, section="installation_cmd")
     if installation_cmd == '':
-        logger.warning(f"No Installation command specified for {vo}")
+        logger.warning("No Installation command specified for %s", vo)
         sys.exit(1)
     return installation_cmd
 
@@ -72,11 +72,11 @@ def get_installation_cmd(data: dict, vo: str):
 def persist_config_overrides(data: dict, vo: str, rucio_cfg: Path):
     config_overrides = get_config(data=data, vo=vo, section="config_overrides")
     if len(config_overrides) == 0:
-        logger.warning(f"No config overrides specified for policy {vo}. Rucio Configuration will not be modified.")
+        logger.warning("No config overrides specified for policy %s. Rucio Configuration will not be modified.", vo)
         sys.exit(1)
 
     if not rucio_cfg.is_file():
-        logger.warning(f"Rucio Configuration File not found at {rucio_cfg}. Please use --rucio-cfg option to specify a valid path.")
+        logger.warning("Rucio Configuration File not found at %s. Please use --rucio-cfg option to specify a valid path.", rucio_cfg)
         sys.exit(1)
     rucio_config = configparser.ConfigParser()
     rucio_config.read(rucio_cfg)
@@ -87,7 +87,7 @@ def persist_config_overrides(data: dict, vo: str, rucio_cfg: Path):
     for key, val in config_overrides.items():
         policy_section[key] = val
     with open(rucio_cfg, 'w') as rucio:
-        logger.warning(f"Overriding policy section in {rucio_cfg}")
+        logger.warning("Overriding policy section in %s", rucio_cfg)
         rucio_config.write(rucio)
     return config_overrides
 
@@ -132,7 +132,7 @@ def build_config(input_conf):
             for python_ver in input_conf[policy_package]['python']
         ]
     except KeyError as e:
-        logger.warning(f"Key not found for policy package. Check YAML schema. Details: {e}")
+        logger.warning("Key not found for policy package. Check YAML schema. Details: %s", e)
         sys.exit(1)
     return json.dumps(build_matrix)
 

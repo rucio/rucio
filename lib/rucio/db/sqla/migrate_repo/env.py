@@ -71,7 +71,7 @@ def _log_version_details(
     except ValueError:
         relative_path = script_path
 
-    log.info(f"Executing {operation} {source} -> {destination} using {relative_path}::{operation}")
+    log.info("Executing %s %s -> %s using %s::%s", operation, source, destination, relative_path, operation)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

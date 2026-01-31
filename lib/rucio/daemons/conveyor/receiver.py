@@ -71,7 +71,7 @@ class Receiver:
 
     @METRICS.count_it
     def on_error(self, frame: "Frame") -> None:
-        logging.error('[%s] %s' % (self.__broker, frame.body))
+        logging.error('[%s] %s', self.__broker, frame.body)
 
     @METRICS.count_it
     def on_message(self, frame: "Frame") -> None:
@@ -138,7 +138,7 @@ def receiver(
     except Exception:
         raise Exception('Could not load brokers from configuration')
 
-    logging.info('resolving broker dns alias: %s' % brokers_alias)
+    logging.info('resolving broker dns alias: %s', brokers_alias)
 
     brokers_resolved = []
     for broker in brokers_alias:
@@ -164,9 +164,9 @@ def receiver(
     conns = []
     for broker in brokers_resolved:
         if not use_ssl:
-            logging.info('setting up username/password authentication: %s' % broker)
+            logging.info('setting up username/password authentication: %s', broker)
         else:
-            logging.info('setting up ssl cert/key authentication: %s' % broker)
+            logging.info('setting up ssl cert/key authentication: %s', broker)
         con = stomp.Connection12(host_and_ports=[(broker, port)],
                                  vhost=vhost,
                                  reconnect_attempts_max=999)
