@@ -26,7 +26,40 @@ jobs:
 
       - name: Validate current commit (push)
         if: github.event_name == 'push'
-        run: npx commitlint --from HEAD~1 --to HEAD --verbose
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          # Normal case: lint all commits that are part of this push (BEFORE..AFTER).
+          if [[ "$BEFORE" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            npx commitlint --from "$BEFORE" --to "$AFTER" --verbose
+            exit 0
+          fi
+
+          # Edge cases (new branch push or force-push): lint commits listed in the push event payload.
+          node - <<'NODE' > /tmp/push_commits.txt
+          const fs = require('fs');
+          const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const commits = (event.commits || []).map(c => c.id).filter(Boolean);
+          process.stdout.write(commits.join('\n'));
+          NODE
+
+          if [[ ! -s /tmp/push_commits.txt ]]; then
+            echo "No commits found in push payload; linting last commit only."
+            npx commitlint --last --verbose
+            exit 0
+          fi
+
+          status=0
+          while IFS= read -r sha; do
+            echo "::group::commitlint $sha"
+            git show -s --format=%B "$sha" | npx commitlint --verbose || status=1
+            echo "::endgroup::"
+          done < /tmp/push_commits.txt
+          exit "$status"
 
       - name: Validate PR commits
         if: github.event_name == 'pull_request'
