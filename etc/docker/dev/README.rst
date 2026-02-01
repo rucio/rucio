@@ -8,7 +8,7 @@ We provide a containerised version of the Rucio development environment for a qu
 
 To install Docker for your platform, please refer to the `Docker installation guide <https://docs.docker.com/install/>`_, for example, for CentOS `follow these instructions for the Docker Community Edition <https://docs.docker.com/install/linux/docker-ce/centos/>`_. Please make sure that you install this recent Docker version especially if you are on CentOS, i.e. its default version is ancient and does not support some features we rely on.
 
-1Start the Docker daemon with `systemctl start docker`. You can confirm that Docker is running properly by executing (might need `sudo`)::
+Start the Docker daemon with `systemctl start docker`. You can confirm that Docker is running properly by executing (might need `sudo`)::
 
     docker run hello-world
 
