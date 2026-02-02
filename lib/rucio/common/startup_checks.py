@@ -119,6 +119,112 @@ def _normalize_tags(tags: Optional[Iterable[str]]) -> frozenset[str]:
     return frozenset(tag.strip().lower() for tag in tags if tag and tag.strip())
 
 
+def register_startup_check(
+        name: str,
+        callback: StartupCheckCallback,
+        *,
+        tags: Optional[Iterable[str]] = None,
+        description: Optional[str] = None,
+        replace: bool = False
+) -> None:
+    """
+    Register a startup diagnostic check.
+
+    Registers a synchronous, no‑argument callable in the process‑wide registry so it can
+    be executed at process start by :func:`run_startup_checks`. Names are unique in a
+    case‑insensitive manner; tags select which services should run the check.
+
+    **Callback contract**
+
+    - Must be synchronous and accept no parameters.
+    - It should raise on failure; any exception will be reported as a
+      :class:`~rucio.common.exception.StartupCheckError` during execution.
+    - Returning a coroutine/awaitable is considered invalid and will cause
+      :class:`~rucio.common.exception.StartupCheckError` when the check is run.
+
+    Parameters
+    ----------
+    name : str
+        Unique identifier (case‑insensitive). Leading/trailing whitespace is trimmed.
+    callback : Callable[[], None]
+        Synchronous callable with no parameters. Raise on failure.
+    tags : Iterable[str] | None, optional
+        Which services should run this check (e.g. ``{"daemon"}``, ``{"rest"}``). If
+        omitted, the check applies to **all** services. Tags are normalized (trimmed,
+        case‑insensitive).
+    description : str | None, optional
+        Human‑readable text logged before the check executes.
+    replace : bool, optional
+        If ``True``, replaces any existing registration with the same name (case‑insensitive).
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If ``name`` is empty after trimming, or if a check with the same name already
+        exists and ``replace`` is ``False``.
+
+    Thread‑safety
+    -------------
+    Registration is thread‑safe and global to the process.
+
+    Examples
+    --------
+    >>> def _check_db() -> None:
+    ...     with get_engine().connect() as c:
+    ...         c.execute("SELECT 1")
+    >>> register_startup_check(
+    ...     "database",
+    ...     _check_db,
+    ...     tags={"daemon"},
+    ...     description="Validate DB connection",
+    ... )
+    """
+
+    if not callable(callback):
+        raise TypeError("Startup check callback must be callable")
+    if inspect.iscoroutinefunction(callback) or inspect.iscoroutinefunction(getattr(callback, '__call__', None)):
+        raise TypeError('Startup check callback cannot be asynchronous')
+
+    normalized_name = _normalize_name(name)
+    normalized_tags = _normalize_tags(tags)
+    normalized_name_lower = normalized_name.lower()
+
+    with _registry_lock:
+        lower_to_name = {existing_name.lower(): existing_name for existing_name in _registry}
+        existing_case_insensitive = lower_to_name.get(normalized_name_lower)
+
+        if existing_case_insensitive is not None and not replace:
+            existing_check = _registry[existing_case_insensitive]
+            if (
+                existing_check.callback is callback
+                and existing_check.tags == normalized_tags
+                and existing_check.description == description
+            ):
+                return
+            if existing_case_insensitive == normalized_name:
+                raise ValueError(f'Startup check "{normalized_name}" is already registered')
+            raise ValueError(
+                'Startup check '
+                f'"{existing_case_insensitive}" is already registered (matches new name "{normalized_name}")'
+            )
+
+        if replace:
+            target_name = existing_case_insensitive or normalized_name
+        else:
+            target_name = normalized_name
+
+        _registry[target_name] = StartupCheck(
+            name=target_name,
+            callback=callback,
+            tags=normalized_tags,
+            description=description,
+        )
+
+
 def _collect_configured_names(
         option: str,
         tags: frozenset[str],
@@ -486,4 +592,4 @@ def run_startup_checks(
         )
 
 
-__all__ = ['run_startup_checks', 'StartupCheck', 'StartupCheckCallback']
+__all__ = ['register_startup_check', 'run_startup_checks', 'StartupCheck', 'StartupCheckCallback']
