@@ -469,3 +469,81 @@ def test_summary_logs_include_counts(config_values, caplog) -> None:
 
     info_messages = [r.getMessage() for r in caplog.records if r.name == LOGGER_NAME and r.levelno == logging.INFO]
     assert any('Startup checks completed successfully: 1 ran, 1 disabled by config' in m for m in info_messages)
+
+
+# ---------------------------
+# Registration tests
+# ---------------------------
+
+def test_register_rejects_non_callable() -> None:
+    with pytest.raises(TypeError, match='callable'):
+        startup_checks.register_startup_check(name='bad', callback=42)  # type: ignore[arg-type]
+
+
+def test_register_rejects_whitespace_name() -> None:
+    with pytest.raises(ValueError, match='cannot be empty'):
+        startup_checks.register_startup_check(name='   ', callback=lambda: None)
+
+
+def test_register_async_function_rejected() -> None:
+    async def _async_check() -> None:
+        return None
+
+    with pytest.raises(TypeError, match='asynchronous'):
+        startup_checks.register_startup_check(name='async-check', callback=_async_check)  # type: ignore[arg-type]
+
+
+def test_register_async_callable_object_rejected() -> None:
+    class _AsyncCallable:
+        async def __call__(self) -> None:
+            return None
+
+    with pytest.raises(TypeError, match='asynchronous'):
+        startup_checks.register_startup_check(name='async-callable', callback=_AsyncCallable())  # type: ignore[arg-type]
+
+
+def test_case_insensitive_duplicates_are_rejected() -> None:
+    _register('Example', lambda: None)
+    with pytest.raises(ValueError, match='already registered'):
+        _register('example', lambda: None)
+
+
+def test_replace_allows_case_insensitive_overwrite(config_values) -> None:
+    executed: list[str] = []
+
+    def _v1() -> None:
+        executed.append('v1')
+
+    def _v2() -> None:
+        executed.append('v2')
+
+    startup_checks.register_startup_check('DB', _v1)
+    # Replace using different case; should not raise and should call new callback
+    startup_checks.register_startup_check('db', _v2, replace=True)
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed == ['v2']
+
+
+def test_replace_runs_new_callback_without_affecting_others(config_values) -> None:
+    executed: list[str] = []
+
+    def _alpha_v1() -> None:
+        executed.append('alpha-v1')
+
+    def _alpha_v2() -> None:
+        executed.append('alpha-v2')
+
+    def _beta() -> None:
+        executed.append('beta')
+
+    _register('alpha', _alpha_v1, tags={'daemon'})
+    _register('beta', _beta, tags={'daemon'})
+
+    startup_checks.register_startup_check(name='alpha', callback=_alpha_v2, tags={'daemon'}, replace=True)
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+
+    assert 'alpha-v2' in executed
+    assert 'beta' in executed
+    assert 'alpha-v1' not in executed
