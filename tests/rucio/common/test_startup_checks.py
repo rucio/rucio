@@ -14,6 +14,21 @@
 
 # ruff: noqa: UP007, UP045
 
+"""
+Tests for :mod:`rucio.common.startup_checks`.
+
+This suite exercises the startup-check registry and runner contract:
+- registration validation (names, callability, async rejection, replace semantics, tag normalization)
+- tag-based selection (scoped vs unscoped checks, multi-tag intersection, snapshot semantics for late registration)
+- config-driven filtering (enabled/disabled lists, per-tag overrides, case-insensitive matching, deduping, fallback behaviour, strict mode)
+- runtime/observability guarantees (exception wrapping as StartupCheckError, awaitable return rejection, soft-timeout warnings, summary log counts)
+
+Implementation notes:
+- Config accessors are monkeypatched to an in-memory store and must not consult the config table/DB.
+- The internal registry is isolated per test to avoid cross-test coupling.
+- Log assertions focus on operator-facing warnings/info rather than implementation details.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +38,6 @@ import pytest
 
 from rucio.common import startup_checks
 from rucio.common.exception import StartupCheckError
-
 
 LOGGER_NAME = 'rucio.startup_checks'
 
