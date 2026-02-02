@@ -343,3 +343,51 @@ def test_enabled_may_list_names_from_other_tags_but_only_current_tags_run(config
 
     startup_checks.run_startup_checks(tags={'rest'})
     assert executed == ['alpha']
+
+
+# ---------------------------
+# Error handling tests
+# ---------------------------
+
+def test_callback_exception_is_wrapped(config_values) -> None:
+    def _boom() -> None:
+        raise RuntimeError('boom')
+
+    _register('explodes', _boom, tags={'daemon'})
+    with pytest.raises(StartupCheckError) as excinfo:
+        startup_checks.run_startup_checks(tags={'daemon'})
+
+    # Ensure we keep a useful exception chain for debugging/observability
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
+    assert 'explodes' in str(excinfo.value)
+
+
+def test_callback_requiring_arguments_is_wrapped(config_values) -> None:
+    def _needs_arg(x: int) -> None:
+        # Will raise TypeError when called without args
+        return None
+
+    _register('bad-sig', _needs_arg, tags={'daemon'})
+    with pytest.raises(StartupCheckError) as excinfo:
+        startup_checks.run_startup_checks(tags={'daemon'})
+
+    assert isinstance(excinfo.value.__cause__, TypeError)
+    assert 'bad-sig' in str(excinfo.value)
+
+
+def test_async_return_value_is_rejected(config_values) -> None:
+    async def _async_inner() -> None:
+        # no asyncio dependency needed; returning a coroutine is enough
+        return None
+
+    def _callback():
+        return _async_inner()
+
+    # Untagged -> applicable everywhere; run under 'daemon' to execute it.
+    _register('async-return', _callback)
+
+    with pytest.raises(StartupCheckError) as excinfo:
+        startup_checks.run_startup_checks(tags={'daemon'})
+
+    assert 'async-return' in str(excinfo.value)
+    assert 'returned an awaitable' in str(excinfo.value)
