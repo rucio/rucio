@@ -547,3 +547,116 @@ def test_replace_runs_new_callback_without_affecting_others(config_values) -> No
     assert 'alpha-v2' in executed
     assert 'beta' in executed
     assert 'alpha-v1' not in executed
+
+
+# ---------------------------
+# Tag behavior tests
+# ---------------------------
+
+@pytest.mark.usefixtures("config_values")
+def test_tags_normalized_and_matched_case_insensitively() -> None:
+    executed = False
+
+    def _cb() -> None:
+        nonlocal executed
+        executed = True
+
+    # Mixed-case + whitespace tags at registration
+    _register('network', _cb, tags={' REST ', 'DaeMon'})
+
+    # Run only for 'rest' (with whitespace too); check should run due to tag intersection
+    startup_checks.run_startup_checks(tags={' REST '})
+    assert executed is True
+
+
+@pytest.mark.usefixtures("config_values")
+def test_unscoped_check_runs_everywhere() -> None:
+    executed = {'global': False, 'daemon': False}
+
+    def _cb_global() -> None:
+        executed['global'] = True
+
+    def _cb_daemon() -> None:
+        executed['daemon'] = True
+
+    _register('global-check', _cb_global, tags=None)        # unscoped
+    _register('daemon-only', _cb_daemon, tags={'daemon'})   # scoped
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed['global'] is True
+    assert executed['daemon'] is True
+
+
+@pytest.mark.usefixtures("config_values")
+def test_empty_registry_logs_no_startup_checks(caplog) -> None:
+    with caplog.at_level(logging.INFO, logger=LOGGER_NAME):
+        startup_checks.run_startup_checks(tags={'daemon'})
+
+    info_messages = _messages(caplog, min_level=logging.INFO)
+    assert any('No startup checks to run for tags daemon' in m for m in info_messages)
+
+
+@pytest.mark.usefixtures("config_values")
+def test_startup_checks_snapshot_semantics_for_late_registration() -> None:
+    executed: list[str] = []
+
+    def _late() -> None:
+        executed.append('late')
+
+    def _first() -> None:
+        executed.append('first')
+        # Late registration must not affect the already-built snapshot
+        startup_checks.register_startup_check(name='late', callback=_late, tags={'daemon'})
+
+    _register('first', _first, tags={'daemon'})
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed == ['first']
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed.count('first') == 2
+    assert executed.count('late') == 1
+
+
+@pytest.mark.usefixtures("config_values")
+def test_empty_set_of_tags_behaves_like_unscoped() -> None:
+    executed = False
+
+    def _cb() -> None:
+        nonlocal executed
+        executed = True
+
+    # Empty tags normalize to "unscoped" (runs everywhere)
+    _register('global-check', _cb, tags=set())
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed is True
+
+
+@pytest.mark.usefixtures("config_values")
+def test_only_checks_for_selected_tags_run() -> None:
+    executed: list[str] = []
+
+    _register('daemon-c', lambda: executed.append('daemon'), tags={'daemon'})
+    _register('rest-c', lambda: executed.append('rest'), tags={'rest'})
+    _register('global-c', lambda: executed.append('global'), tags=None)
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+
+    assert 'daemon' in executed
+    assert 'global' in executed
+    assert 'rest' not in executed
+
+
+@pytest.mark.usefixtures("config_values")
+def test_multi_tag_runtime_runs_any_intersecting_check() -> None:
+    executed: list[str] = []
+
+    _register('daemon-only', lambda: executed.append('daemon'), tags={'daemon'})
+    _register('rest-only', lambda: executed.append('rest'), tags={'rest'})
+    _register('daemon-rest', lambda: executed.append('both'), tags={'daemon', 'rest'})
+    _register('global', lambda: executed.append('global'), tags=None)
+
+    startup_checks.run_startup_checks(tags={'daemon', 'rest'})
+
+    assert set(executed) == {'daemon', 'rest', 'both', 'global'}
