@@ -391,3 +391,81 @@ def test_async_return_value_is_rejected(config_values) -> None:
 
     assert 'async-return' in str(excinfo.value)
     assert 'returned an awaitable' in str(excinfo.value)
+
+
+# ---------------------------
+# Runner behavior / logging tests
+# ---------------------------
+
+# NOTE: This overlaps with `test_disable_overrides_enable_per_tag`, but kept as a
+# "readable example" of enabled+disabled filters coexisting.
+def test_enable_and_disable_lists_can_coexist(config_values) -> None:
+    executed: list[str] = []
+
+    def _make_callback(name: str):
+        def _callback() -> None:
+            executed.append(name)
+        return _callback
+
+    _register('alpha', _make_callback('alpha'), tags={'daemon'})
+    _register('beta', _make_callback('beta'), tags={'daemon'})
+
+    config_values['enabled'] = ['alpha', 'beta']
+    config_values['disabled_DAEMON'] = ['beta']
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed == ['alpha']
+
+
+def test_duplicate_names_in_config_lists_are_deduplicated(config_values) -> None:
+    executed: list[str] = []
+
+    _register('alpha', lambda: executed.append('alpha'), tags={'daemon'})
+
+    # duplicates (including different case) must not cause multiple runs
+    config_values['enabled'] = ['alpha', 'ALPHA', 'alpha']
+
+    startup_checks.run_startup_checks(tags={'daemon'})
+    assert executed == ['alpha']
+
+
+def test_soft_timeout_logs_warning(config_values, caplog, monkeypatch) -> None:
+    executed: list[str] = []
+
+    _register('alpha', lambda: executed.append('alpha'), tags={'daemon'})
+    config_values.ints['timeout_ms'] = 150
+
+    # perf_counter call sequence in run_startup_checks:
+    #   run_start_time, start_time, end_time
+    times = iter([100.0, 100.2, 100.2])  # total runtime 200ms -> exceeds 150ms
+    monkeypatch.setattr(startup_checks.time, 'perf_counter', lambda: next(times))
+
+    with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
+        startup_checks.run_startup_checks(tags={'daemon'})
+
+    assert executed == ['alpha']
+
+    warning_messages = _messages(caplog, min_level=logging.WARNING)
+    assert any('Startup checks exceeded soft timeout' in m for m in warning_messages)
+
+
+def test_summary_logs_include_counts(config_values, caplog) -> None:
+    executed: list[str] = []
+
+    def _make_cb(name: str):
+        def _cb() -> None:
+            executed.append(name)
+        return _cb
+
+    _register('alpha', _make_cb('alpha'), tags={'daemon'})
+    _register('beta', _make_cb('beta'), tags={'daemon'})
+
+    config_values['disabled'] = ['beta']
+
+    with caplog.at_level(logging.INFO, logger=LOGGER_NAME):
+        startup_checks.run_startup_checks(tags={'daemon'})
+
+    assert executed == ['alpha']
+
+    info_messages = [r.getMessage() for r in caplog.records if r.name == LOGGER_NAME and r.levelno == logging.INFO]
+    assert any('Startup checks completed successfully: 1 ran, 1 disabled by config' in m for m in info_messages)
