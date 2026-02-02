@@ -12,6 +12,215 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ruff: noqa: UP007,UP045
+
+"""
+Startup diagnostics registry and runner
+======================================
+
+This module provides a small framework to **register** and **run** fast, synchronous
+“startup checks” at process start. Its use is to assert prerequisites (database reachable,
+configuration sanity, network access, etc.) *before* the process begins normal work. It
+supports **simple/central** configuration but allows also **advanced operator controls**.
+
+TL;DR summary
+----------------------------
+
+- A *startup check* is a **fast**, **side‑effect‑free**, **synchronous** function with **no arguments**.
+- Register checks with :func:`register_startup_check`.
+- Run them at startup with :func:`run_startup_checks(tags={...})` (or :func:`rucio.daemons.common.run_daemon_startup_checks` for daemons).
+- **Untagged checks run for every service** (“always”).
+- If **any** check fails, a :class:`~rucio.common.exception.StartupCheckError` is raised and your startup should abort.
+- **No configuration is required.** If there is no ``[startup_checks]`` in ``rucio.cfg``, all checks whose tags match the service **plus** all untagged checks run.
+
+From simple to advanced setups
+-------------------------------------------
+
+**1) Minimal – no config, run by tags (default behaviour)**
+
+- The various check definitions can be kept at one place/module or spread however prefered.
+- Register checks with an optional tag; leave ``tags=None`` for “always”.
+- In each service, call ``run_startup_checks(tags={'daemon'})`` or ``run_startup_checks(tags={'rest'})``.
+- Any failure raises :class:`~rucio.common.exception.StartupCheckError` and should stop startup.
+
+**2) Centralized catalog – keep *all* checks in one module (convention)**
+
+Put all checks in one file (e.g. ``rucio.common.startup_checks_catalog``) and import it at process start::
+
+    # rucio/common/startup_checks_catalog.py
+    from rucio.common.startup_checks import register_startup_check
+
+    def register_all() -> None:
+        # ALWAYS (untagged) – runs for every service
+        def _config_sanity() -> None:
+            pass  # raise on failure
+        register_startup_check(
+            name="config-sanity",
+            callback=_config_sanity,
+            description="Validate core configuration."
+        )
+
+        # Single-tag checks by convention
+        def _db_ready() -> None:
+            pass
+        register_startup_check(
+            name="database",
+            callback=_db_ready,
+            tags={"daemon"},
+            description="Database connectivity."
+        )
+
+        def _rest_key_material() -> None:
+            pass
+        register_startup_check(
+            name="rest-key-material",
+            callback=_rest_key_material,
+            tags={"rest"},
+            description="REST auth key/cert presence."
+        )
+
+Import the catalog before running checks::
+
+    # Daemon entrypoint
+    from rucio.common import startup_checks_catalog
+    startup_checks_catalog.register_all()
+    from rucio.daemons.common import run_daemon_startup_checks
+    run_daemon_startup_checks(executable="my-daemon")   # runs {'daemon'} + untagged
+
+    # Flask/REST app factory
+    from rucio.common import startup_checks_catalog
+    from rucio.common.startup_checks import run_startup_checks
+    def create_app():
+        startup_checks_catalog.register_all()
+        run_startup_checks(tags={"rest"})               # raises on failure -> abort startup
+        ...
+
+
+**2b) Operator-provided checks – register without modifying Rucio code**
+
+Operators can register deployment-specific checks by shipping a small Python
+module/package that calls :func:`register_startup_check` and making sure it is
+imported **in the same Python process** before :func:`run_startup_checks`
+executes. The module must be importable (installed package or directory on
+``PYTHONPATH``).
+
+Choose tags depending on which services should run the check. For example,
+use ``tags={"daemon"}`` for daemon-only checks, ``tags={"rest"}`` for REST-only
+checks, or include both to run in both contexts. Omitting ``tags`` leaves the
+check untagged (“always”), so it will run for any :func:`run_startup_checks`
+call.
+
+Example deployment module::
+
+    # rucio_site_checks/custom_checks.py
+    import os
+    from rucio.common.startup_checks import register_startup_check
+
+    def check_nfs_mount() -> None:
+        if not os.path.ismount("/data/rucio"):
+            raise RuntimeError("NFS not mounted: /data/rucio")
+
+    register_startup_check(
+        "nfs-mount",
+        check_nfs_mount,
+        tags={"daemon", "rest"},
+        description="Ensure /data/rucio is mounted before services start",
+    )
+
+Then ensure it is imported early::
+
+    # REST/WSGI app factory / WSGI entrypoint
+    from rucio.common.startup_checks import run_startup_checks
+    import rucio_site_checks.custom_checks  # registers checks
+    run_startup_checks(tags={"rest"})
+
+Note: the import must happen in the *same* Python process which calls
+``run_startup_checks(...)``. Importing in a shell wrapper which then spawns a
+new Python process will not register anything in the child process.
+
+**3) Operator controls via config (optional)**
+
+If you add a ``[startup_checks]`` section in ``rucio.cfg``, operators can enable/disable checks
+without code changes, globally or per service. If you don’t add it, behaviour remains as in (1)/(2).
+
+- ``enabled`` / ``enabled_<TAG>`` – restrict execution to this union (after tag filtering).
+- ``disabled`` / ``disabled_<TAG>`` – remove these from the set (**disabled wins** if both listed).
+- ``strict = true`` – treat misconfiguration as fatal (unknown names; enabling only non‑applicable names; removing all applicable checks).
+- ``timeout_ms`` – **soft** time budget for the whole run (warning if exceeded; execution continues).
+
+Tags & selection
+----------------
+
+- Each check can have **zero or more** tags.
+- When you call :func:`run_startup_checks(tags=...)`, the runner executes:
+  * all checks whose tag set **intersects** the supplied tags, **and**
+  * all **untagged** checks (i.e. “always”).
+- If you prefer a literal ``"always"`` tag, you can use ``tags={"always"}`` and pass it at runtime,
+  but leaving checks untagged is simpler and equivalent.
+
+Public API
+----------
+
+``register_startup_check(name, callback, *, tags=None, description=None, replace=False)``
+    Register a diagnostic.
+
+* **name** – unique (case‑insensitive). Trimmed; empty names rejected.
+* **callback** – synchronous callable with no parameters; raise on failure. Returning an awaitable is invalid.
+* **tags** – optional iterable of strings (case‑insensitive, trimmed). If omitted, the check applies to all services.
+* **description** – text logged when the check runs.
+* **replace** – set ``True`` to replace an existing registration with the same name.
+
+``run_startup_checks(*, tags, logger=None)``
+    Execute all checks applicable to ``tags`` after applying optional configuration.
+    On failure, raises :class:`~rucio.common.exception.StartupCheckError`.
+
+Behaviour & selection algorithm
+-------------------------------
+
+1. Build the default **applicable** set: all checks whose tag set intersects ``tags`` **plus** all untagged checks.
+2. If *any* ``enabled``/``enabled_<TAG>`` is present, restrict to the **union** of those names (still must be applicable).
+3. Remove names in ``disabled``/``disabled_<TAG>``. If a name is both enabled and disabled, **disabled wins**.
+4. Unknown names are **warned** and ignored (or **fail** in strict mode).
+5. If enabled lists select nothing applicable, the runner **falls back** to the default applicable set and logs it
+   (this fallback is a **failure** in strict mode).
+
+Logging & failure semantics
+---------------------------
+
+- Before each check, its ``description`` (if provided) is logged so operators know what is being validated.
+- On success, a concise summary is emitted, e.g.:
+
+    Startup checks completed successfully: 3 ran, 1 disabled by config
+
+- Any exception from a callback is wrapped in :class:`~rucio.common.exception.StartupCheckError`.
+- A callback that is asynchronous or returns a coroutine is rejected with :class:`~rucio.common.exception.StartupCheckError`.
+
+Thread‑safety & duplication protection
+--------------------------------------
+
+- Registration is process‑wide and **thread‑safe**.
+- Names are unique **case‑insensitively**. Attempting to register a duplicate name raises unless ``replace=True``.
+
+Configuration quick reference
+-----------------------------
+
+Example configuration::
+
+    [startup_checks]
+    # Optional soft time budget for ALL checks (milliseconds)
+    timeout_ms = 500
+
+    # Execute only the following checks (case‑insensitive names)
+    enabled = database, cache, storage
+
+    # Per‑tag enable/disable (suffix is case‑insensitive)
+    enabled_REST = database
+    disabled_DAEMON = storage
+
+    # Be strict about configuration correctness
+    strict = false
+"""
+
 from __future__ import annotations
 
 import inspect
