@@ -25,6 +25,7 @@ from rucio.common import exception
 from rucio.common.config import config_get_bool
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
+from rucio.daemons.common import run_daemon_startup_checks
 from rucio.daemons.conveyor.common import get_conveyor_rses
 from rucio.daemons.conveyor.submitter import submitter
 from rucio.db.sqla.constants import RequestType
@@ -103,6 +104,8 @@ def run(
     """
     activities = activities or []
     setup_logging(process_name=DAEMON_NAME)
+
+    run_daemon_startup_checks(executable=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')
