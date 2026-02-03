@@ -15,7 +15,7 @@
 import enum
 import sys
 from collections import namedtuple
-from typing import Literal, get_args
+from typing import Literal, Union, get_args
 
 """
 Constants.
@@ -111,6 +111,24 @@ class HermesService(str, enum.Enum):
     ELASTIC = "ELASTIC"
     EMAIL = "EMAIL"
     ACTIVEMQ = "ACTIVEMQ"
+
+
+class RSEAttrObj(str):
+    def __init__(self, name: str, type_: Union[type[str], type[bool]], doc: str):
+        """
+        Representation of the strings used in RSE Attributes. Includes the type and a description.
+
+        name : str name of the object
+        type_ : str or bool type
+        doc : docstring describing the attribute [used for documentation only]
+        """
+        self.name = name
+        self.type_ = type_
+        self.doc = doc
+
+    # Allows the
+    def __new__(cls, name: str, type_: Union[type[str], type[bool]] = str, doc: str = "") -> 'RSEAttrObj':
+        return super().__new__(cls, name)
 
 
 class RseAttr:
