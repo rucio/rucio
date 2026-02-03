@@ -569,49 +569,11 @@ class RseAttr:
 # but they are used as either bool or string in the code.
 # This is only determined at runtime, so for static type checking
 # we need to manually specify which attrs are string and which are bool.
-# In future, we could refactor RseAttr to avoid code duplication.
-RSE_ATTRS_STR = Literal[
-    'archive_timeout',
-    'associated_sites',
-    'bittorrent_tracker_addr',
-    'country',
-    'decommission',
-    'default_account_limit_bytes',
-    'fts',
-    'globus_endpoint_id',
-    'lfn2pfn_algorithm',
-    'maximum_pin_lifetime',
-    'multihop_tombstone_delay',
-    'naming_convention',
-    'oidc_base_path',
-    'oidc_support'
-    'physgroup',
-    'qbittorrent_management_address'
-    'rule_approvers',
-    's3_url_style',
-    'simulate_multirange',
-    'site',
-    'source_for_total_space',
-    'source_for_used_space',
-    'staging_buffer',
-    'tombstone_delay',
-    'type'
-]
+str_like_attrs = [attr for attr in RseAttr.__dict__.values() if isinstance(attr, RSEAttrObj) and attr.type_ is str]
+RSE_ATTRS_STR = Literal[str_like_attrs]
 
-RSE_ATTRS_BOOL = Literal[
-    'auto_approve_bytes',
-    'auto_approve_files',
-    'block_manual_approval',
-    'greedyDeletion',
-    'is_object_store',
-    'restricted_read',
-    'restricted_write',
-    'skip_upload_stat',
-    'staging_required',
-    'strict_copy',
-    'use_ipv4',
-    'verify_checksum'
-]
+bool_like_attrs = [attr for attr in RseAttr.__dict__.values() if isinstance(attr, RSEAttrObj) and attr.type_ is bool]
+RSE_ATTRS_BOOL = Literal[bool_like_attrs]
 
 SUPPORTED_SIGN_URL_SERVICES_LITERAL = Literal['gcs', 's3', 'swift']
 SUPPORTED_SIGN_URL_SERVICES = list(get_args(SUPPORTED_SIGN_URL_SERVICES_LITERAL))
