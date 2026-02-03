@@ -357,7 +357,7 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
     except (NoOptionError, NoSectionError, RuntimeError):
         bad_files_patterns = []
     except Exception as error:
-        logger.error(f'Failed to get bad_file_patterns {str(error)}')
+        logger.error('Failed to get bad_file_patterns %s', error)
         bad_files_patterns = []
 
     use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)

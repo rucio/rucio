@@ -111,7 +111,7 @@ def run_command(args, use_multi_host_functionality):
 
         # Make a custom warning - show the new help menu when invalid commands are called.
         except argparse.ArgumentError:
-            logger.error("Invalid argument(s) - %s " % sys.argv[1:])
+            logger.error("Invalid argument(s) - %s ", sys.argv[1:])
             command = map_legacy_command()
             if command is not None:
                 sys.argv = ["rucio"] + command + ["-h"]

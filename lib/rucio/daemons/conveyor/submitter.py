@@ -231,17 +231,17 @@ def submitter(
     failover_schemes = config_failover_schemes.intersection(schemes_supported_by_tt)
 
     if config_schemes and not schemes:
-        logging.critical(f'None of the configured schemes ({list(config_schemes)}) is supported '
-                         f'by any configured transfertool ({transfertools}). This configuration is invalid. Aborting')
+        logging.critical('None of the configured schemes (%s) is supported by any configured transfertool (%s). '
+                        'This configuration is invalid. Aborting', list(config_schemes), transfertools)
         return
     if config_failover_schemes and not failover_schemes:
-        logging.critical(f'None of the configured failover schemes ({list(config_failover_schemes)}) is supported '
-                         f'by any configured transfertool ({transfertools}). This configuration is invalid. Aborting')
+        logging.critical('None of the configured failover schemes (%s) is supported by any configured transfertool (%s). '
+                         'This configuration is invalid. Aborting', list(config_failover_schemes), transfertools,)
         return
     if config_schemes.difference(schemes):
-        logging.info(f'Following schemes filtered out: {list(config_schemes.difference(schemes))}')
+        logging.info('Following schemes filtered out: %s', list(config_schemes.difference(schemes)),)
     if config_failover_schemes.difference(failover_schemes):
-        logging.info(f'Following failover schemes filtered out: {list(config_failover_schemes.difference(failover_schemes))}')
+        logging.info('Following failover schemes filtered out: %s', list(config_failover_schemes.difference(failover_schemes)),)
 
     timeout = config_get_float('conveyor', 'submit_timeout', default=None, raise_exception=False)
 

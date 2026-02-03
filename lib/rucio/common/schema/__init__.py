@@ -75,7 +75,7 @@ if not _is_multivo():
         if config.is_client():
             # policy package may not be required/installed on client, but client may
             # share config file with server, so only a warning for this case
-            LOGGER.warning('Unable to find policy package %s' % policy)
+            LOGGER.warning('Unable to find policy package %s', policy)
             policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
         else:
             raise exception.PolicyPackageNotFound(policy)
@@ -88,8 +88,8 @@ if not _is_multivo():
         # if policy package does not contain schema module, load fallback module instead
         # this allows a policy package to omit modules that do not need customisation
         try:
-            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
-                           % (policy, GENERIC_FALLBACK))
+            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s',
+                           policy, GENERIC_FALLBACK)
             policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
             module = importlib.import_module(policy)
         except ModuleNotFoundError:
@@ -119,7 +119,7 @@ def load_schema_for_vo(vo: str) -> None:
         policy = 'rucio.common.schema.' + generic_fallback.lower()
     except ModuleNotFoundError:
         if config.is_client():
-            LOGGER.warning('Unable to find policy package %s' % policy)
+            LOGGER.warning('Unable to find policy package %s', policy)
             policy = 'rucio.common.schema.' + generic_fallback.lower()
         else:
             raise exception.PolicyPackageNotFound(policy)
@@ -132,8 +132,8 @@ def load_schema_for_vo(vo: str) -> None:
         # if policy package does not contain schema module, load fallback module instead
         # this allows a policy package to omit modules that do not need customisation
         try:
-            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s'
-                           % (policy, generic_fallback))
+            LOGGER.warning('Unable to load schema module %s from policy package, falling back to %s',
+                           policy, generic_fallback)
             policy = 'rucio.common.schema.' + generic_fallback.lower()
             module = importlib.import_module(policy)
         except ModuleNotFoundError:

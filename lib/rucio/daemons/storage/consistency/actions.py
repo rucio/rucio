@@ -816,7 +816,7 @@ def run(
 # Could limit it only to Tier-2s:
 #        rses = [rse['rse'] for rse in list_rses({'tier': 2, 'availability_write': True})]
 
-    logging.info('\n RSEs: %s' % rses)
+    logging.info('\n RSEs: %s', rses)
     logger(logging.INFO, '\n RSEs: %s  \n run once: %r \n Sleep time: %d  \n Dark min age (days): %d\
      \n Dark files threshold %%: %f  \n Missing files threshold %%: %f  \n Force proceed: %r\
      \n Scanner files path: %s ' % (rses, once, sleep_time, dark_min_age, dark_threshold_percent,
@@ -833,7 +833,7 @@ def run(
         actions_loop(once, scope, rses, sleep_time, dark_min_age, dark_threshold_percent,  # type: ignore (scope and rses might be None)
                      miss_threshold_percent, force_proceed, scanner_files_path)
     else:
-        logging.info('Consistency Actions starting %s threads' % str(threads))
+        logging.info('Consistency Actions starting %s threads', str(threads))
         thread_list = [threading.Thread(target=actions_loop,
                                         kwargs={'once': once, 'scope': scope, 'rses': rses, 'sleep_time': sleep_time,
                                                 'dark_min_age': dark_min_age,
