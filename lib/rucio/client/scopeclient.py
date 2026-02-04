@@ -24,7 +24,15 @@ from rucio.common.utils import build_url
 
 class ScopeClient(BaseClient):
 
-    """Scope client class for working with rucio scopes"""
+    """Scope client class for working with Rucio scopes.
+
+    In Rucio, a *scope* is the namespace that groups datasets, files and
+    containers underneath an account. Scopes provide isolation and ownership
+    boundaries—clients prepend the scope to data identifiers (DIDs) to avoid
+    collisions and to enforce the account responsible for the data. Common
+    examples include ``user.<username>`` or project-level scopes such as
+    ``dataops``.
+    """
 
     SCOPE_BASEURL = 'accounts'
 
@@ -34,43 +42,77 @@ class ScopeClient(BaseClient):
             scope: str
     ) -> bool:
         """
-        Sends the request to add a new scope.
+        Create a new scope for an account.
+
+        Scopes represent the namespaces that own datasets and files. Once
+        created, the scope can be used in DIDs (e.g. ``<scope>:<dataset>``) to
+        make ownership and visibility explicit.
 
         Parameters
         ----------
-        account :
-            The name of the account to add the scope to.
-        scope :
-            The name of the new scope.
+        account
+            Name of the account that will own the scope.
+        scope
+            Name of the scope to create.
 
         Returns
         -------
-            True if scope was created successfully.
+        bool
+            Literal ``True`` when the scope is created successfully.
 
         Raises
         ------
         Duplicate
-            If scope already exists.
+            If the scope already exists for the account.
         AccountNotFound
-            If account doesn't exist.
+            If the provided account does not exist.
+
+        Examples
+        --------
+        ??? Example
+
+            Create a scope for the ``dataops`` account. If the scope already
+            exists for the account, a ``Duplicate`` exception is raised.
+
+            ```python
+            from rucio.client.scopeclient import ScopeClient
+
+            # The client will pick up authentication from the standard Rucio
+            # configuration (e.g. ~/.ruciorc or RUCIO_* environment variables).
+            client = ScopeClient()
+
+            client.add_scope(account="dataops", scope="user.test")
+            ```
         """
 
-        path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', quote_plus(scope)])
+        path = '/'.join(
+            [self.SCOPE_BASEURL, account, 'scopes', quote_plus(scope)]
+        )
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, method=HTTPMethod.POST)
         if r.status_code == codes.created:
             return True
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(
+                headers=r.headers,
+                status_code=r.status_code,
+                data=r.content
+            )
             raise exc_cls(exc_msg)
 
     def list_scopes(self) -> list[str]:
         """
-        Sends the request to list all scopes.
+        List all scopes belonging to the client's authenticated account.
 
         Returns
         -------
-        A list containing the names of all scopes.
+        list[str]
+            Names of all scopes configured in Rucio.
+
+        Raises
+        ------
+        RucioException
+            Raised when the request is not successful.
         """
 
         path = '/'.join(['scopes/'])
@@ -80,28 +122,51 @@ class ScopeClient(BaseClient):
             scopes = loads(r.text)
             return scopes
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(
+                headers=r.headers,
+                status_code=r.status_code,
+                data=r.content
+            )
             raise exc_cls(exc_msg)
 
     def list_scopes_for_account(self, account: str) -> list[str]:
         """
-        Sends the request to list all scopes for a rucio account.
+        List all scopes assigned to an account.
+
+        Scopes define the namespaces an account controls. This call surfaces
+        every namespace available to the account so callers can construct DIDs
+        or present account-level permissions.
 
         Parameters
         ----------
-        account :
-            The rucio account to list scopes for.
+        account
+            The Rucio account to list scopes for.
 
         Returns
         -------
-            A list containing the names of all scopes for a rucio account.
+        list[str]
+            Names of the scopes that belong to the account.
 
         Raises
         ------
         AccountNotFound
-            If account doesn't exist.
+            If the account does not exist.
         ScopeNotFound
-            If no scopes exist for account.
+            If no scopes are defined for the account.
+
+        Examples
+        --------
+        ??? Example
+
+            List all scopes assigned to the account "dataops".
+
+            ```python
+            from rucio.client.scopeclient import ScopeClient
+            client = ScopeClient()
+            scopes = client.list_scopes_for_account(account="dataops")
+            for scope in scopes:
+                print(scope)
+            ```
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes/'])
@@ -112,5 +177,9 @@ class ScopeClient(BaseClient):
             scopes = loads(r.text)
             return scopes
         else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            exc_cls, exc_msg = self._get_exception(
+                headers=r.headers,
+                status_code=r.status_code,
+                data=r.content
+            )
             raise exc_cls(exc_msg)
