@@ -151,7 +151,7 @@ class BaseClient:
 
         self.logger = logger
         self.session = Session()
-        self.user_agent = "%s/%s" % (user_agent, version.version_string())  # e.g. "rucio-clients/0.2.13"
+        self.user_agent = f"{user_agent}/{version.version_string()}"
         sys.argv[0] = sys.argv[0].split('/')[-1]
         self.script_id = '::'.join(sys.argv[0:2])
         if self.script_id == '':  # Python interpreter used
@@ -162,7 +162,7 @@ class BaseClient:
             else:
                 self.host = config_get('client', 'rucio_host')
         except (NoOptionError, NoSectionError) as error:
-            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
+            raise MissingClientParameter(f"Section client and Option '{error.args[0]}' cannot be found in config file")
 
         try:
             if auth_host is not None:
@@ -170,7 +170,7 @@ class BaseClient:
             else:
                 self.auth_host = config_get('client', 'auth_host')
         except (NoOptionError, NoSectionError) as error:
-            raise MissingClientParameter('Section client and Option \'%s\' cannot be found in config file' % error.args[0])
+            raise MissingClientParameter(f"Option '{error.args[0]}' cannot be found in config file")
 
         try:
             self.trace_host = config_get('trace', 'trace_host')
@@ -265,7 +265,8 @@ class BaseClient:
     def _get_auth_tokens(self) -> tuple[Optional[str], str, str, str]:
         # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
         auth_token_file_path = config_get('client', 'auth_token_file_path', False, None)
-        token_filename_suffix = "for_default_account" if self.account is None else "for_account_" + self.account
+
+        token_filename_suffix = "for_default_account" if self.account is None else f"for_account_{self.account}"
 
         if auth_token_file_path:
             token_file = auth_token_file_path
@@ -274,11 +275,10 @@ class BaseClient:
         else:
             token_path = self.TOKEN_PATH_PREFIX + getpass.getuser()
             if self.vo != DEFAULT_VO:
-                token_path += '@%s' % self.vo
+                token_path += f'@{self.vo}'
+            token_file = f'{token_path}/{self.TOKEN_PREFIX}{token_filename_suffix}'
 
-            token_file = token_path + '/' + self.TOKEN_PREFIX + token_filename_suffix
-
-        token_exp_epoch_file = token_path + '/' + self.TOKEN_EXP_PREFIX + token_filename_suffix
+        token_exp_epoch_file = f'{token_path}/{self.TOKEN_EXP_PREFIX}{token_filename_suffix}'
         return auth_token_file_path, token_exp_epoch_file, token_file, token_path
 
     def _get_auth_type(self, auth_type: Optional[str]) -> str:
@@ -286,13 +286,13 @@ class BaseClient:
             self.logger.debug('No auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
                 if environ['RUCIO_AUTH_TYPE'] not in ['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']:
-                    raise MissingClientParameter('Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, oidc, vs. ' + environ['RUCIO_AUTH_TYPE'])
+                    raise MissingClientParameter(f"Possible RUCIO_AUTH_TYPE values: userpass, x509, x509_proxy, gss, ssh, saml, oidc, vs. {environ['RUCIO_AUTH_TYPE']}")
                 auth_type = environ['RUCIO_AUTH_TYPE']
             else:
                 try:
                     auth_type = config_get('client', 'auth_type')
                 except (NoOptionError, NoSectionError) as error:
-                    raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+                    raise MissingClientParameter(f"Option '{error.args[0]}' cannot be found in config file")
         return auth_type
 
     def _get_creds(self, creds: Optional[dict[str, Any]]) -> dict[str, Any]:
@@ -337,7 +337,7 @@ class BaseClient:
                 creds['client_cert'] = _expand_path(creds['client_cert'])
 
                 if not os.path.exists(creds['client_cert']):
-                    raise MissingClientParameter('X.509 client certificate not found: %r' % creds['client_cert'])
+                    raise MissingClientParameter(f"X.509 client certificate not found: {creds['client_cert']!r}")
 
                 if 'client_key' not in creds or creds['client_key'] is None:
                     if "RUCIO_CLIENT_KEY" in environ:
@@ -347,11 +347,14 @@ class BaseClient:
 
                 creds['client_key'] = _expand_path(creds['client_key'])
                 if not os.path.exists(creds['client_key']):
-                    raise MissingClientParameter('X.509 client key not found: %r' % creds['client_key'])
+                    raise MissingClientParameter(f"X.509 client key not found: {creds['client_key']!r}")
 
                 perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
                 if perms not in ['400', '600']:
-                    raise CannotAuthenticate('X.509 authentication selected, but private key (%s) permissions are liberal (required: 400 or 600, found: %s)' % (creds['client_key'], perms))
+                    raise CannotAuthenticate(
+                        f"X.509 authentication selected, but private key ({creds['client_key']}) "
+                        f"permissions are liberal (required: 400 or 600, found: {perms})"
+                    )
 
             elif self.auth_type == 'x509_proxy':
                 # rucio specific configuration takes precedence over GSI logic
@@ -362,7 +365,7 @@ class BaseClient:
                 # X509_USER_PROXY env variable
                 # /tmp/x509up_u`id -u` if exists
 
-                gsi_proxy_path = '/tmp/x509up_u%d' % geteuid()
+                gsi_proxy_path = f'/tmp/x509up_u{geteuid()}'
                 if 'client_proxy' not in creds or creds['client_proxy'] is None:
                     if 'RUCIO_CLIENT_PROXY' in environ:
                         creds['client_proxy'] = environ['RUCIO_CLIENT_PROXY']
@@ -377,8 +380,8 @@ class BaseClient:
 
                 if not os.path.isfile(creds['client_proxy']):
                     raise MissingClientParameter(
-                        'Cannot find a valid X509 proxy; checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY'
-                        'client/client_x509_proxy config and default path: %r' % gsi_proxy_path
+                        f'Cannot find a valid X509 proxy; checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY '
+                        f'client/client_x509_proxy config and default path: {gsi_proxy_path!r}'
                     )
 
             elif self.auth_type == 'ssh':
@@ -391,7 +394,7 @@ class BaseClient:
 
         except (NoOptionError, NoSectionError) as error:
             if error.args[0] != 'client_key':
-                raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
+                raise MissingClientParameter(f"Option '{error.args[0]}' cannot be found in config file")
 
         return creds
 
@@ -419,7 +422,7 @@ class BaseClient:
             data = {}
 
         exc_cls = 'RucioException'
-        exc_msg = 'no error information passed (http status code: %s)' % status_code
+        exc_msg = f'no error information passed (http status code: {status_code})'
         if 'ExceptionClass' in data:
             exc_cls = data['ExceptionClass']
         elif 'ExceptionClass' in headers:
@@ -432,7 +435,7 @@ class BaseClient:
         if hasattr(exception, exc_cls):
             return getattr(exception, exc_cls), exc_msg
         else:
-            return exception.RucioException, "%s: %s" % (exc_cls, exc_msg)
+            return exception.RucioException, f"{exc_cls}: {exc_msg}"
 
     def _load_json_data(self, response: requests.Response) -> 'Generator[Any, Any, Any]':
         """
@@ -455,7 +458,7 @@ class BaseClient:
             data = json.dumps(data)
         text = data if isinstance(data, str) else data.decode("utf-8")
         if len(text) > maxlen:
-            text = "%s ... %s" % (text[:maxlen - 15], text[-10:])
+            text = f"{text[:maxlen - 15]} ... {text[-10:]}"
         return text
 
     def _back_off(self, retry_number: int, reason: str) -> None:
@@ -465,7 +468,7 @@ class BaseClient:
         :param reason: the reason to backoff which will be shown to the user
         """
         sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
-        self.logger.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
+        self.logger.warning("Waiting %ss due to reason: %s", sleep_time, reason)
         time.sleep(sleep_time)
 
     def _send_request(
@@ -519,7 +522,7 @@ class BaseClient:
             self.logger.debug("HTTP header:  %s: %s" % (h, v))
         if method != HTTPMethod.GET and data:
             text = self._reduce_data(data)
-            self.logger.debug("Request data (length=%d): [%s]" % (len(data), text))
+            self.logger.debug("Request data (length=%d): [%s]", len(data), text)
 
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
@@ -535,15 +538,15 @@ class BaseClient:
                 else:
                     self.logger.debug("Unknown request type %s. Request was not sent" % (method,))
                     return None
-                self.logger.debug("HTTP Response: %s %s" % (result.status_code, result.reason))
+                self.logger.debug("HTTP Response: %s %s", result.status_code, result.reason)
                 if result.status_code in STATUS_CODES_TO_RETRY:
-                    self._back_off(retry, 'server returned {}'.format(result.status_code))
+                    self._back_off(retry, f'server returned {result.status_code}')
                     continue
                 if result.status_code // 100 != 2 and result.text:
                     # do not do this for successful requests because the caller may be expecting streamed response
-                    self.logger.debug("Response text (length=%d): [%s]" % (len(result.text), result.text))
+                    self.logger.debug("Response text (length=%d): [%s]", len(result.text), result.text)
             except ConnectionError as error:
-                self.logger.error('ConnectionError: ' + str(error))
+                self.logger.error('ConnectionError: %s', error)
                 if retry > self.request_retries:
                     raise
                 continue
@@ -552,7 +555,7 @@ class BaseClient:
                 # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
                 if getattr(error, 'errno') != errno.EPIPE:
                     raise
-                self.logger.error('BrokenPipe: ' + str(error))
+                self.logger.error('BrokenPipe: %s', error)
                 if retry > self.request_retries:
                     raise
                 continue
@@ -587,7 +590,8 @@ class BaseClient:
             if isinstance(result, Response):
                 if 'ExceptionClass' in result.headers and result.headers['ExceptionClass']:
                     if 'ExceptionMessage' in result.headers and result.headers['ExceptionMessage']:
-                        raise CannotAuthenticate('%s: %s' % (result.headers['ExceptionClass'], result.headers['ExceptionMessage']))
+                        exc_msg = result.headers.get('ExceptionMessage', result.headers['ExceptionClass'])
+                        raise CannotAuthenticate(f"{result.headers['ExceptionClass']}: {exc_msg}")
                     else:
                         raise CannotAuthenticate(result.headers["ExceptionClass"])
                 elif result.text:
@@ -643,7 +647,7 @@ class BaseClient:
                 new_token = refresh_result.headers[HEADER_RUCIO_AUTH_TOKEN]
                 new_exp_epoch = refresh_result.headers[HEADER_RUCIO_AUTH_TOKEN_EXPIRES]
                 if new_token and new_exp_epoch:
-                    self.logger.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
+                    self.logger.debug("Saving token %s and expiration epoch %s to files", new_token, new_exp_epoch)
                     # save to the file
                     self.auth_token = new_token
                     self.token_exp_epoch = new_exp_epoch
@@ -800,10 +804,10 @@ class BaseClient:
             client_cert = self.creds['client_proxy']
 
         if (client_cert is not None) and not (os.path.exists(client_cert)):
-            self.logger.error('given client cert (%s) doesn\'t exist' % client_cert)
+            self.logger.error("Given client cert (%s) doesn't exist", client_cert)
             return False
         if client_key is not None and not os.path.exists(client_key):
-            self.logger.error('given client key (%s) doesn\'t exist' % client_key)
+            self.logger.error("Given client key (%s) doesn't exist", client_key)
 
         if client_key is None:
             cert = client_cert
@@ -837,10 +841,10 @@ class BaseClient:
 
         private_key_path = self.creds['ssh_private_key']
         if not os.path.exists(private_key_path):
-            self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
+            self.logger.error("Given private key (%s) doesn't exist", private_key_path)
             return False
         if private_key_path is not None and not os.path.exists(private_key_path):
-            self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
+            self.logger.error("Given private key (%s) doesn't exist", private_key_path)
             return False
 
         url = build_url(self.auth_host, path='auth/ssh_challenge_token')
@@ -858,7 +862,7 @@ class BaseClient:
             raise exc_cls(exc_msg)
 
         self.ssh_challenge_token = result.headers['x-rucio-ssh-challenge-token']
-        self.logger.debug('got new ssh challenge token \'%s\'' % self.ssh_challenge_token)
+        self.logger.debug("Got new ssh challenge token '%s'", self.ssh_challenge_token)
 
         # sign the challenge token with the private key
         with open(private_key_path, 'r') as fd_private_key_path:
@@ -948,30 +952,25 @@ class BaseClient:
         for retry in range(self.AUTH_RETRIES + 1):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
-                    raise CannotAuthenticate('userpass authentication failed for account=%s with identity=%s' % (self.account,
-                                                                                                                 self.creds['username']))
+                    raise CannotAuthenticate(f'userpass authentication failed for account={self.account} with identity={self.creds["username"]}')
             elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
                 if not self.__get_token_x509():
-                    raise CannotAuthenticate('x509 authentication failed for account=%s with identity=%s' % (self.account,
-                                                                                                             self.creds))
+                    raise CannotAuthenticate(f'x509 authentication failed for account={self.account} with identity={self.creds}')
             elif self.auth_type == 'oidc':
                 if not self.__get_token_oidc():
-                    raise CannotAuthenticate('OIDC authentication failed for account=%s' % self.account)
+                    raise CannotAuthenticate(f'OIDC authentication failed for account={self.account}')
 
             elif self.auth_type == 'gss':
                 if not self.__get_token_gss():
-                    raise CannotAuthenticate('kerberos authentication failed for account=%s with identity=%s' % (self.account,
-                                                                                                                 self.creds))
+                    raise CannotAuthenticate(f'kerberos authentication failed for account={self.account} with identity={self.creds}')
             elif self.auth_type == 'ssh':
                 if not self.__get_token_ssh():
-                    raise CannotAuthenticate('ssh authentication failed for account=%s with identity=%s' % (self.account,
-                                                                                                            self.creds))
+                    raise CannotAuthenticate(f'ssh authentication failed for account={self.account} with identity={self.creds}')
             elif self.auth_type == 'saml':
                 if not self.__get_token_saml():
-                    raise CannotAuthenticate('saml authentication failed for account=%s with identity=%s' % (self.account,
-                                                                                                             self.creds))
+                    raise CannotAuthenticate(f'saml authentication failed for account={self.account} with identity={self.creds["username"]}')
             else:
-                raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
+                raise CannotAuthenticate(f'auth type \'{self.auth_type}\' not supported')
 
             if self.auth_token is not None:
                 self.__write_token()
@@ -1003,7 +1002,7 @@ class BaseClient:
                 self.auth_token = token_file_handler.readline()
             self.headers[HEADER_RUCIO_AUTH_TOKEN] = self.auth_token
         except OSError as error:
-            print("I/O error({0}): {1}".format(error.errno, error.strerror))
+            self.logger.error("I/O error(%s): %s", error.errno, error.strerror)
         except Exception:
             raise
         if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
@@ -1018,12 +1017,11 @@ class BaseClient:
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.token_path):
             try:
-                self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
+                self.logger.debug("Rucio token folder '%s' not found. Creating it.", self.token_path)
                 try:
                     makedirs(self.token_path, 0o700)
                 except FileExistsError:
-                    msg = f'Token directory already exists at {self.token_path} - skipping'
-                    self.logger.debug(msg)
+                    self.logger.debug('Token directory already exists at %s - skipping', self.token_path)
             except Exception:
                 raise
 
@@ -1067,7 +1065,7 @@ class BaseClient:
             if self.creds['username'] is None or self.creds['password'] is None:
                 raise NoAuthInformation('No SAML username or password passed')
         else:
-            raise CannotAuthenticate('auth type \'%s\' not supported' % self.auth_type)
+            raise CannotAuthenticate(f'auth type \'{self.auth_type}\' not supported')
 
         if not self.__read_token():
             self.__get_token()
