@@ -364,8 +364,8 @@ class BaseClient:
                 elif method == HTTPMethod.DELETE:
                     result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
-                    self.logger.debug("Unknown request type %s. Request was not sent" % (method,))
-                    return None
+                    self.logger.debug("Unknown request type %s. Request was not sent" % (method))
+                    raise ServerConnectionException(f"Invalid HTTP method: {method}")
                 self.logger.debug("HTTP Response: %s %s", result.status_code, result.reason)
                 if result.status_code in STATUS_CODES_TO_RETRY:
                     self._back_off(retry, f'server returned {result.status_code}')
@@ -452,7 +452,8 @@ class BaseClient:
             with open(self.token_exp_epoch_file, 'r') as token_epoch_file:
                 try:
                     self.token_exp_epoch = int(token_epoch_file.readline())
-                except Exception:
+                except (ValueError, TypeError) as error:
+                    self.logger.debug('Failed to parse token expiration: %s', error)
                     self.token_exp_epoch = None
 
         if self.token_exp_epoch is None:
@@ -467,9 +468,10 @@ class BaseClient:
         request_refresh_url = build_url(self.auth_host, path='auth/oidc_refresh')
         refresh_result = self._send_request(request_refresh_url, method=HTTPMethod.GET, get_token=True)
         if refresh_result.status_code == codes.ok:
-            if HEADER_RUCIO_AUTH_TOKEN_EXPIRES not in refresh_result.headers or \
-                HEADER_RUCIO_AUTH_TOKEN not in refresh_result.headers:
-                print("Rucio Server response does not contain the expected headers.")
+            if HEADER_RUCIO_AUTH_TOKEN_EXPIRES not in refresh_result.headers or HEADER_RUCIO_AUTH_TOKEN not in refresh_result.headers:
+                self.logger.error("Rucio Server response does not contain the expected headers.")
+                return False
+
                 return False
             else:
                 new_token = refresh_result.headers[HEADER_RUCIO_AUTH_TOKEN]
@@ -486,8 +488,7 @@ class BaseClient:
                            \ntoken or a token with no refresh token in Rucio DB")
                 return False
         else:
-            print("Rucio Client did not succeed to contact the \
-                   \nRucio Auth Server when attempting token refresh.")
+            self.logger.error("Rucio Client did not succeed to contact the Rucio Auth Server when attempting token refresh.")
             return False
 
     def __get_token_oidc(self) -> bool:
@@ -540,16 +541,14 @@ class BaseClient:
             url = build_url(self.auth_host, path='auth/x509_proxy')
             client_cert = self.creds['client_proxy']
 
-        if (client_cert is not None) and not (os.path.exists(client_cert)):
+        if client_cert is not None and not os.path.exists(client_cert):
             self.logger.error("Given client cert (%s) doesn't exist", client_cert)
             return False
         if client_key is not None and not os.path.exists(client_key):
             self.logger.error("Given client key (%s) doesn't exist", client_key)
+            return False
 
-        if client_key is None:
-            cert = client_cert
-        else:
-            cert = (client_cert, client_key)
+        cert = client_cert if client_key is None else (client_cert, client_key)
 
         result = self._send_request(url, method=HTTPMethod.GET, get_token=True, cert=cert)
 
@@ -577,10 +576,8 @@ class BaseClient:
         headers = {}
 
         private_key_path = self.creds['ssh_private_key']
+
         if not os.path.exists(private_key_path):
-            self.logger.error("Given private key (%s) doesn't exist", private_key_path)
-            return False
-        if private_key_path is not None and not os.path.exists(private_key_path):
             self.logger.error("Given private key (%s) doesn't exist", private_key_path)
             return False
 
@@ -690,7 +687,7 @@ class BaseClient:
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
                     raise CannotAuthenticate(f'userpass authentication failed for account={self.account} with identity={self.creds["username"]}')
-            elif self.auth_type == 'x509' or self.auth_type == 'x509_proxy':
+            elif self.auth_type in ('x509', 'x509_proxy'):
                 if not self.__get_token_x509():
                     raise CannotAuthenticate(f'x509 authentication failed for account={self.account} with identity={self.creds}')
             elif self.auth_type == 'oidc':
@@ -740,7 +737,6 @@ class BaseClient:
             self.headers[HEADER_RUCIO_AUTH_TOKEN] = self.auth_token
         except OSError as error:
             self.logger.error("I/O error(%s): %s", error.errno, error.strerror)
-        except Exception:
             raise
         if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
             self.__refresh_token_oidc()
@@ -753,13 +749,13 @@ class BaseClient:
         """
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.token_path):
+            self.logger.debug("Rucio token folder '%s' not found. Creating it.", self.token_path)
             try:
-                self.logger.debug("Rucio token folder '%s' not found. Creating it.", self.token_path)
-                try:
-                    makedirs(self.token_path, 0o700)
-                except FileExistsError:
-                    self.logger.debug('Token directory already exists at %s - skipping', self.token_path)
-            except Exception:
+                makedirs(self.token_path, 0o700)
+            except FileExistsError:
+                self.logger.debug('Token directory already exists at %s - skipping', self.token_path)
+            except OSError as error:
+                self.logger.error("Failed to create token directory: %s", error)
                 raise
 
         try:
@@ -773,8 +769,7 @@ class BaseClient:
                     f_exp_epoch.write(str(self.token_exp_epoch))
                 move(file_n, self.token_exp_epoch_file)
         except OSError as error:
-            print("I/O error({0}): {1}".format(error.errno, error.strerror))
-        except Exception:
+            self.logger.error("I/O error(%s): %s", error.errno, error.strerror)
             raise
 
     def __authenticate(self) -> None:
