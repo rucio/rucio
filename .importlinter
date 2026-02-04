@@ -1,0 +1,135 @@
+[importlinter]
+root_package = rucio
+
+[importlinter:contract:cli-forbidden-package-imports]
+name = Forbidden package imports for rucio.cli
+type = forbidden
+source_modules =
+    rucio.cli
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.gateway
+
+[importlinter:contract:client-forbidden-package-imports]
+name = Forbidden package imports for rucio.client
+type = forbidden
+source_modules =
+    rucio.client
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.gateway
+
+[importlinter:contract:common-forbidden-package-imports]
+name = Forbidden package imports for rucio.common
+type = forbidden
+source_modules =
+    rucio.common
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.cli
+    rucio.rse
+    rucio.transfertool
+    rucio.gateway
+
+[importlinter:contract:core-forbidden-package-imports]
+name = Forbidden package imports for rucio.core
+type = forbidden
+source_modules =
+    rucio.core
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.cli
+    rucio.gateway
+
+[importlinter:contract:daemons-forbidden-package-imports]
+name = Forbidden package imports for rucio.daemons
+type = forbidden
+source_modules =
+    rucio.daemons
+forbidden_modules =
+    rucio.cli
+    rucio.web
+    rucio.gateway
+
+[importlinter:contract:db-forbidden-package-imports]
+name = Forbidden package imports for rucio.db
+type = forbidden
+source_modules =
+    rucio.db
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.cli
+    rucio.rse
+    rucio.transfertool
+    rucio.gateway
+
+[importlinter:contract:gateway-forbidden-package-imports]
+name = Forbidden package imports for rucio.gateway
+type = forbidden
+source_modules =
+    rucio.gateway
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.cli
+
+[importlinter:contract:rse-forbidden-package-imports]
+name = Forbidden package imports for rucio.rse
+type = forbidden
+source_modules =
+    rucio.rse
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.cli
+    rucio.gateway
+
+[importlinter:contract:transfertool-forbidden-package-imports]
+name = Forbidden package imports for rucio.transfertool
+type = forbidden
+source_modules =
+    rucio.transfertool
+forbidden_modules =
+    rucio.daemons
+    rucio.web
+    rucio.cli
+    rucio.gateway
+
+[importlinter:contract:web-forbidden-package-imports]
+name = Forbidden package imports for rucio.web
+type = forbidden
+source_modules =
+    rucio.web
+forbidden_modules =
+    rucio.daemons
+    rucio.cli
+
+[importlinter:contract:no-daemon-circular-deps]
+name = Prevent circular imports within daemons
+type = independence
+modules =
+    rucio.daemons.abacus
+    rucio.daemons.auditor
+    rucio.daemons.badreplicas
+    rucio.daemons.cache
+    rucio.daemons.conveyor
+    rucio.daemons.hermes
+    rucio.daemons.oauthmanager
+    rucio.daemons.replicarecoverer
+    rucio.daemons.storage
+    rucio.daemons.transmogrifier
+    rucio.daemons.atropos
+    rucio.daemons.automatix
+    rucio.daemons.bb8
+    rucio.daemons.follower
+    rucio.daemons.judge
+    rucio.daemons.reaper
+    rucio.daemons.rsedecommissioner
+    rucio.daemons.tracer
+    rucio.daemons.undertaker
+
