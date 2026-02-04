@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import uuid
+from typing import Literal, Optional
 
 import click
 from rich.padding import Padding
@@ -47,7 +48,25 @@ def rule():
 @click.option("--account", help="The account owning the rule")
 @click.option("--skip-duplicates", is_flag=True, default=False, help="Skip duplicate rules")
 @click.pass_context
-def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, locked, source_rses, notify, activity, comment, ask_approval, delay_injection, account, skip_duplicates):
+def add_(
+    ctx: click.Context,
+    dids: tuple[str, ...],
+    copies: int,
+    rses: str,
+    weight: Optional[str],
+    asynchronous: bool,
+    lifetime: int,
+    grouping: Optional[Literal["DATASET", "ALL", "NONE"]],
+    locked: bool,
+    source_rses: Optional[str],
+    notify: Optional[Literal["Y", "N", "C"]],
+    activity: Optional[str],
+    comment: Optional[str],
+    ask_approval: bool,
+    delay_injection: Optional[int],
+    account: Optional[str],
+    skip_duplicates: bool
+) -> None:
     """Add replication rule to define how replicas of a list of DIDs are created on RSEs."""
     did_list = []
     rule_ids = []
@@ -110,7 +129,7 @@ def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, lock
 @click.option("--rses", "--rse-exp", help="The RSE expression. Must be specified if a DID is provided.")  # TODO mutual inclusive group
 @click.option("--account", help="The account of the rule that must be deleted")
 @click.pass_context
-def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
+def remove(ctx: click.Context, rule_id_dids: str, _all: bool, rses: Optional[str], account: Optional[str], purge_replicas: bool) -> None:
     """Remove an existing rule. Supply [rule-id] if know, or use [DID] and --rses to remove all rules for DIDs on RSEs matching the expression"""
     try:
         # Test if the rule_id is a real rule_id
@@ -142,7 +161,7 @@ def remove(ctx, rule_id_dids, _all, rses, account, purge_replicas):
 @click.argument("rule-id")
 @click.option("--examine", is_flag=True, default=False, help="Detailed analysis of transfer errors")
 @click.pass_context
-def show(ctx, rule_id, examine):
+def show(ctx: click.Context, rule_id: str, examine: bool) -> None:
     """Retrieve information about a rule"""
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching rule info')
@@ -236,7 +255,7 @@ def show(ctx, rule_id, examine):
 @rule.command("history")
 @click.argument("did", nargs=1)
 @click.pass_context
-def history(ctx, did):
+def history(ctx: click.Context, did: str) -> None:
     """Display the history of rules acting on a DID"""
     rule_dict = []
     if ctx.obj.use_rich:
@@ -280,7 +299,7 @@ def history(ctx, did):
 @click.option("--activity", help="Update activity for moved rule", hidden=True)  # Should only do this using `update`
 @click.option("--source-rses", help="Update how replicas are sourced for the rule")
 @click.pass_context
-def move(ctx, rule_id, rses, activity, source_rses):
+def move(ctx: click.Context, rule_id: str, rses: str, activity: Optional[str], source_rses: Optional[str]) -> None:
     """Create a child rule on a different RSE. The parent rule is deleted once the new rule reaches `OK` status"""
     override = {}
     if activity:
@@ -308,9 +327,9 @@ def move(ctx, rule_id, rses, activity, source_rses):
 @click.option("--boost-rule", is_flag=True, default=False, help="Quickens the transition of a rule from STUCK to REPLICATING.")
 @click.pass_context
 def update(
-    ctx, rule_id: str, lifetime: str, locked: bool, source_rses: str, activity: str, comment: str,
-    account: str, stuck: bool, suspend: bool, cancel_requests: bool, priority: str, child_rule_id: str, boost_rule: bool
-):
+    ctx: click.Context, rule_id: str, lifetime: Optional[str], locked: Optional[bool], source_rses: Optional[str], activity: Optional[str], comment: Optional[str],
+    account: Optional[str], stuck: bool, suspend: bool, cancel_requests: bool, priority: Optional[str], child_rule_id: Optional[str], boost_rule: bool
+) -> None:
     """Update an existing rule"""
     options = {}
     if lifetime:
@@ -354,7 +373,7 @@ def update(
 @click.option("--account", help="Filter by account")
 @click.option("--subscription", help="Filter by subscription name")
 @click.pass_context
-def list_(ctx, did, traverse, csv, file, account, subscription):
+def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, file: Optional[str], account: Optional[str], subscription: Optional[str]) -> None:
     """List all rules impacting a given DID"""
     # Done here to raise error==2
     if not (did or file or account or subscription):
