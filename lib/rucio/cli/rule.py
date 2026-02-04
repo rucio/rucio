@@ -386,6 +386,8 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
         scope, name = get_scope(file, ctx.obj.client)
         rules = ctx.obj.client.list_associated_rules_for_file(scope=scope, name=name)
     elif traverse:
+        if did is None:
+            raise InputValidationError("Must supply a DID to traverse")
         scope, name = get_scope(did, ctx.obj.client)
         locks = ctx.obj.client.get_dataset_locks(scope=scope, name=name)
         rules = []
