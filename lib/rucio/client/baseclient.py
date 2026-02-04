@@ -204,102 +204,22 @@ class BaseClient:
         return auth_type
 
     def _get_creds(self, creds: Optional[dict[str, Any]]) -> dict[str, Any]:
+        """Get credentials from parameter or config file."""
         if not creds:
             self.logger.debug('No creds passed. Trying to get it from the config file.')
             creds = {}
 
         try:
             if self.auth_type == 'oidc':
-                # if there are default values, check if rucio.cfg does not specify them, otherwise put default
-                if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
-                    creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
-                if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
-                    creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
-                if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
-                    creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
-                if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
-                    creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
-                if creds['oidc_auto']:
-                    if 'oidc_username' not in creds or creds['oidc_username'] is None:
-                        creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
-                    if 'oidc_password' not in creds or creds['oidc_password'] is None:
-                        creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
-                if 'oidc_scope' not in creds or creds['oidc_scope'] == 'openid profile':
-                    creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
-                if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
-                    creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
-
+                self._populate_oidc_creds(creds)
             elif self.auth_type in ['userpass', 'saml']:
-                if 'username' not in creds or creds['username'] is None:
-                    creds['username'] = config_get('client', 'username')
-                if 'password' not in creds or creds['password'] is None:
-                    creds['password'] = config_get('client', 'password')
-
+                self._populate_userpass_creds(creds)
             elif self.auth_type == 'x509':
-                if 'client_cert' not in creds or creds['client_cert'] is None:
-                    if "RUCIO_CLIENT_CERT" in environ:
-                        creds['client_cert'] = environ["RUCIO_CLIENT_CERT"]
-                    else:
-                        creds['client_cert'] = config_get('client', 'client_cert')
-
-                creds['client_cert'] = _expand_path(creds['client_cert'])
-
-                if not os.path.exists(creds['client_cert']):
-                    raise MissingClientParameter(f"X.509 client certificate not found: {creds['client_cert']!r}")
-
-                if 'client_key' not in creds or creds['client_key'] is None:
-                    if "RUCIO_CLIENT_KEY" in environ:
-                        creds['client_key'] = environ["RUCIO_CLIENT_KEY"]
-                    else:
-                        creds['client_key'] = config_get('client', 'client_key')
-
-                creds['client_key'] = _expand_path(creds['client_key'])
-                if not os.path.exists(creds['client_key']):
-                    raise MissingClientParameter(f"X.509 client key not found: {creds['client_key']!r}")
-
-                perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
-                if perms not in ['400', '600']:
-                    raise CannotAuthenticate(
-                        f"X.509 authentication selected, but private key ({creds['client_key']}) "
-                        f"permissions are liberal (required: 400 or 600, found: {perms})"
-                    )
-
+                self._populate_x509_creds(creds)
             elif self.auth_type == 'x509_proxy':
-                # rucio specific configuration takes precedence over GSI logic
-                # environment variables take precedence over config values
-                # So we check in order:
-                # RUCIO_CLIENT_PROXY env variable
-                # client.client_x509_proxy rucio cfg variable
-                # X509_USER_PROXY env variable
-                # /tmp/x509up_u`id -u` if exists
-
-                gsi_proxy_path = f'/tmp/x509up_u{geteuid()}'
-                if 'client_proxy' not in creds or creds['client_proxy'] is None:
-                    if 'RUCIO_CLIENT_PROXY' in environ:
-                        creds['client_proxy'] = environ['RUCIO_CLIENT_PROXY']
-                    elif config_has_section('client') and config_get('client', 'client_x509_proxy', default='') != '':
-                        creds['client_proxy'] = config_get('client', 'client_x509_proxy')
-                    elif 'X509_USER_PROXY' in environ:
-                        creds['client_proxy'] = environ['X509_USER_PROXY']
-                    elif os.path.isfile(gsi_proxy_path):
-                        creds['client_proxy'] = gsi_proxy_path
-
-                creds['client_proxy'] = _expand_path(creds['client_proxy'])
-
-                if not os.path.isfile(creds['client_proxy']):
-                    raise MissingClientParameter(
-                        f'Cannot find a valid X509 proxy; checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY '
-                        f'client/client_x509_proxy config and default path: {gsi_proxy_path!r}'
-                    )
-
+                self._populate_x509_proxy_creds(creds)
             elif self.auth_type == 'ssh':
-                if 'ssh_private_key' not in creds or creds['ssh_private_key'] is None:
-                    creds['ssh_private_key'] = config_get('client', 'ssh_private_key')
-
-                creds['ssh_private_key'] = _expand_path(creds['ssh_private_key'])
-                if not os.path.isfile(creds["ssh_private_key"]):
-                    raise CannotAuthenticate('Provided ssh private key %r does not exist' % creds['ssh_private_key'])
-
+                self._populate_ssh_creds(creds)
         except (NoOptionError, NoSectionError) as error:
             if error.args[0] != 'client_key':
                 raise MissingClientParameter(f"Option '{error.args[0]}' cannot be found in config file")
@@ -1173,3 +1093,82 @@ class BaseClient:
             self.logger.debug('request_retries not specified in config file. Taking default.')
         except ValueError:
             self.logger.debug('request_retries must be an integer. Taking default.')
+
+    def _populate_oidc_creds(self, creds: dict[str, Any]) -> None:
+        """Populate OIDC credentials from config."""
+        if 'oidc_refresh_lifetime' not in creds or creds['oidc_refresh_lifetime'] is None:
+            creds['oidc_refresh_lifetime'] = config_get('client', 'oidc_refresh_lifetime', False, None)
+        if 'oidc_issuer' not in creds or creds['oidc_issuer'] is None:
+            creds['oidc_issuer'] = config_get('client', 'oidc_issuer', False, None)
+        if 'oidc_audience' not in creds or creds['oidc_audience'] is None:
+            creds['oidc_audience'] = config_get('client', 'oidc_audience', False, None)
+        if 'oidc_auto' not in creds or creds['oidc_auto'] is False:
+            creds['oidc_auto'] = config_get_bool('client', 'oidc_auto', False, False)
+        if creds['oidc_auto']:
+            if 'oidc_username' not in creds or creds['oidc_username'] is None:
+                creds['oidc_username'] = config_get('client', 'oidc_username', False, None)
+            if 'oidc_password' not in creds or creds['oidc_password'] is None:
+                creds['oidc_password'] = config_get('client', 'oidc_password', False, None)
+        if 'oidc_scope' not in creds or creds['oidc_scope'] is None or creds['oidc_scope'] == 'openid profile':
+            creds['oidc_scope'] = config_get('client', 'oidc_scope', False, 'openid profile')
+        if 'oidc_polling' not in creds or creds['oidc_polling'] is False:
+            creds['oidc_polling'] = config_get_bool('client', 'oidc_polling', False, False)
+
+    def _populate_userpass_creds(self, creds: dict[str, Any]) -> None:
+        """Populate username/password credentials from config."""
+        if 'username' not in creds or creds['username'] is None:
+            creds['username'] = config_get('client', 'username')
+        if 'password' not in creds or creds['password'] is None:
+            creds['password'] = config_get('client', 'password')
+
+    def _populate_x509_creds(self, creds: dict[str, Any]) -> None:
+        """Populate X509 credentials from config."""
+        if 'client_cert' not in creds or creds['client_cert'] is None:
+            creds['client_cert'] = environ.get("RUCIO_CLIENT_CERT") or config_get('client', 'client_cert')
+
+        creds['client_cert'] = _expand_path(creds['client_cert'])
+        if not os.path.exists(creds['client_cert']):
+            raise MissingClientParameter(f"X.509 client certificate not found: {creds['client_cert']!r}")
+
+        if 'client_key' not in creds or creds['client_key'] is None:
+            creds['client_key'] = environ.get("RUCIO_CLIENT_KEY") or config_get('client', 'client_key')
+
+        creds['client_key'] = _expand_path(creds['client_key'])
+        if not os.path.exists(creds['client_key']):
+            raise MissingClientParameter(f"X.509 client key not found: {creds['client_key']!r}")
+
+        perms = oct(os.stat(creds['client_key']).st_mode)[-3:]
+        if perms not in ['400', '600']:
+            raise CannotAuthenticate(
+                f"X.509 authentication selected, but private key ({creds['client_key']}) "
+                f"permissions are liberal (required: 400 or 600, found: {perms})"
+            )
+
+    def _populate_x509_proxy_creds(self, creds: dict[str, Any]) -> None:
+        """Populate X509 proxy credentials from config."""
+        gsi_proxy_path = f'/tmp/x509up_u{geteuid()}'
+        if 'client_proxy' not in creds or creds['client_proxy'] is None:
+            if 'RUCIO_CLIENT_PROXY' in environ:
+                creds['client_proxy'] = environ['RUCIO_CLIENT_PROXY']
+            elif config_has_section('client') and config_get('client', 'client_x509_proxy', default='') != '':
+                creds['client_proxy'] = config_get('client', 'client_x509_proxy')
+            elif 'X509_USER_PROXY' in environ:
+                creds['client_proxy'] = environ['X509_USER_PROXY']
+            elif os.path.isfile(gsi_proxy_path):
+                creds['client_proxy'] = gsi_proxy_path
+
+        creds['client_proxy'] = _expand_path(creds['client_proxy'])
+        if not os.path.isfile(creds['client_proxy']):
+            raise MissingClientParameter(
+                f'Cannot find a valid X509 proxy; checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY '
+                f'client/client_x509_proxy config and default path: {gsi_proxy_path!r}'
+            )
+
+    def _populate_ssh_creds(self, creds: dict[str, Any]) -> None:
+        """Populate SSH credentials from config."""
+        if 'ssh_private_key' not in creds or creds['ssh_private_key'] is None:
+            creds['ssh_private_key'] = config_get('client', 'ssh_private_key')
+
+        creds['ssh_private_key'] = _expand_path(creds['ssh_private_key'])
+        if not os.path.isfile(creds["ssh_private_key"]):
+            raise CannotAuthenticate(f'Provided ssh private key {creds["ssh_private_key"]!r} does not exist')
