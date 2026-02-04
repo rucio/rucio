@@ -277,8 +277,8 @@ def move(ctx, rule_id, rses, activity, source_rses):
     if source_rses:
         override['source_replica_expression'] = None if source_rses.lower() == "none" else source_rses
 
-    # TODO Reformat for clarity
-    print(ctx.obj.client.move_replication_rule(rule_id=rule_id, rse_expression=rses, override=override))
+    new_rule_id = ctx.obj.client.move_replication_rule(rule_id=rule_id, rse_expression=rses, override=override)
+    print(new_rule_id)
 
 
 @rule.command("update")
@@ -391,16 +391,18 @@ def list_(ctx, did, traverse, csv, file, account, subscription):
 
     if csv:
         for rule in rules:
-            print(rule['id'],
-                  rule['account'],
-                  f"{rule['scope']}:{rule['name']}",
-                  f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
-                  rule['rse_expression'],
-                  rule['copies'],
-                  sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
-                  rule['expires_at'],
-                  rule['created_at'],
-                  sep=',')
+            print(
+                rule['id'],
+                rule['account'],
+                f"{rule['scope']}:{rule['name']}",
+                f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                rule['rse_expression'],
+                rule['copies'],
+                sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                rule['expires_at'],
+                rule['created_at'],
+                sep=','
+            )
 
         if ctx.obj.use_rich:
             ctx.obj.spinner.stop()
@@ -408,25 +410,29 @@ def list_(ctx, did, traverse, csv, file, account, subscription):
         table_data = []
         for rule in rules:
             if ctx.obj.use_rich:
-                table_data.append([rule['id'],
-                                   rule['account'],
-                                   f"{rule['scope']}:{rule['name']}",
-                                   f"[{CLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
-                                   rule['rse_expression'],
-                                   rule['copies'],
-                                   sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
-                                   rule['expires_at'],
-                                   rule['created_at']])
+                table_data.append([
+                    rule['id'],
+                    rule['account'],
+                    f"{rule['scope']}:{rule['name']}",
+                    f"[{CLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                    rule['rse_expression'],
+                    rule['copies'],
+                    sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                    rule['expires_at'],
+                    rule['created_at']
+                ])
             else:
-                table_data.append([rule['id'],
-                                   rule['account'],
-                                   f"{rule['scope']}:{rule['name']}",
-                                   f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
-                                   rule['rse_expression'],
-                                   rule['copies'],
-                                   sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
-                                   rule['expires_at'],
-                                   rule['created_at']])
+                table_data.append([
+                    rule['id'],
+                    rule['account'],
+                    f"{rule['scope']}:{rule['name']}",
+                    f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                    rule['rse_expression'],
+                    rule['copies'],
+                    sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                    rule['expires_at'],
+                    rule['created_at']
+                ])
 
         if ctx.obj.use_rich:
             table = generate_table(
@@ -437,4 +443,5 @@ def list_(ctx, did, traverse, csv, file, account, subscription):
             ctx.obj.spinner.stop()
             print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
-            print(tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
+            table = tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True)
+            print(table)
