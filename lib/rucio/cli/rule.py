@@ -95,7 +95,7 @@ def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, lock
                     )
                     rule_ids.extend(rule_id)
                 except DuplicateRule:
-                    print('Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name']))
+                    print(f'Duplicate rule for {did["scope"]}:{did["name"]} found; Skipping.')
         else:
             raise error
 
@@ -174,18 +174,24 @@ def show(ctx, rule_id, examine):
             print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             analysis = ctx.obj.client.examine_replication_rule(rule_id=rule_id)
-            print('Status of the replication rule: %s' % analysis['rule_error'])
+            print(f'Status of the replication rule: {analysis["rule_error"]}')
             if analysis['transfers']:
                 print('STUCK Requests:')
-                for transfer in analysis['transfers']:  # TODO Reformat with f-strings and padding
-                    print('  %s:%s' % (transfer['scope'], transfer['name']))
-                    print('    RSE:                  %s' % str(transfer['rse']))
-                    print('    Attempts:             %s' % str(transfer['attempts']))
-                    print('    Last Retry:           %s' % str(transfer['last_time']))
-                    print('    Last error:           %s' % str(transfer['last_error']))
-                    print('    Last source:          %s' % str(transfer['last_source']))
-                    print('    Available sources:    %s' % ', '.join([source[0] for source in transfer['sources'] if source[1]]))
-                    print('    Blocklisted sources:  %s' % ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
+                lpad = ' ' * 5
+
+                def _format_print(name, value):
+                    name += ":"
+                    print(f"{lpad}{name.ljust(20)}{value}")
+                for transfer in analysis['transfers']:
+                    print(f'  {transfer["scope"]}:{transfer["name"]}')
+                    _format_print('RSE', transfer['rse'])
+                    _format_print('Attempts', transfer['attempts'])
+                    _format_print('Last Retry', transfer['last_time'])
+                    _format_print('Last error', transfer['last_error'])
+                    _format_print('Last source', transfer['last_source'])
+                    _format_print('Available sources', ', '.join([source[0] for source in transfer['sources'] if source[1]]))
+                    _format_print('Blocklisted sources', ', '.join([source[0] for source in transfer['sources'] if not source[1]]))
+
     else:
         rule = ctx.obj.client.get_replication_rule(rule_id=rule_id)
         if ctx.obj.use_rich:
@@ -194,32 +200,36 @@ def show(ctx, rule_id, examine):
             table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             ctx.obj.spinner.stop()
             print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
-        else:  # TODO Reformat with f-strings and padding
-            print("Id:                         %s" % rule['id'])
-            print("Account:                    %s" % rule['account'])
-            print("Scope:                      %s" % rule['scope'])
-            print("Name:                       %s" % rule['name'])
-            print("RSE Expression:             %s" % rule['rse_expression'])
-            print("Copies:                     %s" % rule['copies'])
-            print("State:                      %s" % rule['state'])
-            print("Locks OK/REPLICATING/STUCK: %s/%s/%s" % (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']))
-            print("Grouping:                   %s" % rule['grouping'])
-            print("Expires at:                 %s" % rule['expires_at'])
-            print("Locked:                     %s" % rule['locked'])
-            print("Weight:                     %s" % rule['weight'])
-            print("Created at:                 %s" % rule['created_at'])
-            print("Updated at:                 %s" % rule['updated_at'])
-            print("Error:                      %s" % rule['error'])
-            print("Subscription Id:            %s" % rule['subscription_id'])
-            print("Source replica expression:  %s" % rule['source_replica_expression'])
-            print("Activity:                   %s" % rule['activity'])
-            print("Comment:                    %s" % rule['comments'])
-            print("Ignore Quota:               %s" % rule['ignore_account_limit'])
-            print("Ignore Availability:        %s" % rule['ignore_availability'])
-            print("Purge replicas:             %s" % rule['purge_replicas'])
-            print("Notification:               %s" % rule['notification'])
-            print("End of life:                %s" % rule['eol_at'])
-            print("Child Rule Id:              %s" % rule['child_rule_id'])
+        else:
+            def _format_print(name, value):
+                name += ":"
+                print(f'{name.ljust(28)}{value}')
+
+            _format_print('Id', rule['id'])
+            _format_print('Account', rule['account'])
+            _format_print('Scope', rule['scope'])
+            _format_print('Name', rule['name'])
+            _format_print('RSE Expression', rule['rse_expression'])
+            _format_print('Copies', rule['copies'])
+            _format_print('State', rule['state'])
+            _format_print('Locks OK/REPLICATING/STUCK', f"{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}")
+            _format_print('Grouping', rule['grouping'])
+            _format_print('Expires at', rule['expires_at'])
+            _format_print('Locked', rule['locked'])
+            _format_print('Weight', rule['weight'])
+            _format_print('Created at', rule['created_at'])
+            _format_print('Updated at', rule['updated_at'])
+            _format_print('Error', rule['error'])
+            _format_print('Subscription Id', rule['subscription_id'])
+            _format_print('Source replica expression', rule['source_replica_expression'])
+            _format_print('Activity', rule['activity'])
+            _format_print('Comment', rule['comments'])
+            _format_print('Ignore Quota', rule['ignore_account_limit'])
+            _format_print('Ignore Availability', rule['ignore_availability'])
+            _format_print('Purge replicas', rule['purge_replicas'])
+            _format_print('Notification', rule['notification'])
+            _format_print('End of life', rule['eol_at'])
+            _format_print('Child Rule Id', rule['child_rule_id'])
 
 
 @rule.command("history")
@@ -239,22 +249,22 @@ def history(ctx, did):
             rule_dict.append(rule['rule_id'])
             if ctx.obj.use_rich:
                 table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
-            else:  # TODO replace with f-strings
+            else:
                 print('-' * 40)
                 print('Rule insertion')
-                print('Account : %s' % rule['account'])
-                print('RSE expression : %s' % (rule['rse_expression']))
-                print('Time : %s' % (rule['created_at']))
+                print(f'Account : {rule["account"]}')
+                print(f'RSE expression : {rule["rse_expression"]}')
+                print(f'Time : {rule["created_at"]}')
         else:
             rule_dict.remove(rule['rule_id'])
             if ctx.obj.use_rich:
                 table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
-            else:  # TODO Replace with f-strings
+            else:
                 print('-' * 40)
                 print('Rule deletion')
-                print('Account : %s' % rule['account'])
-                print('RSE expression : %s' % (rule['rse_expression']))
-                print('Time : %s' % (rule['updated_at']))
+                print(f'Account : {rule["account"]}')
+                print(f'RSE expression : {rule["rse_expression"]}')
+                print(f'Time : {rule["updated_at"]}')
 
     if ctx.obj.use_rich:
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
