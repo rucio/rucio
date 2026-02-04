@@ -23,6 +23,7 @@ import os
 import secrets
 import sys
 import time
+from collections.abc import Mapping  # noqa: TC003 - Used in runtime function signatures
 from configparser import NoOptionError, NoSectionError
 from os import environ, fdopen, geteuid, makedirs
 from shutil import move
@@ -31,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
 import requests
-from dogpile.cache import make_region
+from dogpile.cache.region import make_region
 from requests import Response, Session
 from requests.exceptions import ConnectionError
 from requests.status_codes import codes
@@ -108,17 +109,19 @@ class BaseClient:
     TOKEN_PREFIX = 'auth_token_'  # noqa: S105
     TOKEN_EXP_PREFIX = 'auth_token_exp_'  # noqa: S105
 
-    def __init__(self,
-                 rucio_host: Optional[str] = None,
-                 auth_host: Optional[str] = None,
-                 account: Optional[str] = None,
-                 ca_cert: Optional[str] = None,
-                 auth_type: Optional[str] = None,
-                 creds: Optional[dict[str, Any]] = None,
-                 timeout: Optional[int] = 600,
-                 user_agent: Optional[str] = 'rucio-clients',
-                 vo: Optional[str] = None,
-                 logger: 'Logger' = LOG) -> None:
+    def __init__(
+            self,
+            rucio_host: Optional[str] = None,
+            auth_host: Optional[str] = None,
+            account: Optional[str] = None,
+            ca_cert: Optional[str] = None,
+            auth_type: Optional[str] = None,
+            creds: Optional[dict[str, Any]] = None,
+            timeout: Optional[int] = 600,
+            user_agent: str = 'rucio-clients',
+            vo: Optional[str] = None,
+            logger: 'Logger' = LOG
+        ) -> None:
         """
         Constructor of the BaseClient.
 
@@ -179,10 +182,11 @@ class BaseClient:
         self.account = account
         self.ca_cert = ca_cert
         self.auth_token = ""
-        self.headers = {}
+        self.headers: dict[str, str] = {}
+        self.token_exp_epoch: Optional[int] = None
+        self.creds: dict[str, Any] = self._get_creds(creds)
         self.timeout = timeout
         self.request_retries = self.REQUEST_RETRIES
-        self.token_exp_epoch = None
         self.auth_oidc_refresh_active = config_get_bool('client', 'auth_oidc_refresh_active', False, False)
 
         # defining how many minutes before token expires, oidc refresh (if active) should start
@@ -391,7 +395,12 @@ class BaseClient:
 
         return creds
 
-    def _get_exception(self, headers: dict[str, str], status_code: Optional[int] = None, data=None) -> tuple[type[exception.RucioException], str]:
+    def _get_exception(
+            self,
+            headers: Mapping[str, str],
+            status_code: Optional[int] = None,
+            data: Any = None
+        ) -> tuple[type[exception.RucioException], str]:
         """
         Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
 
@@ -441,7 +450,7 @@ class BaseClient:
             if response.text:
                 yield response.text
 
-    def _reduce_data(self, data, maxlen: int = 132) -> str:
+    def _reduce_data(self, data: Any, maxlen: int = 132) -> str:
         if isinstance(data, dict):
             data = json.dumps(data)
         text = data if isinstance(data, str) else data.decode("utf-8")
@@ -459,8 +468,19 @@ class BaseClient:
         self.logger.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
         time.sleep(sleep_time)
 
-    def _send_request(self, url, method, headers=None, data=None, params=None, stream=False, get_token=False,
-                      cert=None, auth=None, verify=None):
+    def _send_request(
+            self,
+            url: str,
+            method: HTTPMethod = HTTPMethod.GET,
+            headers: Optional[dict[str, str]] = None,
+            data: Any = None,
+            params: Optional[dict[str, Any]] = None,
+            stream: bool = False,
+            get_token: bool = False,
+            cert: Any = None,
+            auth: Any = None,
+            verify: Any = None
+        ) -> Response:
         """
         Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
 
