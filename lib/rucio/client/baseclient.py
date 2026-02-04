@@ -190,6 +190,7 @@ class BaseClient:
         return auth_token_file_path, token_exp_epoch_file, token_file, token_path
 
     def _get_auth_type(self, auth_type: Optional[str]) -> str:
+        """Get authentication type from parameter, environment, or config."""
         if auth_type is None:
             self.logger.debug('No auth_type passed. Trying to get it from the environment variable RUCIO_AUTH_TYPE and config file.')
             if 'RUCIO_AUTH_TYPE' in environ:
@@ -233,13 +234,21 @@ class BaseClient:
             data: Any = None
         ) -> tuple[type[exception.RucioException], str]:
         """
-        Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
+        Parse error string from server and transform into corresponding rucio exception.
 
-        :param headers: The http response header containing the Rucio exception details.
-        :param status_code: The http status code.
-        :param data: The data with the ExceptionMessage.
+        Parameters
+        ----------
+        headers :
+            HTTP response header containing Rucio exception details
+        status_code :
+            HTTP status code
+        data :
+            Data with the ExceptionMessage
 
-        :return: A rucio exception class and an error string.
+        Returns
+        -------
+        tuple
+            Rucio exception class and error string
         """
         if data is not None:
             try:
@@ -267,9 +276,17 @@ class BaseClient:
 
     def _load_json_data(self, response: requests.Response) -> 'Generator[Any, Any, Any]':
         """
-        Helper method to correctly load json data based on the content type of the http response.
+        Load json data based on content type of HTTP response.
 
-        :param response: the response received from the server.
+        Parameters
+        ----------
+        response :
+            Response received from the server
+
+        Yields
+        ------
+        Any
+            Parsed JSON data
         """
         if 'content-type' in response.headers and response.headers['content-type'] == 'application/x-json-stream':
             for line in response.iter_lines():
@@ -282,6 +299,7 @@ class BaseClient:
                 yield response.text
 
     def _reduce_data(self, data: Any, maxlen: int = 132) -> str:
+        """Reduce data to maximum length for logging."""
         if isinstance(data, dict):
             data = json.dumps(data)
         text = data if isinstance(data, str) else data.decode("utf-8")
@@ -291,9 +309,14 @@ class BaseClient:
 
     def _back_off(self, retry_number: int, reason: str) -> None:
         """
-        Sleep a certain amount of time which increases with the retry count
-        :param retry_number: the retry iteration
-        :param reason: the reason to backoff which will be shown to the user
+        Sleep for exponentially increasing time based on retry count.
+
+        Parameters
+        ----------
+        retry_number :
+            The retry iteration
+        reason :
+            The reason to backoff which will be shown to the user
         """
         sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
         self.logger.warning("Waiting %ss due to reason: %s", sleep_time, reason)
@@ -313,19 +336,40 @@ class BaseClient:
             verify: Any = None
         ) -> Response:
         """
-        Helper method to send requests to the rucio server. Gets a new token and retries if an unauthorized error is returned.
+        Send requests to the rucio server with token refresh on unauthorized.
 
-        :param url: the http url to use.
-        :param headers: additional http headers to send.
-        :param method: the http request type to use.
-        :param data: post data.
-        :param params: (optional) Dictionary or bytes to be sent in the url query string.
-        :param get_token: (optional) if it is called from a _get_token function.
-        :param cert: (optional) if String, path to the SSL client cert file (.pem). If Tuple, (cert, key) pair.
-        :param auth: (optional) auth tuple to enable Basic/Digest/Custom HTTP Auth.
-        :param verify: (optional) either a boolean, in which case it controls whether we verify the server's TLS
-                       certificate, or a string, in which case it must be a path to a CA bundle to use.
-        :return: the HTTP return body.
+        Parameters
+        ----------
+        url :
+            HTTP url to use
+        headers :
+            Additional HTTP headers to send
+        method :
+            HTTP request type to use
+        data :
+            POST data
+        params :
+            Dictionary or bytes to be sent in the url query string
+        stream :
+            Enable streaming response
+        get_token :
+            Whether this is called from a get_token function
+        cert :
+            SSL client cert file path or (cert, key) pair
+        auth :
+            Auth tuple to enable Basic/Digest/Custom HTTP Auth
+        verify :
+            Whether to verify server's TLS certificate or path to CA bundle
+
+        Returns
+        -------
+        Response
+            HTTP response body
+
+        Raises
+        ------
+        ServerConnectionException
+            If no result received from server
         """
         hds = {
             HEADER_RUCIO_AUTH_TOKEN: self.auth_token,
@@ -401,9 +445,17 @@ class BaseClient:
 
     def __get_token_userpass(self) -> bool:
         """
-        Sends a request to get an auth token from the server and stores it as a class attribute. Uses username/password.
+        Get auth token from server using username/password.
 
-        :returns: True if the token was successfully received. False otherwise.
+        Returns
+        -------
+        bool
+            True if token successfully received, False otherwise
+
+        Raises
+        ------
+        CannotAuthenticate
+            If authentication fails
         """
 
         headers = {'X-Rucio-Username': self.creds['username'],
@@ -438,12 +490,12 @@ class BaseClient:
 
     def __refresh_token_oidc(self) -> bool:
         """
-        Checks if there is active refresh token and if so returns
-        either active token with expiration timestamp or requests a new
-        refresh and returns new access token with new expiration timestamp
-        and saves these in the token directory.
+        Check for active refresh token and request new access token if needed.
 
-        :returns: True if the token was successfully received. False otherwise.
+        Returns
+        -------
+        bool
+            True if token successfully refreshed, False otherwise
         """
 
         if not self.auth_oidc_refresh_active:
@@ -526,9 +578,12 @@ class BaseClient:
 
     def __get_token_x509(self) -> bool:
         """
-        Sends a request to get an auth token from the server and stores it as a class attribute. Uses x509 authentication.
+        Get auth token from server using x509 authentication.
 
-        :returns: True if the token was successfully received. False otherwise.
+        Returns
+        -------
+        bool
+            True if token successfully received, False otherwise
         """
         client_cert = None
         client_key = None
@@ -569,9 +624,12 @@ class BaseClient:
 
     def __get_token_ssh(self) -> bool:
         """
-        Sends a request to get an auth token from the server and stores it as a class attribute. Uses SSH key exchange authentication.
+        Get auth token from server using SSH key exchange authentication.
 
-        :returns: True if the token was successfully received. False otherwise.
+        Returns
+        -------
+        bool
+            True if token successfully received, False otherwise
         """
         headers = {}
 
@@ -623,9 +681,12 @@ class BaseClient:
 
     def __get_token_gss(self) -> bool:
         """
-        Sends a request to get an auth token from the server and stores it as a class attribute. Uses Kerberos authentication.
+        Get auth token from server using Kerberos authentication.
 
-        :returns: True if the token was successfully received. False otherwise.
+        Returns
+        -------
+        bool
+            True if token successfully received, False otherwise
         """
         if not EXTRA_MODULES['requests_kerberos']:
             raise MissingModuleException('The requests-kerberos module is not installed.')
@@ -649,9 +710,12 @@ class BaseClient:
 
     def __get_token_saml(self) -> bool:
         """
-        Sends a request to get an auth token from the server and stores it as a class attribute. Uses saml authentication.
+        Get auth token from server using SAML authentication.
 
-        :returns: True if the token was successfully received. False otherwise.
+        Returns
+        -------
+        bool
+            True if token successfully received, False otherwise
         """
         userpass = {'username': self.creds['username'], 'password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/saml')
@@ -678,9 +742,7 @@ class BaseClient:
         return True
 
     def __get_token(self) -> None:
-        """
-        Calls the corresponding method to receive an auth token depending on the auth type. To be used if a 401 - Unauthorized error is received.
-        """
+        """Get auth token based on configured authentication type."""
 
         self.logger.debug('get a new token')
         for retry in range(self.AUTH_RETRIES + 1):
@@ -716,9 +778,12 @@ class BaseClient:
 
     def __read_token(self) -> bool:
         """
-        Checks if a local token file exists and reads the token from it.
+        Check if local token file exists and read token from it.
 
-        :return: True if a token could be read. False if no file exists.
+        Returns
+        -------
+        bool
+            True if token could be read, False if no file exists
         """
 
         if self.auth_type == "oidc":
@@ -744,9 +809,7 @@ class BaseClient:
         return True
 
     def __write_token(self) -> None:
-        """
-        Write the current auth_token to the local token file.
-        """
+        """Write current auth_token to local token file."""
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.token_path):
             self.logger.debug("Rucio token folder '%s' not found. Creating it.", self.token_path)
@@ -774,7 +837,16 @@ class BaseClient:
 
     def __authenticate(self) -> None:
         """
-        Main method for authentication. It first tries to read a locally saved token. If not available it requests a new one.
+        Main authentication method.
+
+        First tries to read a locally saved token. If not available, requests a new one.
+
+        Raises
+        ------
+        NoAuthInformation
+            If required credentials are missing
+        CannotAuthenticate
+            If authentication type is not supported
         """
         if self.auth_type == 'userpass':
             if self.creds['username'] is None or self.creds['password'] is None:
