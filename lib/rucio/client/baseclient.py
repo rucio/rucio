@@ -86,7 +86,7 @@ def choice(hosts):
     """
     Select randomly a host
 
-    :param hosts: Lost of hosts
+    :param hosts: List of hosts
     :return: A randomly selected host.
     """
     return secrets.choice(hosts)
@@ -101,7 +101,6 @@ def _expand_path(path: str) -> str:
 
 
 class BaseClient:
-
     """Main client class for accessing Rucio resources. Handles the authentication."""
 
     AUTH_RETRIES, REQUEST_RETRIES = 2, 3
@@ -260,6 +259,7 @@ class BaseClient:
 
         exc_cls = 'RucioException'
         exc_msg = f'no error information passed (http status code: {status_code})'
+
         if 'ExceptionClass' in data:
             exc_cls = data['ExceptionClass']
         elif 'ExceptionClass' in headers:
@@ -271,8 +271,8 @@ class BaseClient:
 
         if hasattr(exception, exc_cls):
             return getattr(exception, exc_cls), exc_msg
-        else:
-            return exception.RucioException, f"{exc_cls}: {exc_msg}"
+
+        return exception.RucioException, f"{exc_cls}: {exc_msg}"
 
     def _load_json_data(self, response: requests.Response) -> 'Generator[Any, Any, Any]':
         """
@@ -294,7 +294,7 @@ class BaseClient:
                     yield parse_response(line)
         elif 'content-type' in response.headers and response.headers['content-type'] == 'application/json':
             yield parse_response(response.text)
-        else:  # Exception ?
+        else:
             if response.text:
                 yield response.text
 
@@ -385,7 +385,7 @@ class BaseClient:
         if headers is not None:
             hds.update(headers)
         if verify is None:
-            verify = self.ca_cert or False  # Maybe unnecessary but make sure to convert "" -> False
+            verify = self.ca_cert or False
 
         self.logger.debug("HTTP request: %s %s" % (method.value, url))
         for h, v in hds.items():
@@ -415,7 +415,6 @@ class BaseClient:
                     self._back_off(retry, f'server returned {result.status_code}')
                     continue
                 if result.status_code // 100 != 2 and result.text:
-                    # do not do this for successful requests because the caller may be expecting streamed response
                     self.logger.debug("Response text (length=%d): [%s]", len(result.text), result.text)
             except ConnectionError as error:
                 self.logger.error('ConnectionError: %s', error)
@@ -423,8 +422,6 @@ class BaseClient:
                     raise
                 continue
             except OSError as error:
-                # Handle Broken Pipe
-                # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
                 if getattr(error, 'errno') != errno.EPIPE:
                     raise
                 self.logger.error('BrokenPipe: %s', error)
@@ -432,7 +429,7 @@ class BaseClient:
                     raise
                 continue
 
-            if result is not None and result.status_code == codes.unauthorized and not get_token:  # pylint: disable-msg=E1101
+            if result is not None and result.status_code == codes.unauthorized and not get_token:
                 self.session = Session()
                 self.__get_token()
                 hds[HEADER_RUCIO_AUTH_TOKEN] = self.auth_token
@@ -458,8 +455,10 @@ class BaseClient:
             If authentication fails
         """
 
-        headers = {'X-Rucio-Username': self.creds['username'],
-                   'X-Rucio-Password': self.creds['password']}
+        headers = {
+            'X-Rucio-Username': self.creds['username'],
+            'X-Rucio-Password': self.creds['password']
+        }
 
         url = build_url(self.auth_host, path='auth/userpass')
 
@@ -523,8 +522,6 @@ class BaseClient:
             if HEADER_RUCIO_AUTH_TOKEN_EXPIRES not in refresh_result.headers or HEADER_RUCIO_AUTH_TOKEN not in refresh_result.headers:
                 self.logger.error("Rucio Server response does not contain the expected headers.")
                 return False
-
-                return False
             else:
                 new_token = refresh_result.headers[HEADER_RUCIO_AUTH_TOKEN]
                 new_exp_epoch = refresh_result.headers[HEADER_RUCIO_AUTH_TOKEN_EXPIRES]
@@ -532,12 +529,11 @@ class BaseClient:
                     self.logger.debug("Saving token %s and expiration epoch %s to files", new_token, new_exp_epoch)
                     # save to the file
                     self.auth_token = new_token
-                    self.token_exp_epoch = new_exp_epoch
+                    self.token_exp_epoch = int(new_exp_epoch)
                     self.__write_token()
                     self.headers[HEADER_RUCIO_AUTH_TOKEN] = self.auth_token
                     return True
-                self.logger.debug("No new token was received, possibly invalid/expired \
-                           \ntoken or a token with no refresh token in Rucio DB")
+                self.logger.debug("No new token was received, possibly invalid/expired token or no refresh token in Rucio DB")
                 return False
         else:
             self.logger.error("Rucio Client did not succeed to contact the Rucio Auth Server when attempting token refresh.")
@@ -720,10 +716,10 @@ class BaseClient:
         userpass = {'username': self.creds['username'], 'password': self.creds['password']}
         url = build_url(self.auth_host, path='auth/saml')
 
-        result = None
         saml_auth_result = self._send_request(url, method=HTTPMethod.GET, get_token=True)
-        if saml_auth_result.headers[HEADER_RUCIO_AUTH_TOKEN]:
-            return saml_auth_result.headers[HEADER_RUCIO_AUTH_TOKEN]
+        if saml_auth_result.headers.get('X-Rucio-Auth-Token'):
+            self.auth_token = saml_auth_result.headers['X-Rucio-Auth-Token']
+            return True
         saml_auth_url = saml_auth_result.headers['X-Rucio-SAML-Auth-URL']
         result = self._send_request(saml_auth_url, method=HTTPMethod.POST, data=userpass, verify=False)
         result = self._send_request(url, method=HTTPMethod.GET, get_token=True)
@@ -744,7 +740,7 @@ class BaseClient:
     def __get_token(self) -> None:
         """Get auth token based on configured authentication type."""
 
-        self.logger.debug('get a new token')
+        self.logger.debug('Getting a new token')
         for retry in range(self.AUTH_RETRIES + 1):
             if self.auth_type == 'userpass':
                 if not self.__get_token_userpass():
@@ -805,7 +801,7 @@ class BaseClient:
             raise
         if self.auth_oidc_refresh_active and self.auth_type == 'oidc':
             self.__refresh_token_oidc()
-        self.logger.debug('got token from file')
+        self.logger.debug('Got token from file')
         return True
 
     def __write_token(self) -> None:
