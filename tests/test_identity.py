@@ -23,7 +23,8 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account, del_account
 from rucio.core.identity import add_account_identity, add_identity, del_account_identity, del_identity, list_identities, verify_identity
-from rucio.db.sqla.constants import AccountType, IdentityType
+from rucio.db.sqla.constants import AccountType, DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session
 from rucio.tests.common import account_name_generator, auth, hdrdict, headers, rfc2253_dn_generator
 from rucio.tests.common_server import get_vo
 
@@ -87,7 +88,8 @@ def test_verify_userpass_identity():
     username = ''.join(random.choice(string.ascii_letters) for i in range(10))
     email = username + '@email.com'
 
-    add_account(account, AccountType.USER, email)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account(account, AccountType.USER, email, session=session)
 
     password = ''.join(random.choice(string.ascii_letters) for i in range(10))
     add_identity(username, IdentityType.USERPASS, email=email, password=password)
@@ -103,7 +105,9 @@ def test_verify_userpass_identity():
 
     del_account_identity(username, IdentityType.USERPASS, account)
     del_identity(username, IdentityType.USERPASS)
-    del_account(account)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        del_account(account, session=session)
 
 
 def test_verify_x509_identity():
@@ -117,7 +121,8 @@ def test_verify_x509_identity():
     dn = rfc2253_dn_generator()
     email = 'doesntmatter@email.com'
 
-    add_account(account, AccountType.USER, email)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account(account, AccountType.USER, email, session=session)
 
     add_identity(dn, IdentityType.X509, email=email)
     add_account_identity(dn, IdentityType.X509, account, email=email)
@@ -129,4 +134,6 @@ def test_verify_x509_identity():
 
     del_account_identity(dn, IdentityType.X509, account)
     del_identity(dn, IdentityType.X509)
-    del_account(account)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        del_account(account, session=session)
