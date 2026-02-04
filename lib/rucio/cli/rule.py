@@ -331,6 +331,9 @@ def update(
     account: Optional[str], stuck: bool, suspend: bool, cancel_requests: bool, priority: Optional[str], child_rule_id: Optional[str], boost_rule: bool
 ) -> None:
     """Update an existing rule"""
+    if suspend and stuck:
+        raise InputValidationError("Cannot supply both '--stuck' and '--suspend'. Supply one or the other.")
+
     options = {}
     if lifetime:
         options['lifetime'] = None if lifetime.lower() == "none" else int(lifetime)
@@ -340,7 +343,7 @@ def update(
         options['comment'] = comment
     if account:
         options['account'] = account
-    if stuck:  # TODO Error when both are selected
+    if stuck:
         options['state'] = 'STUCK'
     if suspend:
         options['state'] = 'SUSPENDED'
