@@ -140,21 +140,21 @@ if __name__ == "__main__":
         sys.argv.pop(sys.argv.index('--legacy'))
         main_legacy()
     else:
-        mutli_ri_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
-        use_multi_ri = False
+        mutli_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
+        use_multi_host = False
         if "--config" not in sys.argv:
             for arg in sys.argv:
-                if arg in [x.strip() for x in mutli_ri_commands.split(',')]:
-                    use_multi_ri = True
+                if arg in [x.strip() for x in mutli_host_commands.split(',')]:
+                    use_multi_host = True
 
-    if use_multi_ri:
-        multi_ri_servers = config_get('client', 'multi_host_servers')
-        for host in [x.strip() for x in multi_ri_servers.split(',')]:
+    if use_multi_host:
+        multi_host_servers = config_get('client', 'multi_host_servers')
+        for host in [x.strip() for x in multi_host_servers.split(',')]:
             config = config_get(host, 'config_file')
             clean_cached_config()
             os.environ['RUCIO_CONFIG'] = config
             print('Result from {}.'.format(host))
 
-            run_command(args, use_multi_ri)
+            run_command(args, use_multi_host)
     else:
-        run_command(args, use_multi_ri)
+        run_command(args, use_multi_host)
