@@ -140,11 +140,11 @@ if __name__ == "__main__":
         sys.argv.pop(sys.argv.index('--legacy'))
         main_legacy()
     else:
-        mutli_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
+        multi_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
         use_multi_host = False
         if "--config" not in sys.argv:
             for arg in sys.argv:
-                if arg in [x.strip() for x in mutli_host_commands.split(',')]:
+                if arg in [x.strip() for x in multi_host_commands.split(',')]:
                     use_multi_host = True
 
         if use_multi_host:
