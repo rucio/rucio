@@ -801,7 +801,6 @@ def test_rule(rucio_client, mock_scope):
     # Testing the two different lifetime type options
     cmd = f"rucio rule update {rule_id} --lifetime 10"
     exitcode, out, err = execute(cmd)
-    print(out, err)
     assert exitcode == 0
     assert "ERROR" not in err
     rule_info = rucio_client.get_replication_rule(rule_id)
