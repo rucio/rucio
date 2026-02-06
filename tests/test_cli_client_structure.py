@@ -856,6 +856,12 @@ def test_rule(rucio_client, mock_scope):
     assert "ERROR" not in err
     assert len(out.split("\n")) == 3  # Creates two rules with independent IDs and one extra line at the end
 
+    test_rule = out.split("\n")[0]
+    cmd = f'rucio rule show {test_rule}'
+    exitcode, out, err = execute(cmd)
+    assert rule_rse in out   # Only thing we explicitly set, so it will be there
+    assert exitcode == 0
+
 
 def test_scope():
     new_scope = scope_name_generator()
