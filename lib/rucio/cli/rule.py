@@ -333,6 +333,8 @@ def update(
     """Update an existing rule"""
     if suspend and stuck:
         raise InputValidationError("Cannot supply both '--stuck' and '--suspend'. Supply one or the other.")
+    if cancel_requests and not (suspend or stuck):
+        raise InputValidationError('--stuck or --suspend must be specified when running --cancel-requests')
 
     options = {}
     if lifetime:
@@ -352,8 +354,6 @@ def update(
     if source_rses:
         options['source_replica_expression'] = None if source_rses.lower() == 'none' else source_rses
     if cancel_requests:
-        if 'state' not in options:
-            raise InputValidationError('--stuck or --suspend must be specified when running --cancel-requests')
         options['cancel_requests'] = True
     if priority:
         options['priority'] = int(priority)
