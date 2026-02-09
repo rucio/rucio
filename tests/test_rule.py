@@ -1499,6 +1499,26 @@ class TestClient:
         assert rule['state'] == RuleState.INJECT.name
 
 
+def test_purge_replicas(rucio_client, rse_factory, did_factory, root_account):
+    activity = "Staging"
+    upload_rse, _ = rse_factory.make_posix_rse()
+    file = did_factory.upload_test_file(upload_rse)
+    dataset = did_factory.make_dataset()
+
+    rule_rse, _ = rse_factory.make_posix_rse()
+
+    file, dataset = ({'scope': did['scope'].external, 'name': did['name']} for did in (file, dataset))
+    rucio_client.add_files_to_dataset(files=[file], **dataset)
+
+    rule_id = rucio_client.add_replication_rule(dids=[file], account=root_account.external, copies=1, rse_expression=rule_rse, purge_replicas=True, activity=activity)[0]
+    rule = rucio_client.get_replication_rule(rule_id)
+    assert rule['purge_replicas'] is True
+
+    rucio_client.delete_replication_rule(rule_id)
+    rule = rucio_client.get_replication_rule(rule_id)
+    assert rule['purge_replicas'] is True # Should not change behavior
+
+
 def test_add_rule_with_0_copies(did_client, did_factory, root_account, rse_factory):
     """ REPLICATION RULE (CLIENT): Add a replication rule and list full history """
     rse, rse_id = rse_factory.make_posix_rse()
