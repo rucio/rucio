@@ -559,6 +559,40 @@ def test_delete_rule(did_factory, rse_factory, rucio_client):
     # Did not make it to the new RSE
     assert temp_rse not in rses
 
+@pytest.mark.parametrize(
+        "cmd",
+        [lambda r: f"rucio delete-rule {r}", lambda r: f"rucio rule remove {r}"],
+        ids=["Legacy CLI", "Current CLI"]
+)
+def test_delete_rule_purge_replicas(cmd, did_factory, rse_factory, rucio_client):
+    """CLIENT(USER): Remove rule and purge replicas"""
+    base_rse, _ = rse_factory.make_posix_rse()
+    temp_file1 = did_factory.upload_test_file(rse_name=base_rse)
+    temp_file1['scope'] = temp_file1['scope'].external
+
+    # remove limit and set attributes
+    account = rucio_client.whoami()['account']
+    temp_rse, _ = rse_factory.make_posix_rse()
+    rucio_client.set_local_account_limit(account, temp_rse, -1)
+
+    # Add the rule
+    rule_id = rucio_client.add_replication_rule(
+        dids=[temp_file1],
+        copies=1,
+        rse_expression=temp_rse,
+        purge_replicas=True
+    )[0]
+
+    rule = rucio_client.get_replication_rule(rule_id)
+    assert rule['purge_replicas'] is True
+
+    exit, out, err = execute(cmd(rule_id))
+    assert exit == 0
+    assert "ERROR" not in err
+
+    rule = rucio_client.get_replication_rule(rule_id)
+    assert rule['purge_replicas'] is True
+
 
 @pytest.mark.dirty(reason="Cleanup can fail to complete because of child rules in client tests")
 def test_move_rule(did_factory, rse_factory, rucio_client):
