@@ -68,7 +68,7 @@ def add_(ctx, dids, copies, rses, weight, asynchronous, lifetime, grouping, lock
 
 @rule.command("remove")
 @click.argument("rule-id-dids")
-@click.option("--purge-replicas", is_flag=True, default=False, help="Purge rule replicas")
+@click.option("--purge-replicas", is_flag=True, default=None, help="Purge rule replicas")
 @click.option("--all", "_all", is_flag=True, default=False, help="Delete all the rules, even the ones that are not owned by the account")
 @click.option("--rses", "--rse-exp", help="The RSE expression. Must be specified if a DID is provided.")  # TODO mutual inclusive group
 @click.option("--account", help="The account of the rule that must be deleted")
