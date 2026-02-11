@@ -198,6 +198,11 @@ class SubscriptionClient(BaseClient):
         ------
         NotFound
             If subscription is not found
+
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         if not account:
             account = self.account
