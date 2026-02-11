@@ -11,10 +11,10 @@
 
 ## Additional description for reviewer
 
-*Note: This OPTIONAL is only relevant for the REVIEWER, please leave it in the PR* 
+*Note: This OPTIONAL is only relevant for the REVIEWER, please leave it in the PR*
 
 <details>
-<summary>Reviewer template </summary> 
+<summary>Reviewer template </summary>
 Reviewers should copy&paste the code-block below and fill it out for APPROVED pull requests.
 If the PR does not meet the standards the project sets out, the reasons should be WELL EXPLAINED in a CHANGE REQUEST (The answers below do not need to be answered in that case)
 
