@@ -49,7 +49,7 @@ charset-normalizer==3.4.4
     # via requests
 click==8.1.8
     # via flask
-cryptography==46.0.3
+cryptography==46.0.5
     # via
     #   globus-sdk
     #   oic

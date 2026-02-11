@@ -93,7 +93,7 @@ click==8.1.8
     #   pydoc-markdown
 coverage==7.10.7
     # via pytest-cov
-cryptography==46.0.3
+cryptography==46.0.5
     # via
     #   -r requirements.server.txt
     #   globus-sdk
