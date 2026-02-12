@@ -394,6 +394,7 @@ def __add_files_to_archive(
         models.DataIdentifier.availability,
         models.DataIdentifier.adler32,
         models.DataIdentifier.md5,
+        models.DataIdentifier.checksum,
         models.DataIdentifier.is_archive,
         models.DataIdentifier.constituent,
         models.DataIdentifier.did_type,
@@ -446,6 +447,7 @@ def __add_files_to_archive(
                 'bytes': file['bytes'],
                 'adler32': file.get('adler32'),
                 'md5': file.get('md5'),
+                'checksum': file.get('checksum'),
                 'guid': file.get('guid'),
                 'length': file.get('events')
             }
@@ -464,6 +466,7 @@ def __add_files_to_archive(
                 'bytes': row.bytes,
                 'adler32': row.adler32,
                 'md5': row.md5,
+                'checksum': row.checksum,
                 'guid': row.guid,
                 'length': row.events
             }
@@ -576,6 +579,7 @@ def __add_files_to_dataset(
         models.DataIdentifier.availability,
         models.DataIdentifier.adler32,
         models.DataIdentifier.md5,
+        models.DataIdentifier.checksum,
         models.DataIdentifier.is_archive,
         models.DataIdentifier.did_type,
     ).outerjoin_from(
@@ -611,7 +615,7 @@ def __add_files_to_dataset(
 
         # Check meta-data, if provided
         row_dict = row._asdict()
-        for key in ['bytes', 'adler32', 'md5']:
+        for key in ['bytes', 'adler32', 'md5', 'checksum']:
             if key in file and str(file[key]) != str(row_dict[key]):
                 raise exception.FileConsistencyMismatch(key + " mismatch for '%(scope)s:%(name)s': " % row_dict + str(file.get(key)) + '!=' + str(row_dict[key]))
 
@@ -633,6 +637,7 @@ def __add_files_to_dataset(
             'bytes': row.bytes,
             'adler32': row.adler32,
             'md5': row.md5,
+            'checksum': row.checksum,
             'guid': row.guid,
             'events': row.events,
             'did_type': DIDType.DATASET,
@@ -1264,6 +1269,7 @@ def detach_dids(
                                                              bytes=associ_did.bytes,
                                                              adler32=associ_did.adler32,
                                                              md5=associ_did.md5,
+                                                             checksum=associ_did.checksum,
                                                              guid=associ_did.guid,
                                                              events=associ_did.events,
                                                              rule_evaluation=associ_did.rule_evaluation,
@@ -1435,7 +1441,7 @@ def list_content(
     for tmp_did in session.execute(stmt).yield_per(5).scalars():
         children_found = True
         yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name, 'type': tmp_did.child_type,
-               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
+               'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5, 'checksum': tmp_did.checksum}
     if not children_found:
         # Raise exception if the DID doesn't exist
         __get_did(scope=scope, name=name, session=session)
@@ -1465,7 +1471,7 @@ def list_content_history(
         for tmp_did in session.execute(stmt).yield_per(5).scalars():
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
                    'type': tmp_did.child_type,
-                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5,
+                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5, 'checksum': tmp_did.checksum,
                    'deleted_at': tmp_did.deleted_at, 'created_at': tmp_did.created_at,
                    'updated_at': tmp_did.updated_at}
     except NoResultFound:
@@ -1722,7 +1728,8 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
             models.DataIdentifier.guid,
             models.DataIdentifier.events,
             models.DataIdentifier.lumiblocknr,
-            models.DataIdentifier.did_type
+            models.DataIdentifier.did_type,
+            models.DataIdentifier.checksum
         ).with_hint(
             models.DataIdentifier,
             'INDEX(DIDS DIDS_PK)',
@@ -1732,16 +1739,15 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                  models.DataIdentifier.name == name)
         )
         did = session.execute(stmt).one()
-
         if did[7] == DIDType.FILE:
             if long:
                 yield {'scope': did[0], 'name': did[1], 'bytes': did[2],
                        'adler32': did[3], 'guid': did[4] and did[4].upper(),
-                       'events': did[5], 'lumiblocknr': did[6]}
+                       'events': did[5], 'lumiblocknr': did[6], 'checksum': did[8]}
             else:
                 yield {'scope': did[0], 'name': did[1], 'bytes': did[2],
                        'adler32': did[3], 'guid': did[4] and did[4].upper(),
-                       'events': did[5]}
+                       'events': did[5], 'checksum': did[8]}
         else:
             cnt_query = select(
                 models.DataIdentifierAssociation.child_scope,
@@ -1760,6 +1766,7 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                     models.DataIdentifierAssociation.child_type,
                     models.DataIdentifierAssociation.bytes,
                     models.DataIdentifierAssociation.adler32,
+                    models.DataIdentifierAssociation.checksum,
                     models.DataIdentifierAssociation.guid,
                     models.DataIdentifierAssociation.events,
                     models.DataIdentifier.lumiblocknr
@@ -1778,6 +1785,7 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                     models.DataIdentifierAssociation.child_type,
                     models.DataIdentifierAssociation.bytes,
                     models.DataIdentifierAssociation.adler32,
+                    models.DataIdentifierAssociation.checksum,
                     models.DataIdentifierAssociation.guid,
                     models.DataIdentifierAssociation.events,
                     bindparam("lumiblocknr", None)
@@ -1796,16 +1804,16 @@ def list_files(scope: "InternalScope", name: str, long: bool = False, *, session
                              models.DataIdentifierAssociation.name == n)
                     )
 
-                    for child_scope, child_name, child_type, bytes_, adler32, guid, events, lumiblocknr in session.execute(stmt).yield_per(500):
+                    for child_scope, child_name, child_type, bytes_, adler32, checksum, guid, events, lumiblocknr in session.execute(stmt).yield_per(500):
                         if long:
                             yield {'scope': child_scope, 'name': child_name,
-                                   'bytes': bytes_, 'adler32': adler32,
+                                   'bytes': bytes_, 'adler32': adler32, 'checksum': checksum,
                                    'guid': guid and guid.upper(),
                                    'events': events,
                                    'lumiblocknr': lumiblocknr}
                         else:
                             yield {'scope': child_scope, 'name': child_name,
-                                   'bytes': bytes_, 'adler32': adler32,
+                                   'bytes': bytes_, 'adler32': adler32, 'checksum': checksum,
                                    'guid': guid and guid.upper(),
                                    'events': events}
                 else:
@@ -1953,7 +1961,7 @@ def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]
     if did.did_type == DIDType.FILE:
         return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
                 'account': did.account, 'bytes': bytes_, 'length': 1,
-                'md5': did.md5, 'adler32': did.adler32}
+                'md5': did.md5, 'adler32': did.adler32, 'checksum': did.checksum}
     else:
         return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
                 'account': did.account, 'open': did.is_open,
@@ -2638,7 +2646,7 @@ def list_archive_content(
 
         for tmp_did in session.execute(stmt).yield_per(5).scalars():
             yield {'scope': tmp_did.child_scope, 'name': tmp_did.child_name,
-                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5}
+                   'bytes': tmp_did.bytes, 'adler32': tmp_did.adler32, 'md5': tmp_did.md5, 'checksum': tmp_did.checksum}
     except NoResultFound:
         raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
@@ -2905,6 +2913,7 @@ def insert_content_history(
         models.DataIdentifierAssociation.bytes,
         models.DataIdentifierAssociation.adler32,
         models.DataIdentifierAssociation.md5,
+        models.DataIdentifierAssociation.checksum,
         models.DataIdentifierAssociation.guid,
         models.DataIdentifierAssociation.events,
         models.DataIdentifierAssociation.rule_evaluation,
@@ -2926,6 +2935,7 @@ def insert_content_history(
             bytes=cont.bytes,
             adler32=cont.adler32,
             md5=cont.md5,
+            checksum=cont.checksum,
             guid=cont.guid,
             events=cont.events,
             rule_evaluation=cont.rule_evaluation,
@@ -2961,6 +2971,7 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
         models.DataIdentifier.length,
         models.DataIdentifier.md5,
         models.DataIdentifier.adler32,
+        models.DataIdentifier.checksum,
         models.DataIdentifier.expired_at,
         models.DataIdentifier.purge_replicas,
         models.DataIdentifier.deleted_at,
@@ -3007,6 +3018,7 @@ def insert_deleted_dids(filter_: "ColumnExpressionArgument[bool]", *, session: "
             length=did.length,
             md5=did.md5,
             adler32=did.adler32,
+            checksum=did.checksum,
             expired_at=did.expired_at,
             purge_replicas=did.purge_replicas,
             deleted_at=datetime.utcnow(),
