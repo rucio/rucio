@@ -17,11 +17,12 @@ from configparser import NoOptionError
 
 import pytest
 
-from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
+from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
+from rucio.core.config import set as core_config_set
 from rucio.core.did import add_did, set_status
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
@@ -48,7 +49,7 @@ def module_setup():
     if not config_has_section('opendata'):
         config_add_section('opendata')
 
-    config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+    core_config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
 
 class TestOpenDataCommon:
@@ -419,7 +420,7 @@ class TestOpenDataCore:
         db_write_session.commit()
 
         try:
-            config_set('opendata', 'rule_enable', 'False')
+            core_config_set('opendata', 'rule_enable', 'False')
             # Remove `rule_rse_expression` to check exception when rule configuration is not present
             config_remove_option('opendata', 'rule_rse_expression')
             config_remove_option('opendata', 'rse_expression')
@@ -432,17 +433,17 @@ class TestOpenDataCore:
             assert "rule" not in response or response[
                 "rule"] is None, "No rule configuration is present, so no rule should be created"
 
-            config_set('opendata', 'rule_enable', 'True')
+            core_config_set('opendata', 'rule_enable', 'True')
 
             with pytest.raises(NoOptionError):
                 # Because `rse_expression` and `rule_rse_expression` are not configured, rule creation fails
                 opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
                                              session=db_write_session)
 
-            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
-            config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
+            core_config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+            core_config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
             # do not set `rse_expression` yet, to check `rule_rse_expression` is enough
-            config_set('opendata', 'rule_vo', vo)
+            core_config_set('opendata', 'rule_vo', vo)
 
             response = opendata.update_opendata_did(scope=mock_scope, name=name, state=OpenDataDIDState.PUBLIC,
                                                     session=db_write_session)
@@ -461,9 +462,9 @@ class TestOpenDataCore:
             assert rule == rule_first, "Rule should be the same as before because rules are not deleted when DID is suspended"
 
         finally:
-            config_set('opendata', 'rule_enable', 'False')
-            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
-            config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
+            core_config_set('opendata', 'rule_enable', 'False')
+            core_config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+            core_config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
 
     def test_opendata_dids_show_files(self, mock_scope, root_account, db_write_session):
         name = did_name_generator(did_type="dataset")
@@ -490,7 +491,7 @@ class TestOpenDataCore:
             with pytest.raises(NoOptionError):
                 opendata.get_opendata_did(scope=scope, name=name, include_files=True, session=db_write_session)
 
-            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+            core_config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
             opendata_did = opendata.get_opendata_did(scope=scope, name=name, include_files=True,
                                                      session=db_write_session)
@@ -501,7 +502,7 @@ class TestOpenDataCore:
             assert "files" in opendata_did, "Files should be present in the response"
 
         finally:
-            config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+            core_config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
@@ -570,7 +571,7 @@ class TestOpenDataClient:
         if not config_has_section('opendata'):
             config_add_section('opendata')
 
-        config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+        core_config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
         # Add it as a DID
         rucio_client.add_did(scope=scope, name=name, did_type="DATASET")
