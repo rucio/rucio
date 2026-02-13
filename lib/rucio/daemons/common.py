@@ -23,6 +23,7 @@ import time
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from rucio.common.logging import formatted_logger
+from rucio.common.startup_checks import run_startup_checks
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
@@ -34,6 +35,91 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
+
+_daemon_startup_checks_lock = threading.Lock()
+_daemon_startup_checks_ran = False
+
+
+def _hard_exit(exit_code: int = 1) -> None:
+    """Terminate the whole process immediately.
+
+    Used when startup diagnostics fail from a non-main thread. Raising an exception
+    would only stop that worker thread and can leave the process partially running.
+    """
+    try:
+        # best-effort flush of logs before terminating
+        logging.shutdown()
+    finally:
+        os._exit(exit_code)  # nosec - deliberate fail-fast termination
+
+
+def run_daemon_startup_checks(executable: str, hostname: Optional[str] = None) -> None:
+    """
+    Execute the daemon-specific startup diagnostics and the heartbeat sanity check.
+
+    This helper is called from :class:`HeartbeatHandler` every time a daemon enters
+    its ``with`` block. On the first invocation inside a Python process it acquires
+    a process-wide lock, executes :func:`run_startup_checks` with the ``{"daemon"}``
+    tag filter (alongside any untagged ones), and the global ``_daemon_startup_checks_ran``
+    flag is flipped only after that runner returns successfully. Because
+    the flag is cached per process, later calls in the same process skip the
+    diagnostic runner and proceed straight to the heartbeat verification.
+
+    The helper can also be used to register checks by itself. If you follow the
+    "central catalog" convention from :mod:`rucio.common.startup_checks`, register
+    your checks (for example by importing ``startup_checks_catalog.register_all``)
+    before the first call to this function. Other registration strategies (local
+    definitions, ad-hoc imports, etc.) work as long as the checks are registered
+    before this helper runs.
+
+    The lock ensures that concurrent daemons in the same process cannot run the
+    diagnostics in parallel—every other caller blocks until the first one exits
+    the ``with`` block. If the runner raises (for example because a diagnostic
+    failed), the exception bubbles out, the flag remains ``False``, and the lock
+    is released by normal ``with``-statement unwinding; the next daemon that
+    acquires the lock therefore retries the runner instead of skipping it.
+
+    If a fatal startup failure happens while this helper is invoked from a
+    worker thread (e.g. for multi-threaded daemons), the process is terminated
+    with a non-zero exit code. This avoids a partially started process where only
+    one worker thread died while the rest of the process keeps running.
+
+    Irrespective of whether the diagnostic suite just ran, every invocation of
+    this helper performs :func:`heartbeat_core.sanity_check` afterwards so that the
+    daemon confirms its heartbeat record before starting real work.
+    """
+
+    global _daemon_startup_checks_ran
+
+    logger = logging.getLogger(executable)
+    resolved_hostname = hostname or socket.getfqdn()
+
+    current_thread = threading.current_thread()
+    is_main_thread = current_thread is threading.main_thread()
+
+    with _daemon_startup_checks_lock:
+        if not _daemon_startup_checks_ran:
+            if not is_main_thread:
+                logger.warning(
+                    'Running daemon startup checks from non-main thread "%s". '
+                    'For multi-threaded daemons, call run_daemon_startup_checks() in the main thread '
+                    'before starting worker threads to get a clean fail-fast behaviour.',
+                    current_thread.name,
+                )
+            try:
+                run_startup_checks(tags={'daemon'}, logger=logger)
+            except Exception:
+                logger.critical(
+                    'Daemon startup checks failed in thread "%s". Aborting process startup.',
+                    current_thread.name,
+                    exc_info=True,
+                )
+                if not is_main_thread:
+                    _hard_exit(1)
+                raise
+            _daemon_startup_checks_ran = True
+
+    heartbeat_core.sanity_check(executable=executable, hostname=resolved_hostname)
 
 
 class HeartbeatHandler:
@@ -62,7 +148,7 @@ class HeartbeatHandler:
         self.last_payload = None
 
     def __enter__(self) -> 'HeartbeatHandler':
-        heartbeat_core.sanity_check(executable=self.executable, hostname=self.hostname)
+        run_daemon_startup_checks(executable=self.executable, hostname=self.hostname)
         self.live()
         return self
 
