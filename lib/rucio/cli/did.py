@@ -165,6 +165,7 @@ def add_(ctx: click.Context, did_name: str, dtype: Literal['container', 'dataset
         ctx.obj.client.add_dataset(scope=scope, name=name, statuses={'monotonic': monotonic}, lifetime=lifetime)
     print(f'Added {scope}:{name}')
 
+
 @did.command("update")
 @click.argument("dids", nargs=-1)
 @click.option("--rse", "--rse-name", help="The RSE of the DIDs")
@@ -227,10 +228,11 @@ def remove(ctx: click.Context, dids: tuple[str, ...], undo: bool) -> None:
                 # set lifetime to expire in 24 hours (value is in seconds).
                 ctx.obj.client.set_metadata(scope=scope, name=name, key='lifetime', value=86400)
                 ctx.obj.logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
-                print("rucio erase --undo {0}:{1}".format(scope, name))  #TODO: replace with f-strings
+                print("rucio erase --undo {0}:{1}".format(scope, name))  # TODO: replace with f-strings
             except RucioException as error:
                 ctx.obj.logger.warning('Failed to erase DID: %s' % did)
                 ctx.obj.logger.debug('Error: %s' % error)
+
 
 @did.group()
 def content() -> None:
