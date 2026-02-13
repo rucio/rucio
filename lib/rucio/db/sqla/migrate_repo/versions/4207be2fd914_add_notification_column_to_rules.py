@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add notification column to rules '''
+""" add notification column to rules """
 
 import sqlalchemy as sa
-from alembic import context, op
-from alembic.op import add_column, drop_column
 
 from rucio.db.sqla.constants import RuleNotification
-from rucio.db.sqla.util import try_drop_constraint
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    get_backend_enum,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_enum,
+)
 
 # Alembic revision identifiers
 revision = '4207be2fd914'
@@ -27,38 +32,32 @@ down_revision = '14ec5aeb64cf'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    rules_notification_type = get_backend_enum(RuleNotification, name='RULES_NOTIFICATION_CHK')
 
-    if context.get_context().dialect.name in ['oracle', 'mysql']:
-        add_column('rules', sa.Column('notification', sa.Enum(RuleNotification,
-                                                              name='RULES_NOTIFICATION_CHK',
-                                                              create_constraint=True,
-                                                              values_callable=lambda obj: [e.value for e in obj]),
-                                      default=RuleNotification.NO), schema=schema[:-1])
-    elif context.get_context().dialect.name == 'postgresql':
-        op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
-        op.execute("ALTER TABLE %srules ADD COLUMN notification \"RULES_NOTIFICATION_CHK\"" % schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column(
+            'rules',
+            sa.Column('notification', rules_notification_type, default=RuleNotification.NO),
+        )
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
-        drop_column('rules', 'notification', schema=schema[:-1])
+        drop_column('rules', 'notification')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        op.execute('ALTER TABLE %srules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR' % schema)
-        op.execute('ALTER TABLE %srules DROP COLUMN notification' % schema)
-        op.execute('DROP TYPE \"RULES_NOTIFICATION_CHK\"')
+    elif is_current_dialect('postgresql'):
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+        drop_column('rules', 'notification')
+        try_drop_enum('RULES_NOTIFICATION_CHK')
 
-    elif context.get_context().dialect.name == 'mysql':
-        drop_column('rules', 'notification', schema=schema[:-1])
+    elif is_current_dialect('mysql'):
+        drop_column('rules', 'notification')

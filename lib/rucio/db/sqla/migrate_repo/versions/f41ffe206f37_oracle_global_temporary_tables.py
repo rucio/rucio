@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' oracle_global_temporary_tables '''
+""" oracle_global_temporary_tables """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_table, drop_table
+from alembic.op import get_bind
 
 from rucio.common.schema import get_schema_value
+from rucio.db.sqla.migrate_repo import (
+    drop_table,
+    is_current_dialect,
+    try_create_table,
+)
 from rucio.db.sqla.types import GUID, InternalScopeString, String
 
 # Alembic revision identifiers
@@ -27,24 +31,24 @@ down_revision = 'd6e2c3b2cf26'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         additional_kwargs = {
             'oracle_on_commit': 'DELETE ROWS',
             'prefixes': ['GLOBAL TEMPORARY'],
         }
         for idx in range(5):
-            create_table(
+            try_create_table(
                 f'TEMPORARY_SCOPE_NAME_{idx}',
                 sa.Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                 sa.Column("name", String(get_schema_value('NAME_LENGTH'))),
                 sa.PrimaryKeyConstraint('scope', 'name', name=f'TEMPORARY_SCOPE_NAME_{idx}_PK'),
                 **additional_kwargs,
             )
-            create_table(
+            try_create_table(
                 f'TEMPORARY_ASSOCIATION_{idx}',
                 sa.Column("scope", InternalScopeString(get_schema_value('SCOPE_LENGTH'))),
                 sa.Column("name", String(get_schema_value('NAME_LENGTH'))),
@@ -53,7 +57,7 @@ def upgrade():
                 sa.PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name=f'TEMPORARY_ASSOCIATION_{idx}_PK'),
                 **additional_kwargs,
             )
-            create_table(
+            try_create_table(
                 f'TEMPORARY_ID_{idx}',
                 sa.Column("id", GUID()),
                 sa.PrimaryKeyConstraint('id', name=f'TEMPORARY_ID_{idx}_PK'),
@@ -62,13 +66,18 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name == 'oracle':
-        global_temp_tables = sa.inspect(context.get_bind()).get_temp_table_names()
+    if is_current_dialect('oracle'):
+        inspector = sa.inspect(get_bind())
+        global_temp_tables = {tbl.lower() for tbl in inspector.get_temp_table_names()}
         for idx in range(5):
-            for table_name in [f'TEMPORARY_ID_{idx}', f'TEMPORARY_ASSOCIATION_{idx}', f'TEMPORARY_SCOPE_NAME_{idx}']:
-                if table_name in global_temp_tables:
+            for table_name in [
+                f'TEMPORARY_ID_{idx}',
+                f'TEMPORARY_ASSOCIATION_{idx}',
+                f'TEMPORARY_SCOPE_NAME_{idx}',
+            ]:
+                if table_name.lower() in global_temp_tables:
                     drop_table(table_name)
