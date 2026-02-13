@@ -448,7 +448,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
         'rucio_core_request_get_next_requests_total',
         labels={
             'request_type': 'TRANSFER.STAGEIN.STAGEOUT',
-            'state': 'DONE.FAILED.LOST.SUBMISSION_FAILED.NO_SOURCES.ONLY_TAPE_SOURCES.MISMATCH_SCHEME'}
+            'state': 'DONE.FAILED.LOST.SUBMISSION_FAILED.NO_SOURCES.ONLY_TAPE_SOURCES.MISMATCH_SCHEME.CANCELLED'}
     )
 
 
@@ -1079,7 +1079,7 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
 
 
 @skip_rse_tests_with_accounts
-@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_cancel_rule(rse_factory, did_factory, root_account):
     """
     Ensure that, when we cancel a rule, the request is cancelled in FTS
@@ -1105,15 +1105,53 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
     with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
     request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.SUBMITTED
 
     rule_core.delete_rule(rule_id)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.SUBMITTED
 
+    poller(once=True, older_than=0, partition_wait_time=0)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.CANCELLED
+
+    finisher(once=True, partition_wait_time=0)
     with pytest.raises(RequestNotFound):
         request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
     fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
     assert fts_response[request['external_id']][request['id']].job_response['job_state'] == 'CANCELED'
 
+
+@skip_rse_tests_with_accounts
+@pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.FINISHER])
+def test_cancel_rule_before_submission(rse_factory, did_factory, root_account):
+    """
+    Ensure that cancelling a rule before submission goes directly to CANCELLED state.
+    """
+    src_rse, src_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+    dst_rse, dst_rse_id = rse_factory.make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.posix.Default')
+
+    distance_core.add_distance(src_rse_id, dst_rse_id, distance=10)
+    rse_core.add_rse_attribute(dst_rse_id, RseAttr.FTS, TEST_FTS_HOST)
+
+    did = did_factory.upload_test_file(src_rse)
+
+    [rule_id] = rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.QUEUED
+
+    rule_core.delete_rule(rule_id)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.QUEUED
+
+    submitter(once=True, rses=[{'id': dst_rse_id}], partition_wait_time=0, transfertools=['mock'], transfertype='single', filter_transfertool=None)
+    request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+    assert request['state'] == RequestState.CANCELLED
+
+    finisher(once=True, partition_wait_time=0)
+    with pytest.raises(RequestNotFound):
+        request_core.get_request_by_did(rse_id=dst_rse_id, **did)
 
 class FTSWrapper(FTS3Transfertool):
     """
