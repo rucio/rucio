@@ -30,7 +30,7 @@ import argparse
 import logging
 import os
 import shutil
-import subprocess
+import subprocess  # noqa: S404 -- subprocess used for external commands
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum, auto
