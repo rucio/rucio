@@ -25,19 +25,7 @@ from rucio.core import opendata
 from rucio.core.did import add_did, set_status
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
-from rucio.db.sqla.session import get_session
-from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import auth, did_name_generator, headers
-
-skip_unsupported_json = pytest.mark.skipif(
-    not json_implemented(),
-    reason="JSON support is not implemented in this database"
-)
-
-skip_unsupported_dialect = pytest.mark.skipif(
-    get_session().bind.dialect.name in ['oracle', 'sqlite'],
-    reason=f"Unsupported dialect: {get_session().bind.dialect.name}"
-)
 
 OPENDATA_RSE_EXPRESSION = 'OpenData=True'
 
@@ -212,7 +200,6 @@ class TestOpenDataCore:
 
         assert state == OpenDataDIDState.PUBLIC
 
-    @skip_unsupported_dialect
     def test_opendata_dids_meta_update(self, mock_scope, root_account, db_write_session):
         name = did_name_generator(did_type="dataset")
 
@@ -806,7 +793,6 @@ class TestOpenDataCLI:
             f"Expected valid states {valid_states} in error message, got {stderr}"
         )
 
-    @skip_unsupported_dialect
     def test_opendata_cli_update_delete(self, mock_scope, doi_factory):
         name = did_name_generator(did_type="dataset")
 

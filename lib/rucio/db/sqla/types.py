@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import uuid
 
 import sqlalchemy.types as types
 from sqlalchemy.dialects.mysql import BINARY
 from sqlalchemy.dialects.oracle import CLOB, RAW
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import operators
-from sqlalchemy.types import CHAR, String, TypeDecorator
+from sqlalchemy.types import CHAR, TEXT, String, TypeDecorator
 
 from rucio.common.exception import InvalidType
 from rucio.common.types import InternalAccount, InternalScope
@@ -120,24 +122,93 @@ class BooleanString(TypeDecorator):
 
 class JSON(TypeDecorator):
     """
-    Platform independent json type
+    Platform independent JSON type with automatic (de)serialization only when needed.
 
-    JSONB for postgres , JSON for the rest
+    - PostgreSQL -> JSONB (native, pass-through)
+    - MySQL      -> JSON  (native, pass-through)
+    - Oracle <21 -> CLOB  (serialize as text + IS JSON checks)
+    - Oracle 21+ -> JSON  (native, pass-through via compile hook)
+    - Others     -> TEXT  (serialize as text)
     """
-
     impl = types.JSON
-
     cache_ok = True
+
+    def _oracle_uses_native_json(self, dialect) -> bool:
+        version_info = getattr(dialect, 'server_version_info', None)
+        try:
+            major = int(version_info[0]) if version_info else None
+        except Exception:
+            major = None
+        return bool(major and major >= 21)
+        # TODO: After version 21c, SQLAlchemy will start reporting native JSON support.
+        #  From that point on, any table whose column is still a legacy CLOB (because it
+        #  was created before native JSON existed) will start receiving raw dicts and
+        #  trigger ORA-00932 unless you migrate the column to the real JSON type. This
+        #  migration ("ALTER TABLE … MODIFY <column> JSON" for every affected table) must
+        #  run once Oracle 21c+ is introduced.
+
+    def _dialect_has_native_json(self, dialect) -> bool:
+        if dialect.name in ('postgresql', 'mysql'):
+            return True
+        if dialect.name == 'oracle':
+            return self._oracle_uses_native_json(dialect)
+        return False
 
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(JSONB())
-        elif dialect.name == 'mysql':
+        if dialect.name == 'mysql':
             return dialect.type_descriptor(types.JSON())
-        elif dialect.name == 'oracle':
-            return dialect.type_descriptor(CLOB())
-        else:
-            return dialect.type_descriptor(String())
+        if dialect.name == 'oracle':
+            # The column type for DDL is decided via the compiler hook below
+            # but query-time Python type needs a descriptor:
+            return dialect.type_descriptor(CLOB() if not self._oracle_uses_native_json(dialect)
+                                           else types.JSON())
+        return dialect.type_descriptor(TEXT())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if self._dialect_has_native_json(dialect):
+            # Let the driver handle it
+            return value
+        # Textual backends
+        if isinstance(value, (str, bytes)):
+            return value
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if self._dialect_has_native_json(dialect):
+            # Already a Python object
+            return value
+        # Textual backends
+        if hasattr(value, 'read') and callable(getattr(value, 'read')):
+            try:
+                value = value.read()
+            except Exception:
+                value = str(value)
+        if isinstance(value, (bytes, bytearray)):
+            value = value.decode()
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (TypeError, ValueError):
+                return value
+        return value
+
+
+# The compile hook to pick "JSON" vs "CLOB" in Oracle DDL:
+@compiles(JSON, 'oracle')
+def compile_oracle_json(type_, compiler, **kw):
+    # Control DDL: "JSON" on 21c+, else "CLOB"
+    version_info = getattr(compiler.dialect, 'server_version_info', None)
+    try:
+        major = int(version_info[0]) if version_info else None
+    except Exception:
+        major = None
+    return "JSON" if major and major >= 21 else "CLOB"
 
 
 class InternalAccountString(TypeDecorator):
