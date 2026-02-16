@@ -47,7 +47,7 @@ def list_(ctx, rses, csv):
         print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         for rse in rse_list:
-            print('%(rse)s' % rse)  # TODO replace with f-string
+            print(rse['rse'])
 
 
 @rse.command("show")
@@ -79,7 +79,7 @@ def show(ctx, rse_name):
                 table_data.append([key, Text(str(rseinfo[key]), style=keyword_styles.get(str(rseinfo[key]), 'default'))])
         else:
             if key != 'protocols':
-                print('  ' + key + ': ' + str(rseinfo[key]))  # TODO f-strings
+                print(f'  {key}: {rseinfo[key]}')
 
     if ctx.obj.use_rich:
         table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
@@ -94,7 +94,7 @@ def show(ctx, rse_name):
                 output.append('\n[b]Attributes:[/]')
             table_data.append([attribute, Text(str(attributes[attribute]), style=keyword_styles.get(str(attributes[attribute]), 'default'))])
         else:
-            print('  ' + attribute + ': ' + str(attributes[attribute]))  # TODO f-strings
+            print(f'  {attribute}: {attributes[attribute]}')
 
     if ctx.obj.use_rich:
         table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
@@ -108,7 +108,7 @@ def show(ctx, rse_name):
                 output.append('\n[b]Protocols:[/]')
             output.append(Padding.indent(Text(protocol['scheme'], style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
         else:
-            print('  ' + protocol['scheme'])  # TODO f-string
+            print(f'  {protocol["scheme"]}')
 
         table_data = []
         for item in sorted(protocol):
@@ -168,10 +168,10 @@ def show(ctx, rse_name):
     for i, limit in enumerate(rse_limits):
         if ctx.obj.use_rich:
             if i == 0:
-                output.append('\n[b]RSE limits:[/]')  # TODO f-strings
-            table_data.append([limit, str(rse_limits[limit]) + ' B'])
+                output.append('\n[b]RSE limits:[/]')
+            table_data.append([limit, f'{rse_limits[limit]} B'])
         else:
-            print('  ' + limit + ': ' + str(rse_limits[limit]) + ' B')
+            print(f'  {limit}: {rse_limits[limit]} B')
 
     if ctx.obj.use_rich:
         if len(table_data) > 0:
@@ -188,7 +188,7 @@ def show(ctx, rse_name):
 def add_(ctx, rse_name, non_deterministic):
     """Add a new RSE"""
     ctx.obj.client.add_rse(rse_name, deterministic=not non_deterministic)
-    print('Added new %sdeterministic RSE: %s' % ('non-' if non_deterministic else '', rse))  # TODO f-string
+    print(f'Added new {"non-" if non_deterministic else ""}deterministic RSE: {rse}')
 
 
 @rse.command("remove")
@@ -219,10 +219,8 @@ def update(ctx, rse_name, key, value):
     params = {key: value}
     ctx.obj.client.update_rse(rse_name, parameters=params)
 
-    if isinstance(value, bool):
-        value = str(value)
-    # TODO f-string
-    print('Updated RSE %s settings %s to %s' % (rse_name, key, value if value.lower() not in ['', 'none', 'null'] else '[WIPED]'))
+    print_value = value if str(value).lower() not in ['', 'none', 'null'] else '[WIPED]'
+    print(f'Updated RSE {rse_name} settings {key} to {print_value}')
 
 
 @rse.group()
@@ -247,14 +245,13 @@ def distance_show(ctx, source_rse, destination_rse):
             )
             print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
-            # TODO f-string
             print(f"No distance set from {source_rse} to {destination_rse}")
     else:
         if distance_info:
-            # TODO f-strings
-            print('Distance information from %s to %s: distance=%d' % (source_rse, destination_rse, distance_info[0]['distance']))
+            distance = distance_info[0]['distance']
+            print(f'Distance information from {source_rse} to {destination_rse}: distance={distance}')
         else:
-            print("No distance set from %s to %s" % (source_rse, destination_rse))
+            print(f"No distance set from {source_rse} to {destination_rse}")
 
 
 @distance.command("add")
@@ -266,8 +263,7 @@ def distance_add(ctx, source_rse, destination_rse, distance):
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
     params = {'distance': distance}
     ctx.obj.client.add_distance(source_rse, destination_rse, params)
-    # TODO f-strings
-    print('Set distance from %s to %s to %d' % (source_rse, destination_rse, distance))
+    print(f'Set distance from {source_rse} to {destination_rse} to {distance}')
 
 
 @distance.command("remove")
@@ -277,8 +273,7 @@ def distance_add(ctx, source_rse, destination_rse, distance):
 def distance_remove(ctx, source_rse, destination_rse):
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
     ctx.obj.client.delete_distance(source_rse, destination_rse)
-    # TODO f-strings
-    print('Deleted distance information from %s to %s.' % (source_rse, destination_rse))
+    print(f'Deleted distance information from {source_rse} to {destination_rse}.')
 
 
 @distance.command("update")
@@ -287,15 +282,10 @@ def distance_remove(ctx, source_rse, destination_rse):
 @click.option("--distance", type=int, help="Relative distance between RSEs", required=True)
 @click.pass_context
 def distance_update(ctx, source_rse, destination_rse, distance):
-    """Update the existing distance or ranking from SOURCE-RSE to DESTINATION-RSE"""
-    params = {}
-    if distance is not None:  # TODO tests to verify this is not required
-        params['distance'] = distance
+    """Update the existing distance from SOURCE-RSE to DESTINATION-RSE"""
+    params = {"distance": distance}
     ctx.obj.client.update_distance(source_rse, destination_rse, params)
-    # TODO f-strings
-    print('Update distance information from %s to %s:' % (source_rse, destination_rse))
-    if params.get('distance') is not None:
-        print("- Distance set to %d" % params['distance'])
+    print(f'Update distance information from {source_rse} to {destination_rse}:\n - Distance set to {params["distance"]}')
 
 
 @rse.group()
@@ -314,8 +304,8 @@ def attr_list_(ctx, rse_name):
         table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
-        for k in attributes:  # TODO f-string
-            print(k + ': ' + str(attributes[k]))
+        for k in attributes:
+            print(f'{k}: {attributes[k]}')
 
 
 @attribute.command("add")
@@ -331,8 +321,7 @@ def attribute_add_(ctx, rse_name, key, value):
         $ rucio rse attribute add my-rse --key My-Attribute  --value True
     """
     ctx.obj.client.add_rse_attribute(rse=rse_name, key=key, value=value)
-    # TODO: f-string
-    print('Added new RSE attribute for %s: %s-%s ' % (rse_name, key, value))
+    print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
 
 # TODO Update attribute - only overwrites existing attributes
 
@@ -344,8 +333,7 @@ def attribute_add_(ctx, rse_name, key, value):
 def attribute_remove(ctx, rse_name, attribute):
     """Remove an existing attribute from an RSE"""
     ctx.obj.client.delete_rse_attribute(rse=rse_name, key=attribute)
-    # TODO f-strings
-    print('Deleted RSE attribute for %s: %s ' % (rse_name, attribute))
+    print(f'Deleted RSE attribute for {rse_name}: {attribute} ')
 
 
 @rse.group()
@@ -369,8 +357,9 @@ def limit_add(ctx, rse_name, limit):
     try:  # TODO test to verify this logic is needed
         value = int(value)
         if ctx.obj.client.set_rse_limits(rse_name, name, value):
-            # TODO change to print, f-string
-            ctx.obj.logger.info('Set RSE limit successfully for %s: %s = %s' % (rse_name, name, value))
+            # TODO change to print? Issue - https://github.com/rucio/rucio/issues/8398
+            msg = f'Set RSE limit successfully for {rse_name}: {name} = {value}'
+            ctx.obj.logger.info(msg)
     except ValueError:
         # TODO raise exception
         ctx.obj.logger.error('The RSE limit value must be an integer')
@@ -385,12 +374,12 @@ def limit_remove(ctx, rse_name, limit):
     limits = ctx.obj.client.get_rse_limits(rse_name)
     if limit not in limits.keys():
         # TODO Raise error
-        # TODO f-strings
-        ctx.obj.logger.error('Limit %s not defined in RSE %s' % (limit, rse_name))
+        msg = f'Limit {limit} not defined in RSE {rse_name}'
+        ctx.obj.logger.error(msg)
     else:
         if ctx.obj.client.delete_rse_limits(rse_name, limit):
-            # TODO f-strings
-            ctx.obj.logger.info('Deleted RSE limit successfully for %s: %s' % (rse_name, limit))
+            msg = f'Deleted RSE limit successfully for {rse_name}: {limit}'
+            ctx.obj.logger.info(msg)
 
 
 @rse.group()
@@ -474,8 +463,7 @@ def qos():
 def qos_add(ctx, rse_name, policy):
     "Add a new QoS policy"
     ctx.obj.client.add_qos_policy(rse_name, policy)
-    # TODO f-strings
-    print('Added QoS policy to RSE %s: %s' % (rse_name, policy))
+    print(f'Added QoS policy to RSE {rse_name}: {policy}')
 
 
 @qos.command("remove")
@@ -485,8 +473,7 @@ def qos_add(ctx, rse_name, policy):
 def qos_remove(ctx, rse_name, policy):
     "Remove an existing QoS policy"
     ctx.obj.client.delete_qos_policy(rse_name, policy)
-    # TODO f-string
-    print('Deleted QoS policy from RSE %s: %s' % (rse_name, policy))
+    print(f'Deleted QoS policy from RSE {rse_name}: {policy}')
 
 
 @qos.command("list")
