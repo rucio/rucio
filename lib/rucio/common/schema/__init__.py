@@ -24,6 +24,7 @@ from jsonschema import ValidationError, validate
 from rucio.common import config, exception
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
+from rucio.common.schema.schema_ref import SchemaRef
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 
@@ -146,6 +147,25 @@ def load_schema_for_vo(vo: str) -> None:
     schema_modules[vo] = module
 
 
+def _resolve_references(schema: Any, vo: str = DEFAULT_VO) -> Any:
+    # if this is a schema reference, resolve it
+    if isinstance(schema, SchemaRef):
+        result = schema.resolve(vo)
+    # if this is a list or dictionary, resolve recursively
+    elif isinstance(schema, list):
+        result = []
+        for value in schema:
+            result.append(_resolve_references(value))
+    elif isinstance(schema, dict):
+        result = {}
+        for key in schema:
+            result[key] = _resolve_references(schema[key])
+    else:
+        # for other types (e.g. scalars), return unmodified
+        result = schema
+    return result
+
+
 def validate_schema(name: str, obj: Any, vo: str = DEFAULT_VO) -> None:
     if obj:
         if vo not in schema_modules:
@@ -155,6 +175,7 @@ def validate_schema(name: str, obj: Any, vo: str = DEFAULT_VO) -> None:
         else:
             # if schema not available in VO module, fall back to generic module
             schema = _get_generic_schema_module().SCHEMAS.get(name, {})
+        schema = _resolve_references(schema, vo)
         try:
             validate(obj, schema)
         except ValidationError as error:
@@ -165,8 +186,8 @@ def get_schema_value(key: str, vo: str = DEFAULT_VO) -> Any:
     if vo not in schema_modules:
         load_schema_for_vo(vo)
     if not hasattr(schema_modules[vo], key):
-        return getattr(_get_generic_schema_module(), key)
-    return getattr(schema_modules[vo], key)
+        return _resolve_references(getattr(_get_generic_schema_module(), key), vo)
+    return _resolve_references(getattr(schema_modules[vo], key), vo)
 
 
 def get_scope_name_regexps() -> list[str]:

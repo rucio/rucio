@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rucio.common.schema.schema_ref import SchemaRef
 
 ACCOUNT_LENGTH = 29
 
 ACCOUNT = {"description": "Account name",
            "type": "string",
-           "maxLength": ACCOUNT_LENGTH - 4,
+           "maxLength": SchemaRef("ACCOUNT_LENGTH", -4),
            "pattern": "^[a-z0-9-_]+$"}
 
 
 ACCOUNTS = {"description": "Array of accounts",
             "type": "array",
-            "items": ACCOUNT,
+            "items": SchemaRef("ACCOUNT"),
             "minItems": 0,
             "maxItems": 1000}
 
@@ -45,7 +46,7 @@ SCOPE_LENGTH = 29
 
 SCOPE = {"description": "Scope name",
          "type": "string",
-         "maxLength": SCOPE_LENGTH - 4,
+         "maxLength": SchemaRef("SCOPE_LENGTH", -4),
          "pattern": "^[a-zA-Z_\\-.0-9]+$"}
 
 R_SCOPE = {"description": "Scope name",
@@ -56,7 +57,7 @@ NAME_LENGTH = 250
 
 NAME = {"description": "Data Identifier name",
         "type": "string",
-        "maxLength": NAME_LENGTH,
+        "maxLength": SchemaRef("NAME_LENGTH"),
         "pattern": r"^[/A-Za-z0-9][/A-Za-z0-9\.\-_]*$"}
 
 R_NAME = {"description": "Data Identifier name",
@@ -143,7 +144,7 @@ UUID = {"description": "Universally Unique Identifier (UUID)",
 
 META = {"description": "Data Identifier(DID) metadata",
         "type": "object",
-        "properties": {"guid": UUID},
+        "properties": {"guid": SchemaRef("UUID")},
         "additionalProperties": True}
 
 PFN = {"description": "Physical File Name", "type": "string"}
@@ -169,32 +170,32 @@ SPLIT_CONTAINER = {"description": "Rule split container mode",
 RULE = {"description": "Replication rule",
         "type": "object",
         "properties": {"dids": {"type": "array"},
-                       "account": ACCOUNT,
-                       "copies": COPIES,
-                       "rse_expression": RSE_EXPRESSION,
-                       "grouping": GROUPING,
-                       "weight": WEIGHT,
-                       "lifetime": RULE_LIFETIME,
-                       "locked": LOCKED,
-                       "subscription_id": SUBSCRIPTION_ID,
-                       "source_replica_expression": SOURCE_REPLICA_EXPRESSION,
-                       "activity": ACTIVITY,
-                       "notify": NOTIFY,
-                       "purge_replicas": PURGE_REPLICAS,
-                       "ignore_availability": IGNORE_AVAILABILITY,
-                       "comment": COMMENT,
-                       "ask_approval": ASK_APPROVAL,
-                       "asynchronous": ASYNCHRONOUS,
-                       "delay_injection": DELAY_INJECTION,
-                       "priority": PRIORITY,
-                       'split_container': SPLIT_CONTAINER,
-                       'meta': METADATA},
+                       "account": SchemaRef("ACCOUNT"),
+                       "copies": SchemaRef("COPIES"),
+                       "rse_expression": SchemaRef("RSE_EXPRESSION"),
+                       "grouping": SchemaRef("GROUPING"),
+                       "weight": SchemaRef("WEIGHT"),
+                       "lifetime": SchemaRef("RULE_LIFETIME"),
+                       "locked": SchemaRef("LOCKED"),
+                       "subscription_id": SchemaRef("SUBSCRIPTION_ID"),
+                       "source_replica_expression": SchemaRef("SOURCE_REPLICA_EXPRESSION"),
+                       "activity": SchemaRef("ACTIVITY"),
+                       "notify": SchemaRef("NOTIFY"),
+                       "purge_replicas": SchemaRef("PURGE_REPLICAS"),
+                       "ignore_availability": SchemaRef("IGNORE_AVAILABILITY"),
+                       "comment": SchemaRef("COMMENT"),
+                       "ask_approval": SchemaRef("ASK_APPROVAL"),
+                       "asynchronous": SchemaRef("ASYNCHRONOUS"),
+                       "delay_injection": SchemaRef("DELAY_INJECTION"),
+                       "priority": SchemaRef("PRIORITY"),
+                       'split_container': SchemaRef("SPLIT_CONTAINER"),
+                       'meta': SchemaRef("METADATA")},
         "required": ["dids", "copies", "rse_expression"],
         "additionalProperties": False}
 
 RULES = {"description": "Array of replication rules",
          "type": "array",
-         "items": RULE,
+         "items": SchemaRef("RULE"),
          "minItems": 1,
          "maxItems": 1000}
 
@@ -204,32 +205,32 @@ COLLECTION_TYPE = {"description": "Dataset or container type",
 
 COLLECTION = {"description": "Dataset or container",
               "type": "object",
-              "properties": {"scope": SCOPE,
-                             "name": NAME,
-                             "type": COLLECTION_TYPE,
-                             "meta": META,
-                             "rules": RULES},
+              "properties": {"scope": SchemaRef("SCOPE"),
+                             "name": SchemaRef("NAME"),
+                             "type": SchemaRef("COLLECTION_TYPE"),
+                             "meta": SchemaRef("META"),
+                             "rules": SchemaRef("RULES")},
               "required": ["scope", "name", "type"],
               "additionalProperties": False}
 
 COLLECTIONS = {"description": "Array of datasets or containers",
                "type": "array",
-               "items": COLLECTION,
+               "items": SchemaRef("COLLECTION"),
                "minItems": 1,
                "maxItems": 1000}
 
 DID = {"description": "Data Identifier(DID)",
        "type": "object",
-       "properties": {"scope": SCOPE,
-                      "name": NAME,
-                      "type": DID_TYPE,
-                      "meta": META,
-                      "rules": RULES,
-                      "bytes": BYTES,
-                      "adler32": ADLER32,
-                      "md5": MD5,
-                      "state": REPLICA_STATE,
-                      "pfn": PFN},
+       "properties": {"scope": SchemaRef("SCOPE"),
+                      "name": SchemaRef("NAME"),
+                      "type": SchemaRef("DID_TYPE"),
+                      "meta": SchemaRef("META"),
+                      "rules": SchemaRef("RULES"),
+                      "bytes": SchemaRef("BYTES"),
+                      "adler32": SchemaRef("ADLER32"),
+                      "md5": SchemaRef("MD5"),
+                      "state": SchemaRef("REPLICA_STATE"),
+                      "pfn": SchemaRef("PFN")},
        "required": ["scope", "name"],
        "additionalProperties": False}
 
@@ -239,45 +240,45 @@ DID_FILTERS = {"description": "Array to filter DIDs by metadata",
 
 R_DID = {"description": "Data Identifier(DID)",
          "type": "object",
-         "properties": {"scope": R_SCOPE,
-                        "name": R_NAME,
-                        "type": DID_TYPE,
-                        "meta": META,
-                        "rules": RULES,
-                        "bytes": BYTES,
-                        "adler32": ADLER32,
-                        "md5": MD5,
-                        "state": REPLICA_STATE,
-                        "pfn": PFN},
+         "properties": {"scope": SchemaRef("R_SCOPE"),
+                        "name": SchemaRef("R_NAME"),
+                        "type": SchemaRef("DID_TYPE"),
+                        "meta": SchemaRef("META"),
+                        "rules": SchemaRef("RULES"),
+                        "bytes": SchemaRef("BYTES"),
+                        "adler32": SchemaRef("ADLER32"),
+                        "md5": SchemaRef("MD5"),
+                        "state": SchemaRef("REPLICA_STATE"),
+                        "pfn": SchemaRef("PFN")},
          "required": ["scope", "name"],
          "additionalProperties": False}
 
 DIDS = {"description": "Array of Data Identifiers(DIDs)",
         "type": "array",
-        "items": DID,
+        "items": SchemaRef("DID"),
         "minItems": 1,
         "maxItems": 1000}
 
 R_DIDS = {"description": "Array of Data Identifiers(DIDs)",
           "type": "array",
-          "items": R_DID,
+          "items": SchemaRef("R_DID"),
           "minItems": 1,
           "maxItems": 1000}
 
 ATTACHMENT = {"description": "Attachement",
               "type": "object",
-              "properties": {"scope": SCOPE,
-                             "name": NAME,
+              "properties": {"scope": SchemaRef("SCOPE"),
+                             "name": SchemaRef("NAME"),
                              "rse": {"description": "RSE name",
                                      "type": ["string", "null"],
                                      "pattern": "^([A-Z0-9]+([_-][A-Z0-9]+)*)$"},
-                             "dids": DIDS},
+                             "dids": SchemaRef("DIDS")},
               "required": ["dids"],
               "additionalProperties": False}
 
 ATTACHMENTS = {"description": "Array of attachments",
                "type": "array",
-               "items": ATTACHMENT,
+               "items": SchemaRef("ATTACHMENT"),
                "minItems": 1,
                "maxItems": 1000}
 
@@ -291,48 +292,48 @@ SUBSCRIPTION_FILTER = {"type": "object",
                                       "excluded_pattern": {"type": "string"},
                                       "group": {"type": "string"},
                                       "provenance": {"type": "string"},
-                                      "account": ACCOUNTS,
+                                      "account": SchemaRef("ACCOUNTS"),
                                       "grouping": {"type": "string"},
                                       "split_rule": {"type": "boolean"}}}
 
 ADD_REPLICA_FILE = {"description": "add replica file",
                     "type": "object",
-                    "properties": {"scope": SCOPE,
-                                   "name": NAME,
-                                   "bytes": BYTES,
-                                   "adler32": ADLER32},
+                    "properties": {"scope": SchemaRef("SCOPE"),
+                                   "name": SchemaRef("NAME"),
+                                   "bytes": SchemaRef("BYTES"),
+                                   "adler32": SchemaRef("ADLER32")},
                     "required": ["scope", "name", "bytes", "adler32"]}
 
 ADD_REPLICA_FILES = {"description": "add replica files",
                      "type": "array",
-                     "items": ADD_REPLICA_FILE,
+                     "items": SchemaRef("ADD_REPLICA_FILE"),
                      "minItems": 1,
                      "maxItems": 1000}
 
 CACHE_ADD_REPLICAS = {"description": "rucio cache add replicas",
                       "type": "object",
-                      "properties": {"files": ADD_REPLICA_FILES,
-                                     "rse": RSE,
-                                     "lifetime": LIFETIME,
+                      "properties": {"files": SchemaRef("ADD_REPLICA_FILES"),
+                                     "rse": SchemaRef("RSE"),
+                                     "lifetime": SchemaRef("LIFETIME"),
                                      "operation": {"enum": ["add_replicas"]}},
                       "required": ['files', 'rse', 'lifetime', 'operation']}
 
 DELETE_REPLICA_FILE = {"description": "delete replica file",
                        "type": "object",
-                       "properties": {"scope": SCOPE,
-                                      "name": NAME},
+                       "properties": {"scope": SchemaRef("SCOPE"),
+                                      "name": SchemaRef("NAME")},
                        "required": ["scope", "name"]}
 
 DELETE_REPLICA_FILES = {"description": "delete replica files",
                         "type": "array",
-                        "items": DELETE_REPLICA_FILE,
+                        "items": SchemaRef("DELETE_REPLICA_FILE"),
                         "minItems": 1,
                         "maxItems": 1000}
 
 CACHE_DELETE_REPLICAS = {"description": "rucio cache delete replicas",
                          "type": "object",
-                         "properties": {"files": DELETE_REPLICA_FILES,
-                                        "rse": RSE,
+                         "properties": {"files": SchemaRef("DELETE_REPLICA_FILES"),
+                                        "rse": SchemaRef("RSE"),
                                         "operation": {"enum": ["delete_replicas"]}},
                          "required": ['files', 'rse', 'operation']}
 
