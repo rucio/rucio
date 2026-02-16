@@ -163,7 +163,8 @@ def show(ctx, rule_id, examine):
                         ['RSE:', str(transfer['rse'])],
                         ['Attempts:', str(transfer['attempts'])],
                         ['Last retry:', str(transfer['last_time'])],
-                        ['Last error:', str(transfer['last_source'])],
+                        ['Last error:', str(transfer['last_error'])],
+                        ['Last source:', str(transfer['last_source'])],
                         ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
                         ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]
                     ]
