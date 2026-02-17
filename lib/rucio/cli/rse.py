@@ -354,15 +354,10 @@ def limit_add(ctx, rse_name, limit):
     """
     name = limit[0]
     value = limit[1]
-    try:  # TODO test to verify this logic is needed
-        value = int(value)
-        if ctx.obj.client.set_rse_limits(rse_name, name, value):
-            # TODO change to print? Issue - https://github.com/rucio/rucio/issues/8398
-            msg = f'Set RSE limit successfully for {rse_name}: {name} = {value}'
-            ctx.obj.logger.info(msg)
-    except ValueError:
-        # TODO raise exception
-        ctx.obj.logger.error('The RSE limit value must be an integer')
+    if ctx.obj.client.set_rse_limits(rse_name, name, value):
+        # TODO change to print? Issue - https://github.com/rucio/rucio/issues/8398
+        msg = f'Set RSE limit successfully for {rse_name}: {name} = {value}'
+        ctx.obj.logger.info(msg)
 
 
 @limit.command("remove")
