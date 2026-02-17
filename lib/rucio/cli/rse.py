@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from typing import Optional
 
 import click
 from rich.padding import Padding
@@ -32,7 +33,7 @@ def rse():
 @click.option("--rses", "--rse-exp", help="RSE Expression to use as a filter", required=False)
 @click.option("--csv", is_flag=True, default=False, help="Output list of RSEs as a csv")
 @click.pass_context
-def list_(ctx, rses, csv):
+def list_(ctx: click.Context, rses: Optional[str], csv: bool) -> None:
     """List all registered Rucio Storage Elements (RSEs)"""
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching RSEs')
@@ -40,9 +41,9 @@ def list_(ctx, rses, csv):
 
     rse_list = ctx.obj.client.list_rses(rses)
     if csv:
-        print(*(rse['rse'] for rse in rses), sep='\n')
+        print(*(rse['rse'] for rse in rse_list), sep='\n')
     if ctx.obj.use_rich:
-        table = generate_table([[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
+        table = generate_table([[rse['rse']] for rse in sorted(rse_list, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
         ctx.obj.spinner.stop()
         print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
@@ -53,7 +54,7 @@ def list_(ctx, rses, csv):
 @rse.command("show")
 @click.argument("rse-name")
 @click.pass_context
-def show(ctx, rse_name):
+def show(ctx: click.Context, rse_name: str) -> None:
     """Usage, protocols, settings, and attributes for a given RSE"""
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching RSE info')
@@ -185,7 +186,7 @@ def show(ctx, rse_name):
 @click.argument("rse-name")
 @click.option("--non-deterministic", is_flag=True, default=False, help="Create RSE in non-deterministic mode")
 @click.pass_context
-def add_(ctx, rse_name, non_deterministic):
+def add_(ctx: click.Context, rse_name: str, non_deterministic: bool) -> None:
     """Add a new RSE"""
     ctx.obj.client.add_rse(rse_name, deterministic=not non_deterministic)
     print(f'Added new {"non-" if non_deterministic else ""}deterministic RSE: {rse}')
@@ -194,7 +195,7 @@ def add_(ctx, rse_name, non_deterministic):
 @rse.command("remove")
 @click.argument("rse-name")
 @click.pass_context
-def remove(ctx, rse_name):
+def remove(ctx: click.Context, rse_name: str) -> None:
     """Permanently disable an RSE. CAUTION: all information about the RSE might be lost!"""
     ctx.obj.client.delete_rse(rse_name)
 
@@ -204,7 +205,7 @@ def remove(ctx, rse_name):
 @click.option('--key', help='Setting key', required=True)
 @click.option('--value', help='Setting value', required=True)
 @click.pass_context
-def update(ctx, rse_name, key, value):
+def update(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
     """
     Update an RSE's setting.
 
@@ -212,11 +213,12 @@ def update(ctx, rse_name, key, value):
     Example:
         $ rucio rse update my-rse --option availability_write True
     """
+    param_value = value
     if value in ['true', 'True', 'TRUE', '1']:
-        value = True
+        param_value = True
     if value in ['false', 'False', 'FALSE', '0']:
-        value = False
-    params = {key: value}
+        param_value = False
+    params = {key: param_value}
     ctx.obj.client.update_rse(rse_name, parameters=params)
 
     print_value = value if str(value).lower() not in ['', 'none', 'null'] else '[WIPED]'
@@ -233,7 +235,7 @@ def distance():
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.pass_context
-def distance_show(ctx, source_rse, destination_rse):
+def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> None:
     """Display distance information from SOURCE-RSE to DESTINATION-RSE"""
     distance_info = ctx.obj.client.get_distance(source_rse, destination_rse)
     if ctx.obj.use_rse:
@@ -259,7 +261,7 @@ def distance_show(ctx, source_rse, destination_rse):
 @click.argument("destination-rse")
 @click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
 @click.pass_context
-def distance_add(ctx, source_rse, destination_rse, distance):
+def distance_add(ctx: click.Context, source_rse: str, destination_rse: str, distance: Optional[int]) -> None:
     """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
     params = {'distance': distance}
     ctx.obj.client.add_distance(source_rse, destination_rse, params)
@@ -270,7 +272,7 @@ def distance_add(ctx, source_rse, destination_rse, distance):
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.pass_context
-def distance_remove(ctx, source_rse, destination_rse):
+def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str) -> None:
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
     ctx.obj.client.delete_distance(source_rse, destination_rse)
     print(f'Deleted distance information from {source_rse} to {destination_rse}.')
@@ -281,7 +283,7 @@ def distance_remove(ctx, source_rse, destination_rse):
 @click.argument("destination-rse")
 @click.option("--distance", type=int, help="Relative distance between RSEs", required=True)
 @click.pass_context
-def distance_update(ctx, source_rse, destination_rse, distance):
+def distance_update(ctx: click.Context, source_rse: str, destination_rse: str, distance: int) -> None:
     """Update the existing distance from SOURCE-RSE to DESTINATION-RSE"""
     params = {"distance": distance}
     ctx.obj.client.update_distance(source_rse, destination_rse, params)
@@ -296,7 +298,7 @@ def attribute():
 @attribute.command("list")
 @click.argument("rse-name")
 @click.pass_context
-def attr_list_(ctx, rse_name):
+def attr_list_(ctx: click.Context, rse_name: str) -> None:
     """List all attributes of a given RSE"""
     attributes = ctx.obj.client.list_rse_attributes(rse=rse_name)
     if ctx.obj.use_rich:
@@ -313,7 +315,7 @@ def attr_list_(ctx, rse_name):
 @click.option('--key', help='Attribute key', required=True)
 @click.option('--value', help='Attribute value', required=True)
 @click.pass_context
-def attribute_add_(ctx, rse_name, key, value):
+def attribute_add_(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
     """Add a new attribute for an RSE
 
     \b
@@ -330,7 +332,7 @@ def attribute_add_(ctx, rse_name, key, value):
 @click.argument("rse-name")
 @click.option("--attribute", help="Attribute to remove", required=True)
 @click.pass_context
-def attribute_remove(ctx, rse_name, attribute):
+def attribute_remove(ctx: click.Context, rse_name: str, attribute: str) -> None:
     """Remove an existing attribute from an RSE"""
     ctx.obj.client.delete_rse_attribute(rse=rse_name, key=attribute)
     print(f'Deleted RSE attribute for {rse_name}: {attribute} ')
@@ -345,7 +347,7 @@ def limit():
 @click.argument("rse-name")
 @click.option("--limit", type=(str, int), required=True, help="Name of limit and value in bytes")
 @click.pass_context
-def limit_add(ctx, rse_name, limit):
+def limit_add(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None:
     """Add a usage limit to an RSE
 
     \b
@@ -364,7 +366,7 @@ def limit_add(ctx, rse_name, limit):
 @click.argument("rse-name")
 @click.option("--limit", required=True, help="Name of limit to remove")
 @click.pass_context
-def limit_remove(ctx, rse_name, limit):
+def limit_remove(ctx: click.Context, rse_name: str, limit: str) -> None:
     """Remove an existing RSE limit"""
     limits = ctx.obj.client.get_rse_limits(rse_name)
     if limit not in limits.keys():
@@ -395,7 +397,19 @@ def protocol():
 @click.option("--domain-json", type=json.loads, help="JSON describing the WAN / LAN setup")
 @click.option("--extended-attributes-json", type=json.loads, help="JSON describing any extended attributes")
 @click.pass_context
-def protocol_add(ctx, rse_name, hostname, scheme, prefix, space_token, web_service_path, port, impl, domain_json, extended_attributes_json):
+def protocol_add(
+    ctx: click.Context,
+    rse_name: str,
+    hostname: str,
+    scheme: str,
+    prefix: str,
+    space_token: Optional[str],
+    web_service_path: Optional[str],
+    port: Optional[str],
+    impl: Optional[str],
+    domain_json: Optional[dict],
+    extended_attributes_json: Optional[dict]
+) -> None:
     """
     Add a new protocol for an RSE used for transferring files
 
@@ -434,7 +448,7 @@ def protocol_add(ctx, rse_name, hostname, scheme, prefix, space_token, web_servi
 @click.option("--hostname", help="Endpoint hostname")
 @click.option("--port", type=int, help="URL port")
 @click.pass_context
-def protocol_remove(ctx, rse_name, hostname, scheme, port):
+def protocol_remove(ctx: click.Context, rse_name: str, hostname: Optional[str], scheme: str, port: Optional[int]) -> None:
     """Remove an existing protocol from an RSE"""
     kwargs = {}
     if port:
@@ -454,7 +468,7 @@ def qos():
 @click.argument("rse-name", nargs=1)
 @click.option("--policy", required=True)
 @click.pass_context
-def qos_add(ctx, rse_name, policy):
+def qos_add(ctx: click.Context, rse_name: str, policy: str) -> None:
     "Add a new QoS policy"
     ctx.obj.client.add_qos_policy(rse_name, policy)
     print(f'Added QoS policy to RSE {rse_name}: {policy}')
@@ -464,7 +478,7 @@ def qos_add(ctx, rse_name, policy):
 @click.argument("rse-name", nargs=1)
 @click.option("--policy", required=True)
 @click.pass_context
-def qos_remove(ctx, rse_name, policy):
+def qos_remove(ctx: click.Context, rse_name: str, policy: str) -> None:
     "Remove an existing QoS policy"
     ctx.obj.client.delete_qos_policy(rse_name, policy)
     print(f'Deleted QoS policy from RSE {rse_name}: {policy}')
@@ -473,7 +487,7 @@ def qos_remove(ctx, rse_name, policy):
 @qos.command("list")
 @click.argument("rse-name", nargs=1)
 @click.pass_context
-def qos_list(ctx, rse_name):
+def qos_list(ctx: click.Context, rse_name: str) -> None:
     "List the RSE's QoS policies"
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching QoS policies')
