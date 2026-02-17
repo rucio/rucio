@@ -368,9 +368,8 @@ def limit_remove(ctx, rse_name, limit):
     """Remove an existing RSE limit"""
     limits = ctx.obj.client.get_rse_limits(rse_name)
     if limit not in limits.keys():
-        # TODO Raise error
         msg = f'Limit {limit} not defined in RSE {rse_name}'
-        ctx.obj.logger.error(msg)
+        raise InputValidationError(msg)
     else:
         if ctx.obj.client.delete_rse_limits(rse_name, limit):
             msg = f'Deleted RSE limit successfully for {rse_name}: {limit}'
