@@ -19,7 +19,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from rucio.client.richclient import CLITheme, generate_table, print_output
-from rucio.common.exception import InputValidationError, LimitNotFound
+from rucio.common.exception import InputValidationError
 from rucio.common.utils import sizefmt
 
 
@@ -368,7 +368,8 @@ def limit_remove(ctx, rse_name, limit):
     """Remove an existing RSE limit"""
     limits = ctx.obj.client.get_rse_limits(rse_name)
     if limit not in limits.keys():
-        raise LimitNotFound(limit_name=limit, rse_name=rse_name)
+        msg = f'Limit {limit} not defined in RSE {rse_name}'
+        raise InputValidationError(msg)
     else:
         if ctx.obj.client.delete_rse_limits(rse_name, limit):
             msg = f'Deleted RSE limit successfully for {rse_name}: {limit}'
