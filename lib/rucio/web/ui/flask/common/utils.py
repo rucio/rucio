@@ -391,7 +391,7 @@ def userpass_auth():
                     valid_vos.append(vo)
 
             if len(valid_vos) == 0:
-                return render_template('problem.html', msg='Cannot find any Rucio account %s associated with identity %s at any VO.' % (html.escape(ui_account), html.escape(username)))
+                return render_template('problem.html', msg='Authentication failed. Please check your credentials and try again.')
             elif len(valid_vos) == 1:
                 ui_vo = valid_vos[0]
             else:
@@ -459,7 +459,7 @@ def saml_auth(method, data=None):
                     if account_exists(ui_account, vo):
                         valid_vos.append(vo)
                 if len(valid_vos) == 0:
-                    return render_template("problem.html", msg=('Cannot find any Rucio account %s associated with identity %s at any VO.' % (html.escape(ui_account), html.escape(saml_nameid))))
+                    return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
                 elif len(valid_vos) == 1:
                     ui_vo = valid_vos[0]
                 else:
@@ -506,7 +506,7 @@ def saml_auth(method, data=None):
                         if account_exists(ui_account, vo):
                             valid_vos.append(vo)
                     if len(valid_vos) == 0:
-                        return render_template("problem.html", msg=('Cannot find any Rucio account %s associated with identity %s at any VO.' % (html.escape(ui_account), html.escape(saml_nameid))))
+                        return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
                     elif len(valid_vos) == 1:
                         ui_vo = valid_vos[0]
                     else:
@@ -550,7 +550,7 @@ def oidc_auth(account, issuer, ui_vo=None):
             if account_exists(account, vo):
                 valid_vos.append(vo)
         if len(valid_vos) == 0:
-            return render_template("problem.html", msg=('Cannot find any Rucio account %s at any VO.' % html.escape(account)))
+            return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
         elif len(valid_vos) == 1:
             ui_vo = valid_vos[0]
         else:
