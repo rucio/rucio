@@ -491,7 +491,7 @@ def _submit_transfers(
                 # Possibility to have a double submission during the next cycle. Try to cancel the external request.
                 try:
                     logger(logging.INFO, 'Cancel transfer %s on %s', eid, transfertool_obj)
-                    transfer_core.cancel_transfer(transfertool_obj, eid)
+                    transfer_core.cancel_transfers(transfertool_obj, [{'external_id': eid}], logger=logger)
                 except Exception:
                     logger(logging.ERROR, 'Failed to cancel transfers %s on %s with error' % (eid, transfertool_obj), exc_info=True)
 
