@@ -180,6 +180,25 @@ class TestDIDCore:
 
         detach_dids(scope=mock_scope, name=parent_name, dids=files)
 
+    def test_list_dids_recursive_preserves_type_filter(self, mock_scope, root_account, rse_factory):
+        """ DATA IDENTIFIERS (CORE): Preserve explicit type filter during recursive DID listing """
+        _, rse_id = rse_factory.make_mock_rse()
+        dataset_name = did_name_generator('dataset')
+        file_name = did_name_generator('file')
+
+        add_did(scope=mock_scope, name=dataset_name, did_type=DIDType.DATASET, account=root_account)
+        attach_dids(
+            scope=mock_scope,
+            name=dataset_name,
+            rse_id=rse_id,
+            dids=[{'scope': mock_scope, 'name': file_name, 'bytes': 1, 'adler32': '0cc737eb'}],
+            account=root_account,
+        )
+
+        listed_dids = set(list_dids(scope=mock_scope, filters={'name': dataset_name, 'type': 'all'}, did_type='collection', recursive=True))
+
+        assert listed_dids == {dataset_name, file_name}
+
     def test_attach_dids_ignore_duplicates(self, vo, mock_scope, root_account, rse_factory):
         """ DATA IDENTIFIERS (CORE): Attach DIDs with the ignore duplicates flag """
         rse, rse_id = rse_factory.make_mock_rse()
