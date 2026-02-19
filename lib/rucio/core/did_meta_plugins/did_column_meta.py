@@ -332,10 +332,13 @@ class DidColumnMeta(DidMetaPlugin):
         # required number of times to satisfy all the logical possibilities.
         filters_tmp = []
         for or_group in filters:
-            if 'type' not in or_group:
-                or_group_type = did_type.lower()
-            else:
+            if 'type' in or_group:
                 or_group_type = or_group.pop('type').lower()
+            elif isinstance(or_group.get('did_type'), DIDType):
+                filters_tmp.append(or_group.copy())
+                continue
+            else:
+                or_group_type = did_type.lower()
             if or_group_type not in type_to_did_type_mapping.keys():
                 raise exception.UnsupportedOperation(
                     '{} is not a valid type. Valid types are {}'.format(or_group_type, type_to_did_type_mapping.keys()))
