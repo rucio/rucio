@@ -59,9 +59,9 @@ def run_once(
 ) -> None:
 
     start_time = time.time()
+    _, _, logger = heartbeat_handler.live()
     rses = list_rses()  # NOQA
     for rse in rses:
-        _, _, logger = heartbeat_handler.live()
         if graceful_stop.is_set():
             break
         start = time.time()

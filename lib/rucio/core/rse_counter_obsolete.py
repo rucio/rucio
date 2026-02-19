@@ -44,4 +44,4 @@ def check_obsolete_replicas(rse_id: str, *, session: "Session") -> None:
         models.RSEFileAssociation.tombstone == OBSOLETE
     )
     bytes, files = session.execute(query).one()
-    set_rse_usage(rse_id, 'obsolete', bytes, None, files)
+    set_rse_usage(rse_id, 'obsolete', bytes, None, files, session=session)
