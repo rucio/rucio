@@ -14,6 +14,7 @@
 
 import random
 import string
+from urllib.parse import urlencode
 
 import pytest
 
@@ -130,3 +131,64 @@ def test_verify_x509_identity():
     del_account_identity(dn, IdentityType.X509, account)
     del_identity(dn, IdentityType.X509)
     del_account(account)
+
+
+class TestListAccountsByIdentity:
+    """ Test the /identities/accounts endpoint """
+
+    def test_list_accounts_by_identity(self, rest_client, auth_token, random_account):
+        """ IDENTITY (REST): Test listing accounts by identity using query parameters """
+        identity_key = uuid()
+        email = identity_key + '@email.com'
+
+        add_identity(identity_key, IdentityType.USERPASS, email=email, password='secret')
+        add_account_identity(identity_key, IdentityType.USERPASS, random_account, email=email, password='secret')
+
+        query_string = urlencode({'identity_key': identity_key, 'type': 'USERPASS'})
+        response = rest_client.get(f'/identities/accounts?{query_string}', headers=headers(auth(auth_token)))
+        assert response.status_code == 200
+        accounts = response.get_json()
+        assert random_account.external in accounts
+
+        del_account_identity(identity_key, IdentityType.USERPASS, random_account)
+        del_identity(identity_key, IdentityType.USERPASS)
+
+    def test_list_accounts_by_identity_oidc_format(self, rest_client, auth_token, random_account):
+        """ IDENTITY (REST): Test listing accounts by OIDC identity with slashes in identity_key """
+        # OIDC identity format with slashes - use unique identifier to avoid conflicts
+        unique_id = random_account.external
+        identity_key = f'SUB={unique_id}, ISS=https://auth.example.com/realms/test'
+        email = f'{unique_id}@email.com'
+
+        add_identity(identity_key, IdentityType.OIDC, email=email)
+        add_account_identity(identity_key, IdentityType.OIDC, random_account, email=email)
+
+        query_string = urlencode({'identity_key': identity_key, 'type': 'OIDC'})
+        response = rest_client.get(f'/identities/accounts?{query_string}', headers=headers(auth(auth_token)))
+        assert response.status_code == 200
+        accounts = response.get_json()
+        assert random_account.external in accounts
+
+        del_account_identity(identity_key, IdentityType.OIDC, random_account)
+        del_identity(identity_key, IdentityType.OIDC)
+
+    def test_list_accounts_by_identity_missing_identity_key(self, rest_client, auth_token):
+        """ IDENTITY (REST): Test listing accounts by identity with missing identity_key """
+        query_string = urlencode({'type': 'USERPASS'})
+        response = rest_client.get(f'/identities/accounts?{query_string}', headers=headers(auth(auth_token)))
+        assert response.status_code == 400
+        assert 'identity_key parameter is required' in response.get_data(as_text=True)
+
+    def test_list_accounts_by_identity_missing_type(self, rest_client, auth_token):
+        """ IDENTITY (REST): Test listing accounts by identity with missing type """
+        query_string = urlencode({'identity_key': 'test_identity'})
+        response = rest_client.get(f'/identities/accounts?{query_string}', headers=headers(auth(auth_token)))
+        assert response.status_code == 400
+        assert 'type parameter is required' in response.get_data(as_text=True)
+
+    def test_list_accounts_by_identity_invalid_type(self, rest_client, auth_token):
+        """ IDENTITY (REST): Test listing accounts by identity with invalid type """
+        query_string = urlencode({'identity_key': 'test_identity', 'type': 'INVALID_TYPE'})
+        response = rest_client.get(f'/identities/accounts?{query_string}', headers=headers(auth(auth_token)))
+        assert response.status_code == 400
+        assert 'Invalid identity type' in response.get_data(as_text=True)
