@@ -154,7 +154,8 @@ def run_once(heartbeat_handler: HeartbeatHandler, inputfile: str, **_kwargs) -> 
 
     try:
         rse_expr = config_get("automatix", "rses")
-        rses = sorted([rse['rse'] for rse in parse_expression(rse_expr)])
+        with db_session(DatabaseOperationType.READ) as session:
+            rses = sorted([rse['rse'] for rse in parse_expression(rse_expr, session=session)])
     except (NoOptionError, NoSectionError, RuntimeError):
         logger(logging.ERROR, "Option rses not found in automatix section")
         return True
