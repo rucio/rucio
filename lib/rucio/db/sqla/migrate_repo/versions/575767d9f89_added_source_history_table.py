@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added source history table '''
+""" added source history table """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, create_table, drop_column, drop_table
 
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_table,
+    drop_column,
+    drop_table,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -26,11 +31,11 @@ down_revision = '379a19b5332d'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('sources_history',
                      sa.Column('request_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -41,18 +46,16 @@ def upgrade():
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('ranking', sa.Integer()),
                      sa.Column('is_using', sa.Boolean(), default=False))
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('requests', sa.Column('estimated_at', sa.DateTime), schema=schema)
-        add_column('requests_history', sa.Column('estimated_at', sa.DateTime), schema=schema)
+        add_column('requests', sa.Column('estimated_at', sa.DateTime))
+        add_column('requests_history', sa.Column('estimated_at', sa.DateTime))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('requests', 'estimated_at', schema=schema)
-        drop_column('requests_history', 'estimated_at', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('requests', 'estimated_at')
+        drop_column('requests_history', 'estimated_at')
         drop_table('sources_history')

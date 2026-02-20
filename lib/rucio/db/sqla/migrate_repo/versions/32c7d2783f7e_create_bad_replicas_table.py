@@ -12,14 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' create bad replicas table '''
+""" create bad replicas table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key
 
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -28,11 +35,11 @@ down_revision = '384b96aa0f60'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('bad_replicas',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
@@ -52,9 +59,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('bad_replicas')

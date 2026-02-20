@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' remove replicas_tombstone and replicas_rse_id indexes '''
+""" remove replicas_tombstone and replicas_rse_id indexes """
 
-from alembic.op import create_index, drop_index
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = '27e3a68927fb'
@@ -22,17 +25,17 @@ down_revision = '295289b5a800'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    drop_index('REPLICAS_TOMBSTONE_IDX', 'replicas')
-    drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
+    try_drop_index('REPLICAS_TOMBSTONE_IDX', 'replicas')
+    try_drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
     create_index('REPLICAS_RSE_ID_IDX', 'replicas', ['rse_id'])
     create_index('REPLICAS_TOMBSTONE_IDX', 'replicas', ['tombstone'])
