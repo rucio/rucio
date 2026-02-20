@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional
 from rucio.cli.bin_legacy.rucio import get_parser
 from rucio.cli.bin_legacy.rucio import main as main_legacy
 from rucio.cli.command import main
-from rucio.common.config import clean_cached_config, config_get
+from rucio.common.config import clean_cached_config, config_get, config_get_list
 from rucio.common.utils import setup_logger
 
 if TYPE_CHECKING:
@@ -148,8 +148,8 @@ if __name__ == "__main__":
                     use_multi_host = True
 
         if use_multi_host:
-            multi_host_servers = config_get('client', 'multi_host_servers')
-            for host in [x.strip() for x in multi_host_servers.split(',')]:
+            multi_host_servers = config_get_list('client', 'multi_host_servers')
+            for host in multi_host_servers:
                 config = config_get(host, 'config_file')
                 clean_cached_config()
                 os.environ['RUCIO_CONFIG'] = config
