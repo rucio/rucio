@@ -111,9 +111,9 @@ def run(
     working_rses = None
     if rses or include_rses or exclude_rses:
         working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
-        logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s" % (rses,
+        logging.info("RSE selection: RSEs: %s, Include: %s, Exclude: %s", rses,
                                                                             include_rses,
-                                                                            exclude_rses))
+                                                                            exclude_rses)
     elif multi_vo:
         working_rses = get_conveyor_rses(rses, include_rses, exclude_rses, vos)
         logging.info("RSE selection: automatic for relevant VOs")

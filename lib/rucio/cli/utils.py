@@ -74,7 +74,7 @@ def exception_handler(function):
             logger.debug("This means that one you provided an invalid combination of parameters, or incorrect types. Please check the command help (-h/--help).")
             return FAILURE
         except NotImplementedError as error:
-            logger.error(f"Cannot run that operation/command combination {error}")
+            logger.error("Cannot run that operation/command combination %s", error)
             return FAILURE
         except DataIdentifierNotFound as error:
             logger.error(error)
@@ -131,13 +131,13 @@ def exception_handler(function):
                     used_account = "%s (from RUCIO_ACCOUNT)" % os.environ["RUCIO_ACCOUNT"]
                 except Exception:
                     pass
-                logger.error("Specified account %s does not have an associated identity." % used_account)
+                logger.error("Specified account %s does not have an associated identity.", used_account)
 
             else:
                 logger.debug(traceback.format_exc())
                 contact = config_get("policy", "support", raise_exception=False)
                 support = ("Please follow up with all relevant information at: " + contact) if contact else ""
-                logger.error("\nThe object is missing this property: %s\n" 'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n' "%s" % (str(error), support))
+                logger.error("\nThe object is missing this property: %s\n" 'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n' "%s", str(error), support)
             return FAILURE
         except RucioException as error:
             logger.error(error)
@@ -158,7 +158,7 @@ def exception_handler(function):
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ""
             contact = config_get("policy", "support_rucio", default="https://github.com/rucio/rucio/issues")
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
-            logger.error("\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s" % support)
+            logger.error("\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s", support)
             return FAILURE
 
     return new_funct

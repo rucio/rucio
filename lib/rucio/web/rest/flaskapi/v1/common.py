@@ -351,7 +351,7 @@ def generate_http_error_flask(
             response=render_json(**data),
         )
     except Exception:
-        logging.exception(f'Cannot create generate_http_error_flask response with {data}')
+        logging.exception('Cannot create generate_http_error_flask response with %s', data)
         raise
 
 

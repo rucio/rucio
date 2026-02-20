@@ -136,8 +136,7 @@ def update_subscription(
                 try:
                     metadata['state'] = SubscriptionState(metadata['state'])
                 except ValueError as err:
-                    msg = f"Invalid subscription state: {metadata['state']}"
-                    raise InvalidObject(msg) from err
+                    raise InvalidObject(f"Invalid subscription state: {metadata['state']}") from err
 
         except ValueError as error:
             raise TypeError(error)
