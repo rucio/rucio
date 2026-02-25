@@ -51,6 +51,7 @@ from rucio.core.rse_counter import decrease, increase
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import filter_thread_work, models
 from rucio.db.sqla.constants import OBSOLETE, BadFilesStatus, BadPFNStatus, DIDAvailability, DIDType, ReplicaState, RuleState
+from rucio.db.sqla.models import normalize_checksums
 from rucio.db.sqla.session import BASE, DEFAULT_SCHEMA_NAME, read_session, stream_session, transactional_session
 from rucio.db.sqla.util import temp_table_mngr
 from rucio.rse import rsemanager as rsemgr
@@ -1061,8 +1062,10 @@ def _list_replicas(
 
             # it is the first row in the scope/name group
             if not file:
+                print("file is:", file, "checksum", checksum, "md5", md5)
+                checksum = normalize_checksums(md5=md5, adler32=adler32, checksum=checksum)
                 file['scope'], file['name'] = scope, name
-                file['bytes'], file['md5'], file['adler32'], file['checksum'] = bytes_, md5, adler32, checksum
+                file['bytes'], file['md5'], file['adler32'], file['checksum'] = bytes_, checksum.get('md5'), checksum.get('adler32'), checksum
                 file['pfns'], file['rses'], file['states'] = {}, {}, {}
                 if resolve_parents:
                     file['parents'] = ['%s:%s' % (parent['scope'].internal, parent['name'])
@@ -1179,12 +1182,13 @@ def _list_replicas(
             yield file
 
     for scope, name, bytes_, md5, adler32, checksum in _list_files_wo_replicas(files_wo_replica, session=session):
+        checksum = normalize_checksums(md5, adler32, checksum)
         yield {
             'scope': scope,
             'name': name,
             'bytes': bytes_,
-            'md5': md5,
-            'adler32': adler32,
+            'md5': checksum.get(md5),
+            'adler32': checksum.get('adler32'),
             'checksum': checksum,
             'pfns': {},
             'rses': defaultdict(list)
@@ -1599,7 +1603,7 @@ def __bulk_add_new_file_dids(
         new_did = models.DataIdentifier(scope=file['scope'], name=file['name'],
                                         account=file.get('account') or account,
                                         did_type=DIDType.FILE, bytes=file['bytes'],
-                                        md5=file.get('md5'), adler32=file.get('adler32'),
+                                        #md5=file.get('md5'), adler32=file.get('adler32'),
                                         checksum=file.get('checksum'),
                                         is_new=None)
         new_did.save(session=session, flush=False)
@@ -1895,6 +1899,7 @@ def add_replica(
     :param meta: Meta-data associated with the file. Represented as key/value pairs in a dictionary.
     :param rules: Replication rules associated with the file. A list of dictionaries, e.g., [{'copies': 2, 'rse_expression': 'TIERS1'}, ].
     :param tombstone: If True, create replica with a tombstone.
+    :param checksum: checksum dictionary i.e. {'md5': xxxx, 'adler32': yyyyy}
     :param session: The database session in use.
 
     :returns: list of replicas.

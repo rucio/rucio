@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalScope
+    from rucio.common.types import InternalScope, RuleDict
     from rucio.core.rse_selector import RSESelector
 
 
@@ -185,7 +185,24 @@ def repair_stuck_locks_and_apply_rule_grouping(
 
 
 @transactional_session
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, checksum=None, ds_scope=None, ds_name=None, copy_pin_lifetime=None, activity=None, retry_count=None, *, session: "Session"):
+def create_transfer_dict(
+    dest_rse_id: str,
+    request_type: str,
+    scope: str,
+    name: str,
+    rule: "RuleDict",
+    lock=None, bytes_: Optional[int]=None,
+    md5: Optional[str]=None,
+    adler32: Optional[str]=None,
+    checksum: dict[str, Optional[str]]={},
+    ds_scope: Optional[str]=None,
+    ds_name: Optional[str]=None,
+    copy_pin_lifetime=None,
+    activity: Optional[str]=None,
+    retry_count: Optional[int]=None,
+    *,
+    session: "Session"
+    ) -> dict[str, Any]:
     """
     This method creates a transfer dictionary and returns it
 
@@ -198,7 +215,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
     :param bytes_:              The filesize of the file in bytes.
     :param md5:                 The md5 checksum of the file.
     :param adler32:             The adler32 checksum of the file.
-    :param checksum             The checsum as a dictionary {type: value}
+    :param checksum             The checksum as a dictionary {type: value}
     :param ds_scope:            Dataset the file belongs to.
     :param ds_name:             Dataset the file belongs to.
     :param copy_pin_lifetime:   Lifetime in the case of STAGIN requests.
@@ -1196,7 +1213,7 @@ def __create_lock(rule, rse_id, scope, name, bytes_, state, existing_replica, lo
     return new_lock
 
 
-def __create_replica(rse_id, scope, name, bytes_, state, md5, adler32, checksum, logger=logging.log):
+def __create_replica(rse_id: str, scope: str, name: str, bytes_: int, state: ReplicaState, md5: Optional[str], adler32: Optional[str], checksum: dict[str, Optional[str]], logger=logging.log):
     """
     Create and return a new SQLAlchemy replica object.
 
