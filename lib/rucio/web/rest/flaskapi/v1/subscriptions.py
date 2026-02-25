@@ -500,6 +500,13 @@ class States(ErrorHandlingMethodView):
           schema:
             type: string
           style: simple
+        - name: include_details
+          in: query
+          description: "Include subscription metadata (state, last_processed, lifetime, expired_at, comments)."
+          schema:
+            type: boolean
+            default: false
+          style: form
         responses:
           200:
             description: "OK"
@@ -524,6 +531,25 @@ class States(ErrorHandlingMethodView):
                       count:
                         description: "The number of rules with that state."
                         type: integer
+                      subscription_state:
+                        description: "The state of the subscription (only when include_details=true)."
+                        type: string
+                        enum: ["A", "I", "N", "U", "B"]
+                      last_processed:
+                        description: "Last processing timestamp (only when include_details=true)."
+                        type: string
+                        format: date-time
+                      lifetime:
+                        description: "Subscription lifetime (only when include_details=true)."
+                        type: string
+                        format: date-time
+                      expired_at:
+                        description: "Expiration timestamp (only when include_details=true)."
+                        type: string
+                        format: date-time
+                      comments:
+                        description: "Subscription comments (only when include_details=true)."
+                        type: string
           401:
             description: "Invalid Auth Token"
           404:
@@ -531,8 +557,10 @@ class States(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
+        include_details = param_get_bool(request.args, 'include_details', default=False)
+
         def generate(vo):
-            for row in list_subscription_rule_states(name=name, account=account, vo=vo):
+            for row in list_subscription_rule_states(name=name, account=account, include_details=include_details, vo=vo):
                 yield dumps(row, cls=APIEncoder) + '\n'
 
         return try_stream(generate(vo=request.environ['vo']))
