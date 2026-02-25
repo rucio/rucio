@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from json import dumps
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 from urllib.parse import quote_plus
 
 from requests.status_codes import codes
@@ -348,7 +348,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def get_account_limits(self, account: str, rse_expression: str, locality: str) -> dict[str, Any]:
+    def get_account_limits(self, account: str, rse_expression: str, locality: Literal['local', 'global']) -> dict[str, Any]:
         """
         Return the correct account limits for the given locality.
 
@@ -370,6 +370,73 @@ class AccountClient(BaseClient):
         else:
             from rucio.common.exception import UnsupportedOperation
             raise UnsupportedOperation('The provided locality (%s) for the account limit was invalid' % locality)
+
+    def set_account_limit(
+            self,
+            account: str,
+            rse: str,
+            bytes_: int,
+            locality: Literal['local', 'global']
+    ) -> bool:
+        """
+        Sets an account limit for a given limit scope.
+
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+        bytes_ :
+            The limit in bytes.
+        locality :
+            The scope of the account limit.
+
+        Returns
+        -------
+
+            True if quota was created successfully, False otherwise.
+        """
+
+        if locality == 'local':
+            return self.set_local_account_limit(account, rse, bytes_)
+        elif locality == 'global':
+            return self.set_global_account_limit(account, rse, bytes_)
+        else:
+            from rucio.common.exception import UnsupportedOperation
+            raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
+
+    def delete_account_limit(
+            self,
+            account: str,
+            rse: str,
+            locality: Literal['local', 'global']
+    ) -> bool:
+        """
+        Deletes an account limit for a given limit scope.
+
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+        locality :
+            The scope of the account limit.
+
+        Returns
+        -------
+
+            True if quota was deleted successfully, False otherwise.
+        """
+
+        if locality == 'local':
+            return self.delete_local_account_limit(account, rse)
+        elif locality == 'global':
+            return self.delete_global_account_limit(account, rse)
+        else:
+            from rucio.common.exception import UnsupportedOperation
+            raise UnsupportedOperation('The provided scope (%s) for the account limit was invalid' % locality)
 
     def get_global_account_limit(self, account: str, rse_expression: str) -> dict[str, Any]:
         """
@@ -447,6 +514,151 @@ class AccountClient(BaseClient):
             return next(self._load_json_data(res))
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
+
+    def set_local_account_limit(
+            self,
+            account: str,
+            rse: str,
+            bytes_: int
+    ) -> bool:
+        """
+        Sends the request to set an account limit for an account.
+
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+        bytes_ :
+            The limit in bytes.
+
+        Returns
+        -------
+
+            True if quota was created successfully, False otherwise.
+        """
+        data = dumps({'bytes': bytes_})
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", 'local', rse])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
+
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def delete_local_account_limit(
+            self,
+            account: str,
+            rse: str
+    ) -> bool:
+        """
+        Sends the request to remove an account limit.
+
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse :
+            The rse name.
+
+        Returns
+        -------
+
+            True if quota was removed successfully, False otherwise.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
+        """
+
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", "local", rse])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, method=HTTPMethod.DELETE)
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def set_global_account_limit(
+            self,
+            account: str,
+            rse_expression: str,
+            bytes_: int
+    ) -> bool:
+        """
+        Sends the request to set a global account limit for an account.
+
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse_expression :
+            The rse expression.
+        bytes_ :
+            The limit in bytes.
+
+        Returns
+        -------
+
+            True if quota was created successfully, False otherwise.
+        """
+
+        data = dumps({'bytes': bytes_})
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", 'global', quote_plus(rse_expression)])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, method=HTTPMethod.POST, data=data)
+
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def delete_global_account_limit(
+            self,
+            account: str,
+            rse_expression: str
+    ) -> bool:
+        """
+        Sends the request to remove a global account limit.
+
+        Parameters
+        ----------
+        account :
+            The name of the account.
+        rse_expression :
+            The rse expression.
+
+        Returns
+        -------
+
+            True if quota was removed successfully, False otherwise.
+
+        Raises
+        ------
+        AccountNotFound
+            If account doesn't exist.
+        """
+
+        path = '/'.join([self.ACCOUNTS_BASEURL, account, "limits", 'global', quote_plus(rse_expression)])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        r = self._send_request(url, method=HTTPMethod.DELETE)
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
 
     def get_local_account_usage(self, account: str, rse: Optional[str] = None) -> "Iterator[dict[str, Any]]":
         """
