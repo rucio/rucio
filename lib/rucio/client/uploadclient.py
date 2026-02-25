@@ -727,14 +727,15 @@ class UploadClient:
         file_did = {'scope': file_scope, 'name': file_name}
         replica_for_api = self._convert_file_for_api(file)
         try:
-            # if the remote checksum is different, this DID must not be used
+            # if the remote checksum is different, this DID must not be used. Use checksum column (not the legacy columns) to detect this
+            #  and raise an exception
             meta = self.client.get_metadata(file_scope, file_name)
             logger(logging.INFO, 'File DID already exists')
-            logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['adler32'], meta['adler32']))
+            logger(logging.DEBUG, 'local checksum: %s, remote checksum: %s' % (file['checksum']['adler32'], meta['checksum']['adler32']))
 
-            if str(meta['adler32']).lstrip('0') != str(file['adler32']).lstrip('0'):
+            if str(meta['checksum']['adler32']).lstrip('0') != str(file['checksum']['adler32']).lstrip('0'):
                 logger(logging.ERROR,
-                       'Local checksum %s does not match remote checksum %s' % (file['adler32'], meta['adler32']))
+                       'Local checksum %s does not match remote checksum %s' % (file['checksum']['adler32'], meta['adler32']))
                 raise DataIdentifierAlreadyExists
 
             # add the file to rse if it is not registered yet
@@ -845,9 +846,7 @@ class UploadClient:
         new_item['basename'] = os.path.basename(filepath)
 
         new_item['bytes'] = os.stat(filepath).st_size
-        new_item['adler32'] = adler32(filepath)
-        new_item['md5'] = md5(filepath)
-        new_item['checksum'] = {'md5': new_item['md5'], 'adler32': new_item['adler32']}
+        new_item['checksum'] = {'md5': md5(filepath), 'adler32': adler32(filepath)}
         new_item['meta'] = {'guid': self._get_file_guid(new_item)}
         new_item['state'] = 'C'
         if not new_item.get('did_scope'):
@@ -976,8 +975,6 @@ class UploadClient:
         replica['scope'] = file['did_scope']
         replica['name'] = file['did_name']
         replica['bytes'] = file['bytes']
-        replica['adler32'] = file['adler32']
-        replica['md5'] = file['md5']
         replica['checksum'] = file['checksum']
         replica['meta'] = file['meta']
         replica['state'] = file['state']
