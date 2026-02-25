@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalScope
+    from rucio.common.types import InternalScope, RuleDict
     from rucio.core.rse_selector import RSESelector
 
 
@@ -185,7 +185,24 @@ def repair_stuck_locks_and_apply_rule_grouping(
 
 
 @transactional_session
-def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None, bytes_=None, md5=None, adler32=None, ds_scope=None, ds_name=None, copy_pin_lifetime=None, activity=None, retry_count=None, *, session: "Session"):
+def create_transfer_dict(
+    dest_rse_id: str,
+    request_type: str,
+    scope: str,
+    name: str,
+    rule: "RuleDict",
+    lock=None, bytes_: Optional[int]=None,
+    md5: Optional[str]=None,
+    adler32: Optional[str]=None,
+    checksum: dict[str, Optional[str]]={},
+    ds_scope: Optional[str]=None,
+    ds_name: Optional[str]=None,
+    copy_pin_lifetime=None,
+    activity: Optional[str]=None,
+    retry_count: Optional[int]=None,
+    *,
+    session: "Session"
+    ) -> dict[str, Any]:
     """
     This method creates a transfer dictionary and returns it
 
@@ -198,6 +215,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
     :param bytes_:              The filesize of the file in bytes.
     :param md5:                 The md5 checksum of the file.
     :param adler32:             The adler32 checksum of the file.
+    :param checksum             The checksum as a dictionary {type: value}
     :param ds_scope:            Dataset the file belongs to.
     :param ds_name:             Dataset the file belongs to.
     :param copy_pin_lifetime:   Lifetime in the case of STAGIN requests.
@@ -213,6 +231,7 @@ def create_transfer_dict(dest_rse_id, request_type, scope, name, rule, lock=None
                   'bytes': bytes_,
                   'md5': md5,
                   'adler32': adler32,
+                  'checksum': checksum,
                   'priority': rule.priority,
                   # 'allow_tape_source': has_account_attribute(account=rule.account, key='admin', session=session)}
                   'allow_tape_source': True}
@@ -987,6 +1006,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                         bytes_=file['bytes'],
                                                         md5=file['md5'],
                                                         adler32=file['adler32'],
+                                                        checksum=file['checksum'],
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
                                                         copy_pin_lifetime=copy_pin_lifetime,
@@ -1032,6 +1052,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             bytes_=file['bytes'],
                                                             md5=file['md5'],
                                                             adler32=file['adler32'],
+                                                            checksum=file['checksum'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
                                                             copy_pin_lifetime=copy_pin_lifetime,
@@ -1066,6 +1087,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                                 bytes_=file['bytes'],
                                                                 md5=file['md5'],
                                                                 adler32=file['adler32'],
+                                                                checksum=file['checksum'],
                                                                 ds_scope=dataset['scope'],
                                                                 ds_name=dataset['name'],
                                                                 session=session))
@@ -1099,6 +1121,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                        bytes_=file['bytes'],
                                        md5=file['md5'],
                                        adler32=file['adler32'],
+                                       checksum=file['checksum'],
                                        state=ReplicaState.COPYING if (available_source_replica and availability_write) else ReplicaState.UNAVAILABLE)
         if rse_id not in replicas_to_create:
             replicas_to_create[rse_id] = []
@@ -1127,6 +1150,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             bytes_=file['bytes'],
                                                             md5=file['md5'],
                                                             adler32=file['adler32'],
+                                                            checksum=file['checksum'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
                                                             session=session))
@@ -1141,6 +1165,7 @@ def __create_lock_and_replica(file, dataset, rule, rse_id, staging_area, availab
                                                             bytes_=file['bytes'],
                                                             md5=file['md5'],
                                                             adler32=file['adler32'],
+                                                            checksum=file['checksum'],
                                                             ds_scope=dataset['scope'],
                                                             ds_name=dataset['name'],
                                                             session=session))
@@ -1188,17 +1213,18 @@ def __create_lock(rule, rse_id, scope, name, bytes_, state, existing_replica, lo
     return new_lock
 
 
-def __create_replica(rse_id, scope, name, bytes_, state, md5, adler32, logger=logging.log):
+def __create_replica(rse_id: str, scope: str, name: str, bytes_: int, state: ReplicaState, md5: Optional[str], adler32: Optional[str], checksum: dict[str, Optional[str]], logger=logging.log):
     """
     Create and return a new SQLAlchemy replica object.
 
     :param rse_id:        RSE id of the replica.
     :param scope:         Scope of the replica.
     :param name:          Name of the replica.
-    :param bytes_:         Bytes of the replica.
+    :param bytes_:        Bytes of the replica.
     :param state:         State of the replica.
     :param md5:           MD5 checksum of the replica.
     :param adler32:       ADLER32 checksum of the replica.
+    :param checksum:      checksum dictionary {type: value}
     :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
 
@@ -1208,6 +1234,7 @@ def __create_replica(rse_id, scope, name, bytes_, state, md5, adler32, logger=lo
                                             bytes=bytes_,
                                             md5=md5,
                                             adler32=adler32,
+                                            checksum=checksum,
                                             tombstone=None,
                                             state=state,
                                             lock_cnt=0)
@@ -1252,6 +1279,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         bytes_=replica.bytes,
                                                         md5=replica.md5,
                                                         adler32=replica.adler32,
+                                                        checksum=replica.checksum,
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
                                                         copy_pin_lifetime=copy_pin_lifetime,
@@ -1266,6 +1294,7 @@ def __update_lock_replica_and_create_transfer(lock, replica, rule, dataset, tran
                                                         bytes_=replica.bytes,
                                                         md5=replica.md5,
                                                         adler32=replica.adler32,
+                                                        checksum=replica.checksum,
                                                         ds_scope=dataset['scope'],
                                                         ds_name=dataset['name'],
                                                         request_type=RequestType.TRANSFER,
@@ -1363,7 +1392,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
 
             # to align code with cases below, create file dict
             file = {'name': did.name, 'scope': did.scope,
-                    'bytes': did.bytes, 'md5': did.md5, 'adler32': did.adler32}
+                    'bytes': did.bytes, 'md5': did.md5, 'adler32': did.adler32, 'checksum': did.checksum}
 
             # calculate target RSEs
             rse_coverage = {replica.rse_id: file['bytes'] for replica in replicas[(file['scope'], file['name'])]}
@@ -1486,7 +1515,7 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
             for p in range(npartitions):
                 # prnt(('processing partition ', p, npartitions))
 
-                # files is [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':}]
+                # files is [{'scope':, 'name':, 'bytes':, 'md5':, 'adler32':, 'checksum': }]
                 # locks is {(scope,name): [SQLAlchemy]}
                 # replicas = {(scope, name): [SQLAlchemy]}
                 # source replicas is {(scope, name): [SQLAlchemy]}

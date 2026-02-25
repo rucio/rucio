@@ -434,6 +434,7 @@ class DataIdentifier(BASE, ModelBase):
     purge_replicas: Mapped[bool] = mapped_column(Boolean(name='DIDS_PURGE_RPLCS_CHK', create_constraint=True),
                                                  server_default='1')
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     # hardcoded meta-data to populate the db
     events: Mapped[Optional[int]] = mapped_column(BigInteger)
     guid: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
@@ -649,6 +650,7 @@ class DeletedDataIdentifier(BASE, ModelBase):
     is_archive: Mapped[Optional[bool]] = mapped_column(Boolean(name='DEL_DIDS_ARCH_CHK', create_constraint=True))
     constituent: Mapped[Optional[bool]] = mapped_column(Boolean(name='DEL_DIDS_CONST_CHK', create_constraint=True))
     access_cnt: Mapped[Optional[int]] = mapped_column(Integer())
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', name='DELETED_DIDS_PK'), )
 
 
@@ -716,6 +718,7 @@ class QuarantinedReplica(BASE, ModelBase):
     adler32: Mapped[Optional[str]] = mapped_column(String(8))
     scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
     name: Mapped[Optional[str]] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('rse_id', 'path', name='QURD_REPLICAS_STATE_PK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='QURD_REPLICAS_RSE_ID_FK'),
                    Index('QUARANTINED_REPLICAS_PATH_IDX', 'path', 'rse_id', unique=True))
@@ -732,6 +735,7 @@ class QuarantinedReplicaHistory(BASE, ModelBase):
     scope: Mapped[Optional[InternalScope]] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
     name: Mapped[Optional[str]] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     __mapper_args__ = {
         'primary_key': [rse_id, path]  # Fake primary key for SQLA
     }
@@ -782,6 +786,7 @@ class DataIdentifierAssociation(BASE, ModelBase):
     guid: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
     events: Mapped[Optional[int]] = mapped_column(BigInteger)
     rule_evaluation: Mapped[Optional[bool]] = mapped_column(Boolean(name='CONTENTS_RULE_EVALUATION_CHK', create_constraint=True))
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'child_scope', 'child_name', name='CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='CONTENTS_ID_FK'),
                    ForeignKeyConstraint(['child_scope', 'child_name'], ['dids.scope', 'dids.name'], ondelete="CASCADE", name='CONTENTS_CHILD_ID_FK'),
@@ -803,6 +808,7 @@ class ConstituentAssociation(BASE, ModelBase):
     md5: Mapped[Optional[str]] = mapped_column(String(32))
     guid: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
     length: Mapped[Optional[int]] = mapped_column(BigInteger)
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('child_scope', 'child_name', 'scope', 'name',
                                         name='ARCH_CONTENTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'],
@@ -826,6 +832,7 @@ class ConstituentAssociationHistory(BASE, ModelBase):
     md5: Mapped[Optional[str]] = mapped_column(String(32))
     guid: Mapped[Optional[uuid.UUID]] = mapped_column(GUID())
     length: Mapped[Optional[int]] = mapped_column(BigInteger)
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     __mapper_args__ = {
         'primary_key': [scope, name, child_scope, child_name]  # Fake primary key for SQLA
     }
@@ -853,6 +860,7 @@ class DataIdentifierAssociationHistory(BASE, ModelBase):
     rule_evaluation: Mapped[Optional[bool]] = mapped_column(Boolean(name='CONTENTS_HIST_RULE_EVAL_CHK', create_constraint=True))
     did_created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     __mapper_args__ = {
         'primary_key': [scope, name, child_scope, child_name]  # Fake primary key for SQLA
     }
@@ -1101,6 +1109,7 @@ class RSEFileAssociation(BASE, ModelBase):
     lock_cnt: Mapped[int] = mapped_column(Integer, server_default='0')
     accessed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     tombstone: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('scope', 'name', 'rse_id', name='REPLICAS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REPLICAS_LFN_FK'),
                    ForeignKeyConstraint(['rse_id'], ['rses.id'], name='REPLICAS_RSE_ID_FK'),
@@ -1445,6 +1454,7 @@ class Request(BASE, ModelBase):
     last_processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     priority: Mapped[Optional[int]] = mapped_column(Integer)
     transfertool: Mapped[Optional[str]] = mapped_column(String(64))
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     _table_args = (PrimaryKeyConstraint('id', name='REQUESTS_PK'),
                    ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='REQUESTS_DID_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='REQUESTS_RSES_FK'),
@@ -1518,6 +1528,7 @@ class RequestHistory(BASE, ModelBase):
     requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     priority: Mapped[Optional[int]] = mapped_column(Integer)
     transfertool: Mapped[Optional[str]] = mapped_column(String(64))
+    checksum: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON())
     __mapper_args__ = {
         'primary_key': [id]  # Fake primary key for SQLA
     }
@@ -1856,3 +1867,32 @@ def unregister_models(engine: Engine) -> None:
     :returns: None
     """
     BASE.metadata.drop_all(engine)
+
+
+def normalize_checksums(md5: Optional[str] = None,
+                        adler32: Optional[str] = None,
+                        checksum: Optional[Any] = None) -> dict[str, Optional[str]]:
+    """
+    Return a canonical checksum dict or {}.
+
+    Rules:
+    - If checksum is a non-empty dict (DB canonical JSON), return it as-is (preserve keys).
+    - If checksum is None or an empty dict, build a checksum dict from available legacy columns (md5/adler32).
+    - If neither checksum nor legacy columns provide values, return {}.
+
+    The returned dict may contain other checksum types in the future (e.g. 'sha1'); those are preserved.
+    """
+    # If DB column returns a non-empty dict, prefer it (canonical)
+    if isinstance(checksum, dict) and checksum:
+        return checksum
+
+    # If checksum is truthy but not a dict, don't attempt parsing here.
+    # We treat non-dict values as absent and fall back to legacy columns.
+    # Synthesize from legacy columns when DB checksum is absent or empty
+    out: dict[str, Optional[str]] = {}
+    if md5:
+        out['md5'] = md5
+    if adler32:
+        out['adler32'] = adler32
+
+    return out
