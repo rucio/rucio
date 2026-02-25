@@ -267,14 +267,14 @@ def run(
 
         try:
             if round(sum(parsed_activity_shares.values()), 2) != 1:
-                logging.critical('activity shares do not sum up to 1, got %s - aborting' % round(sum(parsed_activity_shares.values()), 2))
+                logging.critical('activity shares do not sum up to 1, got %s - aborting', round(sum(parsed_activity_shares.values()), 2),)
                 return
         except Exception:
             logging.critical('activity shares are not numbers? - aborting')
             return
 
         parsed_activity_shares.update((share, int(percentage * db_bulk)) for share, percentage in parsed_activity_shares.items())
-        logging.info('activity shares enabled: %s' % parsed_activity_shares)
+        logging.info('activity shares enabled: %s', parsed_activity_shares)
 
     cached_topology = ExpiringObjectCache(ttl=300, new_obj_fnc=lambda: Topology())
     poller(
