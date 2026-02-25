@@ -6,6 +6,6 @@ VERSION_INFO = {
     'final': True,
     'version': '35.8.3',
     'branch_nick': 'release-35-LTS',
-    'revision_id': 'cdf332029685532b7d64a3e85c8a49993fe7bacc',
-    'revno': 13220
+    'revision_id': '6c9b4a0c239cd6e901bb384720c38a38e8843a85',
+    'revno': 13224
 }
