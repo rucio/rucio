@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' replicas table PK definition is in wrong order '''
+""" replicas table PK definition is in wrong order """
 
-from alembic import context
-from alembic.op import create_foreign_key, create_primary_key, drop_constraint, drop_index
+from alembic.op import create_foreign_key
+
+from rucio.db.sqla.migrate_repo import (
+    create_primary_key,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_index,
+    try_drop_primary_key,
+)
 
 # revision identifiers used by alembic
 revision = '3345511706b8'
@@ -23,24 +30,24 @@ down_revision = '01eaf73ab656'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
-        drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
+    if is_current_dialect('oracle', 'postgresql'):
+        try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['scope', 'name', 'rse_id'], ['scope', 'name', 'rse_id'])
 
-    elif context.get_context().dialect.name == 'mysql':
-        drop_constraint('SOURCES_REPLICA_FK', 'sources', type_='foreignkey')
+    elif is_current_dialect('mysql'):
+        try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
         # The constraint has an internal index which is not automatically dropped,
         # we have to do that manually
-        drop_index('SOURCES_REPLICA_FK', 'sources')
-        drop_constraint(constraint_name='REPLICAS_LFN_FK', table_name='replicas', type_='foreignkey')
-        drop_constraint(constraint_name='REPLICAS_RSE_ID_FK', table_name='replicas', type_='foreignkey')
-        drop_constraint('REPLICAS_PK', 'replicas', type_='primary')
+        try_drop_index('SOURCES_REPLICA_FK', 'sources')
+        try_drop_constraint('REPLICAS_LFN_FK', 'replicas')
+        try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['scope', 'name', 'rse_id'])
@@ -48,24 +55,24 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
-        drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')
+    if is_current_dialect('oracle', 'postgresql'):
+        try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])
         create_foreign_key('SOURCES_REPLICA_FK', 'sources', 'replicas', ['rse_id', 'scope', 'name'], ['rse_id', 'scope', 'name'])
 
-    elif context.get_context().dialect.name == 'mysql':
-        drop_constraint(constraint_name='SOURCES_REPLICA_FK', table_name='sources', type_='foreignkey')
+    elif is_current_dialect('mysql'):
+        try_drop_constraint('SOURCES_REPLICA_FK', 'sources')
         # The constraint has an internal index which is not automatically dropped,
         # we have to do that manually
-        drop_index('SOURCES_REPLICA_FK', 'sources')
-        drop_constraint(constraint_name='REPLICAS_LFN_FK', table_name='replicas', type_='foreignkey')
-        drop_constraint(constraint_name='REPLICAS_RSE_ID_FK', table_name='replicas', type_='foreignkey')
-        drop_constraint(constraint_name='REPLICAS_PK', table_name='replicas', type_='primary')
+        try_drop_index('SOURCES_REPLICA_FK', 'sources')
+        try_drop_constraint('REPLICAS_LFN_FK', 'replicas')
+        try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
+        try_drop_primary_key('replicas', legacy_names=('REPLICAS_PK', 'replicas_pk', 'replicas_pkey'))
         create_foreign_key('REPLICAS_LFN_FK', 'replicas', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])
         create_primary_key('REPLICAS_PK', 'replicas', ['rse_id', 'scope', 'name'])

@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added unique constraint to rules '''
+""" added unique constraint to rules """
 
-from alembic import context
-from alembic.op import create_index, drop_index
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    is_current_dialect,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = '25fc855625cf'
@@ -23,19 +26,19 @@ down_revision = '4a7182d9578b'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules', ['scope', 'name', 'account', 'rse_expression', 'copies'],
                      unique=True, mysql_length={'rse_expression': 767})
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        try_drop_index('RULES_SC_NA_AC_RS_CO_UQ_IDX', 'rules')

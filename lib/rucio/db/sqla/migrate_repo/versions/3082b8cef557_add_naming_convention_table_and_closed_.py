@@ -12,16 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add convention table and closed_at to DIDs '''
+""" add convention table and closed_at to DIDs """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_column, drop_table
+from alembic.op import create_foreign_key
 
 from rucio.common.schema import get_schema_value
 from rucio.db.sqla.constants import KeyType
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_check_constraint,
+    create_primary_key,
+    create_table,
+    drop_column,
+    drop_table,
+    get_backend_enum,
+    is_current_dialect,
+    try_drop_enum,
+)
 
 # Alembic revision identifiers
 revision = '3082b8cef557'
@@ -29,21 +39,19 @@ down_revision = '269fee20dee9'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('dids', sa.Column('closed_at', sa.DateTime), schema=schema)
-        add_column('contents_history', sa.Column('deleted_at', sa.DateTime), schema=schema)
+    naming_convention_type = get_backend_enum(KeyType, name='CVT_TYPE_CHK')
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('dids', sa.Column('closed_at', sa.DateTime))
+        add_column('contents_history', sa.Column('deleted_at', sa.DateTime))
         create_table('naming_conventions',
                      sa.Column('scope', sa.String(get_schema_value('SCOPE_LENGTH'))),
                      sa.Column('regexp', sa.String(255)),
-                     sa.Column('convention_type', sa.Enum(KeyType,
-                                                          name='CVT_TYPE_CHK',
-                                                          create_constraint=True,
-                                                          values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('convention_type', naming_convention_type),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
         create_primary_key('NAMING_CONVENTIONS_PK', 'naming_conventions', ['scope'])
@@ -56,12 +64,19 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('dids', 'closed_at', schema=schema)
-        drop_column('contents_history', 'deleted_at', schema=schema)
-        drop_table('naming_conventions', schema=schema)
+    if is_current_dialect('oracle', 'mysql'):
+        drop_column('dids', 'closed_at')
+        drop_column('contents_history', 'deleted_at')
+        drop_table('naming_conventions')
+
+    elif is_current_dialect('postgresql'):
+        # Drop the table first to remove dependencies, then drop the enum type,
+        # then remove the added columns.
+        drop_table('naming_conventions')
+        try_drop_enum('CVT_TYPE_CHK')
+        drop_column('dids', 'closed_at')
+        drop_column('contents_history', 'deleted_at')

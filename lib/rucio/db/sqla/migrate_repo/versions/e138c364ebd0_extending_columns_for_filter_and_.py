@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Extending columns for filter and replication_rules in subscriptions '''
+""" Extending columns for filter and replication_rules in subscriptions """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import alter_column
+
+from rucio.db.sqla.migrate_repo import (
+    alter_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = 'e138c364ebd0'
@@ -24,26 +27,24 @@ down_revision = 'f85a2962b021'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        alter_column('subscriptions', 'filter', existing_type=sa.String(2048), type_=sa.String(4000), schema=schema)
-        alter_column('subscriptions', 'replication_rules', existing_type=sa.String(1024), type_=sa.String(4000), schema=schema)
-        alter_column('subscriptions_history', 'filter', existing_type=sa.String(2048), type_=sa.String(4000), schema=schema)
-        alter_column('subscriptions_history', 'replication_rules', existing_type=sa.String(1024), type_=sa.String(4000), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        alter_column('subscriptions', 'filter', existing_type=sa.String(2048), type_=sa.String(4000))
+        alter_column('subscriptions', 'replication_rules', existing_type=sa.String(1024), type_=sa.String(4000))
+        alter_column('subscriptions_history', 'filter', existing_type=sa.String(2048), type_=sa.String(4000))
+        alter_column('subscriptions_history', 'replication_rules', existing_type=sa.String(1024), type_=sa.String(4000))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        alter_column('subscriptions', 'filter', existing_type=sa.String(4000), type_=sa.String(2048), schema=schema)
-        alter_column('subscriptions', 'replication_rules', existing_type=sa.String(4000), type_=sa.String(1024), schema=schema)
-        alter_column('subscriptions_history', 'filter', existing_type=sa.String(4000), type_=sa.String(2048), schema=schema)
-        alter_column('subscriptions_history', 'replication_rules', existing_type=sa.String(4000), type_=sa.String(1024), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        alter_column('subscriptions', 'filter', existing_type=sa.String(4000), type_=sa.String(2048))
+        alter_column('subscriptions', 'replication_rules', existing_type=sa.String(4000), type_=sa.String(1024))
+        alter_column('subscriptions_history', 'filter', existing_type=sa.String(4000), type_=sa.String(2048))
+        alter_column('subscriptions_history', 'replication_rules', existing_type=sa.String(4000), type_=sa.String(1024))

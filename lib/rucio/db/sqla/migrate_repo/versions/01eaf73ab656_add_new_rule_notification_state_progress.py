@@ -12,12 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add new rule notification state progress '''
+""" add new rule notification state progress """
 
-from alembic import context, op
-from alembic.op import create_check_constraint
+from alembic.op import execute
 
-from rucio.db.sqla.util import try_drop_constraint
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    enum_values_clause,
+    is_current_dialect,
+    qualify_table,
+    render_enum_name,
+    try_alter_enum_add_value,
+    try_create_enum_if_absent,
+    try_drop_constraint,
+    try_drop_enum,
+)
 
 # Alembic revision identifiers
 revision = '01eaf73ab656'
@@ -25,46 +34,95 @@ down_revision = '90f47792bb76'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    rules_table = qualify_table('rules')
+    rules_notification_values = ['Y', 'N', 'C', 'P']
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C', 'P')")
+        create_check_constraint(
+            constraint_name='RULES_NOTIFICATION_CHK',
+            table_name='rules',
+            condition=f"notification in ({enum_values_clause(rules_notification_values)})",
+        )
 
-    elif context.get_context().dialect.name == 'postgresql':
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')
-        op.execute('DROP TYPE \"RULES_NOTIFICATION_CHK\"')
-        op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C', 'P')")
-        op.execute("ALTER TABLE %srules ALTER COLUMN notification TYPE \"RULES_NOTIFICATION_CHK\" USING notification::\"RULES_NOTIFICATION_CHK\"" % schema)
+    elif is_current_dialect('postgresql'):
+        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
 
-    elif context.get_context().dialect.name == 'mysql':
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C', 'P')")
+        # 1) Old CHECK becomes obsolete once we rely on the enum.
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+
+        # 2) Ensure the enum type exists (for databases that only had CHAR+CHECK).
+        try_create_enum_if_absent('RULES_NOTIFICATION_CHK', rules_notification_values)
+
+        # 3) Make sure the new label 'P' is present, in the right position.
+        try_alter_enum_add_value(
+            'RULES_NOTIFICATION_CHK',
+            'P',
+            after='C',
+            if_not_exists=True,
+        )
+
+        # 4) Attach (or re-attach) the enum type to the column.
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            ALTER COLUMN notification TYPE {rules_notification_enum}
+            USING notification::text::{rules_notification_enum}
+            """
+        )
+
+    elif is_current_dialect('mysql'):
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+        create_check_constraint(
+            constraint_name='RULES_NOTIFICATION_CHK',
+            table_name='rules',
+            condition=f"notification in ({enum_values_clause(rules_notification_values)})",
+        )
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    rules_table = qualify_table('rules')
+    rules_notification_values = ['Y', 'N', 'C']
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C')")
+        create_check_constraint(
+            constraint_name='RULES_NOTIFICATION_CHK',
+            table_name='rules',
+            condition=f"notification in ({enum_values_clause(rules_notification_values)})",
+        )
 
-    elif context.get_context().dialect.name == 'postgresql':
-        op.execute('ALTER TABLE ' + schema + 'rules DROP CONSTRAINT IF EXISTS "RULES_NOTIFICATION_CHK", ALTER COLUMN notification TYPE CHAR')
-        op.execute('DROP TYPE "RULES_NOTIFICATION_CHK"')
-        op.execute("CREATE TYPE \"RULES_NOTIFICATION_CHK\" AS ENUM('Y', 'N', 'C')")
-        op.execute("ALTER TABLE %srules ALTER COLUMN notification TYPE \"RULES_NOTIFICATION_CHK\" USING notification::\"RULES_NOTIFICATION_CHK\"" % schema)
+    elif is_current_dialect('postgresql'):
+        rules_notification_enum = render_enum_name('RULES_NOTIFICATION_CHK')
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            ALTER COLUMN notification TYPE CHAR
+            """
+        )
+        try_drop_enum('RULES_NOTIFICATION_CHK')
+        try_create_enum_if_absent('RULES_NOTIFICATION_CHK', rules_notification_values)
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            ALTER COLUMN notification TYPE {rules_notification_enum}
+            USING notification::{rules_notification_enum}
+            """
+        )
 
-    elif context.get_context().dialect.name == 'mysql':
-        create_check_constraint(constraint_name='RULES_NOTIFICATION_CHK', table_name='rules',
-                                condition="notification in ('Y', 'N', 'C')")
+    elif is_current_dialect('mysql'):
+        try_drop_constraint('RULES_NOTIFICATION_CHK', 'rules')
+        create_check_constraint(
+            constraint_name='RULES_NOTIFICATION_CHK',
+            table_name='rules',
+            condition=f"notification in ({enum_values_clause(rules_notification_values)})",
+        )

@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' set third_party_copy_read and write fields '''
+""" set third_party_copy_read and write fields """
 
-from alembic import context
-from alembic.op import alter_column, execute  # pylint: disable=no-member
+from alembic.op import execute
+
+from rucio.db.sqla.migrate_repo import (
+    alter_column,
+    is_current_dialect,
+    qualify_table,
+)
 
 # Alembic revision identifiers
 revision = 'fe1a65b176c9'
@@ -23,21 +28,34 @@ down_revision = '0f1adb7a599a'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        schema_prefix = schema + '.' if schema else ''
-        execute('UPDATE ' + schema_prefix + 'rse_protocols SET third_party_copy_read=third_party_copy WHERE third_party_copy_read is NULL')
-        execute('UPDATE ' + schema_prefix + 'rse_protocols SET third_party_copy_write=third_party_copy WHERE third_party_copy_write is NULL')
+    """
+
+    rse_protocol_table = qualify_table('rse_protocols')
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        execute(
+            f"""
+            UPDATE {rse_protocol_table}
+            SET third_party_copy_read=third_party_copy
+            WHERE third_party_copy_read is NULL
+            """
+        )
+        execute(
+            f"""
+            UPDATE {rse_protocol_table}
+            SET third_party_copy_write=third_party_copy
+            WHERE third_party_copy_write is NULL
+            """
+        )
         # Add server default to 0. The initial alembic migration creates the column without the default, even if it is set in 'models'
-        alter_column('rse_protocols', 'third_party_copy_read', server_default='0', schema=schema)
-        alter_column('rse_protocols', 'third_party_copy_write', server_default='0', schema=schema)
+        alter_column('rse_protocols', 'third_party_copy_read', server_default='0')
+        alter_column('rse_protocols', 'third_party_copy_write', server_default='0')
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
     pass

@@ -12,14 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add qos policy map table '''
+""" add qos policy map table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key
 
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -28,11 +34,11 @@ down_revision = 'a193a275255c'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+    if is_current_dialect('oracle', 'postgresql', 'mysql'):
         create_table('rse_qos_map',
                      sa.Column('rse_id', GUID()),
                      sa.Column('qos_policy', sa.String(64)),
@@ -47,9 +53,9 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'postgresql', 'mysql']:
+    if is_current_dialect('oracle', 'postgresql', 'mysql'):
         drop_table('rse_qos_map')

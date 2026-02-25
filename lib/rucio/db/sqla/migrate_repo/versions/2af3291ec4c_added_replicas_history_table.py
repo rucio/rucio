@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added replicas history table '''
+""" added replicas history table """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_primary_key, create_table, drop_constraint, drop_table
+from alembic.op import create_foreign_key
 
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_primary_key,
+)
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
@@ -26,11 +34,11 @@ down_revision = '32c7d2783f7e'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('replicas_history',
                      sa.Column('rse_id', GUID()),
                      sa.Column('scope', sa.String(25)),
@@ -43,15 +51,15 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('replicas_history')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        drop_constraint('REPLICAS_HIST_PK', 'replicas_history', type_='primary')
-        drop_constraint('REPLICAS_HIST_RSE_ID_FK', 'replicas_history')
-        drop_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history')
+    elif is_current_dialect('postgresql'):
+        try_drop_primary_key('replicas_history')
+        try_drop_constraint('REPLICAS_HIST_RSE_ID_FK', 'replicas_history')
+        try_drop_constraint('REPLICAS_HIST_SIZE_NN', 'replicas_history')
         drop_table('replicas_history')

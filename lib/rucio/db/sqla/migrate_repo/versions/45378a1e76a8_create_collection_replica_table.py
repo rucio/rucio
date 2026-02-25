@@ -12,17 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' create collection replica table '''
+""" create collection replica table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.constants import DIDType, ReplicaState
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_table,
+    get_backend_enum,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_enum,
+)
 from rucio.db.sqla.types import GUID
-from rucio.db.sqla.util import try_drop_constraint
 
 # Alembic revision identifiers
 revision = '45378a1e76a8'
@@ -30,26 +39,22 @@ down_revision = 'a93e4e47bda'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    collection_replicas_type = get_backend_enum(DIDType, name='COLLECTION_REPLICAS_TYPE_CHK')
+    collection_replicas_state = get_backend_enum(ReplicaState, name='COLLECTION_REPLICAS_STATE_CHK')
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('collection_replicas',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='COLLECTION_REPLICAS_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', collection_replicas_type),
                      sa.Column('rse_id', GUID()),
                      sa.Column('bytes', sa.BigInteger),
                      sa.Column('length', sa.BigInteger),
-                     sa.Column('state', sa.Enum(ReplicaState,
-                                                name='COLLECTION_REPLICAS_STATE_CHK',
-                                                create_constraint=True,
-                                                values_callable=lambda obj: [e.value for e in obj]),
-                               default=ReplicaState.UNAVAILABLE),
+                     sa.Column('state', collection_replicas_state, default=ReplicaState.UNAVAILABLE),
                      sa.Column('accessed_at', sa.DateTime),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow))
@@ -63,16 +68,24 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         try_drop_constraint('COLLECTION_REPLICAS_STATE_CHK', 'collection_replicas')
         drop_table('collection_replicas')
 
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
+        # Drop table first so there are no remaining dependencies on enum types.
         drop_table('collection_replicas')
 
-    elif context.get_context().dialect.name == 'mysql':
+        # Then drop the PostgreSQL enum types so that a subsequent upgrade can recreate them cleanly.
+        for enum_name in (
+                'COLLECTION_REPLICAS_TYPE_CHK',
+                'COLLECTION_REPLICAS_STATE_CHK',
+        ):
+            try_drop_enum(enum_name)
+
+    elif is_current_dialect('mysql'):
         drop_table('collection_replicas')

@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add metadata to rule tables '''
+""" add metadata to rule tables """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
+
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '5673b4b6e843'
@@ -24,24 +28,22 @@ down_revision = 'e59300c8b179'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('rules', sa.Column('meta', sa.String(4000)), schema=schema)
-        add_column('rules_history', sa.Column('meta', sa.String(4000)), schema=schema)
-        add_column('rules_hist_recent', sa.Column('meta', sa.String(4000)), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('rules', sa.Column('meta', sa.String(4000)))
+        add_column('rules_history', sa.Column('meta', sa.String(4000)))
+        add_column('rules_hist_recent', sa.Column('meta', sa.String(4000)))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('rules', 'meta', schema=schema)
-        drop_column('rules_history', 'meta', schema=schema)
-        drop_column('rules_hist_recent', 'meta', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('rules', 'meta')
+        drop_column('rules_history', 'meta')
+        drop_column('rules_hist_recent', 'meta')

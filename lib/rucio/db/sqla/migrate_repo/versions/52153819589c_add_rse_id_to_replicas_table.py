@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add_rse_id_to_replicas_table '''
+""" add_rse_id_to_replicas_table """
 
+from alembic.op import create_foreign_key
 
-from alembic import context
-from alembic.op import create_foreign_key, create_index, drop_constraint, drop_index
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = '52153819589c'
@@ -24,20 +29,20 @@ down_revision = '30fa38b6434e'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
     create_index('REPLICAS_RSE_ID_IDX', 'replicas', ['rse_id'])
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['mysql']:
-        drop_constraint('REPLICAS_RSE_ID_FK', 'replicas', type_='foreignkey')
-    drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
-    if context.get_context().dialect.name in ['mysql']:
+    if is_current_dialect('mysql'):
+        try_drop_constraint('REPLICAS_RSE_ID_FK', 'replicas')
+    try_drop_index('REPLICAS_RSE_ID_IDX', 'replicas')
+    if is_current_dialect('mysql'):
         create_foreign_key('REPLICAS_RSE_ID_FK', 'replicas', 'rses', ['rse_id'], ['id'])

@@ -14,8 +14,15 @@
 
 """ state idx non functional """
 
-from alembic import context
-from alembic.op import create_index, drop_index, execute
+from alembic.op import execute
+
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    is_current_dialect,
+    qualify_index,
+    qualify_table,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = 'a6eb23955c28'
@@ -27,14 +34,26 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        execute(f'ALTER INDEX {schema}"RULES_STUCKSTATE_IDX" RENAME TO "RULES_STATE_IDX"')
-    elif context.get_context().dialect.name == 'mysql':
-        execute(f'ALTER TABLE {schema}rules RENAME INDEX RULES_STUCKSTATE_IDX TO RULES_STATE_IDX')
-    elif context.get_context().dialect.name == 'sqlite':
+    rules_table = qualify_table('rules')
+    rules_stuck_idx = qualify_index('RULES_STUCKSTATE_IDX')
+
+    if is_current_dialect('oracle', 'postgresql'):
+        execute(
+            f"""
+            ALTER INDEX {rules_stuck_idx}
+            RENAME TO "RULES_STATE_IDX"
+            """
+        )
+    elif is_current_dialect('mysql'):
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            RENAME INDEX RULES_STUCKSTATE_IDX TO RULES_STATE_IDX
+            """
+        )
+    elif is_current_dialect('sqlite'):
         create_index('RULES_STATE_IDX', 'rules', ['state'])
-        drop_index('RULES_STUCKSTATE_IDX', 'rules')
+        try_drop_index('RULES_STUCKSTATE_IDX', 'rules')
 
 
 def downgrade():
@@ -42,11 +61,23 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
-    if context.get_context().dialect.name in ['oracle', 'postgresql']:
-        execute(f'ALTER INDEX {schema}"RULES_STATE_IDX" RENAME TO "RULES_STUCKSTATE_IDX"')
-    elif context.get_context().dialect.name == 'mysql':
-        execute(f'ALTER TABLE {schema}rules RENAME INDEX RULES_STATE_IDX TO RULES_STUCKSTATE_IDX')
-    elif context.get_context().dialect.name == 'sqlite':
+    rules_table = qualify_table('rules')
+    rules_state_idx = qualify_index('RULES_STATE_IDX')
+
+    if is_current_dialect('oracle', 'postgresql'):
+        execute(
+            f"""
+            ALTER INDEX {rules_state_idx}
+            RENAME TO "RULES_STUCKSTATE_IDX"
+            """
+        )
+    elif is_current_dialect('mysql'):
+        execute(
+            f"""
+            ALTER TABLE {rules_table}
+            RENAME INDEX RULES_STATE_IDX TO RULES_STUCKSTATE_IDX
+            """
+        )
+    elif is_current_dialect('sqlite'):
         create_index('RULES_STUCKSTATE_IDX', 'rules', ['state'])
-        drop_index('RULES_STATE_IDX', 'rules')
+        try_drop_index('RULES_STATE_IDX', 'rules')

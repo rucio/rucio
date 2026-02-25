@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' change index on table requests '''
+""" change index on table requests """
 
-from alembic import context
-from alembic.op import create_index, drop_index
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    is_current_dialect,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = '35ef10d1e11b'
@@ -23,20 +26,20 @@ down_revision = '3152492b110b'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_TYP_STA_UPD_IDX', 'requests', ["request_type", "state", "updated_at"])
-        drop_index('REQUESTS_TYP_STA_CRE_IDX', 'requests')
+        try_drop_index('REQUESTS_TYP_STA_CRE_IDX', 'requests')
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_index('REQUESTS_TYP_STA_CRE_IDX', 'requests', ["request_type", "state", "created_at"])
-        drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')
+        try_drop_index('REQUESTS_TYP_STA_UPD_IDX', 'requests')

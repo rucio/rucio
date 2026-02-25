@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' remove unique constraint on requests '''
+""" remove unique constraint on requests """
 
-from alembic import context
-from alembic.op import create_foreign_key, create_index, create_unique_constraint, drop_constraint, drop_index
+from alembic.op import create_foreign_key
+
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    create_unique_constraint,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = '25821a8a45a3'
@@ -23,14 +30,14 @@ down_revision = '1803333ac20f'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
-        drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
-        drop_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', type_='unique')
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        try_drop_constraint('REQUESTS_RSES_FK', 'requests')
+        try_drop_constraint('REQUESTS_DID_FK', 'requests')
+        try_drop_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests')
         create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
         create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])
@@ -38,14 +45,14 @@ def upgrade():
 
 def downgrade():
 
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint('REQUESTS_RSES_FK', 'requests', type_='foreignkey')
-        drop_constraint('REQUESTS_DID_FK', 'requests', type_='foreignkey')
-        drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        try_drop_constraint('REQUESTS_RSES_FK', 'requests')
+        try_drop_constraint('REQUESTS_DID_FK', 'requests')
+        try_drop_index('REQUESTS_SCOPE_NAME_RSE_IDX', 'requests')
         create_foreign_key('REQUESTS_RSES_FK', 'requests', 'rses', ['dest_rse_id'], ['id'])
         create_foreign_key('REQUESTS_DID_FK', 'requests', 'dids', ['scope', 'name'], ['scope', 'name'])
         create_unique_constraint('REQUESTS_SC_NA_RS_TY_UQ_IDX', 'requests', ['scope', 'name', 'dest_rse_id', 'request_type'])

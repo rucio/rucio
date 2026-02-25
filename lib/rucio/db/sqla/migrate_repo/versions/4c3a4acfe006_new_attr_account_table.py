@@ -12,13 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' new attr account table '''
+""" new attr account table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key
+
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '4c3a4acfe006'
@@ -26,11 +34,11 @@ down_revision = '25fc855625cf'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('account_attr_map',
                      sa.Column('account', sa.String(25)),
                      sa.Column('key', sa.String(255)),
@@ -46,18 +54,12 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('account_attr_map')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        # drop_constraint('ACCOUNT_ATTR_MAP_PK', 'account_attr_map', type_='primary')
-        # drop_constraint('ACCOUNT_ATTR_MAP_CREATED_NN', 'account_attr_map')
-        # drop_constraint('ACCOUNT_ATTR_MAP_UPDATED_NN', 'account_attr_map')
-        # drop_constraint('ACCOUNT_ATTR_MAP_ACCOUNT_FK', 'account_attr_map')
-        # drop_index('ACCOUNT_ATTR_MAP_KEY_VALUE_IDX', 'account_attr_map')
-        # drop_table('account_attr_map')
+    elif is_current_dialect('postgresql'):
         pass

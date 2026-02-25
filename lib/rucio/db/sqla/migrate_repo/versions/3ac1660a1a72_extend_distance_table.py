@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' extend distance table '''
+""" extend distance table """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
+
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '3ac1660a1a72'
@@ -24,32 +28,30 @@ down_revision = '5673b4b6e843'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('distances', sa.Column('packet_loss', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('latency', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('mbps_file', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('mbps_link', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('queued_total', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('done_1h', sa.Integer), schema=schema)
-        add_column('distances', sa.Column('done_6h', sa.Integer), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('distances', sa.Column('packet_loss', sa.Integer))
+        add_column('distances', sa.Column('latency', sa.Integer))
+        add_column('distances', sa.Column('mbps_file', sa.Integer))
+        add_column('distances', sa.Column('mbps_link', sa.Integer))
+        add_column('distances', sa.Column('queued_total', sa.Integer))
+        add_column('distances', sa.Column('done_1h', sa.Integer))
+        add_column('distances', sa.Column('done_6h', sa.Integer))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('distances', 'packet_loss', schema=schema)
-        drop_column('distances', 'latency', schema=schema)
-        drop_column('distances', 'mbps_file', schema=schema)
-        drop_column('distances', 'mbps_link', schema=schema)
-        drop_column('distances', 'queued_total', schema=schema)
-        drop_column('distances', 'done_1h', schema=schema)
-        drop_column('distances', 'done_6h', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('distances', 'packet_loss')
+        drop_column('distances', 'latency')
+        drop_column('distances', 'mbps_file')
+        drop_column('distances', 'mbps_link')
+        drop_column('distances', 'queued_total')
+        drop_column('distances', 'done_1h')
+        drop_column('distances', 'done_6h')

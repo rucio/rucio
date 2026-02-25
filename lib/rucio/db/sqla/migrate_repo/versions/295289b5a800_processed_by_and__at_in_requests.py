@@ -15,8 +15,12 @@
 """ processed_by and _at in requests """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
+
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '295289b5a800'
@@ -28,10 +32,9 @@ def upgrade():
     Upgrade the database to this revision
     """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('requests', sa.Column('last_processed_by', sa.String(64)), schema=schema)
-        add_column('requests', sa.Column('last_processed_at', sa.DateTime()), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('requests', sa.Column('last_processed_by', sa.String(64)))
+        add_column('requests', sa.Column('last_processed_at', sa.DateTime()))
 
 
 def downgrade():
@@ -39,7 +42,6 @@ def downgrade():
     Downgrade the database to the previous revision
     """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('requests', 'last_processed_by', schema=schema)
-        drop_column('requests', 'last_processed_at', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('requests', 'last_processed_by')
+        drop_column('requests', 'last_processed_at')

@@ -12,15 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add DidFollowed and FollowEvent table '''
+""" add DidFollowed and FollowEvent table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_foreign_key, create_index, create_primary_key, create_table, drop_table
+from alembic.op import create_foreign_key
 
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_table,
+    get_backend_enum,
+    is_current_dialect,
+    try_drop_enum,
+)
 
 # Alembic revision identifiers
 revision = '7541902bf173'
@@ -28,19 +37,19 @@ down_revision = 'a74275a1ad30'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    dids_followed_type = get_backend_enum(DIDType, name='DIDS_FOLLOWED_TYPE_CHK')
+    dids_followed_events_type = get_backend_enum(DIDType, name='DIDS_FOLLOWED_EVENTS_TYPE_CHK')
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('dids_followed',
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='DIDS_FOLLOWED_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', dids_followed_type),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
                      sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow))
 
@@ -60,10 +69,7 @@ def upgrade():
                      sa.Column('scope', sa.String(25)),
                      sa.Column('name', sa.String(255)),
                      sa.Column('account', sa.String(25)),
-                     sa.Column('did_type', sa.Enum(DIDType,
-                                                   name='DIDS_FOLLOWED_EVENTS_TYPE_CHK',
-                                                   create_constraint=True,
-                                                   values_callable=lambda obj: [e.value for e in obj])),
+                     sa.Column('did_type', dids_followed_events_type),
                      sa.Column('event_type', sa.String(1024)),
                      sa.Column('payload', sa.Text),
                      sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
@@ -82,10 +88,16 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        # Drop tables first (remove dependencies on the enum types)
         drop_table('dids_followed')
         drop_table('dids_followed_events')
+
+        # On PostgreSQL, drop the enum types created/used by this migration
+        if is_current_dialect('postgresql'):
+            try_drop_enum('DIDS_FOLLOWED_EVENTS_TYPE_CHK')
+            try_drop_enum('DIDS_FOLLOWED_TYPE_CHK')

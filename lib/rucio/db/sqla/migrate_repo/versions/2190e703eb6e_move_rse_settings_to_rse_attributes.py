@@ -15,9 +15,9 @@
 """ move rse settings to rse attributes """
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import get_bind
 
+from rucio.db.sqla.migrate_repo import get_effective_schema, is_current_dialect
 from rucio.db.sqla.types import GUID, BooleanString
 
 # Alembic revision identifiers
@@ -37,12 +37,6 @@ def get_changed_rse_settings():
     ]
 
 
-def get_schema():
-    return context.get_context().version_table_schema \
-        if context.get_context().version_table_schema \
-        else ""
-
-
 def get_rse_attr_association():
     return sa.sql.table(
         "rse_attr_map",
@@ -51,7 +45,7 @@ def get_rse_attr_association():
         sa.Column("value", BooleanString(255)),
         sa.Column("created_at", sa.DateTime),
         sa.Column("updated_at", sa.DateTime),
-        schema=get_schema(),
+        schema=get_effective_schema(),
     )
 
 
@@ -59,7 +53,7 @@ def upgrade():
     """
     Upgrade the database to this revision
     """
-    if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
+    if is_current_dialect("oracle", "mysql", "postgresql"):
         conn = get_bind()
         for setting, setting_datatype in get_changed_rse_settings():
             rse_table = sa.sql.table(
@@ -68,7 +62,7 @@ def upgrade():
                 sa.Column(setting, setting_datatype),
                 sa.Column("created_at", sa.DateTime),
                 sa.Column("updated_at", sa.DateTime),
-                schema=get_schema(),
+                schema=get_effective_schema(),
             )
 
             select_stmt = (
@@ -94,14 +88,14 @@ def downgrade():
     """
     Downgrade the database to the previous revision
     """
-    if context.get_context().dialect.name in ["oracle", "mysql", "postgresql"]:
+    if is_current_dialect("oracle", "mysql", "postgresql"):
         conn = get_bind()
         for setting, setting_datatype in get_changed_rse_settings():
             rse_table = sa.sql.table(
                 "rses",
                 sa.Column("id", GUID()),
                 sa.Column(setting, setting_datatype),
-                schema=get_schema(),
+                schema=get_effective_schema(),
             )
 
             rse_attr_association = sa.sql.table(
@@ -109,7 +103,7 @@ def downgrade():
                 sa.Column("rse_id", GUID()),
                 sa.Column("key", sa.String(255)),
                 sa.Column("value", BooleanString(255)),
-                schema=get_schema(),
+                schema=get_effective_schema(),
             )
 
             # Oracle needs the sub-query, since multi-table updates are not supported.

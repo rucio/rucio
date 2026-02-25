@@ -12,13 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add config table '''
+""" add config table """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import create_check_constraint, create_primary_key, create_table, drop_constraint, drop_table
+
+from rucio.db.sqla.migrate_repo import (
+    create_check_constraint,
+    create_primary_key,
+    create_table,
+    drop_table,
+    is_current_dialect,
+    try_drop_constraint,
+    try_drop_primary_key,
+)
 
 # Alembic revision identifiers
 revision = '2b8e7bcb4783'
@@ -26,11 +34,11 @@ down_revision = 'd91002c5841'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('configs',
                      sa.Column('section', sa.String(128)),
                      sa.Column('opt', sa.String(128)),
@@ -52,18 +60,18 @@ def upgrade():
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('configs')
         drop_table('configs_history')
 
-    elif context.get_context().dialect.name == 'postgresql':
-        drop_constraint('configs_pk', 'configs', type_='primary')
-        drop_constraint('configs_created_nn', 'configs', type_='check')
-        drop_constraint('configs_updated_nn', 'configs', type_='check')
+    elif is_current_dialect('postgresql'):
+        try_drop_primary_key('configs')
+        try_drop_constraint('configs_created_nn', 'configs')
+        try_drop_constraint('configs_updated_nn', 'configs')
         drop_table('configs')
-        drop_constraint('configs_history_pk', 'configs_history', type_='check')
+        try_drop_constraint('configs_history_pk', 'configs_history')
         drop_table('configs_history')
