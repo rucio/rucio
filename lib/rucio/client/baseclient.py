@@ -440,7 +440,7 @@ class BaseClient:
         :param reason: the reason to backoff which will be shown to the user
         """
         sleep_time = min(MAX_RETRY_BACK_OFF_SECONDS, 0.25 * 2 ** retry_number)
-        self.logger.warning("Waiting {}s due to reason: {} ".format(sleep_time, reason))
+        self.logger.warning("Waiting %ss due to reason: %s", sleep_time, reason)
         time.sleep(sleep_time)
 
     def _send_request(self, url, method, headers=None, data=None, params=None, stream=False, get_token=False,
@@ -472,14 +472,14 @@ class BaseClient:
         if verify is None:
             verify = self.ca_cert or False  # Maybe unnecessary but make sure to convert "" -> False
 
-        self.logger.debug("HTTP request: %s %s" % (method.value, url))
+        self.logger.debug("HTTP request: %s %s", method.value, url)
         for h, v in hds.items():
             if h == 'X-Rucio-Auth-Token':
                 v = "[hidden]"
-            self.logger.debug("HTTP header:  %s: %s" % (h, v))
+            self.logger.debug("HTTP header:  %s: %s", h, v)
         if method != HTTPMethod.GET and data:
             text = self._reduce_data(data)
-            self.logger.debug("Request data (length=%d): [%s]" % (len(data), text))
+            self.logger.debug("Request data (length=%d): [%s]", len(data), text)
 
         result = None
         for retry in range(self.AUTH_RETRIES + 1):
@@ -493,17 +493,17 @@ class BaseClient:
                 elif method == HTTPMethod.DELETE:
                     result = self.session.delete(url, headers=hds, data=data, verify=verify, timeout=self.timeout)
                 else:
-                    self.logger.debug("Unknown request type %s. Request was not sent" % (method,))
+                    self.logger.debug("Unknown request type %s. Request was not sent", method,)
                     return None
-                self.logger.debug("HTTP Response: %s %s" % (result.status_code, result.reason))
+                self.logger.debug("HTTP Response: %s %s", result.status_code, result.reason)
                 if result.status_code in STATUS_CODES_TO_RETRY:
                     self._back_off(retry, 'server returned {}'.format(result.status_code))
                     continue
                 if result.status_code // 100 != 2 and result.text:
                     # do not do this for successful requests because the caller may be expecting streamed response
-                    self.logger.debug("Response text (length=%d): [%s]" % (len(result.text), result.text))
+                    self.logger.debug("Response text (length=%d): [%s]", len(result.text), result.text)
             except ConnectionError as error:
-                self.logger.error('ConnectionError: ' + str(error))
+                self.logger.error('ConnectionError: %s', error)
                 if retry > self.request_retries:
                     raise
                 continue
@@ -512,7 +512,7 @@ class BaseClient:
                 # While in python3 we can directly catch 'BrokenPipeError', in python2 it doesn't exist.
                 if getattr(error, 'errno') != errno.EPIPE:
                     raise
-                self.logger.error('BrokenPipe: ' + str(error))
+                self.logger.error('BrokenPipe: %s', error)
                 if retry > self.request_retries:
                     raise
                 continue
@@ -603,7 +603,7 @@ class BaseClient:
                 new_token = refresh_result.headers['X-Rucio-Auth-Token']
                 new_exp_epoch = refresh_result.headers['X-Rucio-Auth-Token-Expires']
                 if new_token and new_exp_epoch:
-                    self.logger.debug("Saving token %s and expiration epoch %s to files" % (str(new_token), str(new_exp_epoch)))
+                    self.logger.debug("Saving token %s and expiration epoch %s to files", str(new_token), str(new_exp_epoch))
                     # save to the file
                     self.auth_token = new_token
                     self.token_exp_epoch = new_exp_epoch
@@ -646,9 +646,9 @@ class BaseClient:
         result = None
         request_auth_url = build_url(self.auth_host, path='auth/oidc')
         # requesting authorization URL specific to the user & Rucio OIDC Client
-        self.logger.debug("Initial auth URL request headers %s to files" % str(headers))
+        self.logger.debug("Initial auth URL request headers %s to files", str(headers))
         oidc_auth_res = self._send_request(request_auth_url, method=HTTPMethod.GET, headers=headers, get_token=True)
-        self.logger.debug("Response headers %s and text %s" % (str(oidc_auth_res.headers), str(oidc_auth_res.text)))
+        self.logger.debug("Response headers %s and text %s", str(oidc_auth_res.headers), str(oidc_auth_res.text))
         # with the obtained authorization URL we will contact the Identity Provider to get to the login page
         if 'X-Rucio-OIDC-Auth-URL' not in oidc_auth_res.headers:
             print("Rucio Client did not succeed to get AuthN/Z URL from the Rucio Auth Server. \
@@ -760,10 +760,10 @@ class BaseClient:
             client_cert = self.creds['client_proxy']
 
         if (client_cert is not None) and not (os.path.exists(client_cert)):
-            self.logger.error('given client cert (%s) doesn\'t exist' % client_cert)
+            self.logger.error('given client cert (%s) doesn\'t exist', client_cert)
             return False
         if client_key is not None and not os.path.exists(client_key):
-            self.logger.error('given client key (%s) doesn\'t exist' % client_key)
+            self.logger.error('given client key (%s) doesn\'t exist', client_key)
 
         if client_key is None:
             cert = client_cert
@@ -797,10 +797,10 @@ class BaseClient:
 
         private_key_path = self.creds['ssh_private_key']
         if not os.path.exists(private_key_path):
-            self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
+            self.logger.error('given private key (%s) doesn\'t exist', private_key_path)
             return False
         if private_key_path is not None and not os.path.exists(private_key_path):
-            self.logger.error('given private key (%s) doesn\'t exist' % private_key_path)
+            self.logger.error('given private key (%s) doesn\'t exist', private_key_path)
             return False
 
         url = build_url(self.auth_host, path='auth/ssh_challenge_token')
@@ -818,7 +818,7 @@ class BaseClient:
             raise exc_cls(exc_msg)
 
         self.ssh_challenge_token = result.headers['x-rucio-ssh-challenge-token']
-        self.logger.debug('got new ssh challenge token \'%s\'' % self.ssh_challenge_token)
+        self.logger.debug('got new ssh challenge token \'%s\'', self.ssh_challenge_token)
 
         # sign the challenge token with the private key
         with open(private_key_path, 'r') as fd_private_key_path:
@@ -978,7 +978,7 @@ class BaseClient:
         # check if rucio temp directory is there. If not create it with permissions only for the current user
         if not os.path.isdir(self.token_path):
             try:
-                self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
+                self.logger.debug("rucio token folder '%s' not found. Create it.", self.token_path)
                 try:
                     makedirs(self.token_path, 0o700)
                 except FileExistsError:

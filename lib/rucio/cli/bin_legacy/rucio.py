@@ -397,7 +397,7 @@ def attach(args, client, logger, console, spinner):
             f = open(dids[0], 'r')
             dids = [did.rstrip() for did in f.readlines()]
         except OSError as error:
-            logger.error("Can't open file '" + dids[0] + "'.")
+            logger.error("Can't open file '%s'.", dids[0],)
             raise OSError from error
 
     dids = [{'scope': get_scope(did, client)[0], 'name': get_scope(did, client)[1]} for did in dids]
@@ -407,7 +407,7 @@ def attach(args, client, logger, console, spinner):
         logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
         missing_dids = []
         for i, chunk in enumerate(chunks(dids, limit)):
-            logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(dids)) / float(limit)))))
+            logger.info("Try to attach chunk %s/%s", i, int(math.ceil(float(len(dids)) / float(limit))))
             try:
                 client.attach_dids(scope=scope, name=name, dids=chunk)
             except Exception:
@@ -806,22 +806,22 @@ def erase(args, client, logger, console, spinner):
 
     for did in args.dids:
         if '*' in did:
-            logger.warning("This command doesn't support wildcards! Skipping DID: %s" % did)
+            logger.warning("This command doesn't support wildcards! Skipping DID: %s", did)
             continue
         try:
             scope, name = get_scope(did, client)
         except RucioException as error:
-            logger.warning('DID is in wrong format: %s' % did)
-            logger.debug('Error: %s' % error)
+            logger.warning('DID is in wrong format: %s', did)
+            logger.debug('Error: %s', error)
             continue
 
         if args.undo:
             try:
                 client.set_metadata(scope=scope, name=name, key='lifetime', value=None)
-                logger.info('Erase undo for DID: {0}:{1}'.format(scope, name))
+                logger.info('Erase undo for DID: %s:%s', scope, name)
             except Exception:
                 logger.warning('Cannot undo erase operation on DID. DID not existent or grace period of 24 hours already expired.')
-                logger.warning('    DID: {0}:{1}'.format(scope, name))
+                logger.warning('    DID: %s:%s', scope, name)
         else:
             try:
                 # set lifetime to expire in 24 hours (value is in seconds).
@@ -829,8 +829,8 @@ def erase(args, client, logger, console, spinner):
                 logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
                 print("rucio erase --undo {0}:{1}".format(scope, name))
             except RucioException as error:
-                logger.warning('Failed to erase DID: %s' % did)
-                logger.debug('Error: %s' % error)
+                logger.warning('Failed to erase DID: %s', did)
+                logger.debug('Error: %s', error)
     return SUCCESS
 
 
@@ -858,7 +858,7 @@ def upload(args, client, logger, console, spinner):
             dsscope = did[0]
             dsname = did[1]
         elif len(did) == 2:
-            logger.warning('Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
+            logger.warning('Ignoring input %s because dataset DID is already set %s:%s', arg, dsscope, dsname)
 
     items: list[FileToUploadDict] = []
     for arg in args.args:
@@ -1034,7 +1034,7 @@ def download(args, client, logger, console, spinner):
         num_dids = len(args.dids)
         did_str = args.dids[0]
         if num_dids > 1:
-            logger.warning('Download with --pfn option only supports one DID but {} DIDs were given. Considering only first DID: {}'.format(num_dids, did_str))
+            logger.warning('Download with --pfn option only supports one DID but %s DIDs were given. Considering only first DID: %s', num_dids, did_str)
             logger.debug(args.dids)
         item_defaults['pfn'] = args.pfn
         item_defaults['did'] = did_str
@@ -1930,39 +1930,39 @@ def add_lifetime_exception(args, client, logger, console, spinner):
             scope, name = meta['scope'], meta['name']
             dids_list.remove({'scope': scope, 'name': name})
             if meta['did_type'] == 'FILE':
-                logger.warning('%s:%s is a file. Will be ignored' % (scope, name))
+                logger.warning('%s:%s is a file. Will be ignored', scope, name)
                 error_summary["files_ignored"]["count"] += 1
             elif meta['did_type'] == 'CONTAINER':
-                logger.warning('%s:%s is a container. It needs to be resolved' % (scope, name))
+                logger.warning('%s:%s is a container. It needs to be resolved', scope, name)
                 containers.append({'scope': scope, 'name': name})
                 error_summary["containers_resolved"]["count"] += 1
             elif not meta['eol_at']:
-                logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
+                logger.warning('%s:%s is not affected by the lifetime model', scope, name)
                 error_summary["not_in_lifetime_model"]["count"] += 1
             else:
-                logger.info('%s:%s will be declared' % (scope, name))
+                logger.info('%s:%s will be declared', scope, name)
                 datasets.append({'scope': scope, 'name': name})
                 error_summary["successfully_submitted"]["count"] += 1
 
     for did in dids_list:
         scope = did['scope']
         name = did['name']
-        logger.warning('%s:%s does not exist' % (scope, name))
+        logger.warning('%s:%s does not exist', scope, name)
 
     if containers:
         logger.warning('One or more DIDs are containers. They will be resolved into a list of datasets to request exception. Full list below')
         for container in containers:
-            logger.info('Resolving %s:%s into datasets :' % (container['scope'], container['name']))
+            logger.info('Resolving %s:%s into datasets :', container['scope'], container['name'])
             list_datasets = __resolve_containers_to_datasets(container['scope'], container['name'], client)
             for chunk in chunks(list_datasets, chunk_limit):
                 for meta in client.get_metadata_bulk(chunk):
                     scope, name = meta['scope'], meta['name']
-                    logger.debug('%s:%s' % (scope, name))
+                    logger.debug('%s:%s', scope, name)
                     if not meta['eol_at']:
-                        logger.warning('%s:%s is not affected by the lifetime model' % (scope, name))
+                        logger.warning('%s:%s is not affected by the lifetime model', scope, name)
                         error_summary["not_in_lifetime_model"]["count"] += 1
                     else:
-                        logger.info('%s:%s will be declared' % (scope, name))
+                        logger.info('%s:%s will be declared', scope, name)
                         datasets.append({'scope': scope, 'name': name})
                         error_summary["successfully_submitted"]["count"] += 1
     if not datasets:
