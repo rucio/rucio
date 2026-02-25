@@ -243,8 +243,8 @@ def run(
                     raise VONotFound(msg)
             else:
                 vos = [v['vo'] for v in list_vos(session=session)]
-        logging.info('Dark Reaper: This instance will work on VO%s: %s'
-                     % ('s' if len(vos) > 1 else '', ', '.join([v for v in vos])))
+        logging.info('Dark Reaper: This instance will work on VO%s: %s',
+                    's' if len(vos) > 1 else '', ', '.join([v for v in vos]))
 
     all_rses = []
     for vo in vos:
