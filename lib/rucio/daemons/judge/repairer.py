@@ -145,7 +145,7 @@ def run(
     if once:
         rule_repairer(once)
     else:
-        logging.info('Repairer starting %s threads' % str(threads))
+        logging.info('Repairer starting %s threads', str(threads))
         thread_list = [threading.Thread(target=rule_repairer, kwargs={'once': once,
                                                                       'sleep_time': sleep_time}) for i in range(0, threads)]
         [t.start() for t in thread_list]
