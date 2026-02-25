@@ -272,7 +272,7 @@ def ip_format_checker(value: str) -> bool:
     try:
         ipaddress.ip_address(value)
     except ValueError:
-        LOGGER.debug(f"{value} is not a valid IPv4 or IPv6 address and raises an errors upon validation.")
+        LOGGER.debug("%s is not a valid IPv4 or IPv6 address and raises an errors upon validation.", value)
         result = False
     else:
         result = True
@@ -324,23 +324,23 @@ def trace(payload: dict[str, Any]) -> None:
     try:
         validate_schema(report)
     except InvalidObject as error:
-        ROTATING_LOGGER.warning("Problem validating schema: %s" % error)
-        LOGGER.warning("Problem validating schema: %s" % error)
+        ROTATING_LOGGER.warning("Problem validating schema: %s", error)
+        LOGGER.warning("Problem validating schema: %s", error)
 
     try:
         for i in range(len(t_conns)):
             try:
                 conn = random.sample(t_conns, 1)[0]
                 if not conn.is_connected():
-                    LOGGER.info('reconnect to ' + conn.transport._Transport__host_and_ports[0][0])
+                    LOGGER.info('reconnect to %s', conn.transport._Transport__host_and_ports[0][0])
                     conn.connect(USERNAME, PASSWORD)
             except stomp.exception.NotConnectedException:
-                LOGGER.warning('Could not connect to broker %s, try another one' %
+                LOGGER.warning('Could not connect to broker %s, try another one',
                                conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
             except stomp.exception.ConnectFailedException:
-                LOGGER.warning('Could not connect to broker %s, try another one' %
+                LOGGER.warning('Could not connect to broker %s, try another one',
                                conn.transport._Transport__host_and_ports[0][0])
                 t_conns.remove(conn)
                 continue
@@ -348,7 +348,7 @@ def trace(payload: dict[str, Any]) -> None:
         if conn.is_connected:
             conn.send(body=report, destination=TOPIC, headers={'persistent': 'true', 'appversion': 'rucio'})
         else:
-            LOGGER.error("Unable to connect to broker. Could not send trace: %s" % report)
+            LOGGER.error("Unable to connect to broker. Could not send trace: %s", report)
     except Exception as error:
         LOGGER.error(error)
 

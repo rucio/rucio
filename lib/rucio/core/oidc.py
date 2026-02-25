@@ -249,8 +249,7 @@ def __load_oidc_configuration() -> bool:
             OIDC_CLIENT_SECRET = data[ADMIN_ISSUER_ID]['client_secret']
             issuer = data[ADMIN_ISSUER_ID]['issuer']
     except Exception:
-        logging.error('Failed to parse configuration file "%s"', IDPSECRETS,
-                      exc_info=True)
+        logging.exception('Failed to parse configuration file "%s"', IDPSECRETS,)
         return False
     try:
         oidc_discover_url = urljoin(issuer, '.well-known/openid-configuration')
@@ -259,7 +258,7 @@ def __load_oidc_configuration() -> bool:
         payload = response.json()
         OIDC_PROVIDER_ENDPOINT = payload['token_endpoint']
     except (requests.HTTPError, requests.JSONDecodeError, KeyError):
-        logging.error('Failed to discover token endpoint', exc_info=True)
+        logging.exception('Failed to discover token endpoint')
         return False
 
     return True
