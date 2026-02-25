@@ -27,6 +27,7 @@ from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.models import normalize_checksums
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
@@ -68,7 +69,12 @@ class DidColumnMeta(DidMetaPlugin):
         try:
             row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name). \
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            return row.to_dict()
+            row_dict = row.to_dict()
+            # give the checksum column preference over legacy columns.
+            row_dict['checksum'] = normalize_checksums(md5=row_dict.get('md5'), adler32=row_dict.get('adler32'), checksum=row_dict.get('checksum'))
+            row_dict.pop('md5', None)
+            row_dict.pop('adler32', None)
+            return row_dict
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 

@@ -1871,14 +1871,14 @@ def unregister_models(engine: Engine) -> None:
 
 def normalize_checksums(md5: Optional[str] = None,
                         adler32: Optional[str] = None,
-                        checksum: Optional[Any] = None) -> Optional[dict[str, Optional[str]]]:
+                        checksum: Optional[Any] = None) -> dict[str, Optional[str]]:
     """
-    Return a canonical checksum dict or None.
+    Return a canonical checksum dict or {}.
 
     Rules:
     - If checksum is a non-empty dict (DB canonical JSON), return it as-is (preserve keys).
     - If checksum is None or an empty dict, build a checksum dict from available legacy columns (md5/adler32).
-    - If neither checksum nor legacy columns provide values, return None.
+    - If neither checksum nor legacy columns provide values, return {}.
 
     The returned dict may contain other checksum types in the future (e.g. 'sha1'); those are preserved.
     """
@@ -1895,4 +1895,4 @@ def normalize_checksums(md5: Optional[str] = None,
     if adler32:
         out['adler32'] = adler32
 
-    return out if out else None
+    return out
