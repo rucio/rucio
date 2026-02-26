@@ -299,17 +299,24 @@ def delete_global_account_limit(account: "InternalAccount", rse_expression: str,
 
 
 @transactional_session
-def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = None, *, session: "Session") -> list["RSELocalAccountUsageDict"]:
+def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = None, unique: bool = False, *, session: "Session") -> list["RSELocalAccountUsageDict"]:
     """
     Read the account usage and connect it with (if available) the account limits of the account.
 
     :param account:  The account to read.
     :param rse_id:   The rse_id to read (If none, get all).
+    :param unique:   If True, return unique usage by querying replicas directly rather than using counters.
+                     This gives accurate usage when replicas have multiple locks from the same account.
     :param session:  Database session in use.
 
     :returns:        List of dicts {'rse_id', 'rse', 'bytes', 'files', 'bytes_limit', 'bytes_remaining'}
     """
 
+    if unique:
+        # Query replicas directly for unique usage
+        return _get_local_account_usage_unique(account=account, rse_id=rse_id, session=session)
+
+    # Original implementation using counters
     stmt = select(
         models.AccountUsage
     ).where(
@@ -326,6 +333,7 @@ def get_local_account_usage(account: "InternalAccount", rse_id: Optional[str] = 
         )
         limits = get_local_account_limit(account=account, rse_ids=[rse_id], session=session)
         counters = {c.rse_id: c for c in session.execute(stmt).scalars().all()}
+
     result_list = []
 
     for rse_id in set(limits).union(counters):
@@ -400,4 +408,72 @@ def get_global_account_usage(account: "InternalAccount", rse_expression: Optiona
             'bytes_limit': limit,
             'bytes_remaining': limit - usage[0]
         })
+    return result_list
+
+
+def _get_local_account_usage_unique(account: "InternalAccount", rse_id: Optional[str] = None, *, session: "Session") -> list["RSELocalAccountUsageDict"]:
+    """
+    Helper function to get unique account usage by querying replicas directly.
+
+    :param account:  The account to read.
+    :param rse_id:   The rse_id to read (If none, get all).
+    :param session:  Database session in use.
+    :returns:        List of dicts with unique usage per RSE.
+    """
+
+    # Create a subquery to get distinct locks for this account
+    subq = select(
+        models.ReplicaLock.scope,
+        models.ReplicaLock.name,
+        models.ReplicaLock.rse_id,
+        models.ReplicaLock.bytes
+    ).where(
+        models.ReplicaLock.account == account
+    ).distinct()  # DISTINCT on the entire row (scope, name, rse_id, bytes)
+
+    # Filter by specific RSE if provided
+    if rse_id:
+        subq = subq.where(models.ReplicaLock.rse_id == rse_id)
+
+    subq = subq.subquery()
+
+    # Aggregate the unique replicas by RSE
+    stmt = select(
+        subq.c.rse_id,
+        func.count().label('files'),
+        func.sum(subq.c.bytes).label('bytes')
+    ).group_by(
+        subq.c.rse_id
+    )
+
+    # Execute query to get unique usage
+    usage_results = session.execute(stmt).all()
+    usage_dict = {row.rse_id: {'files': row.files or 0, 'bytes': row.bytes or 0} for row in usage_results}
+
+    # Get limits for all relevant RSEs
+    if rse_id:
+        limits = get_local_account_limit(account=account, rse_ids=[rse_id], session=session)
+    else:
+        limits = get_local_account_limit(account=account, session=session)
+
+    result_list = []
+
+    # Combine usage and limits
+    all_rse_ids = set(usage_dict.keys()).union(set(limits.keys()) if limits else set())
+
+    for rse_id in all_rse_ids:
+        usage = usage_dict.get(rse_id, {'files': 0, 'bytes': 0})
+        limit = limits.get(rse_id, 0) if limits else 0
+
+        # Include RSE if it has usage or a limit set
+        if usage['bytes'] > 0 or usage['files'] > 0 or limit > 0:
+            result_list.append({
+                'rse_id': rse_id,
+                'rse': get_rse_name(rse_id=rse_id, session=session),
+                'bytes': usage['bytes'],
+                'files': usage['files'],
+                'bytes_limit': limit,
+                'bytes_remaining': limit - usage['bytes'],
+            })
+
     return result_list

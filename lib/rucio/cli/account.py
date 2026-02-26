@@ -179,8 +179,16 @@ def limit():
 @limit.command("list")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Show usage for only for this RSE.")
+@click.option(
+    "--unique",
+    is_flag=True,
+    default=False,
+    help="Count unique replicas to avoid double-counting when multiple locks exist. "
+        "Warning: This is computationally expensive as it queries replicas directly "
+        "rather than using cached counters. Use sparingly, especially for accounts "
+        "with many replicas.")
 @click.pass_context
-def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
+def limit_list(ctx: click.Context, account_name: str, rse: Optional[str], unique: bool) -> None:
     """
     Shows the space used, the quota limit and the quota left
     for an account for every RSE where the user have quota.
@@ -189,7 +197,7 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
         ctx.obj.spinner.update(status='Fetching account usage')
         ctx.obj.spinner.start()
 
-    usage = ctx.obj.client.get_local_account_usage(account=account_name, rse=rse)
+    usage = ctx.obj.client.get_local_account_usage(account=account_name, rse=rse, unique=unique)
     table_data = []
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
@@ -217,7 +225,6 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
     if ctx.obj.use_rich:
         ctx.obj.spinner.stop()
         print_output(table1, table2, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
-
 
 @limit.command("add")
 @click.argument(
