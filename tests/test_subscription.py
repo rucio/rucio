@@ -446,7 +446,8 @@ class TestSubscriptionClient:
         rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         account_name = uuid()[:10]
-        add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com')
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com', session=session)
         subid = rucio_client.add_subscription(name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
                                               replication_rules=[{'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')
         result = [sub['id'] for sub in rucio_client.list_subscriptions(account=account_name)]
@@ -527,7 +528,8 @@ class TestSubscriptionClient:
         rse2, _ = rse_factory.make_mock_rse()
         rse_expression = '%s|%s' % (rse1, rse2)
         account_name = uuid()[:10]
-        add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com')
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account(InternalAccount(account_name, vo=vo), AccountType.USER, 'rucio@email.com', session=session)
         rucio_client.add_subscription(
             name=subscription_name, account=account_name, filter_={'project': self.projects, 'datatype': ['AOD', ], 'excluded_pattern': self.pattern1, 'account': ['tier0', ]},
             replication_rules=[{'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}], lifetime=100000, retroactive=False, dry_run=False, comments='Ni ! Ni!')

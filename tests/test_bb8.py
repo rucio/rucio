@@ -30,7 +30,8 @@ from rucio.daemons.bb8.common import rebalance_rule
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.undertaker import undertaker
-from rucio.db.sqla.constants import RuleState
+from rucio.db.sqla.constants import DatabaseOperationType, RuleState
+from rucio.db.sqla.session import db_session
 
 from .test_rule import create_files, tag_generator
 
@@ -52,11 +53,12 @@ def test_bb8_rebalance_rule(vo, root_account, jdoe_account, rse_factory, mock_sc
     add_rse_attribute(rse2_id, "fakeweight", 0)
 
     # Add quota
-    set_local_account_limit(jdoe_account, rse1_id, -1)
-    set_local_account_limit(jdoe_account, rse2_id, -1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, rse1_id, -1, session=session)
+        set_local_account_limit(jdoe_account, rse2_id, -1, session=session)
 
-    set_local_account_limit(root_account, rse1_id, -1)
-    set_local_account_limit(root_account, rse2_id, -1)
+        set_local_account_limit(root_account, rse1_id, -1, session=session)
+        set_local_account_limit(root_account, rse2_id, -1, session=session)
 
     files = create_files(3, mock_scope, rse1_id)
     dataset = did_factory.make_dataset()
@@ -129,15 +131,16 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     add_rse_attribute(rse4_id, "freespace", 1)
 
     # Add quota
-    set_local_account_limit(jdoe_account, rse1_id, -1)
-    set_local_account_limit(jdoe_account, rse2_id, -1)
-    set_local_account_limit(jdoe_account, rse3_id, -1)
-    set_local_account_limit(jdoe_account, rse4_id, -1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, rse1_id, -1, session=session)
+        set_local_account_limit(jdoe_account, rse2_id, -1, session=session)
+        set_local_account_limit(jdoe_account, rse3_id, -1, session=session)
+        set_local_account_limit(jdoe_account, rse4_id, -1, session=session)
 
-    set_local_account_limit(root_account, rse1_id, -1)
-    set_local_account_limit(root_account, rse2_id, -1)
-    set_local_account_limit(root_account, rse3_id, -1)
-    set_local_account_limit(root_account, rse4_id, -1)
+        set_local_account_limit(root_account, rse1_id, -1, session=session)
+        set_local_account_limit(root_account, rse2_id, -1, session=session)
+        set_local_account_limit(root_account, rse3_id, -1, session=session)
+        set_local_account_limit(root_account, rse4_id, -1, session=session)
 
     # Invalid the cache because the result of parse_expression is cached
     REGION.invalidate()

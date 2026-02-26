@@ -87,15 +87,17 @@ class TestJudgeEvaluator:
         # Add quota
         cls.jdoe = InternalAccount('jdoe', **cls.vo)
         cls.root = InternalAccount('root', **cls.vo)
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_local_account_limit(cls.root, cls.rse1_id, -1)
-        set_local_account_limit(cls.root, cls.rse3_id, -1)
-        set_local_account_limit(cls.root, cls.rse4_id, -1)
-        set_local_account_limit(cls.root, cls.rse5_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(cls.jdoe, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse5_id, -1, session=session)
+
+            set_local_account_limit(cls.root, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse5_id, -1, session=session)
 
     @pytest.mark.noparallel(reason="uses mock scope and predefined RSEs; runs judge evaluator")
     def test_judge_add_files_to_dataset(self):
@@ -211,14 +213,16 @@ class TestJudgeEvaluator:
         # Add a first rule to the DS
         add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-        account_counter_before = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before = get_usage(self.rse1_id, self.jdoe, session=session)
         attach_dids(scope, dataset, files, self.jdoe)
 
         # Fake judge
         re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
-        account_counter_after = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after = get_usage(self.rse1_id, self.jdoe, session=session)
         assert account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes']
         assert account_counter_before['files'] + 3 == account_counter_after['files']
 
@@ -239,7 +243,8 @@ class TestJudgeEvaluator:
 
         account_update(once=True)
 
-        account_counter_before = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before = get_usage(self.rse1_id, self.jdoe, session=session)
 
         detach_dids(scope, dataset, [files[0]])
 
@@ -247,7 +252,8 @@ class TestJudgeEvaluator:
         re_evaluator(once=True, did_limit=None)
         account_update(once=True)
 
-        account_counter_after = get_usage(self.rse1_id, self.jdoe)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after = get_usage(self.rse1_id, self.jdoe, session=session)
         assert account_counter_before['bytes'] - 100 == account_counter_after['bytes']
         assert account_counter_before['files'] - 1 == account_counter_after['files']
 

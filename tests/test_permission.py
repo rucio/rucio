@@ -46,14 +46,16 @@ class TestPermissionCoreGateway:
         """ PERMISSION(CORE): Check permission to add scope """
         assert has_permission(issuer='root', action='add_scope', kwargs={'account': 'root'}, vo=vo)
         assert not has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
-        add_account_attribute(random_account, 'admin', True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(random_account, 'admin', True, session=session)
         assert has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
 
     @skip_non_belleii
     def test_permission_add_scope_admin(self, vo, random_account):
         """ PERMISSION(CORE): Check permission to add scope with scope_admin attribute (Belle II)"""
         assert not has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
-        add_account_attribute(random_account, 'scope_admin', True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(random_account, 'scope_admin', True, session=session)
         assert has_permission(issuer=random_account.external, action='add_scope', kwargs={'account': random_account.external}, vo=vo)
 
     def test_permission_get_auth_token_user_pass(self, vo):

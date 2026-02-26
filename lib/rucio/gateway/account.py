@@ -108,7 +108,7 @@ def get_account_info(
 
     with db_session(DatabaseOperationType.READ) as session:
         acc = account_core.get_account(internal_account, session=session)
-        acc.account = acc.account.external
+        acc.account = acc.account.external  # type: ignore (acc.account exists)
         return acc
 
 
@@ -161,7 +161,7 @@ def list_accounts(filter_: Optional[dict[str, Any]] = None, vo: str = DEFAULT_VO
 
     with db_session(DatabaseOperationType.READ) as session:
         for result in account_core.list_accounts(filter_=filter_, session=session):
-            yield gateway_update_return_dict(result, session=session)
+            yield gateway_update_return_dict(result, session=session)  # type: ignore (AccountDict is a valid dict)
 
 
 def account_exists(

@@ -361,7 +361,7 @@ def __get_init_oidc_client(token_object: models.Token = None, token_type: str = 
 
 
 @transactional_session
-def get_auth_oidc(account: str, *, session: "Session", **kwargs) -> str:
+def get_auth_oidc(account: "InternalAccount", *, session: "Session", **kwargs) -> str:
     """
     Assembles the authorization request of the Rucio Client tailored to the Rucio user
     & Identity Provider. Saves authentication session parameters in the oauth_requests

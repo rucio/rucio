@@ -611,7 +611,7 @@ class GlobalAccountLimits(ErrorHandlingMethodView):
         except RSENotFound as error:
             return generate_http_error_flask(404, error)
 
-        return Response(render_json(**limits), content_type="application/json")
+        return Response(render_json(**limits), content_type="application/json")  # type: ignore (https://github.com/rucio/rucio/issues/8194)
 
 
 class Identities(ErrorHandlingMethodView):

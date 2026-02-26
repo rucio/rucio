@@ -34,6 +34,8 @@ from rucio.common.types import InternalAccount  # noqa: E402
 from rucio.common.utils import extract_scope  # noqa: E402
 from rucio.core.account import add_account_attribute  # noqa: E402
 from rucio.core.vo import map_vo  # noqa: E402
+from rucio.db.sqla.constants import DatabaseOperationType  # noqa: E402
+from rucio.db.sqla.session import db_session  # noqa: E402
 from rucio.gateway.vo import add_vo  # noqa: E402
 from rucio.tests.common_server import reset_config_table  # noqa: E402
 
@@ -113,13 +115,15 @@ if __name__ == '__main__':
         print('Account jdoe already added')
 
     try:
-        add_account_attribute(account=InternalAccount('root', **vo), key='admin', value=True)  # bypass client as schema validation fails at API level
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(account=InternalAccount('root', **vo), key='admin', value=True, session=session)  # bypass client as schema validation fails at API level
     except Exception as error:
         print(error)
 
     try:
         client.add_account('panda', 'SERVICE', 'panda@email.com')
-        add_account_attribute(account=InternalAccount('panda', **vo), key='admin', value=True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(account=InternalAccount('panda', **vo), key='admin', value=True, session=session)  # bypass client as schema validation fails at API level
     except Duplicate:
         print('Account panda already added')
 

@@ -22,7 +22,8 @@ from rucio.common.types import InternalAccount
 from rucio.common.utils import generate_uuid as uuid
 from rucio.core.account import add_account_attribute, del_account_attribute, list_account_attributes, list_identities
 from rucio.core.identity import add_account_identity, add_identity
-from rucio.db.sqla.constants import AccountStatus, IdentityType
+from rucio.db.sqla.constants import AccountStatus, DatabaseOperationType, IdentityType
+from rucio.db.sqla.session import db_session
 from rucio.gateway.account import account_exists, add_account, del_account, get_account_info, update_account
 from rucio.tests.common import account_name_generator, auth, headers, loginhdr, skip_non_belleii, vohdr
 
@@ -63,17 +64,21 @@ class TestAccountCoreGateway:
         identity = uuid()
         identity_type = IdentityType.USERPASS
         add_account_identity(identity, identity_type, root_account, email, password='secret')
-        identities = list_identities(root_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            identities = list_identities(root_account, session=session)
         assert {'type': identity_type, 'identity': identity, 'email': email} in identities
 
     def test_add_account_attribute(self, root_account):
         """ ACCOUNT (CORE): Test adding attribute to account """
         key = account_name_generator()
         value = True
-        add_account_attribute(root_account, key, value)
-        assert {'key': key, 'value': True} in list_account_attributes(root_account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(root_account, key, value, session=session)
+        with db_session(DatabaseOperationType.READ) as session:
+            assert {'key': key, 'value': True} in list_account_attributes(root_account, session=session)
         with pytest.raises(Duplicate):
-            add_account_attribute(root_account, key, value)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                add_account_attribute(root_account, key, value, session=session)
 
 
 def test_create_user_success(rest_client, auth_token):
@@ -231,7 +236,8 @@ def test_delete_identity_of_account(vo, rest_client):
 
     # normal deletion
     internal_account = InternalAccount(account, vo=vo)
-    add_account_attribute(internal_account, 'admin', True)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account_attribute(internal_account, 'admin', True, session=session)
     response = rest_client.delete(endpoint, headers=headers(auth(token)), json=data)
     assert response.status_code == 200
 
@@ -254,13 +260,15 @@ def test_delete_identity_of_account_admin(vo, rest_client):
     # normal deletion
     data = {'authtype': 'USERPASS', 'identity': identity}
     internal_account = InternalAccount(account, vo=vo)
-    add_account_attribute(internal_account, 'account_admin', True)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account_attribute(internal_account, 'account_admin', True, session=session)
     response = rest_client.delete('/accounts/' + account + '/identities', headers=headers(auth(token)), json=data)
     assert response.status_code == 200
 
     # unauthorized deletion
     other_account = account_name_generator()
-    del_account_attribute(internal_account, 'account_admin')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        del_account_attribute(internal_account, 'account_admin', session=session)
     data = {'authtype': 'USERPASS', 'identity': identity}
     response = rest_client.delete('/accounts/' + other_account + '/identities', headers=headers(auth(token)), json=data)
     assert response.status_code == 401

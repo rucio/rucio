@@ -26,6 +26,8 @@ from rucio.core.rse import add_rse
 from rucio.core.rule import add_rules, list_rules
 from rucio.daemons.judge.cleaner import rule_cleaner
 from rucio.daemons.undertaker.undertaker import undertaker
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator, rse_name_generator
 
@@ -42,7 +44,8 @@ class TestUndertaker:
         nbfiles = 5
         rse, rse_id = rse_factory.make_rse()
 
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         dsns1 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
@@ -85,7 +88,8 @@ class TestUndertaker:
 
         # Add quota
         rse, rse_id = rse_factory.make_rse()
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         dsn = {'name': did_name_generator('dataset'),
                'scope': mock_scope,
@@ -109,7 +113,8 @@ class TestUndertaker:
         rse = 'LOCALGROUPDISK_%s' % rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
 
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         dsns2 = [{'name': did_name_generator('dataset'),
                   'scope': mock_scope,
@@ -150,8 +155,9 @@ def test_removal_all_replicas2(rse_factory, root_account, mock_scope, core_confi
     rse1, rse1_id = rse_factory.make_posix_rse()
     rse2, rse2_id = rse_factory.make_posix_rse()
 
-    set_local_account_limit(root_account, rse1_id, -1)
-    set_local_account_limit(root_account, rse2_id, -1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(root_account, rse1_id, -1, session=session)
+        set_local_account_limit(root_account, rse2_id, -1, session=session)
 
     nbdatasets = 1
     nbfiles = 5
