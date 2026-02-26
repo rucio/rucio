@@ -288,9 +288,8 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
                   type: object
                   properties:
                     state:
-                      type: string
                       description: "New state for the DID."
-                      enum: ["draft", "public", "suspended"]
+                      $ref: "#/components/schemas/OpenDataDIDState"
                     meta:
                       type: object
                       description: "New metadata dictionary for the DID. Supports arbitrary JSON objects."
