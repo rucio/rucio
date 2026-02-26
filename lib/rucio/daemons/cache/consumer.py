@@ -20,6 +20,7 @@ import json
 import logging
 import threading
 import time
+from functools import partial
 from traceback import format_exc
 from typing import TYPE_CHECKING, Optional
 
@@ -27,7 +28,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
 from rucio.common.logging import formatted_logger, setup_logging
-from rucio.common.stomp_utils import StompConnectionManager
+from rucio.common.stomp_controller import StompController
 from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
@@ -120,53 +121,51 @@ def consumer(id_: int, num_thread: int = 1) -> None:
     logger(logging.INFO, 'Rucio Cache consumer starting')
 
     brokers = config_get_list('messaging-cache', 'brokers')
-
     use_ssl = config_get_bool('messaging-cache', 'use_ssl', default=True, raise_exception=False)
+    username = None
+    password = None
     if not use_ssl:
         username = config_get('messaging-cache', 'username')
         password = config_get('messaging-cache', 'password')
     destination = config_get('messaging-cache', 'destination')
     subscription_id = 'rucio-cache-messaging'
-
+    listener_name = config_get('messaging-cache', 'listener_name', default='rucio-cache-consumer')
     vhost = config_get('messaging-cache', 'broker_virtual_host', raise_exception=False)
     port = config_get_int('messaging-cache', 'port')
     reconnect_attempts = config_get_int('messaging-cache', 'reconnect_attempts', default=100)
     ssl_key_file = config_get('messaging-cache', 'ssl_key_file', raise_exception=False)
     ssl_cert_file = config_get('messaging-cache', 'ssl_cert_file', raise_exception=False)
 
-    stomp_conn_mngr = StompConnectionManager()
-    conns, _ = stomp_conn_mngr.re_configure(
+    controller = StompController(
         brokers=brokers,
         port=port,
         use_ssl=use_ssl,
         vhost=vhost,
-        reconnect_attempts=reconnect_attempts,
+        username=username,
+        password=password,
         ssl_key_file=ssl_key_file,
         ssl_cert_file=ssl_cert_file,
         timeout=None,
+        reconnect_attempts=reconnect_attempts,
         logger=logger
     )
+    controller.setup_connections()
 
     logger(logging.INFO, 'consumer started')
 
     while not GRACEFUL_STOP.is_set():
-        for conn in conns:
-            if not conn.is_connected():
-                host_port = conn.transport._Transport__host_and_ports[0]
-
-                logger(logging.INFO, 'connecting to %s' % host_port[0])
-                METRICS.counter('reconnect.{host}').labels(host=host_port[0]).inc()
-                conn.set_listener('rucio-cache-consumer', AMQConsumer(broker=host_port, conn=conn, logger=logger))
-                if not use_ssl:
-                    conn.connect(username, password)
-                else:
-                    conn.connect()
-
-                conn.subscribe(destination=destination, ack='auto', id=subscription_id)
+        controller.connect_and_subscribe(
+            destination=destination,
+            listener_name=listener_name,
+            listener=partial(AMQConsumer, logger=logger),
+            subscription_id=subscription_id,
+            ack='auto',
+            metric=METRICS
+        )
         time.sleep(1)
 
     logger(logging.INFO, 'graceful stop requested')
-    stomp_conn_mngr.disconnect()
+    controller.disconnect()
     logger(logging.INFO, 'graceful stop done')
 
 
