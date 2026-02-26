@@ -1520,6 +1520,7 @@ def add_protocol(
 def get_rse_protocols(
     rse_id: str,
     schemes: Optional[list[str]] = None,
+    use_cache: bool = True,
     *,
     session: "Session"
 ) -> types.RSESettingsDict:
@@ -1528,6 +1529,7 @@ def get_rse_protocols(
 
     :param rse_id: The id of the rse.
     :param schemes: a list of schemes to filter by.
+    :param use_cache: should we use cache or not.
     :param session: The database session.
 
     :returns: A dict with RSE information and supported protocols
@@ -1552,13 +1554,14 @@ def get_rse_protocols(
     )
 
     _protocols = session.execute(stmt).scalars().all()
-    return _format_get_rse_protocols(rse=_rse, db_protocols=_protocols, session=session)
+    return _format_get_rse_protocols(rse=_rse, db_protocols=_protocols, use_cache=use_cache, session=session)
 
 
 def _format_get_rse_protocols(
         rse: "models.RSE | dict[str, Any]",
         db_protocols: 'Iterable[models.RSEProtocol]',
         rse_attributes: Optional[dict[str, Any]] = None,
+        use_cache: bool = True,
         *,
         session: "Session"
 ) -> types.RSESettingsDict:
@@ -1566,7 +1569,7 @@ def _format_get_rse_protocols(
     if rse_attributes:
         lfn2pfn_algorithm = rse_attributes.get(RseAttr.LFN2PFN_ALGORITHM)
     else:
-        lfn2pfn_algorithm = get_rse_attribute(_rse['id'], RseAttr.LFN2PFN_ALGORITHM, session=session)
+        lfn2pfn_algorithm = get_rse_attribute(_rse['id'], RseAttr.LFN2PFN_ALGORITHM, use_cache=use_cache, session=session)
     # Resolve LFN2PFN default algorithm as soon as possible.  This way, we can send back the actual
     # algorithm name in response to REST queries.
     if not lfn2pfn_algorithm:
@@ -1576,13 +1579,13 @@ def _format_get_rse_protocols(
     if rse_attributes:
         verify_checksum = rse_attributes.get(RseAttr.VERIFY_CHECKSUM)
     else:
-        verify_checksum = get_rse_attribute(_rse['id'], RseAttr.VERIFY_CHECKSUM, session=session)
+        verify_checksum = get_rse_attribute(_rse['id'], RseAttr.VERIFY_CHECKSUM, use_cache=use_cache, session=session)
 
     # Copy sign_url from the attributes
     if rse_attributes:
         sign_url = rse_attributes.get(RseAttr.SIGN_URL)
     else:
-        sign_url = get_rse_attribute(_rse['id'], RseAttr.SIGN_URL, session=session)
+        sign_url = get_rse_attribute(_rse['id'], RseAttr.SIGN_URL, use_cache=use_cache, session=session)
 
     info = {'availability_delete': _rse['availability_delete'],
             'availability_read': _rse['availability_read'],

@@ -157,24 +157,23 @@ jobs:
             pip install --no-cache-dir -e /rucio_source
             tools/run_tests.sh -ir
           "
-      - name: File Upload/Download Test
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rucio_server.py
-      - name: UploadClient Test
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_upload.py
-      - name: File Upload/Download Test using 'impl' parameter
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_impl_upload_download.py
-      - name: Test gfal2 implementation on xrootd protocol
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_gfal2_impl.py
-      - name: Test Protocol XrootD
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_xrootd.py
-      - name: Test Protocol SSH (scp)
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_ssh.py
-      - name: Test Protocol Rsync
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_rsync.py
-      - name: Test Protocol Rclone
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_rclone.py
-      - name: Test Conveyor
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_conveyor.py
+      - name: Run Tests
+        run: |
+          docker exec -e GITHUB_ACTIONS="$GITHUB_ACTIONS"  -t dev-rucio-1 tools/pytest.sh -v --tb=short \
+            tests/test_conveyor.py \
+            tests/test_rucio_server.py \
+            tests/test_upload.py \
+            tests/test_impl_upload_download.py \
+            tests/test_rse_protocol_gfal2_impl.py \
+            tests/test_rse_protocol_xrootd.py \
+            tests/test_rse_protocol_ssh.py \
+            tests/test_rse_protocol_rsync.py \
+            tests/test_rse_protocol_rclone.py \
+            tests/test_reaper.py::test_deletion_with_tokens \
+            tests/test_download.py::test_download_from_archive_on_xrd \
+            tests/test_did_meta_plugins.py::TestDidMetaMongo \
+            tests/test_did_meta_plugins.py::TestDidMetaExternalPostgresJSON \
+            tests/test_did_meta_plugins.py::TestDidMetaElastic \
       - name: Execute transfer and export FTS transfer details
         id: tpc
         shell: bash
@@ -193,20 +192,10 @@ jobs:
             echo "TPC failed"
             exit 1
           fi
-      - name: Test Token Deletion
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_reaper.py::test_deletion_with_tokens
       - name: Print server error logs
         if: ${{ success() || failure() }}
         shell: bash
         run: |
           docker exec -t dev-rucio-1 cat /var/log/rucio/httpd_error_log
-      - name: Archive Upload/Download Test
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_download.py::test_download_from_archive_on_xrd
-      - name: Test external metadata plugin (mongo)
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaMongo
-      - name: Test external metadata plugin (postgres)
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaExternalPostgresJSON
-      - name: Test external metadata plugin (elasticsearch)
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaElastic
       - name: Stop containers
         run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam down
