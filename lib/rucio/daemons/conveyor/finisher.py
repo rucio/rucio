@@ -82,7 +82,6 @@ def _fetch_requests(
         limit=db_bulk,
         total_workers=total_workers,
         worker_number=worker_number,
-        mode_all=True,
         include_dependent=False,
         hash_variable='rule_id',
     )
@@ -94,7 +93,8 @@ def _fetch_requests(
             RequestState.SUBMISSION_FAILED,
             RequestState.NO_SOURCES,
             RequestState.ONLY_TAPE_SOURCES,
-            RequestState.MISMATCH_SCHEME
+            RequestState.MISMATCH_SCHEME,
+            RequestState.CANCELLED,
         ],
     )
     reqs.extend(
@@ -315,6 +315,14 @@ def _finish_requests(
                         replica['archived'] = False
                         replica['error_message'] = req['err_msg'] if req['err_msg'] else request_core.get_transfer_error(req['state'])
                         replicas[req['request_type']][req['rule_id']].append(replica)
+                except RequestNotFound:
+                    logger(logging.WARNING, 'Cannot find request %s anymore', req['request_id'])
+
+            # Cancelled before submission - just archive
+            elif req['state'] == RequestState.CANCELLED:
+                try:
+                    request_core.archive_request(req['request_id'])
+                    logger(logging.INFO, 'CANCELLED DID %s:%s REQUEST %s', req['scope'], req['name'], req['request_id'])
                 except RequestNotFound:
                     logger(logging.WARNING, 'Cannot find request %s anymore', req['request_id'])
 

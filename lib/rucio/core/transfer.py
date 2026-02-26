@@ -18,13 +18,12 @@ import operator
 import re
 import sys
 import time
-import traceback
 from collections import defaultdict
 from typing import TYPE_CHECKING, cast
 
 from dogpile.cache import make_region
 from dogpile.cache.api import NoValue
-from sqlalchemy import select, update
+from sqlalchemy import null, select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.config import config_get, config_get_list
@@ -342,25 +341,18 @@ def mark_submitting(
                                                                                                           external_host)
     logger(logging.DEBUG, "%s", log_str)
 
-    stmt = update(
-        models.Request
-    ).where(
-        models.Request.id == transfer.rws.request_id,
-        models.Request.state == RequestState.QUEUED
-    ).execution_options(
-        synchronize_session=False
-    ).values(
-        {
-            'state': RequestState.SUBMITTING,
-            'external_id': None,
-            'external_host': external_host,
-            'dest_url': transfer.dest_url,
-            'submitted_at': datetime.datetime.utcnow(),
-        }
+    updated = request_core.update_request(
+        transfer.rws.request_id,
+        state=RequestState.SUBMITTING,
+        external_id=null(),
+        external_host=external_host,
+        dest_url=transfer.dest_url,
+        submitted_at=datetime.datetime.utcnow(),
+        expected_state=RequestState.QUEUED,
+        session=session,
     )
-    rowcount = session.execute(stmt).rowcount
 
-    if rowcount == 0:
+    if not updated:
         raise RequestNotFound("Failed to prepare transfer: request %s does not exist or is not in queued state" % transfer.rws)
 
 
@@ -435,26 +427,19 @@ def set_transfers_state(
         for transfer in transfers:
             rws = transfer.rws
             logger(logging.DEBUG, 'COPYING REQUEST %s DID %s:%s USING %s with state(%s) with eid(%s)' % (rws.request_id, rws.scope, rws.name, external_host, state, external_id))
-            stmt = update(
-                models.Request
-            ).where(
-                models.Request.id == transfer.rws.request_id,
-                models.Request.state == RequestState.SUBMITTING
-            ).execution_options(
-                synchronize_session=False
-            ).values(
-                {
-                    models.Request.state: state,
-                    models.Request.external_id: external_id,
-                    models.Request.external_host: external_host,
-                    models.Request.source_rse_id: transfer.src.rse.id,
-                    models.Request.submitted_at: submitted_at,
-                    models.Request.transfertool: transfertool,
-                }
+            updated = request_core.update_request(
+                rws.request_id,
+                state=state,
+                external_id=external_id,
+                external_host=external_host,
+                source_rse_id=transfer.src.rse.id,
+                submitted_at=submitted_at,
+                transfertool=transfertool,
+                expected_state=RequestState.SUBMITTING,
+                session=session,
             )
-            rowcount = session.execute(stmt).rowcount
 
-            if rowcount == 0:
+            if not updated:
                 raise RucioException("%s: failed to set transfer state: request doesn't exist or is not in SUBMITTING state" % rws)
 
             stmt = select(
@@ -583,35 +568,6 @@ def mark_transfer_lost(request, *, session: "Session", logger=logging.log):
     transition_request_state(request['id'], state=new_state, external_id=request['external_id'], err_msg=err_msg, session=session, logger=logger)
 
     request_core.add_monitor_message(new_state=new_state, request=request, additional_fields={'reason': reason}, session=session)
-
-
-@METRICS.count_it
-@transactional_session
-def touch_transfer(external_host, transfer_id, *, session: "Session"):
-    """
-    Update the timestamp of requests in a transfer. Fails silently if the transfer_id does not exist.
-    :param request_host:   Name of the external host.
-    :param transfer_id:    External transfer job id as a string.
-    :param session:        Database session to use.
-    """
-    try:
-        # don't touch it if it's already touched in 30 seconds
-        stmt = update(
-            models.Request
-        ).prefix_with(
-            "/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle'
-        ).where(
-            models.Request.external_id == transfer_id,
-            models.Request.state == RequestState.SUBMITTED,
-            models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30)
-        ).execution_options(
-            synchronize_session=False
-        ).values(
-            updated_at=datetime.datetime.utcnow()
-        )
-        session.execute(stmt)
-    except IntegrityError as error:
-        raise RucioException(error.args)
 
 
 def _create_transfer_definitions(
@@ -1366,37 +1322,31 @@ def update_transfer_priority(transfers_to_update, logger=logging.log):
             logger(logging.DEBUG, "Updated transfer %s priority in transfertool to %s: %s" % (transfer_id, priority, res['http_message']))
 
 
-def cancel_transfers(transfers_to_cancel, logger=logging.log):
+def cancel_transfers(
+        transfertool_obj: "Transfertool",
+        transfers: "list[dict[str, Any]]",
+        logger: "LoggerFunction" = logging.log,
+) -> None:
     """
-    Cancel transfers in fts
+    Cancel transfers in the external transfertool and optionally update request state.
 
-    :param transfers_to_cancel: dict {external_host1: {transfer_id1, transfer_id2}, external_host2: [...], ...}
-    :param logger: decorated logger instance
+    :param transfertool_obj: Transfertool object to use for cancellation.
+    :param transfers:        List of dicts with 'external_id' key (required) and optionally 'request_id'.
+                             If 'request_id' is present, the request state is updated to CANCELLED.
+    :param logger:           Logger function.
     """
-
-    for external_host, transfer_ids in transfers_to_cancel.items():
-        transfertool_obj = FTS3Transfertool(external_host=external_host)
-        for transfer_id in transfer_ids:
+    for transfer in transfers:
+        external_id = transfer.get('external_id')
+        if external_id is not None:
             try:
-                transfertool_obj.cancel(transfer_ids=[transfer_id])
-                logger(logging.DEBUG, "Cancelled FTS3 transfer %s on %s" % (transfer_id, transfertool_obj))
+                transfertool_obj.cancel(transfer_ids=[external_id])
+                logger(logging.DEBUG, 'Cancelled transfer %s on %s', external_id, transfertool_obj)
             except Exception as error:
-                logger(logging.WARNING, 'Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, str(error)))
+                logger(logging.WARNING, 'Could not cancel transfer %s on %s: %s', external_id, transfertool_obj, str(error))
 
-
-@METRICS.count_it
-def cancel_transfer(transfertool_obj, transfer_id):
-    """
-    Cancel a transfer based on external transfer id.
-
-    :param transfertool_obj: Transfertool object to be used for cancellation.
-    :param transfer_id:      External-ID as a 32 character hex string.
-    """
-
-    try:
-        transfertool_obj.cancel(transfer_ids=[transfer_id])
-    except Exception:
-        raise RucioException('Could not cancel FTS3 transfer %s on %s: %s' % (transfer_id, transfertool_obj, traceback.format_exc()))
+        request_id = transfer.get('request_id')
+        if request_id is not None:
+            request_core.cancel_requests(request_ids=[request_id])
 
 
 @transactional_session
