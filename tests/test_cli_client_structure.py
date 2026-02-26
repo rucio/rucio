@@ -719,6 +719,18 @@ def test_rse_limits(rucio_client):
     except RucioException:  # Can throw an error if the mock_rse has no limits
         pass
 
+    not_int_limit = "askjd"
+    cmd = f"rucio rse limit add {mock_rse} --limit {limit}_2 {not_int_limit}"
+    exitcode, _, err = execute(cmd)
+    assert exitcode != 0
+    assert f"'{not_int_limit}' is not a valid integer" in err  # The click error message for invalid type
+
+    non_existent_limit = "askjd"
+    cmd = f"rucio rse limit remove {mock_rse} --limit {non_existent_limit}"
+    exitcode, _, err = execute(cmd)
+    assert exitcode != 0
+    assert f'Limit {non_existent_limit} not defined in RSE {mock_rse}' in err
+
 
 def test_rse_qos_policy(rucio_client):
     mock_rse = "MOCK"
