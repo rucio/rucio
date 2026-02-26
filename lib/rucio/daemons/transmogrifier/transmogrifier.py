@@ -49,7 +49,8 @@ from rucio.core.rse_selector import resolve_rse_expression
 from rucio.core.rule import add_rule, get_rule, list_rules
 from rucio.core.subscription import list_subscriptions, update_subscription
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import DIDType, SubscriptionState
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, SubscriptionState
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -152,10 +153,13 @@ def __split_rule_select_rses(
             "name": name,
         }
     ):
-        for rse_dict in parse_expression(
-            rule["rse_expression"],
-            filter_={"vo": account.vo},
-        ):
+        with db_session(DatabaseOperationType.READ) as session:
+            rse_dicts = parse_expression(
+                            rule["rse_expression"],
+                            session=session,
+                            filter_={"vo": account.vo},
+                        )
+        for rse_dict in rse_dicts:
             preferred_rses.add(rse_dict["rse"])
     preferred_rses = list(preferred_rses)
     preferred_unmatched = list()
@@ -226,7 +230,8 @@ def get_subscriptions(logger: LoggerFunction = logging.log) -> list[dict]:
             for rule in rules:
                 rse_expression = rule.get("rse_expression")
                 try:
-                    list_rses_from_expression = parse_expression(rse_expression)
+                    with db_session(DatabaseOperationType.READ) as session:
+                        list_rses_from_expression = parse_expression(rse_expression, session=session)
                 except InvalidRSEExpression:
                     logger(
                         logging.ERROR,

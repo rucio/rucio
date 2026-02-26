@@ -23,8 +23,8 @@ from rucio.core.rse import get_rse_attribute, get_rse_usage
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.daemons.bb8.common import rebalance_rse
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RuleState
-from rucio.db.sqla.session import get_session
+from rucio.db.sqla.constants import DatabaseOperationType, RuleState
+from rucio.db.sqla.session import db_session, get_session
 
 tolerance = 0.15
 max_total_rebalance_volume = 200 * 1E12
@@ -42,7 +42,8 @@ def group_space(site: str) -> int:
     site_groupdisks = []
     group_total = 0
     try:
-        site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site)
+        with db_session(DatabaseOperationType.READ) as session:
+            site_groupdisks = parse_expression('site=%s&spacetoken=ATLASDATADISK&type=GROUPDISK' % site, session=session)
     except Exception:
         return group_total
 
@@ -54,7 +55,8 @@ def group_space(site: str) -> int:
 
 
 # Calculate the current ratios
-rses = parse_expression("(datapolicynucleus=true|tier=1)&type=DATADISK\\bb8-enabled=false")
+with db_session(DatabaseOperationType.READ) as session:
+    rses = parse_expression("(datapolicynucleus=true|tier=1)&type=DATADISK\\bb8-enabled=false", session=session)
 total_primary = 0
 total_secondary = 0
 total_total = 0
@@ -146,7 +148,8 @@ for source_rse in rses_over_ratio:
             vo_str = 'on VO {}'.format(destination_rse['vo']) if destination_rse['vo'] != DEFAULT_VO else DEFAULT_VO
             print('Rebalance %dTB from %s(%f) to %s(%f)%s' % (available_target_rebalance_volume / 1E12, source_rse['rse'], source_rse['ratio'], destination_rse['rse'], destination_rse['ratio'], vo_str))
             expr = destination_rse['rse']
-            rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=expr)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                rebalance_rse(rse_id=source_rse['id'], max_bytes=available_target_rebalance_volume, dry_run=False, comment='Nuclei Background rebalancing', force_expression=expr, session=session)
 
             destination_rse['receive_volume'] += available_target_rebalance_volume
             total_rebalance_volume += available_target_rebalance_volume
