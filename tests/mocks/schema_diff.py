@@ -14,6 +14,8 @@
 
 # mock schema module that overrides only some values
 
+from rucio.common.schema.schema_ref import SchemaRef
+
 SCOPE_LENGTH = 50
 
 SCOPE = {"description": "Scope name",
@@ -27,3 +29,5 @@ ACCOUNT = {"description": "Account name",
            "pattern": "^[a-z0-9-_]+$"}
 
 SCHEMAS = {'account': ACCOUNT}
+
+TEST_SCHEMA = {"nameLength": SchemaRef("NAME_LENGTH")}
