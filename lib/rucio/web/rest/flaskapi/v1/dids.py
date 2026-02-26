@@ -1078,79 +1078,66 @@ class Files(ErrorHandlingMethodView):
     def get(self, scope_name):
         """
         ---
-        summary: Get replicas
-        description: "List all replicas for a DID."
+        summary: List DID file descriptors
+        description: >
+          Returns as newline-delimited JSON, the file-level descriptors of the specified DID.
+          For datasets and containers this expands to the child files; for file DIDs it
+          returns the metadata of the file itself.
         tags:
           - Data Identifiers
         parameters:
         - name: scope_name
           in: path
-          description: "The scope and the name of the DID."
+          required: true
+          description: "The scope and name of the DID (e.g., `scope:name`)."
           schema:
             type: string
-          style: simple
         - name: long
           in: query
-          description: "Flag to trigger long output."
-          schema:
-            type: object
           required: false
+          description: "Flag to include extended metadata such as `lumiblocknr` where available."
+          schema:
+            type: boolean
+          allowEmptyValue: true
         responses:
           200:
             description: "OK"
             content:
               application/x-json-stream:
                 schema:
-                  oneOf:
-                    - description: "All replica information if `long` is defined."
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          scope:
-                            description: "The scope of the DID."
-                            type: string
-                          name:
-                            description: "The name of the DID."
-                            type: string
-                          bytes:
-                            description: "The size of the DID in bytes."
-                            type: integer
-                          guid:
-                            description: "The guid of the DID."
-                            type: string
-                          events:
-                            description: "The number of events of the DID."
-                            type: integer
-                          adler32:
-                            description: "The adler32 checksum."
-                            type: string
-                          lumiblocknr:
-                            description: "The lumi block nr. Only available if `long` is defined in the query."
-                            type: integer
-                    - description: "All replica information."
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          scope:
-                            description: "The scope of the DID."
-                            type: string
-                          name:
-                            description: "The name of the DID."
-                            type: string
-                          bytes:
-                            description: "The size of the DID in bytes."
-                            type: integer
-                          guid:
-                            description: "The guid of the DID."
-                            type: string
-                          events:
-                            description: "The number of events of the DID."
-                            type: integer
-                          adler32:
-                            description: "The adler32 checksum."
-                            type: string
+                  description: "Newline-delimited JSON objects; each line describes a file that belongs to the DID."
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      scope:
+                        type: string
+                        description: "The scope of the file DID."
+                      name:
+                        type: string
+                        description: "The name of the file DID."
+                      bytes:
+                        type: integer
+                        nullable: true
+                        description: "The size of the file in bytes."
+                      guid:
+                        type: string
+                        nullable: true
+                        description: "The GUID of the file, when available."
+                      events:
+                        type: integer
+                        nullable: true
+                        description: "The number of events recorded for the file, when available."
+                      adler32:
+                        type: string
+                        nullable: true
+                        description: "The Adler-32 checksum."
+                      lumiblocknr:
+                        type: integer
+                        nullable: true
+                        description: "The lumi block number. Only returned when `long` is requested and the information exists."
+          400:
+            description: "Bad Request – invalid scope/name."
           401:
             description: "Invalid Auth Token"
           404:
