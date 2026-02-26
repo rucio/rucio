@@ -2532,7 +2532,7 @@ You can filter by key/value, e.g.::
     delete_rule_parser = subparsers.add_parser('delete-rule', help='Delete replication rule.')
     delete_rule_parser.set_defaults(function=delete_rule)
     delete_rule_parser.add_argument(dest='rule_id', action='store', help='Rule id or DID. If DID, the RSE expression is mandatory.')
-    delete_rule_parser.add_argument('--purge-replicas', dest='purge_replicas', action='store_true', help='Purge rule replicas')
+    delete_rule_parser.add_argument('--purge-replicas', dest='purge_replicas', action='store_true', default=None, help='Purge rule replicas')
     delete_rule_parser.add_argument('--all', dest='delete_all', action='store_true', default=False, help='Delete all the rules, even the ones that are not owned by the account')
     delete_rule_parser.add_argument('--rses', dest='rses', action='store', help='The RSE expression. Must be specified if a DID is provided.')
     delete_rule_parser.add_argument('--account', dest='rule_account', action='store', help='The account of the rule that must be deleted')
