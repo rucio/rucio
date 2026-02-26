@@ -158,6 +158,10 @@ class RequestClient(BaseClient):
         """Returns all the transfer limits
 
         :returns: transfer limits
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -194,6 +198,10 @@ class RequestClient(BaseClient):
         :param waitings: Current number of waiting transfers
 
         :returns: True if the transfer limit was deleted
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -221,6 +229,10 @@ class RequestClient(BaseClient):
         :param direction: The direction in which this limit applies (source/destination)
 
         :returns: True if the transfer limit was deleted
+
+        Note:
+        -----
+        Added in version 38.0.0
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
