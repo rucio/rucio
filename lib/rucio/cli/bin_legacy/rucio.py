@@ -1433,7 +1433,6 @@ def list_rules(args, client, logger, console, spinner):
 
     List rules.
     """
-
     if cli_config == 'rich':
         spinner.update(status='Fetching rules')
         spinner.start()
@@ -1451,22 +1450,26 @@ def list_rules(args, client, logger, console, spinner):
             rules.append(client.get_replication_rule(rule_id))
     elif args.did:
         scope, name = get_scope(args.did, client)
-        meta = client.get_metadata(scope=scope, name=name)
-        rules = client.list_did_rules(scope=scope, name=name)
+        if not name.endswith('*'):
+            meta = client.get_metadata(scope=scope, name=name)
+        else:
+            meta = {}
+        rules = client.list_replication_rules(filters={'scope': scope, 'name': name})
         try:
             next(rules)
-            rules = client.list_did_rules(scope=scope, name=name)
+            rules = client.list_replication_rules(filters={'scope': scope, 'name': name})
         except StopIteration:
             rules = []
+            did_type = meta.get('did_type')
             # looking for other rules
-            if meta['did_type'] == 'CONTAINER':
+            if did_type == 'CONTAINER':
                 for dsn in client.list_content(scope, name):
-                    rules.extend(client.list_did_rules(scope=dsn['scope'], name=dsn['name']))
+                    rules.extend(client.list_replication_rules(filters={"scope": dsn['scope'], "name": dsn['name']}))
                 if rules:
                     print('No rules found, listing rules for content')
-            if meta['did_type'] == 'DATASET':
+            if did_type == 'DATASET':
                 for container in client.list_parent_dids(scope, name):
-                    rules.extend(client.list_did_rules(scope=container['scope'], name=container['name']))
+                    rules.extend(client.list_replication_rules(filters={"scope": container['scope'], "name": container['name']}))
                 if rules:
                     print('No rules found, listing rules for parents')
     elif args.rule_account:
