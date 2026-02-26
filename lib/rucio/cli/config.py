@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import click
+from typing import Optional
 
-from rucio.cli.bin_legacy.rucio_admin import delete_config_option, get_config, set_config_option
-from rucio.cli.utils import Arguments
+import click
 
 
 @click.group()
@@ -27,9 +26,25 @@ def config():
 @click.option("-s", "--section", help="Filter by sections")
 @click.option("-k", "--key", help="Show key's value, section required.")
 @click.pass_context
-def list_(ctx: click.Context, section: str, key: str):
+def list_(ctx: click.Context, section: Optional[str], key: Optional[str]):
     """List the sections or content of sections in the rucio.cfg"""
-    get_config(Arguments({"no_pager": ctx.obj.no_pager, "section": section, "key": key}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    result = ctx.obj.client.get_config(section=section, option=key)
+    if not isinstance(result, dict):
+        print(f'[{section}]\n{key}={result}')
+    else:
+        print_header = True
+        for config_section, option in result.items():
+            if print_header:
+                if section is not None:
+                    print(f'[{section}]')
+                else:
+                    print(f'[{config_section}]')
+            if not isinstance(option, dict):
+                print(f'{section}={option}')
+                print_header = False
+            else:
+                for config_key, value in option.items():
+                    print(f'{config_key}={value}')
 
 
 @config.command("add")
@@ -51,8 +66,8 @@ def add_(ctx: click.Context, section: str, key: str, value: str):
             rucio config update --section {section} --key {key} --value {value}"
         raise ValueError(msg)
 
-    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key, "value": value})
-    set_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    ctx.obj.client.set_config_option(section=section, option=key, value=value)
+    print(f'Set configuration: {section}.{key}={value}')
 
 
 @config.command("remove")
@@ -61,8 +76,11 @@ def add_(ctx: click.Context, section: str, key: str, value: str):
 @click.pass_context
 def remove(ctx: click.Context, section: str, key: str):
     """Remove the section.key from the config."""
-    args = Arguments({"no_pager": ctx.obj.no_pager, "section": section, "option": key})
-    delete_config_option(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if ctx.obj.client.delete_config_option(section=section, option=key):
+        print(f"Deleted section '{section}' option '{key}'")
+    else:
+        msg = f"Section '{section}' option '{key}' not found"
+        raise ValueError(msg)
 
 
 # @config.command("show")
