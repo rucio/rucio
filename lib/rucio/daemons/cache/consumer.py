@@ -32,6 +32,7 @@ from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse_id
 from rucio.core.volatile_replica import add_volatile_replicas, delete_volatile_replicas
+from rucio.daemons.common import run_daemon_startup_checks
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 
@@ -183,6 +184,8 @@ def run(num_thread: int = 1) -> None:
     Starts up the rucio cache consumer thread
     """
     setup_logging(process_name=DAEMON_NAME)
+
+    run_daemon_startup_checks(executable=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException('Database was not updated, daemon won\'t start')

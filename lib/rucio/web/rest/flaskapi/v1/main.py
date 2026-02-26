@@ -21,6 +21,7 @@ from flask import Flask
 from rucio.common.config import config_get_list
 from rucio.common.exception import ConfigurationError
 from rucio.common.logging import setup_logging
+from rucio.common.startup_checks import run_startup_checks
 from rucio.web.rest.flaskapi.v1.common import CORSMiddleware
 
 if TYPE_CHECKING:
@@ -89,6 +90,7 @@ application = Flask(__name__)
 application.wsgi_app = CORSMiddleware(application.wsgi_app)
 apply_endpoints(application, endpoints)
 setup_logging(application)
+run_startup_checks(tags={'rest'}, logger=application.logger)
 
 
 if __name__ == '__main__':
