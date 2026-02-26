@@ -723,7 +723,10 @@ class TestAuthCoreAPIoidc:
         mock_jwt_dict.return_value = token_validate_dict
 
         # mocking the token response
-        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        access_token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsInByb3BZIjpmYWxzZX0."
+        access_token += "eyJpc3MiOiJodHRwczovL3Rlc3RfaXNzdWVyLyIsInN1YiI6Imtub3duc3ViIiwiYXVkIjoicnVjaW8iLCJpYXQiOjE3NzAzODA0NjAsImV4cCI6MTc3MDM4MTA2MCwicHJvcFkiOlt0cnVlXX0."
+        access_token += "dtJtd1slRaBdkUIQ4I6MsxFDebJ27PdTEQ3qLavAstIHWhu2AF_gUn4ratnGfeME-T4ltsnBG46Yf7s0SPMSkP76sDZTIhBucrk4jxPGyrgAuN9vaNMIn4WPs56zmNVLdbg5IMVPrqVh0qHqKnTHY-"
+        access_token += "QeCpyLySVmD8pLocAiPrW9IH2kFGjuSEBdzCZZsIG8CKDithlkcQyTXV_hOV7DJrEqJbEVU-QE-4_0l1WgX65vcMIvCJIrMWNDOEFIbzKvbhjRuHgWjgfWDtzQkRNI_o-5041mPs6f56ow5tWtrt73ChaQYb3be-JRYx2swv01lwVD9g6IFfn0rR0oIZKEPg"
         # trying to validate a token that does not exist in the Rucio DB
         value = validate_auth_token(access_token, session=self.db_session)
         # checking if validation went OK (we bypassed it with the dictionary above)
