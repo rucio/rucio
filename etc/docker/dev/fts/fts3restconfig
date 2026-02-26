@@ -19,6 +19,7 @@ Alias=rucio/fts
 MonitoringMessaging=false
 
 OAuth2 = True
+AllowNonManagedTokens = True
 
 [sqlalchemy]
 pool_timeout=10

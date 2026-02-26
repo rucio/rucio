@@ -999,9 +999,14 @@ class FTS3Transfertool(Transfertool):
         )
         return jobs
 
-    def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, str]) -> dict[str, Any]:
+    def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, Union[str, bool]]) -> dict[str, Any]:
         rws = transfer.rws
-        checksum_to_use = _pick_fts_checksum(transfer, path_strategy=job_params['verify_checksum'])
+        path_strategy = job_params.get('verify_checksum')
+
+        if isinstance(path_strategy, str):
+            checksum_to_use = _pick_fts_checksum(transfer, path_strategy=path_strategy)
+        else:
+            checksum_to_use = None
         t_file = {
             'sources': [transfer.source_url(s) for s in transfer.sources],
             'destinations': [transfer.dest_url],
@@ -1029,15 +1034,17 @@ class FTS3Transfertool(Transfertool):
 
         if self.token:
             t_file['source_tokens'] = []
+            unmanaged_token = config_get_bool('conveyor', 'fts_unmanaged_token', raise_exception=False, default=False)
+            extra_scopes = None if unmanaged_token else ['offline_access']
             for source in transfer.sources:
                 src_audience = determine_audience_for_rse(rse_id=source.rse.id)
-                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
+                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=extra_scopes)
                 t_file['source_tokens'].append(request_token(src_audience, src_scope))
 
             dst_audience = determine_audience_for_rse(transfer.dst.rse.id)
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
-            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
+            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=extra_scopes)
             t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
 
         if isinstance(self.scitags_exp_id, int):
@@ -1055,7 +1062,7 @@ class FTS3Transfertool(Transfertool):
 
         return t_file
 
-    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
+    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, Union[str, bool]], timeout: Optional[int] = None) -> str:
         """
         Submit transfers to FTS3 via JSON.
 
@@ -1081,6 +1088,10 @@ class FTS3Transfertool(Transfertool):
             job_params["sid"] = files[0]['metadata']['request_id']
             expected_transfer_id = self.__get_deterministic_id(job_params["sid"])
             self.logger(logging.DEBUG, "Submit bulk transfers in deterministic mode, sid %s, expected transfer id: %s", job_params["sid"], expected_transfer_id)
+        # add unmanaged token option if true
+        # this tells FTS not to refresh transfer tokens
+        if self.token and config_get_bool('conveyor', 'fts_unmanaged_token', raise_exception=False, default=False):
+            job_params['unmanaged_tokens'] = True
 
         # bulk submission
         params_dict = {'files': files, 'params': job_params}

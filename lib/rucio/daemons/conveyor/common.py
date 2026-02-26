@@ -21,7 +21,7 @@ import functools
 import itertools
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.config import config_get_bool
 from rucio.common.constants import DEFAULT_VO, RseAttr
@@ -393,7 +393,7 @@ def __create_missing_replicas_and_requests(
 def submit_transfer(
         transfertool_obj: "Transfertool",
         transfers: "Sequence[DirectTransfer]",
-        job_params: dict[str, str],
+        job_params: dict[str, Union[str, bool]],
         timeout: Optional[int] = None,
         logger: "LoggerFunction" = logging.log
 ) -> None:
@@ -431,7 +431,7 @@ def submit_transfer(
 def _submit_transfers(
         transfertool_obj: "Transfertool",
         transfers: "Sequence[DirectTransfer]",
-        job_params: dict[str, str],
+        job_params: dict[str, Union[str, bool]],
         timeout: Optional[int] = None,
         logger: "LoggerFunction" = logging.log
 ) -> None:
