@@ -26,7 +26,7 @@ from sqlalchemy.orm import aliased
 from rucio.common.config import config_get_bool
 from rucio.common.exception import RucioException, SubscriptionDuplicate, SubscriptionNotFound
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import RuleState, SubscriptionState
+from rucio.db.sqla.constants import SubscriptionState
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
 
 if TYPE_CHECKING:
@@ -282,27 +282,46 @@ def delete_subscription(subscription_id: str, *, session: "Session") -> None:
 def list_subscription_rule_states(
     name: Optional[str] = None,
     account: Optional["InternalAccount"] = None,
+    include_details: bool = False,
     *,
     session: "Session",
     logger: "LoggerFunction" = logging.log
-) -> "Iterator[tuple[InternalAccount, str, RuleState, int]]":
+) -> "Iterator[dict[str, Any]]":
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name:               Name of the subscription
     :param account:            Account identifier
+    :param include_details:    Include subscription metadata (state, last_processed, lifetime, expired_at, comments)
     :param session:            The database session in use.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
-    :returns:                  List with tuple (account, name, state, count)
+    :returns:                  Iterator of dictionaries with subscription rule state information
     """
     subscription = aliased(models.Subscription)
     rule = aliased(models.ReplicationRule)
-    # count needs a label to allow conversion to dict (label name can be changed)
-    stmt = select(
-        subscription.account,
-        subscription.name,
-        rule.state,
-        func.count().label('count')
-    ).join(
+
+    # Build SELECT clause conditionally
+    if include_details:
+        stmt = select(
+            subscription.account,
+            subscription.name,
+            rule.state,
+            func.count(rule.id).label('count'),
+            subscription.state.label('subscription_state'),
+            subscription.last_processed,
+            subscription.lifetime,
+            subscription.expired_at,
+            subscription.comments
+        )
+    else:
+        stmt = select(
+            subscription.account,
+            subscription.name,
+            rule.state,
+            func.count(rule.id).label('count')
+        )
+
+    # Use LEFT OUTER JOIN to include subscriptions without rules
+    stmt = stmt.outerjoin(
         rule,
         subscription.id == rule.subscription_id
     )
@@ -328,14 +347,27 @@ def list_subscription_rule_states(
         logger(logging.ERROR, str(error))
         raise RucioException(error.args)
 
-    stmt = stmt.group_by(
-        subscription.account,
-        subscription.name,
-        rule.state
-    )
+    # Build GROUP BY clause conditionally
+    if include_details:
+        stmt = stmt.group_by(
+            subscription.account,
+            subscription.name,
+            rule.state,
+            subscription.state,
+            subscription.last_processed,
+            subscription.lifetime,
+            subscription.expired_at,
+            subscription.comments
+        )
+    else:
+        stmt = stmt.group_by(
+            subscription.account,
+            subscription.name,
+            rule.state
+        )
 
     for row in session.execute(stmt).all():
-        yield row._tuple()
+        yield row._asdict()
 
 
 @read_session
