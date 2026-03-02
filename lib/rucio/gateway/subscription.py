@@ -201,14 +201,16 @@ def list_subscriptions(
 def list_subscription_rule_states(
     name: Optional[str] = None,
     account: Optional[str] = None,
+    include_details: bool = False,
     vo: str = DEFAULT_VO,
-) -> 'Iterator[SubscriptionRuleState]':
+) -> 'Iterator[Union[SubscriptionRuleState, dict[str, Any]]]':
     """Returns a list of with the number of rules per state for a subscription.
 
     :param name: Name of the subscription
     :param account: Account identifier
+    :param include_details: Include subscription metadata (state, last_processed, lifetime, expired_at, comments)
     :param vo: The VO to act on.
-    :returns: Sequence with SubscriptionRuleState named tuples (account, name, state, count)
+    :returns: Iterator of SubscriptionRuleState namedtuples (default) or dicts (when include_details=true)
     """
     if account is not None:
         internal_account = InternalAccount(account, vo=vo)
@@ -216,13 +218,25 @@ def list_subscription_rule_states(
         internal_account = InternalAccount('*', vo=vo)
 
     with db_session(DatabaseOperationType.READ) as session:
-        subs = subscription.list_subscription_rule_states(name, internal_account, session=session)
+        subs = subscription.list_subscription_rule_states(name, internal_account, include_details=include_details, session=session)
 
         for sub in subs:
-            # sub is an immutable Row so return new named tuple with edited entries
-            d = sub._asdict()
+            # sub is a dict from core layer
+            d = dict(sub)
+            # Externalize the internal account
             d['account'] = d['account'].external
-            yield SubscriptionRuleState(**d)
+
+            if include_details:
+                # Return dict with all details
+                yield d
+            else:
+                # Backward compatible: return namedtuple with only basic fields
+                yield SubscriptionRuleState(
+                    account=d['account'],
+                    name=d['name'],
+                    state=d['state'],
+                    count=d['count']
+                )
 
 
 def delete_subscription(
