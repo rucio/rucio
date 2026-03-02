@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import re
 from json import loads
 from json.decoder import JSONDecodeError
@@ -36,6 +37,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from sqlalchemy.orm import Session
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _exists(
@@ -119,7 +123,7 @@ def add_files(
         lfn_split = filename.split('/')
         lpns = ["/".join(lfn_split[:idx]) for idx in range(2, len(lfn_split))]
         lpns.reverse()
-        print(lpns)
+        LOGGER.info("Ensuring existence of parent collections for did %s: %s", filename, lpns)
 
         # The parent must be a dataset. Register it as well as the rule
         dsn_name = lpns[0]
@@ -141,7 +145,7 @@ def add_files(
         if exists and did_type == DIDType.CONTAINER:
             raise UnsupportedOperation('Cannot create %s as dataset' % dsn_name)
         if (dsn_name not in exist_lfn) and not exists:
-            print('Will create %s' % dsn_name)
+            LOGGER.info("Will create dataset %s", dsn_name)
             # to maintain a compatibility between master and LTS-1.26 branches remove keywords for first 3 arguments
             add_did(dsn_scope,
                     dsn_name,
@@ -208,7 +212,7 @@ def add_files(
             if exists and did_type == DIDType.DATASET:
                 raise UnsupportedOperation('Cannot create %s as container' % lpn)
             if (lpn not in exist_lfn) and not exists:
-                print('Will create %s' % lpn)
+                LOGGER.info("Will create container %s", lpn)
                 add_did(child_scope,
                         lpn,
                         DIDType.CONTAINER,
