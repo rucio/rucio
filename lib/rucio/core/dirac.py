@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import re
 from json import loads
 from json.decoder import JSONDecodeError
@@ -20,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy import and_, select
 from sqlalchemy.exc import NoResultFound
 
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_float
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import ConfigNotFound, InvalidType, RucioException, UnsupportedOperation
 from rucio.common.types import InternalAccount, InternalScope
@@ -97,14 +96,18 @@ def add_files(
     exist_lfn = []
     try:
         config_lifetime: str = config_get(section='dirac', option='lifetime', default='{}', session=session)
-        lifetime_dict: dict = loads(config_lifetime)
+        dataset_lifetime_config: dict = loads(config_lifetime)
     except ConfigNotFound:
-        lifetime_dict = {}
+        dataset_lifetime_config = {}
     except JSONDecodeError as err:
         raise InvalidType('Problem parsing lifetime option in dirac section : %s' % str(err))
     except Exception as err:
         raise RucioException(str(err))
 
+    try:
+        file_lifetime = config_get_float(section='dirac', option='file_lifetime', raise_exception=False, default=None, session=session)
+    except ValueError as err:
+        raise InvalidType('Problem parsing file_lifetime option in dirac section: %s' % str(err))
     for lfn in lfns:
         # First check if the file exists
         filename = lfn['lfn']
@@ -129,12 +132,12 @@ def add_files(
 
         # Compute lifetime
         lifetime = None
-        if dsn_scope in lifetime_dict:
-            lifetime = lifetime_dict[dsn_scope.external]
+        if dsn_scope in dataset_lifetime_config:
+            lifetime = dataset_lifetime_config[dsn_scope.external]
         else:
-            for pattern in lifetime_dict:
+            for pattern in dataset_lifetime_config:
                 if dsn_scope.external and re.match(pattern, str(dsn_scope.external)):
-                    lifetime = lifetime_dict[pattern]
+                    lifetime = dataset_lifetime_config[pattern]
                     break
 
         exists, did_type = _exists(scope=dsn_scope, name=dsn_name, session=session)
@@ -193,7 +196,7 @@ def add_files(
                  rse_expression=lfn['rse'],
                  grouping=None,
                  weight=None,
-                 lifetime=86400,
+                 lifetime=file_lifetime,
                  locked=None,
                  subscription_id=None,
                  session=session)
