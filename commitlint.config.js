@@ -103,6 +103,8 @@ const gitTrailerPlugin = {
 module.exports = {
   extends: ['@commitlint/config-conventional'],
   plugins: [gitTrailerPlugin],
+  // Allow release commits of the form "Release: 1.2.3" to bypass all rules
+  ignores: [(message) => /^Release: \d+\.\d+\.\d+/.test(message)],
   rules: {
     'type-enum': [2, 'always', rucioTypes], // Require a valid type
     'scope-enum': [2, 'always', rucioComponents], // Require a valid scope
