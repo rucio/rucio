@@ -1627,7 +1627,15 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
 @pytest.mark.needs_iam
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("file_config_mock", [
-    {"overrides": [('oidc', 'admin_issuer', 'indigoiam')]},
+    # Managed token case (default)
+    {"overrides": [
+        ('oidc', 'admin_issuer', 'indigoiam'),
+    ]},
+    # Unmanaged token case
+    {"overrides": [
+        ('oidc', 'admin_issuer', 'indigoiam'),
+        ('conveyor', 'fts_unmanaged_token', 'true')
+    ]},
 ], indirect=True)
 def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock):
     src_rse = 'WEB1'
