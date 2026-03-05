@@ -16,6 +16,7 @@ jobs:
     name: Build Runtime Images
     uses: ./.github/workflows/runtime_images.yml
     permissions:
+      contents: read
       packages: write
 
   setup:

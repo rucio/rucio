@@ -28,6 +28,7 @@ jobs:
     name: Build Runtime Images
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       packages: write
     outputs:
       py39_image: ${{ steps.set_outputs.outputs.py39_image }}
