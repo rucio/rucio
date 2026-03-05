@@ -15,6 +15,7 @@ jobs:
     name: Build Python 3.9 Runtime Image
     uses: ./.github/workflows/runtime_images.yml
     permissions:
+      contents: read
       packages: write
   setup:
     runs-on: ubuntu-latest
