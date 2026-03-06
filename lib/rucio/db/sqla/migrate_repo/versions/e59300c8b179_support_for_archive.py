@@ -12,14 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' support for archive '''
+""" support for archive """
 
 import datetime
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, create_foreign_key, create_index, create_primary_key, create_table, drop_column, drop_table
+from alembic.op import create_foreign_key
 
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    create_index,
+    create_primary_key,
+    create_table,
+    drop_column,
+    drop_table,
+    is_current_dialect,
+)
 from rucio.db.sqla.models import String
 from rucio.db.sqla.types import GUID
 
@@ -29,11 +37,11 @@ down_revision = '6e572a9bfbf3'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         create_table('archive_contents',
                      sa.Column('child_scope', String(25)),
                      sa.Column('child_name', String(255)),
@@ -77,28 +85,24 @@ def upgrade():
         create_index('ARCH_CONT_HIST_IDX', 'archive_contents_history',
                      ['scope', 'name'])
 
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
         add_column('dids', sa.Column('is_archive',
-                                     sa.Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True)),
-                   schema=schema)
+                                     sa.Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True)))
         add_column('dids', sa.Column('constituent',
-                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True)),
-                   schema=schema)
-        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()), schema=schema)
-        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()), schema=schema)
+                                     sa.Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True)))
+        add_column('deleted_dids', sa.Column('is_archive', sa.Boolean()))
+        add_column('deleted_dids', sa.Column('constituent', sa.Boolean()))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
         drop_table('archive_contents')
         drop_table('archive_contents_history')
 
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('dids', 'is_archive', schema=schema)
-        drop_column('dids', 'constituent', schema=schema)
-        drop_column('deleted_dids', 'is_archive', schema=schema)
-        drop_column('deleted_dids', 'constituent', schema=schema)
+        drop_column('dids', 'is_archive')
+        drop_column('dids', 'constituent')
+        drop_column('deleted_dids', 'is_archive')
+        drop_column('deleted_dids', 'constituent')

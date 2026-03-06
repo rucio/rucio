@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Opendata Record ID"""  # noqa: D400, D415
+""" Opendata Record ID """
 
 import sqlalchemy as sa
-from alembic import op
 
 from rucio.common.schema import get_schema_value
+from rucio.db.sqla.migrate_repo import (
+    create_index,
+    create_table,
+    drop_table,
+    try_drop_index,
+)
 
 # Alembic revision identifiers
 revision = 'a7e76cf4881d'
@@ -25,7 +30,7 @@ down_revision = 'a62db546a1f1'
 
 
 def upgrade():
-    op.create_table(
+    create_table(
         'dids_opendata_record',
         sa.Column('scope', sa.String(length=get_schema_value('SCOPE_LENGTH')), nullable=False),
         sa.Column('name', sa.String(length=get_schema_value('NAME_LENGTH')), nullable=False),
@@ -36,11 +41,11 @@ def upgrade():
         sa.ForeignKeyConstraint(['scope', 'name'], ['dids_opendata.scope', 'dids_opendata.name'],
                                 ondelete='CASCADE', name='OPENDATA_RECORD_FK')
     )
-    op.create_index('OPENDATA_RECORD_CREATED_AT_IDX', 'dids_opendata_record', ['created_at'])
-    op.create_index('OPENDATA_RECORD_UPDATED_AT_IDX', 'dids_opendata_record', ['updated_at'])
+    create_index('OPENDATA_RECORD_CREATED_AT_IDX', 'dids_opendata_record', ['created_at'])
+    create_index('OPENDATA_RECORD_UPDATED_AT_IDX', 'dids_opendata_record', ['updated_at'])
 
 
 def downgrade():
-    op.drop_index('OPENDATA_RECORD_CREATED_AT_IDX', table_name='dids_opendata_record')
-    op.drop_index('OPENDATA_RECORD_UPDATED_AT_IDX', table_name='dids_opendata_record')
-    op.drop_table('dids_opendata_record')
+    try_drop_index('OPENDATA_RECORD_CREATED_AT_IDX', 'dids_opendata_record')
+    try_drop_index('OPENDATA_RECORD_UPDATED_AT_IDX', 'dids_opendata_record')
+    drop_table('dids_opendata_record')

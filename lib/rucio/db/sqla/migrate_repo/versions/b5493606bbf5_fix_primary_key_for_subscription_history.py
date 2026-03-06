@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' Fix primary key for subscription_history '''
+""" Fix primary key for subscription_history """
 
-
-from alembic import context
-from alembic.op import create_primary_key, drop_constraint
+from rucio.db.sqla.migrate_repo import (
+    create_primary_key,
+    is_current_dialect,
+    try_drop_primary_key,
+)
 
 # Alembic revision identifiers
 revision = 'b5493606bbf5'
@@ -24,18 +26,26 @@ down_revision = 'a08fa8de1545'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint(constraint_name='SUBSCRIPTIONS_PK', table_name='subscriptions_history', type_='primary')
+    """
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        try_drop_primary_key(
+            'subscriptions_history',
+            legacy_names=('SUBSCRIPTIONS_PK', 'SUBSCRIPTIONS_HISTORY_PK', 'subscriptions_history_pk', 'subscriptions_history_pkey'),
+        )
         create_primary_key('SUBSCRIPTIONS_HISTORY_PK', 'subscriptions_history', ['id', 'updated_at'])
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        drop_constraint(constraint_name='SUBSCRIPTIONS_HISTORY_PK', table_name='subscriptions_history', type_='primary')
+    """
+
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        try_drop_primary_key(
+            'subscriptions_history',
+            legacy_names=('SUBSCRIPTIONS_HISTORY_PK', 'SUBSCRIPTIONS_PK', 'subscriptions_history_pk', 'subscriptions_history_pkey'),
+        )
         create_primary_key('SUBSCRIPTIONS_PK', 'subscriptions_history', ['id', 'updated_at'])

@@ -15,8 +15,11 @@
 """${message}"""    # noqa: D400, D415
 
 import sqlalchemy as sa
-from alembic import context
 from alembic.op import execute
+from rucio.db.sqla.migrate_repo import (
+    get_effective_schema,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = ${repr(up_revision)}
@@ -25,23 +28,23 @@ down_revision = ${repr(down_revision)}
 
 def upgrade():
     """Upgrade the database to this revision."""
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         pass
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         pass
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         pass
 
 
 def downgrade():
     """Downgrade the database to the previous revision."""
-    schema = context.get_context().version_table_schema + '.' if context.get_context().version_table_schema else ''
+    schema = get_effective_schema()
 
-    if context.get_context().dialect.name == 'oracle':
+    if is_current_dialect('oracle'):
         pass
-    elif context.get_context().dialect.name == 'postgresql':
+    elif is_current_dialect('postgresql'):
         pass
-    elif context.get_context().dialect.name == 'mysql':
+    elif is_current_dialect('mysql'):
         pass

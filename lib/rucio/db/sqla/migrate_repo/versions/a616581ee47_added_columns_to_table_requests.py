@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' added columns to table requests '''
+""" added columns to table requests """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import add_column, drop_column
 
+from rucio.db.sqla.migrate_repo import (
+    add_column,
+    drop_column,
+    is_current_dialect,
+)
 from rucio.db.sqla.models import String
 
 # Alembic revision identifiers
@@ -26,34 +29,32 @@ down_revision = '2854cd9e168'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('requests', sa.Column('bytes', sa.BigInteger), schema=schema)
-        add_column('requests', sa.Column('md5', String(32)), schema=schema)
-        add_column('requests', sa.Column('adler32', String(8)), schema=schema)
-        add_column('requests', sa.Column('dest_url', String(2048)), schema=schema)
-        add_column('requests_history', sa.Column('bytes', sa.BigInteger), schema=schema)
-        add_column('requests_history', sa.Column('md5', String(32)), schema=schema)
-        add_column('requests_history', sa.Column('adler32', String(8)), schema=schema)
-        add_column('requests_history', sa.Column('dest_url', String(2048)), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        add_column('requests', sa.Column('bytes', sa.BigInteger))
+        add_column('requests', sa.Column('md5', String(32)))
+        add_column('requests', sa.Column('adler32', String(8)))
+        add_column('requests', sa.Column('dest_url', String(2048)))
+        add_column('requests_history', sa.Column('bytes', sa.BigInteger))
+        add_column('requests_history', sa.Column('md5', String(32)))
+        add_column('requests_history', sa.Column('adler32', String(8)))
+        add_column('requests_history', sa.Column('dest_url', String(2048)))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        drop_column('requests', 'bytes', schema=schema)
-        drop_column('requests', 'md5', schema=schema)
-        drop_column('requests', 'adler32', schema=schema)
-        drop_column('requests', 'dest_url', schema=schema)
-        drop_column('requests_history', 'bytes', schema=schema)
-        drop_column('requests_history', 'md5', schema=schema)
-        drop_column('requests_history', 'adler32', schema=schema)
-        drop_column('requests_history', 'dest_url', schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        drop_column('requests', 'bytes')
+        drop_column('requests', 'md5')
+        drop_column('requests', 'adler32')
+        drop_column('requests', 'dest_url')
+        drop_column('requests_history', 'bytes')
+        drop_column('requests_history', 'md5')
+        drop_column('requests_history', 'adler32')
+        drop_column('requests_history', 'dest_url')

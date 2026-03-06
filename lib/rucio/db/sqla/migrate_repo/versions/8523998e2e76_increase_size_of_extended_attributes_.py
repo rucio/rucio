@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' increase size of extended_attributes column '''
+""" increase size of extended_attributes column """
 
 import sqlalchemy as sa
-from alembic import context
-from alembic.op import alter_column
+
+from rucio.db.sqla.migrate_repo import (
+    alter_column,
+    is_current_dialect,
+)
 
 # Alembic revision identifiers
 revision = '8523998e2e76'
@@ -24,20 +27,18 @@ down_revision = '7ec22226cdbf'
 
 
 def upgrade():
-    '''
+    """
     Upgrade the database to this revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(1024), type_=sa.String(4000))
 
 
 def downgrade():
-    '''
+    """
     Downgrade the database to the previous revision
-    '''
+    """
 
-    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024), schema=schema)
+    if is_current_dialect('oracle', 'mysql', 'postgresql'):
+        alter_column('rse_protocols', 'extended_attributes', existing_type=sa.String(4000), type_=sa.String(1024))
