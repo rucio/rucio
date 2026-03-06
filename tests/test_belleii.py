@@ -19,17 +19,24 @@ from belleii_rucio_policy_package.schema import validate_schema
 
 from rucio.common.exception import InvalidObject
 from rucio.common.utils import extract_scope, generate_uuid
+from rucio.core.config import remove_option
 from rucio.core.config import set as config_set
 from rucio.tests.common import did_name_generator, skip_non_belleii
 
 
 @skip_non_belleii
-def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
+@pytest.mark.parametrize("file_lifetime", [86400.0, None])
+def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client, file_lifetime):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
     nbfiles = 5
     rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
     rse_client.add_rse_attribute(rse=rse1, key='ANY', value='True')
     config_set('dirac', 'lifetime', '{"user.*": 2592400}')
+
+    if file_lifetime is not None:
+        config_set('dirac', 'file_lifetime', file_lifetime)
+    else:
+        remove_option('dirac', 'file_lifetime')
 
     # Create replicas on rse1 using addfile in mock scope (not lifetime)
     lfns = [{'lfn': did_name_generator('file'), 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid()} for _ in range(nbfiles)]
@@ -66,7 +73,11 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
         rules = [rule for rule in did_client.list_did_rules(scope, name)]
         assert len(rules) == 1
         assert rules[0]['rse_expression'] == rse1
-        assert (rules[0]['expires_at'] - datetime.utcnow()).seconds < 86400
+
+        if file_lifetime is not None:
+            assert (rules[0]['expires_at'] - datetime.utcnow()).seconds < file_lifetime
+        else:
+            assert rules[0]['expires_at'] is None
 
     # Create replicas on rse1 using addfile in user scope (30 days lifetime)
     lfns = [{'lfn': did_name_generator('file', name_prefix='user'), 'rse': rse1, 'bytes': 1, 'adler32': '0cc737eb', 'guid': generate_uuid()} for _ in range(nbfiles)]
