@@ -1093,6 +1093,44 @@ def parse_replicas_from_file(path: "FileDescriptorOrPath") -> Any:
                 raise MetalinkJsonParsingError(path, xml_err, json_err)
 
 
+def parse_lifetime(lifetime_str: str) -> Optional[int]:
+    """
+    Parses a lifetime string into seconds. Supports h, d, w, mo, y.
+    Default (numerical only) is interpreted as seconds.
+
+    :param lifetime_str: String containing the lifetime and unit.
+    :return: Lifetime as an integer in seconds.
+    """
+    if not lifetime_str:
+        return None
+
+    # Backward Compatibility: If it's just numbers, it's seconds [cite: 2026-02-12]
+    if str(lifetime_str).isdigit():
+        return int(lifetime_str)
+
+    # Regex to capture the number and the unit (h, d, w, mo, y) [cite: 2026-02-12]
+    match = re.match(r"^(\d+)([a-zA-Z]+)$", str(lifetime_str))
+    if not match:
+        raise ValueError(f"Invalid lifetime format: {lifetime_str}")
+
+    value = int(match.group(1))
+    unit = match.group(2).lower()
+
+    # Multipliers for different time units [cite: 2026-02-12, 2026-02-08]
+    multipliers = {
+        'h': 3600,        # hours to seconds
+        'd': 86400,       # days to seconds
+        'w': 604800,      # weeks to seconds
+        'mo': 2592000,    # months to seconds (30 days)
+        'y': 31536000     # years to seconds (365 days)
+    }
+
+    if unit not in multipliers:
+        raise ValueError(f"Unsupported time unit: {unit}. Supported units: h, d, w, mo, y")
+
+    return value * multipliers[unit]
+
+
 def parse_replicas_from_string(string: str) -> Any:
     """
     Parses the output of list_replicas from a json or metalink string

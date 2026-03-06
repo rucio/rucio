@@ -53,7 +53,7 @@ from rucio.common.exception import (
 )
 from rucio.common.extra import import_extras
 from rucio.common.test_rucio_server import TestRucioServer
-from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
+from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, parse_did_filter_from_string, parse_did_filter_from_string_fe, parse_lifetime, setup_logger, sizefmt
 
 if TYPE_CHECKING:
     from rucio.common.types import FileToUploadDict
@@ -2515,7 +2515,7 @@ You can filter by key/value, e.g.::
     add_rule_parser.add_argument(dest='copies', action='store', type=int, help='Number of copies')
     add_rule_parser.add_argument(dest='rse_expression', action='store', help='RSE Expression')
     add_rule_parser.add_argument('--weight', dest='weight', action='store', help='RSE Weight')
-    add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=int, help='Rule lifetime (in seconds)')
+    add_rule_parser.add_argument('--lifetime', dest='lifetime', action='store', type=parse_lifetime, help='Rule lifetime. Can be an integer (seconds) or a string with units: h (hours), d (days), w (weeks), mo (months/30 days), y (years/365 days).')
     add_rule_parser.add_argument('--grouping', dest='grouping', action='store', choices=['DATASET', 'ALL', 'NONE'], help='Rule grouping')
     add_rule_parser.add_argument('--locked', dest='locked', action='store_true', help='Rule locking')
     add_rule_parser.add_argument('--source-replica-expression', dest='source_replica_expression', action='store', help='RSE Expression for RSEs to be considered for source replicas')
