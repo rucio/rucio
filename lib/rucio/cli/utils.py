@@ -27,7 +27,7 @@ from typing import Optional, Union
 import click
 
 from rucio.client.client import Client
-from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.exception import (
     AccessDenied,
     CannotAuthenticate,
@@ -125,7 +125,7 @@ def exception_handler(function):
             if "x-rucio-auth-token" in str(error):
                 used_account = None
                 try:  # get the configured account from the configuration file
-                    used_account = "%s (from rucio.cfg)" % config_get("client", "account")
+                    used_account = "%s (from rucio.cfg)" % Config.client.account()
                 except Exception:
                     pass
                 try:  # are we overriden by the environment?
@@ -136,7 +136,7 @@ def exception_handler(function):
 
             else:
                 logger.debug(traceback.format_exc())
-                contact = config_get("policy", "support", raise_exception=False)
+                contact = Config.policy.support(raise_exception=False)
                 support = ("Please follow up with all relevant information at: " + contact) if contact else ""
                 logger.error("\nThe object is missing this property: %s\n" 'This should never happen. Please rerun the last command with the "-v" option to gather more information.\n' "%s" % (str(error), support))
             return FAILURE
@@ -155,9 +155,9 @@ def exception_handler(function):
                 return SUCCESS
             logger.debug(traceback.format_exc())
             logger.error(error)
-            contact = config_get("policy", "support", raise_exception=False)
+            contact = Config.policy.support(raise_exception=False)
             support = ("If it's a problem concerning your experiment or if you're unsure what to do, please follow up at: %s\n" % contact) if contact else ""
-            contact = config_get("policy", "support_rucio", default="https://github.com/rucio/rucio/issues")
+            contact = Config.policy.support_rucio()
             support += "If you're sure there is a problem with Rucio itself, please follow up at: " + contact
             logger.error("\nRucio exited with an unexpected/unknown error.\n" 'Please rerun the last command with the "-v" option to gather more information.\n' "%s" % support)
             return FAILURE
@@ -180,7 +180,7 @@ def get_client(args, logger):
             auth_type = os.environ["RUCIO_AUTH_TYPE"].lower()
         else:
             try:
-                auth_type = config_get("client", "auth_type").lower()
+                auth_type = Config.client.auth_type().lower()
             except (NoOptionError, NoSectionError):
                 logger.error("Cannot get AUTH_TYPE")
                 sys.exit(1)
