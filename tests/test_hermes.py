@@ -16,10 +16,12 @@
 Hermes Test
 """
 
+import logging
+import logging.handlers
 import time
 from datetime import datetime
 from json import loads
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -300,3 +302,135 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
 
     # Checking email
     assert service_dict["email"] == 0
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize(
+    "core_config_mock",
+    [
+        {
+            "table_content": [
+                ("hermes", "services_list", "syslog"),
+                ("messaging-hermes", "syslog_address", "/dev/log"),
+                ("messaging-hermes", "syslog_socktype", "SOCK_DGRAM"),
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "caches_mock",
+    [
+        {
+            "caches_to_mock": [
+                "rucio.core.config.REGION",
+            ]
+        }
+    ],
+    indirect=True,
+)
+def test_hermes_syslog(core_config_mock, caches_mock):
+    """HERMES (DAEMON): Test syslog message delivery."""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+    nb_messages = 3
+
+    # Mock the SysLogHandler
+    with patch('logging.handlers.SysLogHandler') as mock_syslog_handler:
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.level = logging.INFO
+        mock_syslog_handler.return_value = mock_handler_instance
+
+        # Create messages - will be automatically assigned to syslog service
+        for i in range(nb_messages):
+            message = {
+                "bytes": 100 + i,
+                "rse": mock_rse,
+                "scope": "test",
+                "name": f"file_{i}",
+                "created_at": datetime.utcnow().replace(microsecond=0),
+            }
+            add_message("transfer-done", message)
+
+        # Verify messages were added
+        messages = retrieve_messages(50, old_mode=False)
+        service_dict = {"syslog": 0}
+        for message in messages:
+            if message["services"] == "syslog":
+                service_dict["syslog"] += 1
+        assert service_dict["syslog"] == nb_messages
+
+        # Run Hermes
+        hermes.hermes(once=True)
+
+        # Verify SysLogHandler was created with correct parameters
+        mock_syslog_handler.assert_called_once()
+        call_kwargs = mock_syslog_handler.call_args[1]
+        assert call_kwargs["facility"] == logging.handlers.SysLogHandler.LOG_USER
+
+        # Verify messages were delivered and deleted
+        messages = retrieve_messages(50, old_mode=False)
+        service_dict = {"syslog": 0}
+        for message in messages:
+            if message["services"] == "syslog":
+                service_dict["syslog"] += 1
+        assert service_dict["syslog"] == 0
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize(
+    "core_config_mock",
+    [
+        {
+            "table_content": [
+                ("hermes", "services_list", "syslog"),
+                ("messaging-hermes", "syslog_address", "localhost:514"),
+                ("messaging-hermes", "syslog_socktype", "SOCK_STREAM"),
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "caches_mock",
+    [
+        {
+            "caches_to_mock": [
+                "rucio.core.config.REGION",
+            ]
+        }
+    ],
+    indirect=True,
+)
+def test_hermes_syslog_tcp(core_config_mock, caches_mock):
+    """HERMES (DAEMON): Test syslog message delivery with TCP socket."""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+
+    with patch('logging.handlers.SysLogHandler') as mock_syslog_handler:
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.level = logging.INFO
+        mock_syslog_handler.return_value = mock_handler_instance
+
+        # Create a message - will be automatically assigned to syslog service
+        message = {
+            "bytes": 1000,
+            "rse": mock_rse,
+            "scope": "test",
+            "name": "file_tcp",
+            "created_at": datetime.utcnow().replace(microsecond=0),
+        }
+        add_message("deletion-done", message)
+
+        # Run Hermes
+        hermes.hermes(once=True)
+
+        # Verify SysLogHandler was created with TCP socket type and parsed address
+        mock_syslog_handler.assert_called_once()
+        call_kwargs = mock_syslog_handler.call_args[1]
+        assert call_kwargs["address"] == ("localhost", 514)
+
+        # Verify messages were deleted
+        messages = retrieve_messages(50, old_mode=False)
+        syslog_messages = [m for m in messages if m["services"] == "syslog"]
+        assert len(syslog_messages) == 0

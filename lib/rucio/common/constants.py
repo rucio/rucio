@@ -111,6 +111,7 @@ class HermesService(str, enum.Enum):
     ELASTIC = "ELASTIC"
     EMAIL = "EMAIL"
     ACTIVEMQ = "ACTIVEMQ"
+    SYSLOG = "SYSLOG"
 
 
 class RseAttr:
