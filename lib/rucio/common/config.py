@@ -722,16 +722,6 @@ def get_config_dirs() -> list[str]:
     return configdirs
 
 
-def get_lfn2pfn_algorithm_default() -> str:
-    """Returns the default algorithm name for LFN2PFN translation for this server."""
-    default_lfn2pfn = "hash"
-    try:
-        default_lfn2pfn = config_get('policy', 'lfn2pfn_algorithm_default')
-    except (configparser.NoOptionError, configparser.NoSectionError, ConfigNotFound, RuntimeError):
-        pass
-    return default_lfn2pfn
-
-
 def get_rse_credentials(path_to_credentials_file: Optional[Union[str, os.PathLike]] = None) -> dict[str, Any]:
     """ Returns credentials for RSEs. """
 
