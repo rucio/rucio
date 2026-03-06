@@ -13,9 +13,11 @@
 # limitations under the License.
 
 """
-Abacus-RSE is a daemon to update RSE counters.
+This is a daemon to update RSE counters for deletable and obsolete replicas. The type of replica counted is determined
+by obsolete variable.
 """
 
+import functools
 import logging
 import threading
 import time
@@ -25,7 +27,7 @@ import rucio.db.sqla.util
 from rucio.common import exception
 from rucio.common.logging import setup_logging
 from rucio.core.rse import list_rses
-from rucio.core.rse_counter_obsolete import check_obsolete_replicas
+from rucio.core.rse_counter_expired import check_deletable_replicas, check_obsolete_replicas
 from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
@@ -33,11 +35,12 @@ if TYPE_CHECKING:
     from typing import Optional
 
 graceful_stop = threading.Event()
-DAEMON_NAME = 'abacus-rse-obsolete'
+DAEMON_NAME = 'abacus-rse-deletable'
 
 
 def rse_update(
         once: bool = False,
+        obsolete: bool = False,
         sleep_time: int = 3600
 ) -> None:
     """
@@ -49,12 +52,16 @@ def rse_update(
         executable=DAEMON_NAME,
         partition_wait_time=1,
         sleep_time=sleep_time,
-        run_once_fnc=run_once,
+        run_once_fnc=functools.partial(
+            run_once,
+            obsolete=obsolete,
+        ),
     )
 
 
 def run_once(
         heartbeat_handler: HeartbeatHandler,
+        obsolete: bool,
         **_kwargs: object
 ) -> None:
 
@@ -65,8 +72,11 @@ def run_once(
         if graceful_stop.is_set():
             break
         start = time.time()
-        check_obsolete_replicas(rse['id'])
-        logger(logging.DEBUG, 'Obsolete replica backlog query for RSE %s took %f s.' % (rse['id'], time.time() - start))
+        if obsolete:
+            check_obsolete_replicas(rse['id'])
+        else:
+            check_deletable_replicas(rse['id'])
+        logger(logging.DEBUG, '%s replica backlog query for RSE %s took %f s.' % ('Expired' if not obsolete else 'Obsolete', rse['id'], time.time() - start))
 
     logger(logging.DEBUG, 'update of all RSEs took %f s.' % (time.time() - start_time))
 
@@ -81,11 +91,15 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
 
 def run(
         once: bool = False,
+        obsolete: bool = False,
         sleep_time: int = 3600
 ) -> None:
     """
-    Starts up the Abacus-RSE threads.
+    Starts up the Abacus-RSE deletable/obsolete threads.
     """
+    global DAEMON_NAME
+    if obsolete:
+        DAEMON_NAME = 'abacus-rse-obsolete'
     setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
@@ -93,12 +107,12 @@ def run(
 
     if once:
         logging.info('main: executing one iteration only')
-        rse_update(once)
+        rse_update(once, obsolete=obsolete)
     else:
         logging.info('main: starting the RSE usage thread')
-        thread_list = [threading.Thread(target=rse_update, kwargs={'once': once, 'sleep_time': sleep_time})]
-        [t.start() for t in thread_list]
+        thread = threading.Thread(target=rse_update, kwargs={'once': once, 'obsolete': obsolete, 'sleep_time': sleep_time})
+        thread.start()
         logging.info('main: waiting for interrupts')
         # Interruptible joins require a timeout.
-        while thread_list[0].is_alive():
-            [t.join(timeout=3.14) for t in thread_list]
+        while thread.is_alive():
+            thread.join(timeout=3.14)
