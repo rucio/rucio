@@ -14,22 +14,23 @@
 # limitations under the License.
 
 """
-Abacus rse is a daemon to update rse counters.
+Abacus rse is a daemon to update rse counters. This script can run independently 2 daemons, one for expired and one for OBSOLETE replicas.
 """
 
 import argparse
 import signal
 
-from rucio.daemons.abacus.rse_obsolete import run, stop
+from rucio.daemons.abacus.rse_expired import run, stop
 
 
 def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="The abacus-rse-obsolete daemon is responsible for updating the 'obsolete' RSE usage counter", formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="The abacus-rse-obsolete daemon is responsible for updating the 'expired' or 'obsolete' RSE usage counter", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run-once", action="store_true", default=False, help='One iteration only')
-    parser.add_argument('--sleep-time', action="store", default=3600, type=int, help='thread sleep time after each chunk of work (there is only one OBSOLETE replica thread)')
+    parser.add_argument('--sleep-time', action="store", default=3600, type=int, help='Thread sleep time after each chunk of work (there is only one OBSOLETE replica thread)')
+    parser.add_argument('--obsolete', action="store_true", default=False, help='Count obsolete replicas rather than expired ones')
     return parser
 
 
@@ -39,6 +40,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     try:
-        run(once=args.run_once, sleep_time=args.sleep_time)
+        run(once=args.run_once, obsolete=args.obsolete, sleep_time=args.sleep_time)
     except KeyboardInterrupt:
         stop()
