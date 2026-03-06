@@ -33,6 +33,7 @@ from rucio.client.client import Client
 from rucio.common.checksum import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
@@ -243,6 +244,7 @@ class DownloadClient:
                 logger=self.logger,
             )
         )
+        self.extract_scope_convention = Config.common.extract_scope(raise_exception=False)
 
     def download_pfns(
         self,
