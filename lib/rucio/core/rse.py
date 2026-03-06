@@ -1087,33 +1087,34 @@ def get_rses_with_attribute_value(
     return result
 
 
+# The ignores on the following overloads are for variables not being accepted as types
 @overload
-def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True, *, session: "Session") -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+def get_rse_attribute(rse_id: str, key: Union[Literal['sign_url'], type[RseAttr.SIGN_URL]], use_cache: bool = True, *, session: "Session") -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:  # type: ignore
     ...
 
 
 @overload
-def get_rse_attribute(rse_id: str, key: Literal['sign_url'], use_cache: bool = True) -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:
+def get_rse_attribute(rse_id: str, key: Union[Literal['sign_url'], type[RseAttr.SIGN_URL]], use_cache: bool = True) -> Optional[SUPPORTED_SIGN_URL_SERVICES_LITERAL]:  # type: ignore
     ...
 
 
 @overload
-def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True) -> Optional[str]:
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True) -> Optional[str]:  # type: ignore
     ...
 
 
 @overload
-def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True, *, session: "Session") -> Optional[str]:
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_STR', use_cache: bool = True, *, session: "Session") -> Optional[str]:  # type: ignore
     ...
 
 
 @overload
-def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True) -> Optional[bool]:
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True) -> Optional[bool]:  # type: ignore
     ...
 
 
 @overload
-def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True, *, session: "Session") -> Optional[bool]:
+def get_rse_attribute(rse_id: str, key: 'RSE_ATTRS_BOOL', use_cache: bool = True, *, session: "Session") -> Optional[bool]:  # type: ignore
     ...
 
 
