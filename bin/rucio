@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional
 from rucio.cli.bin_legacy.rucio import get_parser
 from rucio.cli.bin_legacy.rucio import main as main_legacy
 from rucio.cli.command import main
-from rucio.common.config import clean_cached_config, config_get
+from rucio.common.config import clean_cached_config, config_get, config_get_list
 from rucio.common.utils import setup_logger
 
 if TYPE_CHECKING:
@@ -119,7 +119,7 @@ def run_command(args, use_multi_host_functionality):
             else:
                 sys.argv = ["rucio", "-h"]
 
-                main(standalone_mode=not use_multi_host_functionality)  # pylint: disable=E1120
+            main(standalone_mode=not use_multi_host_functionality)  # pylint: disable=E1120
 
 
 if __name__ == "__main__":
@@ -140,21 +140,21 @@ if __name__ == "__main__":
         sys.argv.pop(sys.argv.index('--legacy'))
         main_legacy()
     else:
-        mutli_ri_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
-        use_multi_ri = False
+        multi_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
+        use_multi_host = False
         if "--config" not in sys.argv:
             for arg in sys.argv:
-                if arg in [x.strip() for x in mutli_ri_commands.split(',')]:
-                    use_multi_ri = True
+                if arg in [x.strip() for x in multi_host_commands.split(',')]:
+                    use_multi_host = True
 
-    if use_multi_ri:
-        multi_ri_servers = config_get('client', 'multi_host_servers')
-        for host in [x.strip() for x in multi_ri_servers.split(',')]:
-            config = config_get(host, 'config_file')
-            clean_cached_config()
-            os.environ['RUCIO_CONFIG'] = config
-            print('Result from {}.'.format(host))
+        if use_multi_host:
+            multi_host_servers = config_get_list('client', 'multi_host_servers')
+            for host in multi_host_servers:
+                config = config_get(host, 'config_file')
+                clean_cached_config()
+                os.environ['RUCIO_CONFIG'] = config
+                print('Result from {}.'.format(host))
 
-            run_command(args, use_multi_ri)
-    else:
-        run_command(args, use_multi_ri)
+                run_command(args, use_multi_host)
+        else:
+            run_command(args, use_multi_host)
