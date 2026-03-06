@@ -1800,7 +1800,11 @@ def list_account_usage(args, client, logger, console, spinner):
         spinner.update(status='Fetching account usage')
         spinner.start()
 
-    usage = client.get_local_account_usage(account=args.usage_account, rse=args.rse)
+    usage = client.get_local_account_usage(
+        account=args.usage_account,
+        rse=args.rse,
+        unique=args.unique
+    )
     table_data = []
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
@@ -2501,6 +2505,7 @@ You can filter by key/value, e.g.::
     list_account_usage_parser.set_defaults(function=list_account_usage)
     list_account_usage_parser.add_argument(dest='usage_account', action='store', help='Account name.')
     list_account_usage_parser.add_argument('--rse', action='store', help='Show usage for only for this RSE.')
+    list_account_usage_parser.add_argument('--unique', action='store_true', default=False, help='Count unique replicas to avoid double-counting when multiple locks exist.')
 
     # The list-account-limits subparser
     list_account_limits_parser = subparsers.add_parser('list-account-limits', help='List quota limits for an account in every RSEs.')
