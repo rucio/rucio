@@ -858,19 +858,40 @@ def test_rule(rucio_client, mock_scope):
     assert len(out.split("\n")) == 3  # Creates two rules with independent IDs and one extra line at the end
 
 
-def test_scope():
-    new_scope = scope_name_generator()
-    cmd = f"rucio scope add {new_scope} --account root"
+def test_scope(rucio_client, scope_factory, random_account_factory, jdoe_account, vo):
+    scope = scope_name_generator()
+    account = random_account_factory().external
+    cmd = f"rucio scope add {scope} --account {account}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
 
-    cmd = "rucio scope list --account root"
+    cmd = f"rucio scope list --account {account}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
-    # assert new_scope in out
-    # See issue https://github.com/rucio/rucio/issues/7316
+    assert scope in out
+
+    cmd = f"rucio scope list --account {jdoe_account}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert scope not in out
+
+    cmd = "rucio scope list"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert scope in out
+    assert account in out
+
+    new_scope, _ = scope_factory(vos=[vo], account_name=account)
+    new_account = random_account_factory().external
+    cmd = f"rucio scope update {new_scope} --account {new_account}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert new_scope in rucio_client.list_scopes_for_account(new_account)
 
 
 def test_subscription(rucio_client, mock_scope, random_account, did_factory):
