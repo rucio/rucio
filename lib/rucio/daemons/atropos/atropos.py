@@ -33,7 +33,8 @@ from rucio.core.rse import get_rse_name, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rules_beyond_eol, update_rule
 from rucio.daemons.common import run_daemon
-from rucio.db.sqla.constants import LifetimeExceptionsState
+from rucio.db.sqla.constants import DatabaseOperationType, LifetimeExceptionsState
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -125,7 +126,8 @@ def run_once(
 
             # We compute the expected eol_at
             try:
-                rses = parse_expression(rule.rse_expression, filter_={'vo': rule.account.vo})
+                with db_session(DatabaseOperationType.READ) as session:
+                    rses = parse_expression(rule.rse_expression, filter_={'vo': rule.account.vo}, session=session)
             except InvalidRSEExpression:
                 logger(logging.WARNING, 'Rule %s has an RSE expression that results in an empty set: %s', rule.id, rule.rse_expression)
                 continue
