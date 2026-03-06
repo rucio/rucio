@@ -26,7 +26,7 @@ from collections.abc import Sized
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from sqlalchemy import and_, delete, exists, insert, or_, select, update
+from sqlalchemy import and_, delete, exists, insert, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, false, func, null, true
@@ -517,7 +517,8 @@ def list_and_mark_transfer_requests_and_source_replicas(
         models.Request.created_at,
         models.Request.requested_at,
         models.Request.priority,
-        models.Request.transfertool
+        models.Request.transfertool,
+        models.UpdatedRequest.id.label('updated_request_id')
     ).with_hint(
         models.Request,
         'INDEX(REQUESTS REQUESTS_TYP_STA_UPD_IDX)',
@@ -544,6 +545,10 @@ def list_and_mark_transfer_requests_and_source_replicas(
         models.TransferHop.next_hop_request_id == models.Request.id
     ).where(
         models.TransferHop.next_hop_request_id == null()
+    ).outerjoin(
+        models.UpdatedRequest,
+        and_(models.UpdatedRequest.request_id == models.Request.id,
+             models.UpdatedRequest.state == RequestState.CANCELLING)
     ).order_by(
         models.Request.created_at
     )
@@ -608,6 +613,7 @@ def list_and_mark_transfer_requests_and_source_replicas(
         sub_requests.c.priority,
         sub_requests.c.transfertool,
         sub_requests.c.requested_at,
+        sub_requests.c.updated_request_id,
         models.RSE.id.label("replica_rse_id"),
         models.RSE.rse.label("replica_rse_name"),
         models.RSEFileAssociation.path,
@@ -662,8 +668,14 @@ def list_and_mark_transfer_requests_and_source_replicas(
         )
 
     requests_by_id = {}
+    to_cancel = {}
     for (request_id, req_type, rule_id, scope, name, md5, adler32, byte_count, activity, attributes, previous_attempt_id, source_rse_id, dest_rse_id, account, retry_count,
-         priority, transfertool, requested_at, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
+         priority, transfertool, requested_at, updated_request_id, replica_rse_id, replica_rse_name, file_path, source_ranking, source_url, distance) in session.execute(stmt):
+
+        # Track requests scheduled for cancellation
+        if updated_request_id is not None:
+            to_cancel[request_id] = updated_request_id
+            continue
 
         request = requests_by_id.get(request_id)
         if not request:
@@ -686,6 +698,11 @@ def list_and_mark_transfer_requests_and_source_replicas(
             request.sources.append(source)
             if source_rse_id == replica_rse_id:
                 request.requested_source = source
+
+    # Handle cancellations: delete UpdatedRequest entries and mark requests as CANCELLED
+    if to_cancel:
+        for chunk_items in chunks(list(to_cancel.items()), 100):
+            cancel_requests([req_id for req_id, _ in chunk_items], session=session)
 
     if processed_by:
         for chunk in chunks(requests_by_id, 100):
@@ -755,7 +772,6 @@ def get_and_mark_next(
         activity: Optional[str] = None,
         total_workers: int = 0,
         worker_number: int = 0,
-        mode_all: bool = False,
         hash_variable: str = 'id',
         activity_shares: Optional[dict[str, Any]] = None,
         include_dependent: bool = True,
@@ -882,21 +898,17 @@ def get_and_mark_next(
             )
         query_result = session.execute(query).scalars()
         if query_result:
-            if mode_all:
-                for res in query_result:
-                    res_dict = res.to_dict()
-                    res_dict['request_id'] = res_dict['id']
-                    res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
+            for res in query_result:
+                res_dict = res.to_dict()
+                res_dict['request_id'] = res_dict['id']
+                res_dict['attributes'] = json.loads(str(res_dict['attributes'] or '{}'))
 
-                    dst_id = res_dict['dest_rse_id']
-                    src_id = res_dict['source_rse_id']
-                    res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True, load_attributes=True)
-                    res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True, load_attributes=True) if src_id is not None else None
+                dst_id = res_dict['dest_rse_id']
+                src_id = res_dict['source_rse_id']
+                res_dict['dst_rse'] = rse_collection[dst_id].ensure_loaded(load_name=True, load_attributes=True)
+                res_dict['src_rse'] = rse_collection[src_id].ensure_loaded(load_name=True, load_attributes=True) if src_id is not None else None
 
-                    result.append(res_dict)
-            else:
-                for res in query_result:
-                    result.append({'request_id': res.id, 'external_host': res.external_host, 'external_id': res.external_id})
+                result.append(res_dict)
 
             request_ids = {r['request_id'] for r in result}
             if processed_by and request_ids:
@@ -924,12 +936,17 @@ def update_request(
         started_at: Optional[datetime.datetime] = None,
         staging_started_at: Optional[datetime.datetime] = None,
         staging_finished_at: Optional[datetime.datetime] = None,
+        submitted_at: Optional[datetime.datetime] = None,
         source_rse_id: Optional[str] = None,
         err_msg: Optional[str] = None,
         attributes: Optional[dict[str, str]] = None,
         priority: Optional[int] = None,
         transfertool: Optional[str] = None,
+        external_id: Optional[str] = None,
+        external_host: Optional[str] = None,
+        dest_url: Optional[str] = None,
         *,
+        expected_state: Optional[RequestState] = None,
         raise_on_missing: bool = False,
         session: "Session",
 ) -> bool:
@@ -949,6 +966,8 @@ def update_request(
             update_items[models.Request.staging_started_at] = staging_started_at
         if staging_finished_at is not None:
             update_items[models.Request.staging_finished_at] = staging_finished_at
+        if submitted_at is not None:
+            update_items[models.Request.submitted_at] = submitted_at
         if source_rse_id is not None:
             update_items[models.Request.source_rse_id] = source_rse_id
         if err_msg is not None:
@@ -959,11 +978,18 @@ def update_request(
             update_items[models.Request.priority] = priority
         if transfertool is not None:
             update_items[models.Request.transfertool] = transfertool
+        if external_id is not None:
+            update_items[models.Request.external_id] = external_id
+        if external_host is not None:
+            update_items[models.Request.external_host] = external_host
+        if dest_url is not None:
+            update_items[models.Request.dest_url] = dest_url
 
         stmt = update(
             models.Request
         ).where(
-            models.Request.id == request_id
+            models.Request.id == request_id,
+            *([models.Request.state == expected_state] if expected_state is not None else [])
         ).execution_options(
             synchronize_session=False
         ).values(
@@ -1095,6 +1121,40 @@ def touch_requests_by_rule(
         ).values({
             models.Request.updated_at: datetime.datetime.utcnow() + datetime.timedelta(minutes=20)
         })
+        session.execute(stmt)
+    except IntegrityError as error:
+        raise RucioException(error.args)
+
+
+@METRICS.count_it
+@transactional_session
+def touch_requests_by_external_id(
+        external_id: str,
+        *,
+        session: "Session",
+) -> None:
+    """
+    Update the timestamp of requests matching the external transfer id.
+    Fails silently if no matching requests exist.
+    Only touches requests that haven't been updated in the last 30 seconds.
+
+    :param external_id:    External transfer job id as a string.
+    :param session:        Database session to use.
+    """
+    try:
+        stmt = update(
+            models.Request
+        ).prefix_with(
+            "/*+ INDEX(REQUESTS REQUESTS_EXTERNALID_UQ) */", dialect='oracle'
+        ).where(
+            models.Request.external_id == external_id,
+            models.Request.state == RequestState.SUBMITTED,
+            models.Request.updated_at < datetime.datetime.utcnow() - datetime.timedelta(seconds=30)
+        ).execution_options(
+            synchronize_session=False
+        ).values(
+            updated_at=datetime.datetime.utcnow()
+        )
         session.execute(stmt)
     except IntegrityError as error:
         raise RucioException(error.args)
@@ -1344,6 +1404,13 @@ def archive_request(
             session.execute(stmt)
 
             stmt = delete(
+                models.UpdatedRequest
+            ).where(
+                models.UpdatedRequest.request_id == request_id
+            )
+            session.execute(stmt)
+
+            stmt = delete(
                 models.Request
             ).where(
                 models.Request.id == request_id
@@ -1353,53 +1420,102 @@ def archive_request(
             raise RucioException(error.args)
 
 
-@METRICS.count_it
 @transactional_session
-def cancel_request_did(
+def queue_request_cancellation(
     scope: InternalScope,
     name: str,
     dest_rse_id: str,
-    request_type: RequestType = RequestType.TRANSFER,
     *,
     session: "Session",
-    logger: LoggerFunction = logging.log
-) -> dict[str, Any]:
+) -> None:
     """
-    Cancel a request based on a DID and request type.
+    Schedule request(s) for cancellation by writing to the updated_requests table.
 
-    :param scope:         Data identifier scope as a string.
-    :param name:          Data identifier name as a string.
-    :param dest_rse_id:   RSE id as a string.
-    :param request_type:  Type of the request.
+    A daemon will process these entries and perform the actual cancellation.
+
+    :param scope:         Data identifier scope.
+    :param name:          Data identifier name.
+    :param dest_rse_id:   RSE id.
     :param session:       Database session to use.
-    :param logger:        Optional decorated logger that can be passed from the calling daemons or servers.
     """
+    subquery = select(
+        literal(RequestState.CANCELLING, type_=models.UpdatedRequest.state.type).label('state'),
+        models.Request.id.label('request_id'),
+    ).where(
+        models.Request.scope == scope,
+        models.Request.name == name,
+        models.Request.dest_rse_id == dest_rse_id,
+    )
+    stmt = insert(models.UpdatedRequest).from_select(['state', 'request_id'], subquery)
+    session.execute(stmt)
 
-    reqs = None
-    try:
-        stmt = select(
-            models.Request.id,
-            models.Request.external_id,
-            models.Request.external_host
-        ).where(
-            and_(models.Request.scope == scope,
-                 models.Request.name == name,
-                 models.Request.dest_rse_id == dest_rse_id,
-                 models.Request.request_type == request_type)
-        )
-        reqs = session.execute(stmt).all()
-        if not reqs:
-            logger(logging.WARNING, 'Tried to cancel non-existent request for DID %s:%s at RSE %s' % (scope, name, get_rse_name(rse_id=dest_rse_id, session=session)))
-    except IntegrityError as error:
-        raise RucioException(error.args)
 
-    transfers_to_cancel = {}
-    for req in reqs:
-        # is there a transfer already in transfertool? if so, schedule to cancel them
-        if req[1] is not None:
-            transfers_to_cancel.setdefault(req[2], set()).add(req[1])
-        archive_request(request_id=req[0], session=session)
-    return transfers_to_cancel
+@read_session
+def get_requests_to_cancel(
+    state: RequestState,
+    request_ids: Optional[list[str]] = None,
+    *,
+    session: "Session",
+) -> list[dict[str, Any]]:
+    """
+    Get requests that are scheduled for cancellation.
+
+    :param state:        Request state to filter on.
+    :param request_ids:  List of request IDs to check. If None, returns all requests in the given state.
+    :param session:      Database session to use.
+    :returns:            List of request dicts with request_id and external_id.
+    """
+    stmt = select(
+        models.Request.id,
+        models.Request.external_id
+    ).join(
+        models.UpdatedRequest,
+        models.UpdatedRequest.request_id == models.Request.id
+    ).where(
+        models.UpdatedRequest.state == RequestState.CANCELLING,
+        models.Request.state == state
+    )
+
+    if request_ids:
+        stmt = stmt.where(models.Request.id.in_(request_ids))
+
+    return [{'request_id': req_id, 'external_id': external_id}
+            for req_id, external_id in session.execute(stmt)]
+
+
+@transactional_session
+def cancel_requests(
+    request_ids: list[str],
+    *,
+    session: "Session",
+) -> None:
+    """
+    Cancel requests and remove their pending UpdatedRequest entries.
+
+    :param request_ids:  List of request IDs to cancel.
+    :param session:      Database session to use.
+    """
+    if not request_ids:
+        return
+
+    stmt = update(
+        models.Request
+    ).where(
+        models.Request.id.in_(request_ids)
+    ).execution_options(
+        synchronize_session=False
+    ).values(
+        state=RequestState.CANCELLED,
+        err_msg='Cancelled'
+    )
+    session.execute(stmt)
+
+    stmt = delete(
+        models.UpdatedRequest
+    ).where(
+        models.UpdatedRequest.request_id.in_(request_ids)
+    )
+    session.execute(stmt)
 
 
 @read_session
