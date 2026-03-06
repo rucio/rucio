@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -20,6 +20,7 @@ from rucio.common import exception
 from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
+from rucio.core import did as did_core
 from rucio.core.did import (
     add_did,
     add_did_to_followed,
@@ -32,6 +33,7 @@ from rucio.core.did import (
     get_did_atime,
     get_metadata,
     get_users_following_did,
+    insert_content_history,
     list_dids,
     list_new_dids,
     remove_did_from_followed,
@@ -42,6 +44,8 @@ from rucio.core.did import (
 )
 from rucio.core.replica import add_replica, get_replica
 from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla.models import DataIdentifier, DataIdentifierAssociation, DataIdentifierAssociationHistory
+from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.gateway import did, scope
 from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
@@ -68,6 +72,105 @@ class TestDIDCore:
         for dsn in dsns:
             add_did(scope=mock_scope, name=dsn['name'], did_type='DATASET', account=root_account)
         delete_dids(dids=dsns, account=root_account)
+
+    def test_emit_on_insert(self, mock_scope, root_account, rse_factory, monkeypatch):
+        """ DATA IDENTIFIERS (CORE): Insert Content History with message emission """
+        assoc_name = 'test_emit_dataset'
+        child_name = 'test_emit_file'
+
+        session = get_session()
+
+        # Create parent DIDs (DATASET and FILE)
+        parent_did = DataIdentifier(
+            scope=mock_scope,
+            name=assoc_name,
+            did_type=DIDType.DATASET,
+            account=root_account,
+            is_open=True,
+        )
+        session.add(parent_did)
+
+        child_did = DataIdentifier(
+            scope=mock_scope,
+            name=child_name,
+            did_type=DIDType.FILE,
+            account=root_account,
+            is_open=True,
+        )
+        session.add(child_did)
+        session.flush()  # Flush to ensure DIDs are created before creating the association
+
+        # Now create the DataIdentifierAssociation
+        assoc = DataIdentifierAssociation(
+            scope=mock_scope,
+            name=assoc_name,
+            child_scope=mock_scope,
+            child_name=child_name,
+            did_type=DIDType.DATASET,
+            child_type=DIDType.FILE,
+            bytes=100,
+            adler32='0cc737eb'
+        )
+        session.add(assoc)
+        session.commit()
+
+        # Prepare to capture add_messages calls
+        message_calls = []
+
+        def mock_add_messages(messages, *, session=None):
+            """Mock to capture add_messages calls"""
+            message_calls.append(messages)
+
+        monkeypatch.setattr(did_core, "add_messages", mock_add_messages)
+
+        insert_content_history(
+            filter_=did_core.models.DataIdentifierAssociation.child_name == child_name,
+            did_created_at=datetime.now(timezone.utc)
+        )
+
+        # Verify history record was created
+        history_records = session.query(DataIdentifierAssociationHistory).filter(
+            DataIdentifierAssociationHistory.child_name == child_name
+        ).all()
+
+        assert len(history_records) > 0, "No DataIdentifierAssociationHistory record created"
+        assert history_records[0].child_name == child_name
+
+        # Verify add_messages was called
+        assert len(message_calls) > 0, "add_messages was not called"
+
+        # Verify the message content is correct
+        all_messages = []
+        for message_batch in message_calls:
+            all_messages.extend(message_batch)
+
+        erase_file_messages = [m for m in all_messages if m['event_type'] == 'ERASE_FILE']
+        assert len(erase_file_messages) > 0, "No ERASE_FILE messages emitted"
+
+        # Verify the payload contains the expected data
+        found_correct_message = False
+        for msg in erase_file_messages:
+            if (msg['payload'].get('name') == assoc_name and
+                msg['payload'].get('scope') == mock_scope and
+                msg['payload'].get('did_type') == DIDType.DATASET):
+                found_correct_message = True
+                break
+
+        assert found_correct_message, \
+            f"Expected ERASE_FILE message with correct payload not found. Got: {erase_file_messages}"
+
+        # Cleanup
+        session.query(DataIdentifierAssociationHistory).filter(
+            DataIdentifierAssociationHistory.child_name == child_name
+        ).delete()
+        session.query(DataIdentifierAssociation).filter(
+            DataIdentifierAssociation.child_name == child_name
+        ).delete()
+        session.query(DataIdentifier).filter(
+            (DataIdentifier.scope == mock_scope) &
+            ((DataIdentifier.name == assoc_name) | (DataIdentifier.name == child_name))
+        ).delete()
+        session.commit()
 
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch DIDs accessed_at timestamp"""
