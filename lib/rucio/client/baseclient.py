@@ -212,8 +212,8 @@ class BaseClient:
                 self.account = environ['RUCIO_ACCOUNT']
             except KeyError:
                 try:
-                    self.account = Config.client.account()
-                except (NoOptionError, NoSectionError):
+                    self.account = str(Config.client.account(raise_exception=True))
+                except (NoOptionError, NoSectionError, TypeError):
                     pass
 
         if vo is not None:
@@ -271,7 +271,7 @@ class BaseClient:
                 auth_type = environ['RUCIO_AUTH_TYPE']
             else:
                 try:
-                    auth_type = Config.client.auth_type()
+                    auth_type = str(Config.client.auth_type(raise_exception=True))
                 except (NoOptionError, NoSectionError) as error:
                     raise MissingClientParameter('Option \'%s\' cannot be found in config file' % error.args[0])
         return auth_type
