@@ -21,6 +21,7 @@ import logging
 import re
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime
+from functools import partial
 from json import dumps as jdumps
 from json import loads as jloads
 from queue import Queue
@@ -33,7 +34,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int, con
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import DatabaseException, RSENotFound
 from rucio.common.logging import setup_logging
-from rucio.common.stomp_utils import StompConnectionManager
+from rucio.common.stomp_controller import StompController
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
 from rucio.core.did import list_parent_dids, touch_dids
@@ -320,7 +321,6 @@ def kronos_file(
     """
     Main loop to consume tracer reports.
     """
-    stomp_conn_mngr = StompConnectionManager()
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
@@ -329,15 +329,16 @@ def kronos_file(
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once_kronos_file,
-            stomp_conn_mngr=stomp_conn_mngr,
             dataset_queue=dataset_queue,  # type: ignore
             sleep_time=sleep_time,
         )
     )
-    stomp_conn_mngr.disconnect()
 
 
-def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: StompConnectionManager, dataset_queue: Queue, sleep_time: int, **kwargs) -> None:
+def run_once_kronos_file(heartbeat_handler: HeartbeatHandler,
+                         dataset_queue: Queue,
+                         sleep_time: int,
+                         **kwargs) -> None:
     """
     Run the amq consumer once.
     """
@@ -345,8 +346,8 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
 
     chunksize = config_get_int('tracer-kronos', 'chunksize')
     prefetch_size = config_get_int('tracer-kronos', 'prefetch_size')
+    listener_name = config_get('tracer-kronos', 'listener_name', default='rucio-tracer-kronos')
     subscription_id = config_get('tracer-kronos', 'subscription_id')
-    # Load bad file patterns from config
     try:
         bad_files_patterns = []
         pattern = config_get(section='kronos', option='bad_files_patterns', session=None)
@@ -361,50 +362,52 @@ def run_once_kronos_file(heartbeat_handler: HeartbeatHandler, stomp_conn_mngr: S
         bad_files_patterns = []
 
     use_ssl = config_get_bool('tracer-kronos', 'use_ssl', default=True, raise_exception=False)
+    username = None
+    password = None
     if not use_ssl:
         username = config_get('tracer-kronos', 'username')
         password = config_get('tracer-kronos', 'password')
 
     excluded_usrdns = set(config_get_list('tracer-kronos', 'excluded_usrdns'))
     vhost = config_get('tracer-kronos', 'broker_virtual_host', raise_exception=False)
-
     brokers_alias = config_get_list('tracer-kronos', 'brokers')
     port = config_get_int('tracer-kronos', 'port')
     reconnect_attempts = config_get_int('tracer-kronos', 'reconnect_attempts')
     ssl_key_file = config_get('tracer-kronos', 'ssl_key_file', raise_exception=False)
     ssl_cert_file = config_get('tracer-kronos', 'ssl_cert_file', raise_exception=False)
+    queue = config_get('tracer-kronos', 'queue')
 
-    created_conns, _ = stomp_conn_mngr.re_configure(
+    controller = StompController(
         brokers=brokers_alias,
         port=port,
         use_ssl=use_ssl,
         vhost=vhost,
-        reconnect_attempts=reconnect_attempts,
+        username=username,
+        password=password,
         ssl_key_file=ssl_key_file,
         ssl_cert_file=ssl_cert_file,
         timeout=sleep_time,
-        heartbeats=(0, 5000),
-        logger=logger,
+        reconnect_attempts=reconnect_attempts,
+        logger=logger
     )
+    controller.setup_connections()
 
-    for conn in created_conns:
-        if not conn.is_connected():
-            logger(logging.INFO, 'connecting to %s' % str(conn.transport._Transport__host_and_ports[0]))
-            METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0]).inc()
-            conn.set_listener('rucio-tracer-kronos', AMQConsumer(broker=conn.transport._Transport__host_and_ports[0],
-                                                                 conn=conn,
-                                                                 queue=config_get('tracer-kronos', 'queue'),
-                                                                 chunksize=chunksize,
-                                                                 subscription_id=subscription_id,
-                                                                 excluded_usrdns=excluded_usrdns,
-                                                                 dataset_queue=dataset_queue,
-                                                                 bad_files_patterns=bad_files_patterns,
-                                                                 logger=logger))
-            if not use_ssl:
-                conn.connect(username, password)
-            else:
-                conn.connect()
-            conn.subscribe(destination=config_get('tracer-kronos', 'queue'), ack='client-individual', id=subscription_id, headers={'activemq.prefetchSize': prefetch_size})
+    controller.connect_and_subscribe(
+        destination=queue,
+        listener_name=listener_name,
+        listener=partial(AMQConsumer,
+                         queue=queue,
+                         chunksize=chunksize,
+                         subscription_id=subscription_id,
+                         excluded_usrdns=excluded_usrdns,
+                         dataset_queue=dataset_queue,
+                         bad_files_patterns=bad_files_patterns,
+                         logger=logger),
+        subscription_id=subscription_id,
+        ack='client-individual',
+        metric=METRICS,
+        headers={'activemq.prefetchSize': prefetch_size})
+    controller.disconnect()
 
 
 def kronos_dataset(dataset_queue: Queue, once: bool = False, sleep_time: int = 60) -> None:
