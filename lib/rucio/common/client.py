@@ -17,7 +17,7 @@ import socket
 from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
-from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ def get_client_vo() -> str:
         vo = os.environ['RUCIO_VO']
     else:
         try:
-            vo = str(config_get('client', 'vo'))
+            vo = str(Config.client.vo())
         except (NoOptionError, NoSectionError):
             vo = DEFAULT_VO
     return vo
