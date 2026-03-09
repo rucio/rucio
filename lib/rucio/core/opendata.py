@@ -13,10 +13,13 @@
 # limitations under the License.
 
 import json
+import logging
 import time
 from re import match, search
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from urllib.parse import urlparse
 
+import requests
 from dogpile.cache.api import NoValue
 from sqlalchemy import and_, delete, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
@@ -43,8 +46,17 @@ if TYPE_CHECKING:
     from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
     from rucio.common.types import InternalScope
 
+logger = logging.getLogger(__name__)
+
 METRICS = MetricManager(module=__name__)
 REGION = MemcacheRegion(expiration_time=7200)
+EOS_PROBE_REGION = MemcacheRegion(expiration_time=86400)
+EOS_PROBE_NEGATIVE_REGION = MemcacheRegion(expiration_time=300)
+
+# Default lifetime of the EOS download tokens. It must be longer than the
+# expiration time of the file listing cache (REGION above) so that download
+# URLs served from the cache always carry a still-valid token.
+DEFAULT_EOS_TOKEN_LIFETIME_SECONDS = 4 * 3600
 
 
 def is_valid_opendata_did_state(state: str) -> bool:
@@ -276,11 +288,193 @@ def get_opendata_record_id(
         return int(result["record_id"])
 
 
+def _is_eos_host(host: str) -> bool:
+    """
+    Probe ``host`` to determine whether it exposes the EOS REST gateway.
+
+    Calls the documented ``version_cmd`` endpoint of the EOS REST gateway
+    (defined in ``proto/eos_rest_gateway/eos_rest_gateway_service.proto`` in
+    the cern-eos/eos repository). A genuine EOS instance returns its
+    standard command envelope ``{"retc": "0", "stdOut": "...", "stdErr": ""}``
+    where ``stdOut`` carries an ``EOS_SERVER_VERSION=`` line. The probe is
+    read-only and does not require client-cert auth.
+
+    Positive results are cached for a long time; negative results for a short
+    window so transient probe failures (network blips, gateway restarts) do
+    not lock a host out indefinitely.
+    """
+    cached = EOS_PROBE_REGION.get(host)
+    if not isinstance(cached, NoValue):
+        return bool(cached)
+    cached_neg = EOS_PROBE_NEGATIVE_REGION.get(host)
+    if not isinstance(cached_neg, NoValue):
+        return bool(cached_neg)
+
+    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
+    timeout = config_get_int("opendata", "eos_probe_timeout", raise_exception=False, default=3)
+    url = f"https://{host}/v1/eos/rest/gateway/version_cmd"
+
+    is_eos = False
+    try:
+        response = requests.post(
+            url,
+            json={},
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            verify=ca_bundle,
+            timeout=timeout,
+            allow_redirects=False,
+        )
+        if response.status_code == 200:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            if (
+                isinstance(payload, dict)
+                and str(payload.get("retc")) == "0"
+                and "EOS_SERVER_VERSION=" in payload.get("stdOut", "")
+            ):
+                is_eos = True
+        if not is_eos:
+            logger.info(
+                "Host %s did not respond as an EOS REST gateway (status=%s).",
+                host, response.status_code,
+            )
+    except Exception as e:
+        logger.warning("EOS probe failed for %s: %s", host, e)
+
+    if is_eos:
+        EOS_PROBE_REGION.set(host, True)
+    else:
+        EOS_PROBE_NEGATIVE_REGION.set(host, False)
+    return is_eos
+
+
+def _eos_grpc_gateway_token_command(
+        eos_host: str,
+        filename: str,
+        lifetime_seconds: int,
+) -> Optional[str]:
+    """
+    Sends a POST request to the EOS GRPC REST Gateway to generate an access token.
+    The following environment configuration may need to be set on the target EOS instance: `EOS_MGM_ENABLE_REST_API=1`
+
+    Args:
+        eos_host: The hostname/URL of the EOS instance (e.g., 'https://eospilot.cern.ch' or just 'eospilot.cern.ch').
+        filename: The path the token should grant access to.
+        lifetime_seconds: How many seconds the token should be valid for.
+
+    Returns:
+        Optional[str]: The raw token string if successful, or None if the token could not be fetched.
+    """
+    # Calculate the exact expiration Unix timestamp
+    expires_at = int(time.time()) + lifetime_seconds
+
+    # Ensure the host has a valid HTTP scheme before we construct the URL
+    if not eos_host.startswith("http://") and not eos_host.startswith("https://"):
+        eos_host = f"https://{eos_host}"
+
+    # Construct the endpoint URL
+    eos_host = eos_host.rstrip('/')
+    url = f"{eos_host}/v1/eos/rest/gateway/token_cmd"
+
+    payload = {
+        "path": filename,
+        "expires": str(expires_at),
+        "permission": "r",
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    # This is the default location the FTS renewal daemon uses to store the proxy.
+    cert = key = config_get("opendata", "eos_proxy_path", raise_exception=False, default="/opt/proxy/x509up")
+
+    # Grid CA bundle for SSL verification
+    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
+
+    timeout = config_get_int("opendata", "eos_token_request_timeout", raise_exception=False, default=5)
+
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            headers=headers,
+            cert=(cert, key),
+            verify=ca_bundle,
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        response_data = response.json()
+
+        token = response_data.get("stdOut", "").strip()
+
+        if not token:
+            logger.warning("EOS GRPC Gateway returned an empty token for '%s' on %s.", filename, eos_host)
+            return None
+
+        return token
+    except Exception as e:
+        logger.warning("Error fetching EOS GRPC token for '%s' on %s: %s", filename, eos_host, e)
+        return None
+
+
+def _generate_download_urls(uris: list[str]) -> list[str]:
+    """
+    Build tokenized download URLs for the given replica URIs.
+
+    Only URIs whose host answers the EOS REST gateway probe are considered;
+    for those, a read-only EOS token scoped to the file path is requested and
+    appended to the URI as a ``token`` query parameter. URIs on non-EOS hosts
+    or for which no token could be obtained are skipped.
+
+    Args:
+        uris: The replica URIs (e.g. 'root://eos.example:1094//eos/path/file.root').
+
+    Returns:
+        The list of download URLs, possibly empty.
+    """
+    lifetime = config_get_int("opendata", "eos_token_lifetime", raise_exception=False,
+                              default=DEFAULT_EOS_TOKEN_LIFETIME_SECONDS)
+
+    download_urls = []
+    for uri in uris:
+        try:
+            parsed = urlparse(uri)
+        except ValueError:
+            logger.debug("Skipping malformed replica URI '%s'.", uri)
+            continue
+
+        host = parsed.hostname
+        if not host or not _is_eos_host(host):
+            continue
+
+        path = parsed.path
+        # PFNs such as 'root://host:1094//eos/path' carry a double slash before the path
+        if path.startswith("//"):
+            path = path[1:]
+
+        token = _eos_grpc_gateway_token_command(
+            eos_host=host,
+            filename=path,
+            lifetime_seconds=lifetime,
+        )
+
+        if token:
+            separator = "&" if "?" in uri else "?"
+            download_urls.append(f"{uri}{separator}token={token}")
+
+    return download_urls
+
+
 def get_opendata_did_files(
         *,
         scope: "InternalScope",
         name: str,
         use_cache: bool = False,
+        include_download_urls: bool = False,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -290,6 +484,7 @@ def get_opendata_did_files(
         scope: The scope of the Opendata DID.
         name: The name of the Opendata DID.
         use_cache: If True, use caching to store/retrieve the result. Defaults to False.
+        include_download_urls: If True, include download URLs for the files. Defaults to False.
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -298,7 +493,9 @@ def get_opendata_did_files(
 
     time_start = time.perf_counter()
 
-    cache_key = f"opendata_did_files_{scope}_{name}"
+    # Append the include_download_urls flag to the cache key so we don't mix up responses
+    cache_key = f"opendata_did_files_{scope}_{name}_dl_{include_download_urls}"
+
     if use_cache:
         file_list = REGION.get(cache_key)
 
@@ -353,6 +550,12 @@ def get_opendata_did_files(
 
         file_list[i]["uris"] = uris
 
+    # Process download URLs before we cache the result
+    if include_download_urls:
+        for file in file_list:
+            file["download_urls"] = _generate_download_urls(file.get("uris", []))
+
+    # Now that the file_list is fully built (with or without download URLs), cache it
     if use_cache:
         REGION.set(cache_key, file_list)
 
@@ -375,6 +578,7 @@ def get_opendata_did(
         include_doi: bool = True,
         include_rule: bool = True,
         include_record_id: bool = True,
+        include_download_urls: bool = False,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -389,6 +593,7 @@ def get_opendata_did(
         include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
         include_rule: If True, include the Opendata replication rule. Defaults to True.
         include_record_id: If True, include the record ID of the DID. Defaults to True.
+        include_download_urls: If True, include download URLs for the files. Defaults to False.
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -427,7 +632,8 @@ def get_opendata_did(
     if include_rule:
         result["rule"] = _fetch_opendata_rule(scope=scope, name=name, session=session)
     if include_files:
-        opendata_files = get_opendata_did_files(scope=scope, name=name, use_cache=True, session=session)
+        opendata_files = get_opendata_did_files(scope=scope, name=name, use_cache=True,
+                                                include_download_urls=include_download_urls, session=session)
         result["files"] = opendata_files["files"]
 
         bytes_sum = sum(file["bytes"] for file in result["files"])

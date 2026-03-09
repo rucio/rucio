@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import re
+import time
 from configparser import NoOptionError
+from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
+from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
@@ -504,6 +508,204 @@ class TestOpenDataCore:
             config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
 
 
+class _FakeCacheRegion:
+    """In-memory stand-in for the memcached-backed dogpile regions."""
+
+    def __init__(self):
+        self.store = {}
+
+    def get(self, key):
+        return self.store.get(key, NoValue())
+
+    def set(self, key, value):
+        self.store[key] = value
+
+
+def _mock_eos_response(status_code=200, json_data=None):
+    response = MagicMock()
+    response.status_code = status_code
+    if json_data is None:
+        response.json.side_effect = ValueError("no json body")
+    else:
+        response.json.return_value = json_data
+    if status_code >= 400:
+        response.raise_for_status.side_effect = requests.exceptions.HTTPError(f"{status_code} error")
+    else:
+        response.raise_for_status.return_value = None
+    return response
+
+
+class TestOpenDataEOS:
+    """
+    Unit tests for the EOS download URL support. All network interactions are mocked.
+    """
+
+    eos_host = "eos.example.org"
+    eos_version_payload = {"retc": "0", "stdOut": "EOS_SERVER_VERSION=5.2.31 EOS_SERVER_RELEASE=1", "stdErr": ""}
+    eos_token = "zteos64:MDAwMDAyMmN4nOMSTVBLTC4RT09NT"
+
+    @pytest.fixture(autouse=True)
+    def isolate_eos_probe_cache(self, monkeypatch):
+        monkeypatch.setattr(opendata, "EOS_PROBE_REGION", _FakeCacheRegion())
+        monkeypatch.setattr(opendata, "EOS_PROBE_NEGATIVE_REGION", _FakeCacheRegion())
+
+    def test_is_eos_host_positive(self):
+        with patch("rucio.core.opendata.requests.post",
+                   return_value=_mock_eos_response(json_data=self.eos_version_payload)) as mock_post:
+            assert opendata._is_eos_host(self.eos_host) is True
+            # The positive result is cached: a second call must not probe again
+            assert opendata._is_eos_host(self.eos_host) is True
+
+        assert mock_post.call_count == 1, "Positive probe result should be cached"
+        assert mock_post.call_args[0][0] == f"https://{self.eos_host}/v1/eos/rest/gateway/version_cmd"
+
+    def test_is_eos_host_positive_integer_retc(self):
+        payload = {"retc": 0, "stdOut": "EOS_SERVER_VERSION=5.2.31", "stdErr": ""}
+        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(json_data=payload)):
+            assert opendata._is_eos_host(self.eos_host) is True
+
+    def test_is_eos_host_negative_http_error(self):
+        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(status_code=404)) as mock_post:
+            assert opendata._is_eos_host(self.eos_host) is False
+            assert opendata._is_eos_host(self.eos_host) is False
+
+        assert mock_post.call_count == 1, "Negative probe result should be cached"
+
+    def test_is_eos_host_negative_unexpected_payload(self):
+        payload = {"message": "I am not EOS"}
+        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(json_data=payload)):
+            assert opendata._is_eos_host(self.eos_host) is False
+
+    def test_is_eos_host_negative_unreachable(self):
+        with patch("rucio.core.opendata.requests.post",
+                   side_effect=requests.exceptions.ConnectionError("connection refused")):
+            assert opendata._is_eos_host(self.eos_host) is False
+
+    def test_eos_token_command(self):
+        lifetime_seconds = 3600
+        payload = {"retc": "0", "stdOut": f"{self.eos_token}\n", "stdErr": ""}
+        with patch("rucio.core.opendata.requests.post",
+                   return_value=_mock_eos_response(json_data=payload)) as mock_post:
+            time_before = int(time.time())
+            token = opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host,
+                                                             filename="/eos/opendata/experiment/file.root",
+                                                             lifetime_seconds=lifetime_seconds)
+            time_after = int(time.time())
+
+        assert token == self.eos_token
+
+        assert mock_post.call_args[0][0] == f"https://{self.eos_host}/v1/eos/rest/gateway/token_cmd"
+        body = mock_post.call_args[1]["json"]
+        assert body["path"] == "/eos/opendata/experiment/file.root"
+        assert body["permission"] == "r"
+        assert time_before + lifetime_seconds <= int(body["expires"]) <= time_after + lifetime_seconds
+
+    def test_eos_token_command_host_with_scheme(self):
+        payload = {"retc": "0", "stdOut": self.eos_token, "stdErr": ""}
+        with patch("rucio.core.opendata.requests.post",
+                   return_value=_mock_eos_response(json_data=payload)) as mock_post:
+            token = opendata._eos_grpc_gateway_token_command(eos_host=f"https://{self.eos_host}/",
+                                                             filename="/eos/opendata/file.root",
+                                                             lifetime_seconds=3600)
+
+        assert token == self.eos_token
+        assert mock_post.call_args[0][0] == f"https://{self.eos_host}/v1/eos/rest/gateway/token_cmd"
+
+    def test_eos_token_command_empty_token(self):
+        payload = {"retc": "0", "stdOut": "  \n", "stdErr": ""}
+        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(json_data=payload)):
+            assert opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host, filename="/eos/file.root",
+                                                            lifetime_seconds=3600) is None
+
+    def test_eos_token_command_http_error(self):
+        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(status_code=500)):
+            assert opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host, filename="/eos/file.root",
+                                                            lifetime_seconds=3600) is None
+
+    def test_eos_token_command_unreachable(self):
+        with patch("rucio.core.opendata.requests.post",
+                   side_effect=requests.exceptions.ConnectionError("connection refused")):
+            assert opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host, filename="/eos/file.root",
+                                                            lifetime_seconds=3600) is None
+
+    def test_generate_download_urls(self, monkeypatch):
+        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
+        uris = [
+            eos_uri,
+            "https://not-eos.example.org:443/other/path/file.root",
+            "not a valid uri",
+        ]
+
+        requested_paths = []
+
+        def fake_token_command(*, eos_host, filename, lifetime_seconds):
+            assert eos_host == self.eos_host
+            requested_paths.append(filename)
+            return self.eos_token
+
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: host == self.eos_host)
+        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", fake_token_command)
+
+        download_urls = opendata._generate_download_urls(uris)
+
+        assert download_urls == [f"{eos_uri}?token={self.eos_token}"]
+        # The double slash of the PFN must be collapsed in the path sent to EOS
+        assert requested_paths == ["/eos/opendata/experiment/file.root"]
+
+    def test_generate_download_urls_uri_with_query(self, monkeypatch):
+        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/file.root?xrd.wantprot=unix"
+
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command",
+                            lambda **kwargs: self.eos_token)
+
+        download_urls = opendata._generate_download_urls([eos_uri])
+
+        assert download_urls == [f"{eos_uri}&token={self.eos_token}"]
+
+    def test_generate_download_urls_no_token(self, monkeypatch):
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", lambda **kwargs: None)
+
+        assert opendata._generate_download_urls([f"root://{self.eos_host}:1094//eos/file.root"]) == []
+
+    def test_get_opendata_did_files_download_urls(self, mock_scope, root_account, monkeypatch, db_write_session):
+        name = did_name_generator(did_type="dataset")
+        file_name = did_name_generator(did_type="file")
+
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
+                session=db_write_session)
+        opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+        db_write_session.commit()
+
+        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
+        tape_uri = "root://tape.example.org:1094//tape/file.root"
+
+        def fake_list_files(*args, **kwargs):
+            yield {"scope": mock_scope, "name": file_name, "bytes": 42, "adler32": "deadbeef"}
+
+        def fake_list_replicas(*args, **kwargs):
+            yield {"pfns": {eos_uri: {"type": "DISK"}, tape_uri: {"type": "TAPE"}}}
+
+        monkeypatch.setattr(opendata, "list_files", fake_list_files)
+        monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: host == self.eos_host)
+        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", lambda **kwargs: self.eos_token)
+
+        result = opendata.get_opendata_did_files(scope=mock_scope, name=name, include_download_urls=True,
+                                                 session=db_write_session)
+
+        assert len(result["files"]) == 1
+        file = result["files"][0]
+        assert file["uris"] == [eos_uri], "Only DISK replicas should be exposed"
+        assert file["download_urls"] == [f"{eos_uri}?token={self.eos_token}"]
+
+        # Without the flag, no download URLs should be computed
+        result = opendata.get_opendata_did_files(scope=mock_scope, name=name, include_download_urls=False,
+                                                 session=db_write_session)
+        assert "download_urls" not in result["files"][0]
+
+
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:
     def test_opendata_dids_list_client(self, mock_scope, rucio_client):
@@ -668,6 +870,39 @@ class TestOpenDataAPI:
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
 
+    def test_opendata_api_get_download_urls(self, rest_client, auth_token, root_account, mock_scope):
+        name = did_name_generator(did_type="dataset")
+        endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
+        request_headers = headers(auth(auth_token))
+
+        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
+
+        response = rest_client.post(
+            endpoint,
+            headers=request_headers,
+        )
+        assert response.status_code == 201, f"Expected 201 Created, got {response.status_code}"
+
+        try:
+            response = rest_client.get(
+                f"{endpoint}?files=1&download_urls=1",
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+            assert "files" in response.json, "Files should be present in the response"
+
+            # The parameter is also accepted without requesting the files
+            response = rest_client.get(
+                f"{endpoint}?download_urls=1",
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+        finally:
+            rest_client.delete(
+                endpoint,
+                headers=request_headers,
+            )
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCLI:
@@ -714,7 +949,7 @@ class TestOpenDataCLI:
     @pytest.mark.parametrize("subcommand, expected_options", [
         ("add", {"--help"}),
         ("list", {"--help", "--state", "--public", "--short"}),
-        ("show", {"--help", "--meta", "--files", "--public"}),
+        ("show", {"--help", "--meta", "--files", "--public", "--download-urls"}),
         ("update", {"--help", "--meta", "--state", "--doi", "--record-id"}),
         ("remove", {"--help"}),
     ])
@@ -727,6 +962,13 @@ class TestOpenDataCLI:
         assert options == expected_options, (
             f"Subcommand '{subcommand}': expected options {expected_options}, got {options}"
         )
+
+    def test_opendata_cli_show_download_urls_requires_files(self, mock_scope):
+        name = did_name_generator(did_type="dataset")
+        cmd = f"rucio opendata did show {mock_scope}:{name} --download-urls"
+        exitcode, _, stderr = execute(cmd)
+        assert exitcode != 0, f"Command '{cmd}' should have failed but succeeded"
+        assert "--files" in stderr, f"Error message should mention the --files requirement, got: {stderr.strip()}"
 
     @pytest.mark.parametrize("file_config_mock", [
         {"overrides": [('experimental', 'cli', 'tabulate')]},
