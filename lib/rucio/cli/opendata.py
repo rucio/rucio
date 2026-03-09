@@ -126,8 +126,10 @@ def remove_opendata_did(ctx: "Context", did: str) -> None:
               help="Print the files associated with the opendata DID")
 @click.option("--public", required=False, is_flag=True, default=False,
               help="Perform request against the public endpoint")
+@click.option("--download-urls", required=False, is_flag=True, default=False,
+              help="Include download URLs")
 @click.pass_context
-def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: bool) -> None:
+def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: bool, download_urls: bool) -> None:
     """
     Get information about an Opendata DID, optionally including files and metadata.
     """
@@ -139,7 +141,7 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
     scope, name = extract_scope(did)
     info = client.get_opendata_did(scope=scope, name=name, public=public,
                                    include_files=files, include_metadata=meta,
-                                   include_doi=True)
+                                   include_doi=True, include_download_urls=download_urls)
 
     output = []
     if cli_config == 'rich':
@@ -179,7 +181,7 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
     Update an existing Opendata DID in the Opendata catalog.
     """
 
-    if not any([meta, state, doi, record_id]):
+    if meta is None and state is None and doi is None and record_id is None:
         raise ValueError("At least one of --meta, --state, --doi or --record_id must be provided.")
 
     client = ctx.obj.client
