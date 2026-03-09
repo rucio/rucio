@@ -63,6 +63,7 @@ def get_opendata_did(
         include_metadata: bool = False,
         include_doi: bool = True,
         include_record_id: bool = True,
+        include_download_urls: bool = False,
         vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
@@ -76,6 +77,7 @@ def get_opendata_did(
         include_metadata: Whether to include metadata in the result.
         include_doi: Whether to include DOI information in the result.
         include_record_id: Whether to include the record ID in the result.
+        include_download_urls: Whether to include download URLs in the result.
         vo: The virtual organization.
 
     Returns:
@@ -96,6 +98,7 @@ def get_opendata_did(
                                            include_metadata=include_metadata,
                                            include_doi=include_doi,
                                            include_record_id=include_record_id,
+                                           include_download_urls=include_download_urls,
                                            session=session)
         return gateway_update_return_dict(result, session=session)
 
