@@ -129,7 +129,8 @@ def receiver(
     Main loop to consume messages from the FTS3 producer.
     """
 
-    logging.info('receiver starting')
+    logger = logging.getLogger(DAEMON_NAME).log
+    logger(logging.INFO, 'receiver starting')
 
     brokers_alias = []
     brokers_resolved = []
@@ -138,21 +139,21 @@ def receiver(
     except Exception:
         raise Exception('Could not load brokers from configuration')
 
-    logging.info('resolving broker dns alias: %s' % brokers_alias)
+    logger(logging.INFO, 'resolving broker dns alias: %s' % brokers_alias)
 
     brokers_resolved = []
     for broker in brokers_alias:
         addrinfos = socket.getaddrinfo(broker, 0, socket.AF_INET, 0, socket.IPPROTO_TCP)
         brokers_resolved.extend(ai[4][0] for ai in addrinfos)
 
-    logging.info('brokers resolved to %s', brokers_resolved)
+    logger(logging.INFO, 'brokers resolved to %s', brokers_resolved)
 
-    logging.info('checking authentication method')
+    logger(logging.INFO, 'checking authentication method')
     use_ssl = True
     try:
         use_ssl = config_get_bool('messaging-fts3', 'use_ssl')
     except Exception:
-        logging.info('could not find use_ssl in configuration -- please update your rucio.cfg')
+        logger(logging.INFO, 'could not find use_ssl in configuration -- please update your rucio.cfg')
 
     port = config_get_int('messaging-fts3', 'port')
     vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
@@ -164,9 +165,9 @@ def receiver(
     conns = []
     for broker in brokers_resolved:
         if not use_ssl:
-            logging.info('setting up username/password authentication: %s' % broker)
+            logger(logging.INFO, 'setting up username/password authentication: %s' % broker)
         else:
-            logging.info('setting up ssl cert/key authentication: %s' % broker)
+            logger(logging.INFO, 'setting up ssl cert/key authentication: %s' % broker)
         con = stomp.Connection12(host_and_ports=[(broker, port)],
                                  vhost=vhost,
                                  reconnect_attempts_max=999)
@@ -177,7 +178,7 @@ def receiver(
             )
         conns.append(con)
 
-    logging.info('receiver started')
+    logger(logging.INFO, 'receiver started')
 
     with (HeartbeatHandler(executable=DAEMON_NAME, renewal_interval=30) as heartbeat_handler,
           request_core.TransferStatsManager() as transfer_stats_manager):
