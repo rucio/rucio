@@ -56,7 +56,8 @@ class HeartbeatHandler:
         self.pid = os.getpid()
         self.hb_thread = threading.current_thread()
 
-        self.logger = logging.log
+        self.logger_func: "LoggerFunction" = logging.getLogger(executable).log
+        self.logger = self.logger_func
         self.last_heart_beat = None
         self.last_time = None
         self.last_payload = None
@@ -101,7 +102,7 @@ class HeartbeatHandler:
                 self.last_heart_beat = heartbeat_core.live(self.executable, self.hostname, self.pid, self.hb_thread, payload=payload)
 
             prefix = '[%i/%i]: ' % (self.last_heart_beat['assign_thread'], self.last_heart_beat['nr_threads'])
-            self.logger = formatted_logger(logging.log, prefix + '%s')
+            self.logger = formatted_logger(self.logger_func, prefix + '%s')
 
             if not self.last_time:
                 self.logger(logging.DEBUG, 'First heartbeat set')
