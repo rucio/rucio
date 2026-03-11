@@ -13,7 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-export PASSPHRASE=123456
+export PASSPHRASE=${PASSPHRASE:-123456}
+export NAMESPACE=${NAMESPACE:-default}
 
 DAYS=9000
 
@@ -31,7 +32,7 @@ cat "ruciouser.pem" "ruciouser.key.pem" > "ruciouser.certkey.pem"
 # The service certificates
 for CN in rucio fts xrd1 xrd2 xrd3 xrd4 xrd5 minio indigoiam keycloak web1
 do
-  SAN="subjectAltName=DNS:$CN,DNS:localhost,DNS:$CN.default.svc.cluster.local"
+  SAN="subjectAltName=DNS:$CN,DNS:localhost,DNS:$CN.$NAMESPACE.svc.cluster.local"
   openssl req -new -newkey rsa:2048 -noenc -keyout "hostcert_$CN.key.pem" -subj "/CN=$CN" > "hostcert_$CN.csr"
   openssl x509 -req -days $DAYS -CAcreateserial -extfile <(printf "%s" "$SAN") -in "hostcert_$CN.csr" -CA rucio_ca.pem -CAkey rucio_ca.key.pem -out "hostcert_$CN.pem" -passin env:PASSPHRASE
 done
