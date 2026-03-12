@@ -324,7 +324,8 @@ def remove(ctx, dids, rse):
         scope, name = get_scope(did, ctx.obj.client)
         replicas.append({'scope': scope, 'name': name, 'rse': rse})
     ctx.obj.client.set_tombstone(replicas)
-    ctx.obj.logger.info('Set tombstone successfully on: %s' % dids)  # TODO F-string
+    msg = f'Set tombstone successfully on: {dids}'
+    ctx.obj.logger.info(msg)
 
 
 @replica.group()
@@ -343,7 +344,8 @@ def state_list(ctx, state_type, rses, younger_than, n_attempts):
     """List replicas by state. WARNING: Only implemented for 'suspicious'"""
 
     if state_type != "suspicious":
-        raise ValueError(f"Cannot list state by {state_type}, please choose from ('suspicious')")
+        msg = f"Cannot list state by {state_type}, please choose from ('suspicious')"
+        raise ValueError(msg)
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching suspicious replicas')
@@ -454,7 +456,7 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
         non_declared = ctx.obj.client.declare_bad_file_replicas(bad_files_pfns, reason)
         for rse in non_declared:
             for pfn in non_declared[rse]:
-                print('%s : PFN %s cannot be declared.' % (rse, pfn))  # TODO f-strings
+                print(f'{rse} : PFN {pfn} cannot be declared.')  # TODO: Turn into logging statement
     else:
         print('Getting the information about RSE protocols. It can take several seconds')
         dict_rse = ctx.obj.client.export_data(distance=False)
@@ -462,12 +464,12 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
         for rse, dict_attr in dict_rse['rses'].items():
             protocols = dict_attr['protocols']
             for prot in protocols:
-                prot_dict[str('%s://%s%s' % (prot['scheme'], prot['hostname'], prot['prefix']))] = rse  # TODO f-strings
-                prot_dict[str('%s://%s:%s%s' % (prot['scheme'], prot['hostname'], prot['port'], prot['prefix']))] = rse
+                prot_dict[f'{prot["scheme"]}://{prot["hostname"]}{prot["prefix"]}'] = rse
+                prot_dict[f'{prot["scheme"]}://{prot["hostname"]}:{prot["port"]}{prot["prefix"]}'] = rse
         print('Protocol information retrieved')
 
         chunk_size = 10000
-        print('Starting the declaration by chunks of %s' % chunk_size)  # TODO f-string
+        print(f'Starting the declaration by chunks of {chunk_size}')
         tot_files = len(bad_files)
         tot_file_declared = 0
         cnt = 0
@@ -490,14 +492,14 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
                         unknown = False
                         break
                 if unknown:
-                    print('Cannot find any RSE associated to %s' % pfn)  # TODO f-strings
+                    print(f'Cannot find any RSE associated to {pfn}')  # TODO: Logging Statement
             ctx.obj.client.add_bad_pfns(pfns=list_bad_pfns, reason=reason, state='BAD', expires_at=None)
             ndeclared = len(list_bad_pfns)
             tot_file_declared += ndeclared
-            print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+            print(f'Chunk {int(cnt)}/{int(nchunk)} : {ndeclared} replicas successfully declared')
         print('--------------------------------')
         print('Summary')
-        print('%s/%s replicas successfully declared' % (tot_file_declared, tot_files))
+        print(f'{tot_file_declared}/{tot_files} replicas successfully declared')
 
 
 @state_update.command("unavailable")
@@ -531,10 +533,10 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
         cnt += 1
         ctx.obj.client.add_bad_pfns(pfns=chunk, reason=reason, state='TEMPORARY_UNAVAILABLE', expires_at=expiration_date)
         ndeclared = len(chunk)
-        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))  # TODO f-string
+        print(f'Chunk {int(cnt)}/{int(nchunk)} : {ndeclared} replicas successfully declared')
     print('--------------------------------')
     print('Summary')
-    print('%s replicas successfully declared' % tot_files)
+    print(f'{tot_files} replicas successfully declared')
 
 
 @state_update.command("quarantine")
