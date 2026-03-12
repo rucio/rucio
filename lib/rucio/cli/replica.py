@@ -69,7 +69,8 @@ def replica_list():
 def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
     """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
     if missing:
-        all_states = True  # TODO add logging statement
+        all_states = True
+        ctx.obj.logger.debug("Specified missing - looking at all replica states.")
 
     table_data = []
     did_list = []
