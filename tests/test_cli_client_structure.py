@@ -562,6 +562,18 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
     assert "ERROR" not in err
     assert all([dataset in out for dataset in rucio_client.list_datasets_per_rse(mock_rse)])
 
+    # Test listing with multiple protocols
+
+    cmd = f"rucio replica list file {scope}:{name} --protocols https,root,srm"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    # Test with incorrectly specified protocols
+    cmd = f"rucio replica list file {scope}:{name} --protocols https;root;srm"
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+
 
 @pytest.mark.dirty
 def test_replica_state(mock_scope, rucio_client):
