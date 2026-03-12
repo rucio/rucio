@@ -21,7 +21,7 @@ import click
 import tabulate
 from rich.text import Text
 
-from rucio.cli.utils import get_scope
+from rucio.cli.utils import CommaSeparatedList, get_scope
 from rucio.client.richclient import CLITheme, generate_table, print_output
 from rucio.common.client import detect_client_location
 from rucio.common.constants import ReplicaState
@@ -44,7 +44,7 @@ def replica_list():
 
 @replica_list.command("file")
 @click.argument("dids", nargs=-1)
-@click.option("--protocols", help="Protocol used to access a replicas (i.e. https, root, srm)")
+@click.option("--protocols", help="Protocol used to access a replicas (i.e. https, root, srm)", type=CommaSeparatedList())
 @click.option(
     "--all-states",
     help="To select all replicas (including unavailable ones).\
@@ -70,9 +70,6 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
     """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
     if missing:
         all_states = True  # TODO add logging statement
-
-    if protocols:  # TODO Parsing in the option
-        protocols = protocols.split(',')
 
     table_data = []
     did_list = []
