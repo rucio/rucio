@@ -202,7 +202,7 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 @click.option("--csv", help="Write output to comma separated values", is_flag=True, default=False)
 @click.option("--long", is_flag=True, default=False, help="Display extra details")
 @click.pass_context
-def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep: bool, csv: bool, long: bool):  # TODO Correct typing
+def list_dataset(ctx, dids: Sequence[str], rse: Optional[str], deep: bool, csv: bool, long: bool):  # TODO Correct typing
     """List dataset replicas, or view all datasets at a RSE"""
     if rse is None:
         result = {}
@@ -374,7 +374,7 @@ def state_update():
     "Change the state of replicas"
 
 
-def __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns, client) -> object:
+def __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns, client, logger) -> object:
     """
     Declare a list of bad replicas using RSE name, scope and list of LFNs.
     """
@@ -389,7 +389,8 @@ def __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns, client) -> obj
         non_declared = client.declare_bad_file_replicas(lst, reason)
         for rse, undeclared in non_declared.items():
             for r in undeclared:
-                print(f'{rse} : replica cannot be declared: {r}')
+                msg = f'{rse} : replica cannot be declared: {r}'
+                logger.warning(msg)
 
     for line in open(lfns, "r"):
         lfn = line.strip()
@@ -424,7 +425,7 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
             raise ValueError("Exactly one positional argument expected in case of LFN list")
 
     if lfn:
-        return __declare_bad_file_replicas_by_lfns(scope, rse, reason, replicas[0], ctx.obj.client)
+        return __declare_bad_file_replicas_by_lfns(scope, rse, reason, replicas[0], ctx.obj.client, ctx.obj.logger)
 
     if as_file:
         with open(replicas[0]) as infile:
@@ -456,9 +457,10 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
         non_declared = ctx.obj.client.declare_bad_file_replicas(bad_files_pfns, reason)
         for rse in non_declared:
             for pfn in non_declared[rse]:
-                print(f'{rse} : PFN {pfn} cannot be declared.')  # TODO: Turn into logging statement
+                msg = f'{rse} : PFN {pfn} cannot be declared.'
+                ctx.obj.logger.warning(msg)
     else:
-        print('Getting the information about RSE protocols. It can take several seconds')
+        ctx.obj.logger.debug('Getting the information about RSE protocols. It can take several seconds')
         dict_rse = ctx.obj.client.export_data(distance=False)
         prot_dict = {}
         for rse, dict_attr in dict_rse['rses'].items():
@@ -466,10 +468,12 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
             for prot in protocols:
                 prot_dict[f'{prot["scheme"]}://{prot["hostname"]}{prot["prefix"]}'] = rse
                 prot_dict[f'{prot["scheme"]}://{prot["hostname"]}:{prot["port"]}{prot["prefix"]}'] = rse
-        print('Protocol information retrieved')
+        ctx.obj.logger.debug('Protocol information retrieved')
 
         chunk_size = 10000
-        print(f'Starting the declaration by chunks of {chunk_size}')
+        msg = f'Starting the declaration by chunks of {chunk_size}'
+        ctx.obj.logger.debug(msg)
+
         tot_files = len(bad_files)
         tot_file_declared = 0
         cnt = 0
@@ -492,14 +496,13 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
                         unknown = False
                         break
                 if unknown:
-                    print(f'Cannot find any RSE associated to {pfn}')  # TODO: Logging Statement
+                    msg = f'Cannot find any RSE associated to {pfn}'
+                    ctx.obj.logger.warning(msg)
             ctx.obj.client.add_bad_pfns(pfns=list_bad_pfns, reason=reason, state='BAD', expires_at=None)
             ndeclared = len(list_bad_pfns)
             tot_file_declared += ndeclared
             print(f'Chunk {int(cnt)}/{int(nchunk)} : {ndeclared} replicas successfully declared')
-        print('--------------------------------')
-        print('Summary')
-        print(f'{tot_file_declared}/{tot_files} replicas successfully declared')
+        print(f'Summary: {tot_file_declared}/{tot_files} replicas successfully declared')
 
 
 @state_update.command("unavailable")
@@ -534,9 +537,7 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
         ctx.obj.client.add_bad_pfns(pfns=chunk, reason=reason, state='TEMPORARY_UNAVAILABLE', expires_at=expiration_date)
         ndeclared = len(chunk)
         print(f'Chunk {int(cnt)}/{int(nchunk)} : {ndeclared} replicas successfully declared')
-    print('--------------------------------')
-    print('Summary')
-    print(f'{tot_files} replicas successfully declared')
+    print(f'Summary: {tot_files} replicas successfully declared' % tot_files)
 
 
 @state_update.command("quarantine")
