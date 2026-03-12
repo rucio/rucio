@@ -439,7 +439,7 @@ def protocol_add(ctx, rse_name, hostname, scheme, prefix, space_token, web_servi
         proto['extended_attributes']['space_token'] = space_token
     if web_service_path:
         proto['extended_attributes']['web_service_path'] = web_service_path
-    # Rucio 1.14.1 chokes on an empty extended_attributes key.
+    # Cannot have an empty extended_attributes
     if not proto['extended_attributes']:
         del proto['extended_attributes']
     ctx.obj.client.add_protocol(rse_name, proto)
