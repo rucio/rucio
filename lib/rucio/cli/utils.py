@@ -275,7 +275,6 @@ def scope_exists(client: 'Client', scope: str) -> None:
     if scope not in scopes:  # type: ignore - handled by the if isinstance
         raise ScopeNotFound
 
-
 def get_scope(did: str, client: Client) -> tuple[str, str]:
     try:
         scope, name = extract_scope(did)
@@ -293,3 +292,15 @@ def get_scope(did: str, client: Client) -> tuple[str, str]:
             raise ScopeNotFound
 
         return scope, name
+
+
+class CommaSeparatedList(click.ParamType):
+    name = "comma_separated_list"
+
+    def convert(self, value: Optional[str], param: Optional[click.Parameter], ctx: Optional[click.Context]) -> Optional[list[str]]:
+        if value is None:
+            return None
+        try:
+            return [item.strip() for item in value.split(',') if item.strip()]
+        except TypeError as e:
+            self.fail(f"Cannot create list: {e} \nSpecify your argument as 'arg1,arg2,arg3...'", param, ctx)
