@@ -360,6 +360,7 @@ class ReplicaClient(BaseClient):
     def delete_replicas(self, rse, files, ignore_availability=True):
         """
         Bulk delete file replicas from a RSE.
+
         Parameters
         ----------
         rse:
@@ -383,9 +384,7 @@ class ReplicaClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def update_replicas_states(self, rse, files):
-
         """
-
         Bulk update the file replicas states from a RSE.
 
         Parameters
