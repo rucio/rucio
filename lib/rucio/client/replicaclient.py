@@ -556,10 +556,12 @@ class ReplicaClient(BaseClient):
         """
         Set a tombstone on a list of replicas.
 
+        This will result in the reaper daemon deleting the corresponding files on the RSE.
+
         Parameters
         ----------
         replicas:
-            list of replicas.
+            list of replicas. [{"scope": <scope>, "name": <name>, "rse": <rse>}, ...]
         """
         url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, 'tombstone']))
         data = {'replicas': replicas}
