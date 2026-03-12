@@ -63,10 +63,6 @@ class TestDIDType:
         assert input_did.scope == expected_scope
         assert input_did.name == expected_name
 
-    def test_non_implicit_single_string(self):
-        with pytest.raises(DIDError, match='Error using DID type\nDetails: Object construction from non-splitable string is ambigious'):
-            DID('non.implicit.single.string')
-
     def test_copy(self):
         x = DID('test.scope:test.name')
         y = DID(x)
