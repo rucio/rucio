@@ -546,12 +546,11 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
 @state_update.command("quarantine")
 @click.argument("replicas", nargs=-1)
 @click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
-@click.option("--rse", "--rse-name")  # TODO Description based on client docstring
+@click.option("--rse", "--rse-name", help="Name of RSE")
 @click.pass_context
 def update_quarantine(ctx, replicas, as_file, rse):
     """Quarantine a replica"""
 
-    # TODO Add a reason option
     chunk = []
 
     # send requests in chunks
