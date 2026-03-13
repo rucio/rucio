@@ -443,7 +443,7 @@ def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_fi
         if len(replicas) != 1:
             raise ValueError("Exactly one positional argument expected in case of LFN list")
 
-        return __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfn, ctx.obj.client, ctx.obj.logger)
+        return __declare_bad_file_replicas_by_lfns(scope, rse, reason, replicas[0], ctx.obj.client, ctx.obj.logger)
 
     if as_file:
         if len(replicas) != 1:
