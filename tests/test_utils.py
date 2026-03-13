@@ -138,6 +138,24 @@ def test_formatted_logger():
     assert result == (logging.INFO, "a b c")
 
 
+def test_formatted_logger_stacklevel(caplog):
+    logger = logging.getLogger("test_formatted_logger")
+
+    def something_that_logs(logger):
+        logger(logging.INFO, "b")
+
+    new_log_func = formatted_logger(logger.log, "a %s c")
+
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        something_that_logs(new_log_func)
+
+    # make sure the record points to the the actual function logging and not our internal wrapper
+    records = caplog.records
+    assert len(records) == 1
+    record = records[0]
+    assert record.funcName == "something_that_logs"
+
+
 def test_retrying():
     attempts = []
     start_time = datetime.datetime.now()
