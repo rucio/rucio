@@ -275,6 +275,7 @@ def scope_exists(client: 'Client', scope: str) -> None:
     if scope not in scopes:  # type: ignore - handled by the if isinstance
         raise ScopeNotFound
 
+
 def get_scope(did: str, client: Client) -> tuple[str, str]:
     try:
         scope, name = extract_scope(did)
