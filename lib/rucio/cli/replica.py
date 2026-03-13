@@ -15,7 +15,7 @@ import datetime
 import itertools
 import math
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import click
 import tabulate
@@ -29,16 +29,18 @@ from rucio.common.exception import InputValidationError, InvalidObject
 from rucio.common.utils import chunks, clean_pfns, sizefmt
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from logging import Logger
+
+    from rucio.client import Client
 
 
 @click.group()
-def replica():
+def replica() -> None:
     """Manage replicas - DIDs with locations on RSEs"""
 
 
 @replica.group("list")
-def replica_list():
+def replica_list() -> None:
     """List replicas (file or collection-types)"""
 
 
@@ -66,7 +68,20 @@ def replica_list():
 @click.option("--rses", "--rse-exp", "rses", help="The RSE filter expression")
 @click.option("--human", default=True, hidden=True)
 @click.pass_context
-def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
+def list_(
+    ctx: click.Context,
+    dids: tuple[str, ...],
+    protocols: list[str],
+    all_states: bool,
+    pfns: bool,
+    domain: Literal['wan', 'lan', 'all'],
+    link: Optional[str],
+    missing: bool,
+    metalink: bool,
+    no_resolve_archives: bool,
+    sort: Optional[Literal['geoip', 'random']],
+    rses: Optional[str],
+    human: bool) -> None:
     """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
     if missing:
         all_states = True
@@ -96,14 +111,14 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
                                     client_location=detect_client_location(),
                                     sort=sort, domain=domain,
                                     resolve_archives=not no_resolve_archives)
-    rses = [rse["rse"] for rse in ctx.obj.client.list_rses(rse_expression=rses)]
+    resolved_rses = [rse["rse"] for rse in ctx.obj.client.list_rses(rse_expression=rses)]
 
     if metalink:
         print(replicas[:-1])  # Last character is newline, no need to print that.
         return
 
     if missing:
-        for replica, rse in itertools.product(replicas, rses):
+        for replica, rse in itertools.product(replicas, resolved_rses):
             if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
                 if ctx.obj.use_rich:
                     replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
@@ -119,8 +134,8 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 
     elif link:
         pfn_dir, dst_dir = link.split(':')
-        if rses:
-            for replica, rse in itertools.product(replicas, rses):
+        if resolved_rses:
+            for replica, rse in itertools.product(replicas, resolved_rses):
                 if replica['rses'].get(rse):
                     for pfn in replica['rses'][rse]:
                         os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
@@ -131,7 +146,7 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
                         for pfn in replica['rses'][rse]:
                             os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
     elif pfns:
-        if rses:
+        if resolved_rses:
             for replica in replicas:
                 for pfn in replica['pfns']:
                     rse = replica['pfns'][pfn]['rse']
@@ -181,8 +196,8 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
                                 rse_string = f'{rse}: [u bright_blue]{pfn}[/]'
                         else:
                             rse_string = '{0}: {1}'.format(rse, pfn)
-                    if rses:
-                        for selected_rse in rses:
+                    if resolved_rses:
+                        for selected_rse in resolved_rses:
                             if rse == selected_rse:
                                 table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], human), replica['adler32'], rse_string])
                     else:
@@ -203,7 +218,13 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 @click.option("--csv", help="Write output to comma separated values", is_flag=True, default=False)
 @click.option("--long", is_flag=True, default=False, help="Display extra details")
 @click.pass_context
-def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep: bool, csv: bool, long: bool):  # TODO Correct typing
+def list_dataset(
+    ctx: click.Context,
+    dids: tuple[str, ...],
+    rse: Optional[str],
+    deep: bool,
+    csv: bool,
+    long: bool) -> None:
     """List dataset replicas, or view all datasets at a RSE"""
     if rse is None:
         result = {}
@@ -255,8 +276,8 @@ def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep:
 
         if csv:
             for dsn in result:
-                for rse in list(result[dsn].values()):
-                    print(rse[0], rse[1], rse[2], sep=',')  # TODO change name to avoid typing overshadow
+                for result_rse in list(result[dsn].values()):
+                    print(result_rse[0], result_rse[1], result_rse[2], sep=',')
 
             if ctx.obj.use_rich:
                 ctx.obj.spinner.stop()
@@ -315,11 +336,11 @@ def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep:
 @click.argument("dids", nargs=-1)
 @click.option("--rse", "--rse-name", "rse", required=True)
 @click.pass_context
-def remove(ctx, dids, rse):
+def remove(ctx: click.Context, dids: tuple[str, ...], rse: str) -> None:
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
     # TODO: Fix set_tombstone to not expect a comma separated DID str
-    dids = ",".join(dids)
-    dids = [dids] if ',' not in dids else dids.split(',')
+    resolved_dids = ",".join(dids)
+    resolved_dids = [resolved_dids] if ',' not in dids else resolved_dids.split(',')
     replicas = []
     for did in dids:
         scope, name = get_scope(did, ctx.obj.client)
@@ -331,7 +352,7 @@ def remove(ctx, dids, rse):
 
 @replica.group()
 @click.help_option("-h", "--help")
-def state():
+def state() -> None:
     """Manage the state of replicas"""
 
 
@@ -341,7 +362,7 @@ def state():
 @click.option("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
 @click.option("--n-attempts", help="Minimum number of failed attempts to access a suspicious file")
 @click.pass_context
-def state_list(ctx, state_type, rses, younger_than, n_attempts):
+def state_list(ctx: click.Context, state_type: Literal['suspicious'], rses: Optional[str], younger_than: Optional[str], n_attempts: Optional[str]) -> None:
     """List replicas by state. WARNING: Only implemented for 'suspicious'"""
 
     if state_type != "suspicious":
@@ -371,11 +392,11 @@ def state_list(ctx, state_type, rses, younger_than, n_attempts):
 
 @state.group("update")
 @click.help_option("-h", "--help")
-def state_update():
+def state_update() -> None:
     "Change the state of replicas"
 
 
-def __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns, client, logger) -> object:
+def __declare_bad_file_replicas_by_lfns(scope: Optional[str], rse: Optional[str], reason: Optional[str], lfns: str, client: "Client", logger: "Logger") -> None:
     """
     Declare a list of bad replicas using RSE name, scope and list of LFNs.
     """
@@ -413,24 +434,23 @@ def __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns, client, logger
 @click.option("--scope", help="Common scope for bad replicas specified with LFN list, ignored without --lfn")
 @click.option("--rse", "--rse-name", help="Common RSE for bad replicas specified with LFN list, ignored without --lfn")
 @click.pass_context
-def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
+def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_file: bool, collection: bool, lfn: bool, scope: Optional[str], rse: Optional[str]) -> None:
     """Mark a replica bad"""
-    if as_file:
-        if len(replicas) != 1:
-            raise ValueError("Exactly one positional argument expected in case as-file")
 
-    elif lfn:
+    if lfn:
         if (scope is None) or (rse is None):
             raise ValueError("Scope and RSE are required when using LFNs")
         if len(replicas) != 1:
             raise ValueError("Exactly one positional argument expected in case of LFN list")
 
-    if lfn:
         return __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfn, ctx.obj.client, ctx.obj.logger)
 
     if as_file:
-        with open(replicas) as infile:
-            bad_files = list(filter(None, [line.strip() for line in infile]))
+        if len(replicas) != 1:
+            raise ValueError("Exactly one positional argument expected in case as-file")
+        else:
+            with open(replicas[0]) as infile:
+                bad_files = list(filter(None, [line.strip() for line in infile]))
     else:
         bad_files = replicas
 
@@ -443,9 +463,9 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
             if did_info['type'].upper() != 'FILE' and not collection:
                 msg = f'DID {scope}:{name} is a collection and --allow-collection was not specified.'
                 raise InputValidationError(msg)
-            replicas = [replica for rep in ctx.obj.client.list_replicas([{'scope': scope, 'name': name}])
+            resolved_replicas = [replica for rep in ctx.obj.client.list_replicas([{'scope': scope, 'name': name}])
                         for replica in list(rep['pfns'].keys())]
-            bad_files_pfns.extend(replicas)
+            bad_files_pfns.extend(resolved_replicas)
         else:
             bad_files_pfns.append(bad_file)
     if ctx.obj.verbose:
@@ -513,11 +533,11 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
 @click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--duration", required=True, type=int, help="Timeout (in seconds) after which the replicas will become available again")
 @click.pass_context
-def update_unavailable(ctx, replicas, reason, as_file, duration):
+def update_unavailable(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_file: bool, duration: int) -> None:
     """Declare a replica unavailable"""
     bad_files = []
     if as_file:
-        with open(replicas) as infile:
+        with open(replicas[0]) as infile:
             for line in infile:
                 bad_file = line.rstrip('\n')
                 if '://' not in bad_file:
@@ -548,7 +568,7 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
 @click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--rse", "--rse-name", help="Name of RSE")
 @click.pass_context
-def update_quarantine(ctx, replicas, as_file, rse):
+def update_quarantine(ctx: click.Context, replicas: tuple[str, ...], as_file: bool, rse: Optional[str]) -> None:
     """Quarantine a replica"""
 
     chunk = []
@@ -557,7 +577,7 @@ def update_quarantine(ctx, replicas, as_file, rse):
     chunk_size = 1000
 
     if as_file:
-        replicas_list = open(replicas, "r")     # will iterate over file lines
+        replicas_list = open(replicas[0], "r")     # will iterate over file lines
     else:
         replicas_list = replicas
 
