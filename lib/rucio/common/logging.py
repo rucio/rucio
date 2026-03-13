@@ -416,5 +416,8 @@ def formatted_logger(innerfunc: 'Callable', formatstr: str = "%s") -> 'Callable'
     """
     @functools.wraps(innerfunc)
     def log_format(level: int, msg: object, *args, **kwargs) -> 'Callable':
-        return innerfunc(level, formatstr % msg, *args, **kwargs)
+        # stacklevel=2 is needed so that the function of the record is correctly reported
+        # allow overriding stacklevel in kwargs by taking passed in stacklevel if given
+        stacklevel = kwargs.pop("stacklevel", 2)
+        return innerfunc(level, formatstr % msg, *args, stacklevel=stacklevel, **kwargs)
     return log_format
