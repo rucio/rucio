@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 import requests
 from dogpile.cache.api import NoValue
-from sqlalchemy import and_, delete, insert, update
+from sqlalchemy import and_, delete, func, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
@@ -144,6 +144,7 @@ def list_opendata_dids(
         A dictionary containing the total count, offset, and a list of DIDs.
     """
 
+    count_query = select(func.count()).select_from(models.OpenDataDid)
     query = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
@@ -154,20 +155,23 @@ def list_opendata_dids(
         models.OpenDataDid.updated_at
     )
 
+    if state is not None:
+        count_query = count_query.where(models.OpenDataDid.state == state)
+        query = query.where(models.OpenDataDid.state == state)
+
+    total = session.execute(count_query).scalar()
+
     if limit is not None:
         query = query.limit(limit)
 
     if offset is not None:
         query = query.offset(offset)
 
-    if state is not None:
-        query = query.where(models.OpenDataDid.state == state)
-
     dids = [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
             scope, name, state, created_at, updated_at in session.execute(query)]
 
     response = {
-        "total": len(dids),
+        "total": total,
         "offset": offset if offset is not None else 0,
         "dids": dids,
     }
@@ -730,7 +734,7 @@ def update_opendata_did(
         ValueError: If there is an error during the update process.
     """
 
-    if not any([state, meta, doi, record_id]):
+    if not any(x is not None for x in [state, meta, doi, record_id]):
         raise exception.InputValidationError(
             "Either 'state', 'meta', 'doi', or 'record_id' must be provided to update the Opendata DID.")
     if not _check_opendata_did_exists(scope=scope, name=name, session=session):
@@ -1115,7 +1119,7 @@ def update_opendata_record_id(
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
     if not isinstance(record_id, int) or record_id < 0:
-        raise exception.InputValidationError("DOI must be a positive integer.")
+        raise exception.InputValidationError("Record ID must be a non-negative integer.")
 
     # insert on the table if it does not exist, otherwise update it
     record_id_before = session.execute(select(models.OpenDataRecord.record_id).where(
