@@ -166,10 +166,11 @@ def setup_class(request, vo, root_account, jdoe_account, rse_factory):
     add_rse_attribute(cls.rse3_id, "fakeweight", 0)
     add_rse_attribute(cls.rse4_id, "fakeweight", 0)
 
-    set_local_account_limit(jdoe_account, cls.rse1_id, -1)
-    set_local_account_limit(jdoe_account, cls.rse2_id, -1)
-    set_local_account_limit(jdoe_account, cls.rse3_id, -1)
-    set_local_account_limit(jdoe_account, cls.rse4_id, -1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, cls.rse1_id, -1, session=session)
+        set_local_account_limit(jdoe_account, cls.rse2_id, -1, session=session)
+        set_local_account_limit(jdoe_account, cls.rse3_id, -1, session=session)
+        set_local_account_limit(jdoe_account, cls.rse4_id, -1, session=session)
 
 
 @pytest.mark.usefixtures('setup_class')
@@ -296,10 +297,15 @@ class TestCore:
 
         # create account
         account: InternalAccount = random_account
-        add_account_attribute(
-            account, f"{accountgroup}-{rstring}", "admin"
-        )
-        email = get_account(account).email
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(
+                account,
+                f"{accountgroup}-{rstring}",
+                "admin",
+                session=session
+            )
+        with db_session(DatabaseOperationType.READ) as session:
+            email = get_account(account, session=session).email
 
         # import and run relevant function
         from rucio.core.rule import _create_recipients_list
@@ -628,7 +634,8 @@ class TestCore:
         """ REPLICATION RULE (CORE): Test if the account counter is updated correctly when new rule is created"""
 
         account_update(once=True)
-        account_counter_before = get_usage(self.rse1_id, jdoe_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before = get_usage(self.rse1_id, jdoe_account, session=session)  # type: ignore (self.rse1_id is not None)
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=100)
         dataset = did_factory.random_dataset_did()
@@ -639,7 +646,8 @@ class TestCore:
 
         # Check if the counter has been updated correctly
         account_update(once=True)
-        account_counter_after = get_usage(self.rse1_id, jdoe_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after = get_usage(self.rse1_id, jdoe_account, session=session)  # type: ignore (self.rse1_id is not None)
         assert (account_counter_before['bytes'] + 3 * 100 == account_counter_after['bytes'])
         assert (account_counter_before['files'] + 3 == account_counter_after['files'])
 
@@ -655,13 +663,15 @@ class TestCore:
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         account_update(once=True)
-        account_counter_before = get_usage(self.rse1_id, jdoe_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before = get_usage(self.rse1_id, jdoe_account, session=session)  # type: ignore (self.rse1_id is not None)
 
         delete_rule(rule_id)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
-        account_counter_after = get_usage(self.rse1_id, jdoe_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after = get_usage(self.rse1_id, jdoe_account, session=session)  # type: ignore (self.rse1_id is not None)
         assert (account_counter_before['bytes'] - 3 * 100 == account_counter_after['bytes'])
         assert (account_counter_before['files'] - 3 == account_counter_after['files'])
 
@@ -677,15 +687,17 @@ class TestCore:
         rule_id = add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
 
         account_update(once=True)
-        account_counter_before_1 = get_usage(self.rse1_id, jdoe_account)
-        account_counter_before_2 = get_usage(self.rse1_id, root_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_before_1 = get_usage(self.rse1_id, jdoe_account, session=session)  # type: ignore (self.rse1_id is not None)
+            account_counter_before_2 = get_usage(self.rse1_id, root_account, session=session)  # type: ignore (self.rse1_id is not None)
 
         rucio.gateway.rule.update_replication_rule(rule_id, {'account': 'root'}, issuer='root', vo=vo)
         account_update(once=True)
 
         # Check if the counter has been updated correctly
-        account_counter_after_1 = get_usage(self.rse1_id, jdoe_account)
-        account_counter_after_2 = get_usage(self.rse1_id, root_account)
+        with db_session(DatabaseOperationType.READ) as session:
+            account_counter_after_1 = get_usage(self.rse1_id, jdoe_account, session=session)  # type: ignore (self.rse1_id is not None)
+            account_counter_after_2 = get_usage(self.rse1_id, root_account, session=session)  # type: ignore (self.rse1_id is not None)
         assert (account_counter_before_1['bytes'] - 3 * 100 == account_counter_after_1['bytes'])
         assert (account_counter_before_2['bytes'] + 3 * 100 == account_counter_after_2['bytes'])
 
@@ -720,10 +732,12 @@ class TestCore:
         add_did(did_type=DIDType.DATASET, account=jdoe_account, **dataset)
         attach_dids(dids=files, account=jdoe_account, **dataset)
 
-        set_local_account_limit(account=jdoe_account, rse_id=self.rse2_id, bytes_=5)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=jdoe_account, rse_id=self.rse2_id, bytes_=5, session=session)  # type: ignore
 
         pytest.raises(InsufficientAccountLimit, add_rule, dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-        set_local_account_limit(account=jdoe_account, rse_id=self.rse2_id, bytes_=-1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=jdoe_account, rse_id=self.rse2_id, bytes_=-1, session=session)  # type: ignore
 
     def test_rule_add_fails_account_global_limit(self, mock_scope, did_factory, random_account, rse_factory):
         """ REPLICATION RULE (CORE): Test if a rule fails correctly when global account limit conflict"""
@@ -735,10 +749,11 @@ class TestCore:
         add_did(did_type=DIDType.DATASET, account=random_account, **dataset)
         attach_dids(dids=files, account=random_account, **dataset)
 
-        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=400)
-        # check with two global limits - one breaking limit is enough to let the rule fail
-        set_global_account_limit(rse_expression=f'{rse1}|{rse2}', account=random_account, bytes_=400)
-        set_global_account_limit(rse_expression=f'{rse1}|{rse3}', account=random_account, bytes_=10)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=400, session=session)
+            # check with two global limits - one breaking limit is enough to let the rule fail
+            set_global_account_limit(rse_expression=f'{rse1}|{rse2}', account=random_account, bytes_=400, session=session)
+            set_global_account_limit(rse_expression=f'{rse1}|{rse3}', account=random_account, bytes_=10, session=session)
         pytest.raises(InsufficientAccountLimit, add_rule, dids=[dataset], account=random_account, copies=1, rse_expression=rse1, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
     def test_rule_add_fails_rse_limit(self, mock_scope, did_factory, jdoe_account):
@@ -916,7 +931,8 @@ class TestCore:
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
         update_rse(rse_id, {'availability_write': False})
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -937,7 +953,8 @@ class TestCore:
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
         add_rse_attribute(rse_id, RseAttr.COUNTRY, 'test')
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -952,7 +969,8 @@ class TestCore:
         with pytest.raises(AccessDenied):
             rucio.gateway.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
-        add_account_attribute(InternalAccount(usr, vo=vo), 'country-test', 'admin')
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(InternalAccount(usr, vo=vo), 'country-test', 'admin', session=session)
         rucio.gateway.rule.delete_replication_rule(rule_id=rule_id, purge_replicas=None, issuer=usr, vo=vo)
 
     def test_reduce_rule(self, mock_scope, did_factory, jdoe_account):
@@ -1030,7 +1048,8 @@ class TestCore:
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
         add_rse_attribute(rse_id, RseAttr.TYPE, 'SCRATCHDISK')
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -1076,7 +1095,8 @@ class TestCore:
         rse = rse_name_generator()
         rse_id = add_rse(rse, vo=vo)
         add_rse_attribute(rse_id, RseAttr.BLOCK_MANUAL_APPROVAL, '1')
-        set_local_account_limit(jdoe_account, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(jdoe_account, rse_id, -1, session=session)
 
         files = create_files(3, mock_scope, self.rse1_id)
         dataset = did_factory.random_dataset_did()
@@ -1328,7 +1348,8 @@ def test_rule_boost(vo, mock_scope, rse_factory, jdoe_account):
     _, tmp_rse_id = rse_factory.make_mock_rse()
     rse, rse_id = rse_factory.make_mock_rse()
     update_rse(rse_id, {'availability_write': False})
-    set_local_account_limit(jdoe_account, rse_id, -1)
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, rse_id, -1, session=session)
     files = create_files(3, mock_scope, tmp_rse_id)
     dataset1 = 'dataset_' + str(uuid())
     add_did(mock_scope, dataset1, DIDType.DATASET, jdoe_account)

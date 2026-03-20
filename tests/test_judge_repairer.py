@@ -32,8 +32,8 @@ from rucio.core.transfer import cancel_transfers
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DIDType, ReplicaState, RuleState
-from rucio.db.sqla.session import get_session
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, ReplicaState, RuleState
+from rucio.db.sqla.session import db_session, get_session
 from rucio.tests.common import did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
 
@@ -80,15 +80,17 @@ class TestJudgeRepairer:
         # Add quota
         cls.jdoe = InternalAccount('jdoe', **cls.vo)
         cls.root = InternalAccount('root', **cls.vo)
-        set_local_account_limit(cls.jdoe, cls.rse1_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse3_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse4_id, -1)
-        set_local_account_limit(cls.jdoe, cls.rse5_id, -1)
 
-        set_local_account_limit(cls.root, cls.rse1_id, -1)
-        set_local_account_limit(cls.root, cls.rse3_id, -1)
-        set_local_account_limit(cls.root, cls.rse4_id, -1)
-        set_local_account_limit(cls.root, cls.rse5_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(cls.jdoe, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.jdoe, cls.rse5_id, -1, session=session)
+
+            set_local_account_limit(cls.root, cls.rse1_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse3_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse4_id, -1, session=session)
+            set_local_account_limit(cls.root, cls.rse5_id, -1, session=session)
 
     def test_to_repair_a_rule_with_none_grouping_whose_transfer_failed(self):
         """ JUDGE REPAIRER: Test to repair a rule with 1 failed transfer (lock)"""
@@ -305,7 +307,8 @@ class TestJudgeRepairer:
 
         rse = rse_name_generator()
         rse_id = add_rse(rse, **self.vo)
-        set_local_account_limit(self.jdoe, rse_id, -1)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(self.jdoe, rse_id, -1, session=session)
         rule_repairer(once=True)  # Clean out the repairer
 
         region = make_region().configure(
