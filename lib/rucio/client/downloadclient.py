@@ -32,6 +32,7 @@ from rucio.client.client import Client
 from rucio.common.checksum import CHECKSUM_ALGO_DICT, GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM, adler32
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
@@ -229,7 +230,7 @@ class DownloadClient:
         # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
         extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
         self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
-        self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
+        self.extract_scope_convention = Config.common.extract_scope(raise_exception=False)
 
     def download_pfns(
         self,

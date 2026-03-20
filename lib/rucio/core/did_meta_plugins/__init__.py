@@ -17,6 +17,7 @@ from configparser import NoOptionError, NoSectionError
 from typing import TYPE_CHECKING
 
 from rucio.common import config, exception
+from rucio.common.config_settings import Config
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
@@ -36,13 +37,15 @@ DEFAULT_CUSTOM_METADATA_PLUGIN_MODULE_PATH = "rucio.core.did_meta_plugins.json_m
 
 # Overwrite these defaults if plugins are set in the configuration file.
 #
+
 if config.config_has_section('metadata'):
     try:
-        CUSTOM_METADATA_PLUGIN_MODULE_PATHS = config.config_get('metadata', 'plugins')
+        CUSTOM_METADATA_PLUGIN_MODULE_PATHS = Config.metadata.plugins()
     except (NoOptionError, NoSectionError):
         CUSTOM_METADATA_PLUGIN_MODULE_PATHS = DEFAULT_CUSTOM_METADATA_PLUGIN_MODULE_PATH
 else:
     CUSTOM_METADATA_PLUGIN_MODULE_PATHS = DEFAULT_CUSTOM_METADATA_PLUGIN_MODULE_PATH
+
 METADATA_PLUGIN_MODULE_PATHS = [DEFAULT_BASE_METADATA_PLUGIN_MODULE_PATH] + CUSTOM_METADATA_PLUGIN_MODULE_PATHS.split(",")
 
 # Import plugin modules.
