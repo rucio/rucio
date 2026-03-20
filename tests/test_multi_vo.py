@@ -25,7 +25,7 @@ import pytest
 from oic import rndstr
 from sqlalchemy import select
 
-from rucio.client.accountlimitclient import AccountLimitClient
+from rucio.client.accountclient import AccountClient
 from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.subscriptionclient import SubscriptionClient
@@ -795,9 +795,9 @@ class TestMultiVoClients:
         add_rse(new_rse1, 'root', vo=second_vo)
         add_rse(new_rse2, 'root', vo=second_vo)
 
-        acc_lim_client = AccountLimitClient()
-        acc_lim_client.set_local_account_limit(shr_acc, tst_rse1, 10)
-        acc_lim_client.set_local_account_limit(shr_acc, tst_rse2, 10)
+        account_client = AccountClient()
+        account_client.set_local_account_limit(shr_acc, tst_rse1, 10)
+        account_client.set_local_account_limit(shr_acc, tst_rse2, 10)
         set_local_account_limit(shr_acc, new_rse1, 10, 'root', vo=second_vo)
         set_local_account_limit(shr_acc, new_rse2, 10, 'root', vo=second_vo)
 
