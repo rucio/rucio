@@ -1409,7 +1409,8 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
             raise CannotAuthenticate(traceback.format_exc())
-        issuer = token_dict['identity'].split(", ")[1].split("=")[1]
+        token_payload = __get_keyvalues_from_claims(json_web_token, ['iss'])
+        issuer = token_payload['iss']
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
         JWS().verify_compact(json_web_token, issuer_keys)
@@ -1454,8 +1455,15 @@ def oidc_identity_string(sub: str, iss: str):
     :param sub: users SUB claim from the Identity Provider
     :param iss: issuer (IdP) https url
 
-    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
+    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/" or a configured identity string for the iss
     """
+    shared_identity_configs = config_get("oidc", "shared_identity_configs", False, default=None)
+    if shared_identity_configs:
+        for section in [x.strip() for x in shared_identity_configs.split(',')]:
+            shared_identity_iss = config_get(section, "iss")
+            if shared_identity_iss == iss:
+                shared_identity_string = config_get(section, "shared_identity_string")
+                return shared_identity_string
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
 
 
