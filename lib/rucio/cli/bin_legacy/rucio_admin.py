@@ -436,7 +436,13 @@ def info_rse(args, client, logger, console, spinner):
                             branch.add(f'[{CLITheme.JSON_STR}]{k}[/]: [{CLITheme.JSON_NUM}]{v}[/]')
                     table_data.append([item, tree])
                 else:
-                    table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
+                    if isinstance(protocol[item], dict):
+                        tree = Tree('')
+                        for proto, values in protocol[item].items():
+                            branch = tree.add(f'[{CLITheme.JSON_STR}]{proto}: [{CLITheme.JSON_NUM}]{json.dumps(values)}[/]')
+                        table_data.append([item, tree])
+                    else:
+                        table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
             else:
                 if item == 'domains':
                     print('    ' + item + ': \'' + json.dumps(protocol[item]) + '\'')
