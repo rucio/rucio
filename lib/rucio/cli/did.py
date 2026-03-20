@@ -18,10 +18,10 @@ import click
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.cli.utils import get_scope
+from rucio.cli.utils import get_scope, scope_exists
 from rucio.client.richclient import CLITheme, generate_table, print_output
 from rucio.common.config import config_get
-from rucio.common.exception import InputValidationError, InvalidObject, RucioException, ScopeNotFound
+from rucio.common.exception import InputValidationError, InvalidObject, RucioException
 from rucio.common.utils import chunks, parse_did_filter_from_string_fe
 
 
@@ -83,8 +83,7 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
             scope = did_pattern
             name = '*'
 
-        if scope not in ctx.obj.client.list_scopes():
-            raise ScopeNotFound
+        scope_exists(ctx.obj.client, scope)
 
         if recursive and '*' in name:
             raise InputValidationError('Option recursive cannot be used with wildcards.')
@@ -94,7 +93,6 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
                     raise ValueError('Must have a wildcard in did name if filtering by name.')
 
         filters, type_ = parse_did_filter_from_string_fe(filter_, name)
-
         if ctx.obj.use_rich:
             ctx.obj.spinner.update(status='Fetching DIDs')
             ctx.obj.spinner.start()
