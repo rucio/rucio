@@ -30,6 +30,7 @@ from sqlalchemy.exc import DatabaseError
 
 import rucio.db.sqla.util
 from rucio.common import exception
+from rucio.common.config import config_get_float
 from rucio.common.exception import DatabaseException
 from rucio.common.logging import setup_logging
 from rucio.core.monitor import MetricManager
@@ -52,6 +53,11 @@ def rule_repairer(
     """
     Main loop to check for STUCK replication rules
     """
+    if once:
+        delta = -1.0
+    else:
+        delta = config_get_float("repairer", "updated_at_delta", default=1800.0)
+
     paused_rules = {}  # {rule_id: datetime}
     run_daemon(
         once=once,
@@ -62,14 +68,14 @@ def rule_repairer(
         run_once_fnc=functools.partial(
             run_once,
             paused_rules=paused_rules,
-            delta=-1 if once else 1800,
+            delta=delta,
         )
     )
 
 
 def run_once(
         paused_rules: dict[str, datetime],
-        delta: int,
+        delta: float,
         heartbeat_handler: HeartbeatHandler,
         **_kwargs
 ) -> None:
