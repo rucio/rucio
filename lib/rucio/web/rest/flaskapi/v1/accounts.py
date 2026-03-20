@@ -925,7 +925,7 @@ class LocalUsage(ErrorHandlingMethodView):
         summary: Get local account usage
         description: "Returns the local account usage."
         tags:
-          - Account
+        - Account
         parameters:
         - name: account
           in: path
@@ -938,6 +938,13 @@ class LocalUsage(ErrorHandlingMethodView):
           description: "The rse identifier."
           schema:
             type: string
+          style: simple
+        - name: unique
+          in: query
+          description: "If true, count unique replicas to avoid double-counting when multiple locks exist."
+          schema:
+            type: boolean
+            default: false
           style: simple
         responses:
           200:
@@ -968,11 +975,12 @@ class LocalUsage(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
+        unique = param_get_bool(request.args, 'unique', default=False)
+
         try:
             def generate(issuer: str, vo: str) -> "Iterator[str]":
-                for usage in get_local_account_usage(account=account, rse=rse, issuer=issuer, vo=vo):
+                for usage in get_local_account_usage(account=account, rse=rse, unique=unique, issuer=issuer, vo=vo):
                     yield dumps(usage, cls=APIEncoder) + '\n'
-
             return try_stream(generate(issuer=request.environ['issuer'], vo=request.environ['vo']))
         except (AccountNotFound, RSENotFound) as error:
             return generate_http_error_flask(404, error)

@@ -226,6 +226,12 @@ def test_account_limit(jdoe_account, rucio_client):
     assert "ERROR" not in err
     assert mock_rse in out
 
+    # Test unique parameter
+    cmd = f"rucio -v account limit list {jdoe_account} --rse {mock_rse} --unique"
+    _, out_unique, err_unique = execute(cmd)
+    assert "ERROR" not in err_unique
+    assert mock_rse in out_unique
+
     cmd = f"rucio account limit remove {jdoe_account} --rse {mock_rse}"
     _, _, rm_log = execute(cmd)
     assert "ERROR" not in rm_log
