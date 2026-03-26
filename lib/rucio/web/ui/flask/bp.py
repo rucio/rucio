@@ -126,7 +126,6 @@ if POLICY == 'atlas':
     ATLAS_URLS = (
         ('/', 'atlas_index', 'Index'),
         ('/account_usage', 'account_usage', 'Group Account Usage'),
-        ('/account_usage_history', 'account_usage_history', 'Account Usage History'),
         ('/dumps', 'dumps', 'Dumps'),
         ('/conditions_summary', 'cond', 'ConditionsDB Summary'),
         ('/dbrelease_summary', 'dbrelease', 'DBRelease Summary'),
