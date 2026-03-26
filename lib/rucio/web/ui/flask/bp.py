@@ -128,7 +128,6 @@ if POLICY == 'atlas':
         ('/account_usage', 'account_usage', 'Group Account Usage'),
         ('/account_usage_history', 'account_usage_history', 'Account Usage History'),
         ('/dumps', 'dumps', 'Dumps'),
-        ('/accounting', 'accounting', 'Accounting'),
         ('/conditions_summary', 'cond', 'ConditionsDB Summary'),
         ('/dbrelease_summary', 'dbrelease', 'DBRelease Summary'),
         ('/infrastructure', 'infrastructure', 'Infrastucture'),
