@@ -61,9 +61,11 @@ class Receiver:
             id_: str,
             total_threads: int,
             transfer_stats_manager: request_core.TransferStatsManager,
-            all_vos: bool = False
+            all_vos: bool = False,
+            voname: Optional[str] = None,
     ):
         self.__all_vos = all_vos
+        self.__voname = voname
         self.__broker = broker
         self.__id = id_
         self.__total_threads = total_threads
@@ -78,7 +80,8 @@ class Receiver:
         msg = json.loads(frame.body)  # type: ignore
 
         if not self.__all_vos:
-            if 'vo' not in msg or msg['vo'] != get_policy():
+            voname = self.__voname or get_policy()
+            if 'vo' not in msg or msg['vo'] != voname:
                 return
 
         if 'job_metadata' in msg.keys() \
@@ -178,6 +181,10 @@ def receiver(
             )
         conns.append(con)
 
+    voname = config_get('messaging-fts3', 'voname', default=None, raise_exception=False)
+    if voname is not None:
+        logger(logging.INFO, "Using voname=%s from configuration", voname)
+
     logger(logging.INFO, 'receiver started')
 
     with (HeartbeatHandler(executable=DAEMON_NAME, renewal_interval=30) as heartbeat_handler,
@@ -199,7 +206,8 @@ def receiver(
                             id_=id_,
                             total_threads=total_threads,
                             transfer_stats_manager=transfer_stats_manager,
-                            all_vos=all_vos
+                            all_vos=all_vos,
+                            voname=voname,
                         ))
                     if not use_ssl:
                         conn.connect(username, password, wait=True)
