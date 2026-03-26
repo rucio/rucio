@@ -398,44 +398,26 @@ def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[s
         keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.AVAILABILITY}
 
     output = []
-    if inherit:
-        resolved_dids = []
-        for did in dids:
-            scope, name = get_scope(did, ctx.obj.client)
-            resolved_dids.append({'scope': scope, 'name': name})
-        meta = ctx.obj.client.get_metadata_bulk(dids=resolved_dids, plugin=plugin, inherit=True)
-        for i, meta_item in enumerate(meta):
-            did = f"{meta_item['scope']}:{meta_item['name']}"
-            if ctx.obj.use_rich:
-                if i > 0:
-                    output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
-                elif len(dids) > 1:
-                    output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
-                table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta_item.items())]
-                table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
-                output.append(table)
-            else:
-                if i > 0:
-                    print('------')
-                table = [(k + ':', str(v)) for (k, v) in sorted(meta_item.items())]
-                print(tabulate(table, tablefmt='plain', disable_numparse=True))
-    else:
-        for i, did in enumerate(dids):
-            scope, name = get_scope(did, ctx.obj.client)
-            meta = ctx.obj.client.get_metadata(scope=scope, name=name, plugin=plugin)
-            if ctx.obj.use_rich:
-                if i > 0:
-                    output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
-                elif len(dids) > 1:
-                    output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
-                table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta.items())]
-                table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
-                output.append(table)
-            else:
-                if i > 0:
-                    print('------')
-                table = [(k + ':', str(v)) for (k, v) in sorted(meta.items())]
-                print(tabulate(table, tablefmt='plain', disable_numparse=True))
+    resolved_dids = []
+    for did in dids:
+        scope, name = get_scope(did, ctx.obj.client)
+        resolved_dids.append({'scope': scope, 'name': name})
+    meta = ctx.obj.client.get_metadata_bulk(dids=resolved_dids, plugin=plugin, inherit=inherit)
+    for i, meta_item in enumerate(meta):
+        did = f"{meta_item['scope']}:{meta_item['name']}"
+        if ctx.obj.use_rich:
+            if i > 0:
+                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+            elif len(dids) > 1:
+                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+            table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta_item.items())]
+            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            output.append(table)
+        else:
+            if i > 0:
+                print('------')
+            table = [(k + ':', str(v)) for (k, v) in sorted(meta_item.items())]
+            print(tabulate(table, tablefmt='plain', disable_numparse=True))
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.stop()
