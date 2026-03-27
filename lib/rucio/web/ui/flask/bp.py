@@ -25,7 +25,6 @@ from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = get_policy()
 ATLAS_URLS = ()
-OTHER_URLS = ()
 
 
 def auth():
@@ -90,6 +89,7 @@ AUTH_URLS = (
 )
 
 COMMON_URLS = (
+    ('/', 'index', 'Index'),
     ('/account_rse_usage', 'account_rse_usage', 'Account RSE Usage'),
     ('/account', 'account', 'Account'),
     ('/bad_replicas', 'bad_replicas', 'Bad Replicas'),
@@ -124,17 +124,12 @@ COMMON_URLS = (
 
 if POLICY == 'atlas':
     ATLAS_URLS = (
-        ('/', 'atlas_index', 'Index'),
         ('/account_usage', 'account_usage', 'Group Account Usage'),
         ('/dumps', 'dumps', 'Dumps'),
         ('/conditions_summary', 'cond', 'ConditionsDB Summary'),
         ('/dbrelease_summary', 'dbrelease', 'DBRelease Summary'),
         ('/infrastructure', 'infrastructure', 'Infrastucture'),
         ('/rule_backlog_monitor', 'backlog_mon', 'Rules Backlog Monitoring')
-    )
-else:
-    OTHER_URLS = (
-        ('/', 'index', 'Index'),
     )
 
 
@@ -150,10 +145,6 @@ def blueprint() -> Blueprint:
         bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
 
     for rule, endpoint, title in ATLAS_URLS:
-        template = endpoint + '.html'
-        bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
-
-    for rule, endpoint, title in OTHER_URLS:
         template = endpoint + '.html'
         bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
 
