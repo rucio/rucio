@@ -108,7 +108,6 @@ COMMON_URLS = (
     ('/rses', 'rses', 'RSEs'),
     ('/rses/add', 'add_rse', 'Add RSE'),
     ('/rse_usage', 'rse_usage', 'RSE Usage'),
-    ('/rse_locks', 'rse_locks', 'RSE Locks'),
     ('/rule', 'rule', 'Rule'),
     ('/rules', 'rules', 'Rules'),
     ('/search', 'search', 'Search'),
