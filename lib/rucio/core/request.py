@@ -3210,3 +3210,42 @@ def reset_stale_waiting_requests(time_limit: Optional[datetime.timedelta] = date
 
     except IntegrityError as error:
         raise RucioException(error.args)
+
+
+@transactional_session
+def delete_orphaned_updated_requests(
+        *,
+        logger: "LoggerFunction" = logging.log,
+        session: "Session",
+) -> None:
+    """
+    Delete updated_requests entries where the referenced request_id
+    no longer exists in the requests table. This handles cleanup during
+    rolling deployments where old daemons may archive requests without
+    knowledge of the updated_requests table.
+
+    # TODO: Remove this function. It's only needed when running rucio <40 and >=40 on the same database.
+    """
+    stmt = select(
+        models.UpdatedRequest.id
+    ).outerjoin(
+        models.Request,
+        models.Request.id == models.UpdatedRequest.request_id
+    ).where(
+        models.Request.id.is_(None)
+    ).with_for_update(
+        skip_locked=True,
+        of=models.UpdatedRequest.id
+    )
+
+    for ids in session.execute(stmt).scalars().partitions(100):
+        del_stmt = delete(
+            models.UpdatedRequest
+        ).where(
+            models.UpdatedRequest.id.in_(ids)
+        ).execution_options(
+            synchronize_session=False
+        )
+        deleted = session.execute(del_stmt).rowcount  # type: ignore
+        if deleted:
+            logger(logging.WARNING, 'Deleted %d orphaned updated_requests entries left by old daemon code', deleted)

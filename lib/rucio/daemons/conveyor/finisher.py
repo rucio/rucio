@@ -123,6 +123,9 @@ def _handle_requests(
     if not reqs:
         return
 
+    # TODO: Remove this line. It's only needed when running rucio <40 and >=40 on the same database.
+    request_core.delete_orphaned_updated_requests(logger=logger)
+
     try:
         logger(logging.DEBUG, 'Updating %i requests', len(reqs))
 
