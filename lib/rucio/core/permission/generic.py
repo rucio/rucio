@@ -47,6 +47,7 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'add_rule': perm_add_rule,
             'add_subscription': perm_add_subscription,
             'add_scope': perm_add_scope,
+            'update_scope': perm_update_scope,
             'add_rse': perm_add_rse,
             'update_rse': perm_update_rse,
             'add_protocol': perm_add_protocol,
@@ -284,6 +285,20 @@ def perm_add_scope(issuer: "InternalAccount", kwargs: dict[str, Any], session: "
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+
+def perm_update_scope(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can update a scop to a account.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) \
+        or has_account_attribute(account=issuer, key='admin', session=session) \
+        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
 def perm_get_auth_token_user_pass(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
