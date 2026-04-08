@@ -19,7 +19,7 @@ from rich.padding import Padding
 from rich.text import Text
 from rich.tree import Tree
 
-from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.cli.utils import RichCLITheme, RichUtils
 from rucio.common.exception import InputValidationError
 from rucio.common.utils import sizefmt
 
@@ -43,9 +43,9 @@ def list_(ctx: click.Context, rses: Optional[str], csv: bool) -> None:
     if csv:
         print(*(rse['rse'] for rse in rse_list), sep='\n')
     if ctx.obj.use_rich:
-        table = generate_table([[rse['rse']] for rse in sorted(rse_list, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
+        table = RichUtils.generate_table([[rse['rse']] for rse in sorted(rse_list, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
         ctx.obj.spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         for rse in rse_list:
             print(rse['rse'])
@@ -66,7 +66,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
     rse_limits = ctx.obj.client.get_rse_limits(rse_name)
 
     if ctx.obj.use_rich:
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.RSE_TYPE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.RSE_TYPE}
         output = []
         table_data = []
     else:
@@ -83,7 +83,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
                 print(f'  {key}: {rseinfo[key]}')
 
     if ctx.obj.use_rich:
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
         table_data = []
     else:
@@ -98,7 +98,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
             print(f'  {attribute}: {attributes[attribute]}')
 
     if ctx.obj.use_rich:
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
     else:
         print('Protocols:')
@@ -107,7 +107,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
         if ctx.obj.use_rich:
             if i == 0:
                 output.append('\n[b]Protocols:[/]')
-            output.append(Padding.indent(Text(protocol['scheme'], style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
+            output.append(Padding.indent(Text(protocol['scheme'], style=RichCLITheme.SUBHEADER_HIGHLIGHT), 2))
         else:
             print(f'  {protocol["scheme"]}')
 
@@ -117,9 +117,9 @@ def show(ctx: click.Context, rse_name: str) -> None:
                 if item == 'domains':
                     tree = Tree('')
                     for domain, values in protocol[item].items():
-                        branch = tree.add(f'[{CLITheme.JSON_STR}]{domain}')
+                        branch = tree.add(f'[{RichCLITheme.JSON_STR}]{domain}')
                         for k, v in values.items():
-                            branch.add(f'[{CLITheme.JSON_STR}]{k}[/]: [{CLITheme.JSON_NUM}]{v}[/]')
+                            branch.add(f'[{RichCLITheme.JSON_STR}]{k}[/]: [{RichCLITheme.JSON_NUM}]{v}[/]')
                     table_data.append([item, tree])
                 else:
                     table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
@@ -130,7 +130,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
                     print('    ' + item + ': ' + str(protocol[item]))
 
         if ctx.obj.use_rich:
-            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             output.append(Padding.indent(table, 2))
 
     if ctx.obj.use_rich:
@@ -160,7 +160,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
 
     if ctx.obj.use_rich:
         if len(table_data) > 0:
-            usage_table = generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
+            usage_table = RichUtils.generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
             output.append(usage_table)
         table_data = []
     else:
@@ -176,10 +176,10 @@ def show(ctx: click.Context, rse_name: str) -> None:
 
     if ctx.obj.use_rich:
         if len(table_data) > 0:
-            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'right'])
+            table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'right'])
             output.append(table)
         ctx.obj.spinner.stop()
-        print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @rse.command("add")
@@ -240,12 +240,12 @@ def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> 
     distance_info = ctx.obj.client.get_distance(source_rse, destination_rse)
     if ctx.obj.use_rich:
         if distance_info:
-            table = generate_table(
+            table = RichUtils.generate_table(
                 [[source_rse, destination_rse, str(distance_info[0]['distance'])]],
                 headers=['SOURCE', 'DESTINATION', 'DISTANCE'],
                 col_alignments=['left', 'left', 'right']
             )
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(f"No distance set from {source_rse} to {destination_rse}")
     else:
@@ -342,9 +342,9 @@ def attr_list_(ctx: click.Context, rse_name: str) -> None:
     """List all attributes of a given RSE"""
     attributes = ctx.obj.client.list_rse_attributes(rse=rse_name)
     if ctx.obj.use_rich:
-        table_data = [(k, Text(str(v), style=CLITheme.BOOLEAN.get(str(v), 'default'))) for k, v in sorted(attributes.items())]
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        table_data = [(k, Text(str(v), style=RichCLITheme.BOOLEAN.get(str(v), 'default'))) for k, v in sorted(attributes.items())]
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         for k in attributes:
             print(f'{k}: {attributes[k]}')
@@ -527,9 +527,9 @@ def qos_list(ctx: click.Context, rse_name: str) -> None:
     qos_policies = ctx.obj.client.list_qos_policies(rse_name)
     if ctx.obj.use_rich:
         qos_policies = [[qos_policy] for qos_policy in sorted(qos_policies)]
-        table = generate_table(qos_policies, headers=['QOS POLICY'], col_alignments=['left'])
+        table = RichUtils.generate_table(qos_policies, headers=['QOS POLICY'], col_alignments=['left'])
         ctx.obj.spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         for qos_policy in sorted(qos_policies):
             print(qos_policy)

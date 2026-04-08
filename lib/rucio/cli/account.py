@@ -17,7 +17,7 @@ import click
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.cli.utils import RichCLITheme, RichUtils
 from rucio.common.exception import InputValidationError
 from rucio.common.utils import get_bytes_value_from_string, sizefmt
 
@@ -63,13 +63,13 @@ def list_(ctx: click.Context, type_: Optional[Literal['USER', 'GROUP', 'SERVICE'
     if csv:
         print(*(account['account'] for account in accounts), sep=',')
     elif ctx.obj.use_rich:
-        table = generate_table([
+        table = RichUtils.generate_table([
             [account['account']] for account in accounts],
             headers=['ACCOUNT'],
             col_alignments=['left']
         )
         ctx.obj.spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         for account in accounts:
             print(account['account'])
@@ -84,14 +84,14 @@ def show(ctx: click.Context, account_name: str):
     """
     info = ctx.obj.client.get_account(account=account_name)
     if ctx.obj.use_rich:
-        keyword_style = {**CLITheme.ACCOUNT_STATUS, **CLITheme.ACCOUNT_TYPE}
+        keyword_style = {**RichCLITheme.ACCOUNT_STATUS, **RichCLITheme.ACCOUNT_TYPE}
         table_data = [(k, Text(str(v), style=keyword_style.get(str(v), 'default'))) for k, v in sorted(info.items())]
-        table = generate_table(
+        table = RichUtils.generate_table(
             table_data,
             row_styles=['none'],
             col_alignments=['left', 'left']
         )
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         for k in info:
             print(k.ljust(10) + ' : ' + str(info[k]))
@@ -146,8 +146,8 @@ def attribute_list(ctx: click.Context, account_name: str):
         table_data.append([attr['key'], attr['value']])
 
     if ctx.obj.use_rich:
-        table = generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        table = RichUtils.generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['Key', 'Value']))
 
@@ -200,7 +200,7 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
     table_data.sort()
 
     if ctx.obj.use_rich:
-        table1 = generate_table(table_data, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+        table1 = RichUtils.generate_table(table_data, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
     else:
         print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
@@ -213,13 +213,13 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
     table_data.sort()
 
     if ctx.obj.use_rich:
-        table2 = generate_table(table_data, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+        table2 = RichUtils.generate_table(table_data, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
     else:
         print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.stop()
-        print_output(table1, table2, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table1, table2, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @limit.command("set")
@@ -281,8 +281,8 @@ def identity_list(ctx: click.Context, account_name: str):
         else:
             print('Identity: %(identity)s,\ttype: %(type)s' % identity)
     if ctx.obj.use_rich:
-        table = generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @identity.command("add")

@@ -19,8 +19,7 @@ import click
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.cli.utils import JSONType
-from rucio.client.richclient import CLITheme, generate_table, get_cli_config, print_output
+from rucio.cli.utils import JSONType, RichCLITheme, RichUtils
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL_LIST
 from rucio.common.utils import extract_scope
 
@@ -29,7 +28,7 @@ if TYPE_CHECKING:
 
     from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 
-cli_config = get_cli_config()
+cli_config = RichUtils.get_cli_config()
 
 
 def is_valid_json(s: str) -> bool:
@@ -77,7 +76,7 @@ def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITER
     for did in dids_list["dids"]:
         if cli_config == 'rich':
             table_data.append([f"{did['scope']}:{did['name']}",
-                               Text(did['state'], style=CLITheme.OPENDATA_DID_STATE.get(did['state'], 'default'))])
+                               Text(did['state'], style=RichCLITheme.OPENDATA_DID_STATE.get(did['state'], 'default'))])
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['state']])
 
@@ -86,9 +85,9 @@ def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITER
             print(did)
     else:
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[STATE]'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[STATE]'], col_alignments=['left', 'left'])
             spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(tabulate(table_data, tablefmt="psql", headers=['SCOPE:NAME', '[STATE]']))
 
@@ -150,11 +149,11 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
     if cli_config == 'rich':
         spinner.update(status='Fetching Opendata DID stats')
         spinner.start()
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.OPENDATA_DID_STATE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.OPENDATA_DID_STATE}
 
         table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in
                       sorted(info.items())]
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
     else:
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
@@ -162,7 +161,7 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
 
     if cli_config == 'rich':
         spinner.stop()
-        print_output(*output, console=console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(*output, console=console, no_pager=ctx.obj.no_pager)
 
 
 @opendata_did.command("update")
@@ -197,13 +196,13 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
     if cli_config == 'rich':
         spinner.update(status='Fetching Opendata DID stats')
         spinner.start()
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.OPENDATA_DID_STATE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.OPENDATA_DID_STATE}
 
         table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in
                       sorted(info.items())]
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=ctx.obj.no_pager)
     else:
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
         print(tabulate(table, tablefmt='plain', disable_numparse=True))

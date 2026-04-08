@@ -18,8 +18,7 @@ import click
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.cli.utils import get_scope, scope_exists
-from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.cli.utils import RichCLITheme, RichUtils, get_scope, scope_exists
 from rucio.common.config import config_get
 from rucio.common.exception import InputValidationError, InvalidObject, RucioException
 from rucio.common.utils import chunks, parse_did_filter_from_string_fe
@@ -61,14 +60,14 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
         scope, name = get_scope(did_pattern, ctx.obj.client)
         for dataset in ctx.obj.client.list_parent_dids(scope=scope, name=name):
             if ctx.obj.use_rich:
-                table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=CLITheme.DID_TYPE.get(dataset['type'], 'default'))])
+                table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=RichCLITheme.DID_TYPE.get(dataset['type'], 'default'))])
             else:
                 table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
 
         if ctx.obj.use_rich:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
 
@@ -99,7 +98,7 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
 
         for did in ctx.obj.client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=recursive):
             if ctx.obj.use_rich:
-                table_data.append([f"{did['scope']}:{did['name']}", Text(did['did_type'], style=CLITheme.DID_TYPE.get(did['did_type'], 'default'))])
+                table_data.append([f"{did['scope']}:{did['name']}", Text(did['did_type'], style=RichCLITheme.DID_TYPE.get(did['did_type'], 'default'))])
             else:
                 table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
@@ -108,9 +107,9 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
                 print(did)
         else:
             if ctx.obj.use_rich:
-                table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+                table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
                 ctx.obj.spinner.stop()
-                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+                RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
             else:
                 print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
 
@@ -123,7 +122,7 @@ def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching DID stats')
         ctx.obj.spinner.start()
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE}
 
     output = []
     for i, did in enumerate(dids):
@@ -131,11 +130,11 @@ def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
         info = ctx.obj.client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
         if ctx.obj.use_rich:
             if i > 0:
-                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'\nDID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             elif len(dids) > 1:
-                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'DID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
-            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
             output.append(table)
         else:
             if i > 0:
@@ -145,7 +144,7 @@ def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.stop()
-        print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @did.command("add")
@@ -251,14 +250,14 @@ def content_history(ctx: click.Context, dids: tuple[str, ...]) -> None:
         scope, name = get_scope(did, ctx.obj.client)
         for content in ctx.obj.client.list_content_history(scope=scope, name=name):
             if ctx.obj.use_rich:
-                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
+                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=RichCLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
     if ctx.obj.use_rich:
-        table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
         ctx.obj.spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
 
@@ -336,7 +335,7 @@ def content_list_(ctx: click.Context, dids: list[str], short: bool) -> None:
         scope, name = get_scope(did, ctx.obj.client)
         for content in ctx.obj.client.list_content(scope=scope, name=name):
             if ctx.obj.use_rich:
-                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
+                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=RichCLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
@@ -345,9 +344,9 @@ def content_list_(ctx: click.Context, dids: list[str], short: bool) -> None:
             print(did)
     else:
         if ctx.obj.use_rich:
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
 
@@ -392,7 +391,7 @@ def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[s
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching metadata')
         ctx.obj.spinner.start()
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.AVAILABILITY}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE, **RichCLITheme.AVAILABILITY}
 
     output = []
     for i, did in enumerate(dids):
@@ -400,11 +399,11 @@ def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[s
         meta = ctx.obj.client.get_metadata(scope=scope, name=name, plugin=plugin)
         if ctx.obj.use_rich:
             if i > 0:
-                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'\nDID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             elif len(dids) > 1:
-                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'DID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta.items())]
-            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             output.append(table)
         else:
             if i > 0:
@@ -414,4 +413,4 @@ def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[s
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.stop()
-        print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
