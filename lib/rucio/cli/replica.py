@@ -21,8 +21,7 @@ import click
 import tabulate
 from rich.text import Text
 
-from rucio.cli.utils import get_scope
-from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.cli.utils import RichCLITheme, RichUtils, get_scope
 from rucio.common.client import detect_client_location
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import InputValidationError, InvalidObject
@@ -124,14 +123,14 @@ def list_(
         for replica, rse in itertools.product(replicas, resolved_rses):
             if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
                 if ctx.obj.use_rich:
-                    replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
+                    replica_state = f"[{RichCLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
                     table_data.append([replica['scope'], replica['name'], '({0}) {1}'.format(replica_state, rse)])
                 else:
                     table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
         if ctx.obj.use_rich:
-            table = generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
 
@@ -168,9 +167,9 @@ def list_(
                         else:
                             print(pfn)
         if ctx.obj.use_rich:
-            table = generate_table(table_data, headers=['PFN'], col_alignments=['left'])
+            table = RichUtils.generate_table(table_data, headers=['PFN'], col_alignments=['left'])
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         if all_states:
             header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
@@ -182,7 +181,7 @@ def list_(
                     rse = replica['pfns'][pfn]['rse']
                     if all_states:
                         if ctx.obj.use_rich:
-                            replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
+                            replica_state = f"[{RichCLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
                             # Less does not display hyperlinks well if the table is very wide.
                             if ctx.obj.no_pager:
                                 rse_string = f'({replica_state}) {rse}: [u bright_blue link={pfn}]{pfn}[/]'
@@ -207,9 +206,9 @@ def list_(
                         table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], human), replica['adler32'], rse_string])
 
         if ctx.obj.use_rich:
-            table = generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=header, disable_numparse=True))
 
@@ -289,11 +288,11 @@ def list_dataset(
             for i, dsn in enumerate(result):
                 if ctx.obj.use_rich:
                     if i > 0:
-                        output.append(Text(f'\nDATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+                        output.append(Text(f'\nDATASET: {dsn}', style=RichCLITheme.TEXT_HIGHLIGHT))
                     elif len(result) > 1:
-                        output.append(Text(f'DATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+                        output.append(Text(f'DATASET: {dsn}', style=RichCLITheme.TEXT_HIGHLIGHT))
 
-                    table = generate_table(list(result[dsn].values()), headers=['RSE', 'FOUND', 'TOTAL'], col_alignments=['left', 'right', 'right'])
+                    table = RichUtils.generate_table(list(result[dsn].values()), headers=['RSE', 'FOUND', 'TOTAL'], col_alignments=['left', 'right', 'right'])
                     output.append(table)
                 else:
                     print(f'\nDATASET: {dsn}')
@@ -301,7 +300,7 @@ def list_dataset(
 
             if ctx.obj.use_rich:
                 ctx.obj.spinner.stop()
-                print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+                RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         if ctx.obj.use_rich:
             ctx.obj.spinner.update(status='Fetching datasets at RSE')
@@ -316,18 +315,18 @@ def list_dataset(
 
             if ctx.obj.use_rich:
                 table_data.sort()
-                table = generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
+                table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
                 ctx.obj.spinner.stop()
-                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+                RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
             else:
                 print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
         else:
             dsns = list(set([f"{dsn['scope']}:{dsn['name']}" for dsn in ctx.obj.client.list_datasets_per_rse(rse)]))
             dsns.sort()
             if ctx.obj.use_rich:
-                table = generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
+                table = RichUtils.generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
                 ctx.obj.spinner.stop()
-                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+                RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
             else:
                 print("SCOPE:NAME")
                 print('----------')
@@ -381,9 +380,9 @@ def state_list(ctx: click.Context, state_type: Literal['suspicious'], rses: Opti
         table_data.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
 
     if ctx.obj.use_rich:
-        table = generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
         ctx.obj.spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
         print(tabulate.tabulate(table_data, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
 
