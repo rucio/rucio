@@ -19,8 +19,7 @@ from rich.padding import Padding
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.cli.utils import get_scope
-from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.cli.utils import RichCLITheme, RichUtils, get_scope
 from rucio.common.exception import DuplicateRule, InputValidationError, RucioException
 from rucio.common.utils import sizefmt
 
@@ -171,13 +170,13 @@ def show(ctx: click.Context, rule_id: str, examine: bool) -> None:
         output = []
         analysis = ctx.obj.client.examine_replication_rule(rule_id=rule_id)
         if ctx.obj.use_rich:
-            keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
+            keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE, **RichCLITheme.RULE_STATE}
             rule_status = " ".join([f'[{keyword_styles.get(word, "default")}]{word}[/]' for word in analysis['rule_error'].split()])
             output.append(f'Status of the replication rule: {rule_status}')
             if analysis['transfers']:
                 output.append('[b]STUCK Requests:[/]')
                 for transfer in analysis['transfers']:
-                    output.append(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
+                    output.append(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=RichCLITheme.SUBHEADER_HIGHLIGHT), 2))
                     table_data = [
                         ['RSE:', str(transfer['rse'])],
                         ['Attempts:', str(transfer['attempts'])],
@@ -187,11 +186,11 @@ def show(ctx: click.Context, rule_id: str, examine: bool) -> None:
                         ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
                         ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]
                     ]
-                    table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+                    table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
                     output.append(Padding.indent(table, 2))
 
             ctx.obj.spinner.stop()
-            print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             analysis = ctx.obj.client.examine_replication_rule(rule_id=rule_id)
             print(f'Status of the replication rule: {analysis["rule_error"]}')
@@ -215,11 +214,11 @@ def show(ctx: click.Context, rule_id: str, examine: bool) -> None:
     else:
         rule = ctx.obj.client.get_replication_rule(rule_id=rule_id)
         if ctx.obj.use_rich:
-            keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
+            keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE, **RichCLITheme.RULE_STATE}
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(rule.items())]
-            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             def _format_print(name, value):
                 name += ":"
@@ -288,9 +287,9 @@ def history(ctx: click.Context, did: str) -> None:
 
     if ctx.obj.use_rich:
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
-        table = generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
+        table = RichUtils.generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
         ctx.obj.spinner.stop()
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @rule.command("move")
@@ -449,7 +448,7 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
                     rule['id'],
                     rule['account'],
                     f"{rule['scope']}:{rule['name']}",
-                    f"[{CLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                    f"[{RichCLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
                     rule['rse_expression'],
                     rule['copies'],
                     sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
@@ -470,13 +469,13 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
                 ])
 
         if ctx.obj.use_rich:
-            table = generate_table(
+            table = RichUtils.generate_table(
                 table_data,
                 headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
                 col_alignments=['left', 'left', 'left', 'right', 'left', 'right', 'right', 'left', 'left']
             )
             ctx.obj.spinner.stop()
-            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
             table = tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True)
             print(table)
