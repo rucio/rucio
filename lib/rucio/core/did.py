@@ -566,6 +566,7 @@ def __add_files_to_dataset(
     if rse_id:
         # Tier-0 uses this old work-around to register replicas on the RSE
         # in the same call as attaching them to a dataset
+        # Note: add_replicas will modify files by filling in checksum dict from legacy checksums, if not present.
         rucio.core.replica.add_replicas(rse_id=rse_id, files=files.values(), dataset_meta=dataset_meta,
                                         account=account, session=session)
 
@@ -603,7 +604,6 @@ def __add_files_to_dataset(
     files_to_add = {}
     for row in session.execute(stmt):
         file = files[row.scope, row.name]
-
         if row.did_scope is None:
             raise exception.DataIdentifierNotFound(f"Data identifier '{row.scope}:{row.name}' not found")
 
