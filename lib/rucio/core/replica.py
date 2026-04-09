@@ -1062,7 +1062,6 @@ def _list_replicas(
 
             # it is the first row in the scope/name group
             if not file:
-                print("file is:", file, "checksum", checksum, "md5", md5)
                 checksum = normalize_checksums(md5=md5, adler32=adler32, checksum=checksum)
                 file['scope'], file['name'] = scope, name
                 file['bytes'], file['md5'], file['adler32'], file['checksum'] = bytes_, checksum.get('md5'), checksum.get('adler32'), checksum
@@ -1603,7 +1602,7 @@ def __bulk_add_new_file_dids(
         new_did = models.DataIdentifier(scope=file['scope'], name=file['name'],
                                         account=file.get('account') or account,
                                         did_type=DIDType.FILE, bytes=file['bytes'],
-                                        #md5=file.get('md5'), adler32=file.get('adler32'),
+                                        md5=file.get('md5'), adler32=file.get('adler32'),
                                         checksum=file.get('checksum'),
                                         is_new=None)
         new_did.save(session=session, flush=False)
@@ -1821,6 +1820,11 @@ def add_replicas(
             if not replica_rse['deterministic']:
                 raise exception.UnsupportedOperation('PFN needed for this (non deterministic) RSE %s ' % (replica_rse['rse']))
 
+    # ensure files contain checksum dictionary
+    for item in files:
+        checksum = normalize_checksums(item.get('md5'), item.get('adler32'), item.get('checksum'))
+        if checksum:
+            item['checksum'] = checksum
     __bulk_add_file_dids(files=files, account=account,
                          dataset_meta=dataset_meta,
                          session=session)

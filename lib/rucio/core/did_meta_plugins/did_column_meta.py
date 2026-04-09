@@ -70,10 +70,7 @@ class DidColumnMeta(DidMetaPlugin):
             row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name). \
                 with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
             row_dict = row.to_dict()
-            # give the checksum column preference over legacy columns.
             row_dict['checksum'] = normalize_checksums(md5=row_dict.get('md5'), adler32=row_dict.get('adler32'), checksum=row_dict.get('checksum'))
-            row_dict.pop('md5', None)
-            row_dict.pop('adler32', None)
             return row_dict
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")

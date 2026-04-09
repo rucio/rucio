@@ -385,7 +385,7 @@ def queue_requests(
                        'bytes': request['attributes']['bytes'],
                        'md5': request['attributes']['md5'],
                        'adler32': request['attributes']['adler32'],
-                       'checksum': request['attributes']['checksum'],
+                       'checksum': request['attributes'].get('checksum'),
                        'account': request.get('account', None),
                        'priority': request['attributes'].get('priority', None),
                        'requested_at': request.get('requested_at', None),
@@ -431,7 +431,7 @@ def queue_requests(
                    'bytes': request['attributes']['bytes'],
                    'checksum-md5': request['attributes']['md5'],
                    'checksum-adler': request['attributes']['adler32'],
-                   'checksum-dict': request['attributes']['checksum'],
+                   'checksum-dict': request['attributes'].get('checksum'),
                    'queued_at': str(datetime.datetime.utcnow())}
 
         messages.append({'event_type': transfer_status,
