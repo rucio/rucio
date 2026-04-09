@@ -24,7 +24,15 @@ from rucio.common.utils import build_url
 
 class ScopeClient(BaseClient):
 
-    """Scope client class for working with rucio scopes"""
+    """
+    Scope client class for working with Rucio scopes.
+
+    In Rucio, a scope partitions the DID namespace within a VO. A DID is
+    defined by the pair (scope, name), represented as ``<scope>:<name>``; this
+    partitioning avoids name collisions and supports ownership boundaries
+    across accounts. Scope naming is typically deployment-specific
+    (examples include ``user.jdoe``, ``data22_13p6TeV``, and ``demo``).
+    """
 
     SCOPE_BASEURL = 'accounts'
 
@@ -34,25 +42,45 @@ class ScopeClient(BaseClient):
             scope: str
     ) -> bool:
         """
-        Sends the request to add a new scope.
+        Create a new scope for an account.
+
+        After creation, the account can register DIDs in this scope.
 
         Parameters
         ----------
-        account :
-            The name of the account to add the scope to.
-        scope :
-            The name of the new scope.
+        account
+            Name of the account that will own the scope.
+        scope
+            Name of the scope to create.
 
         Returns
         -------
-            True if scope was created successfully.
+        bool
+            Literal ``True`` when the scope is created successfully.
 
         Raises
         ------
         Duplicate
-            If scope already exists.
+            If the scope already exists.
         AccountNotFound
-            If account doesn't exist.
+            If the provided account does not exist.
+
+        Examples
+        --------
+        ??? Example
+
+            Create a scope for the ``dataops`` account. If the scope already
+            exists, a ``Duplicate`` exception is raised.
+
+            ```python
+            from rucio.client.scopeclient import ScopeClient
+
+            # The client reads authentication settings from rucio.cfg (or from the file
+            # pointed to by RUCIO_CONFIG) and from related RUCIO_* environment variables.
+            client = ScopeClient()
+
+            client.add_scope(account="dataops", scope="user.test")
+            ```
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes', quote_plus(scope)])
@@ -66,11 +94,17 @@ class ScopeClient(BaseClient):
 
     def list_scopes(self) -> list[str]:
         """
-        Sends the request to list all scopes.
+        List all scopes in the current VO.
 
         Returns
         -------
-        A list containing the names of all scopes.
+        list[str]
+            Names of all scopes in the current VO.
+
+        Raises
+        ------
+        RucioException
+            Raised when the request is not successful.
         """
 
         path = '/'.join(['scopes/'])
@@ -85,23 +119,41 @@ class ScopeClient(BaseClient):
 
     def list_scopes_for_account(self, account: str) -> list[str]:
         """
-        Sends the request to list all scopes for a rucio account.
+        List all scopes assigned to an account.
+
+        Use this method to inspect which scopes are assigned to an account (useful for
+        discovery and pre-checks such as before the creation of DIDs for that account).
 
         Parameters
         ----------
-        account :
-            The rucio account to list scopes for.
+        account
+            The Rucio account to list scopes for.
 
         Returns
         -------
-            A list containing the names of all scopes for a rucio account.
+        list[str]
+            Names of the scopes that belong to the account.
 
         Raises
         ------
         AccountNotFound
-            If account doesn't exist.
+            If the account does not exist.
         ScopeNotFound
-            If no scopes exist for account.
+            If no scopes are defined for the account.
+
+        Examples
+        --------
+        ??? Example
+
+            List all scopes assigned to the account "dataops".
+
+            ```python
+            from rucio.client.scopeclient import ScopeClient
+            client = ScopeClient()
+            scopes = client.list_scopes_for_account(account="dataops")
+            for scope in scopes:
+                print(scope)
+            ```
         """
 
         path = '/'.join([self.SCOPE_BASEURL, account, 'scopes/'])
