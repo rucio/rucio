@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-    from rucio.common.types import InternalScope, RuleDict
+    from rucio.common.types import InternalScope
     from rucio.core.rse_selector import RSESelector
 
 
@@ -190,16 +190,16 @@ def create_transfer_dict(
     request_type: str,
     scope: str,
     name: str,
-    rule: "RuleDict",
-    lock=None, bytes_: Optional[int]=None,
-    md5: Optional[str]=None,
-    adler32: Optional[str]=None,
-    checksum: dict[str, Optional[str]]={},
-    ds_scope: Optional[str]=None,
-    ds_name: Optional[str]=None,
+    rule: models.ReplicationRule,
+    lock=None, bytes_: Optional[int] = None,
+    md5: Optional[str] = None,
+    adler32: Optional[str] = None,
+    checksum: dict[str, Optional[str]] = {},
+    ds_scope: Optional[str] = None,
+    ds_name: Optional[str] = None,
     copy_pin_lifetime=None,
-    activity: Optional[str]=None,
-    retry_count: Optional[int]=None,
+    activity: Optional[str] = None,
+    retry_count: Optional[int] = None,
     *,
     session: "Session"
     ) -> dict[str, Any]:
