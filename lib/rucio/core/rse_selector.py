@@ -100,12 +100,12 @@ class RSESelector:
                     if quota_limit is None:
                         local_quota_left = 0
                     else:
-                        local_quota_left = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']
+                        local_quota_left = quota_limit - get_usage(rse_id=rse['rse_id'], account=account, session=session)['bytes']  # type: ignore (https://github.com/rucio/rucio/issues/8194)
 
                     # check global quota
                     rse['global_quota_left'] = {}
                     all_global_quota_enough = True
-                    for rse_expression, limit in global_quota_limit.items():
+                    for rse_expression, limit in global_quota_limit.items():  # type: ignore (https://github.com/rucio/rucio/issues/8194)
                         if rse['rse_id'] in limit['resolved_rse_ids']:
                             quota_limit = limit['limit']
                             global_quota_left = None

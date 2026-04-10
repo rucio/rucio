@@ -112,7 +112,8 @@ def importer_example_data(vo, jdoe_account):
             db_identities = list_identities()
             for account in self.data1['accounts']:
                 # check existence
-                db_account = get_account(account=account['account'])
+                with db_session(DatabaseOperationType.READ) as session:
+                    db_account = get_account(account=account['account'], session=session)
                 assert db_account['account'] == account['account']
 
                 # check properties
@@ -132,7 +133,8 @@ def importer_example_data(vo, jdoe_account):
                         assert account['account'] in accounts_for_identity
 
             # check removal of account
-            account = get_account(self.old_account_1)
+            with db_session(DatabaseOperationType.READ) as session:
+                account = get_account(self.old_account_1, session=session)  # type: ignore (old_account_1 should not be None here)
             assert account['status'] == AccountStatus.DELETED
 
             # check removal of identities
@@ -173,11 +175,13 @@ def importer_example_data(vo, jdoe_account):
 
     # Account 1 that already exists
     example_data.old_account_1 = InternalAccount(rse_name_generator(), vo=vo)
-    add_account(example_data.old_account_1, AccountType.USER, email='test')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account(example_data.old_account_1, AccountType.USER, email='test', session=session)  # type: ignore (old_account_1 is not None)
 
     # Account 2 that already exists
     example_data.old_account_2 = InternalAccount(rse_name_generator(), vo=vo)
-    add_account(example_data.old_account_2, AccountType.USER, email='test')
+    with db_session(DatabaseOperationType.WRITE) as session:
+        add_account(example_data.old_account_2, AccountType.USER, email='test', session=session)  # type: ignore (old_account_1 is not None)
 
     # Identity that should be removed
     example_data.identity_to_be_removed = rse_name_generator()
