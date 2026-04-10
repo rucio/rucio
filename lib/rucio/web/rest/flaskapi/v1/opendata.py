@@ -107,12 +107,14 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             include_metadata = request.args.get("meta", default="0").lower() == "1"
             include_doi = request.args.get("doi", default="1").lower() == "1"
             include_record_id = request.args.get("record_id", default="1").lower() == "1"
+            include_download_urls = request.args.get("download_urls", default="0").lower() == "1"
             result = opendata.get_opendata_did(scope=scope, name=name, vo=vo,
                                                state=state,
                                                include_files=include_files,
                                                include_metadata=include_metadata,
                                                include_doi=include_doi,
                                                include_record_id=include_record_id,
+                                               include_download_urls=include_download_urls,
                                                )
 
             result = render_json(**result)
@@ -174,6 +176,14 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
           - name: record_id
             in: query
             description: "Whether to include the record ID. '1' to include, '0' to exclude. Default is '1'."
+            schema:
+              type: string
+              enum: ['0', '1']
+            required: false
+            style: form
+          - name: download_urls
+            in: query
+            description: "Whether to include download URLs for the files. '1' to include, '0' to exclude. Default is '0'."
             schema:
               type: string
               enum: ['0', '1']
