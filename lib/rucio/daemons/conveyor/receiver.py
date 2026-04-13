@@ -149,33 +149,29 @@ def receiver(
     logger(logging.INFO, 'brokers resolved to %s', brokers_resolved)
 
     logger(logging.INFO, 'checking authentication method')
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool('messaging-fts3', 'use_ssl')
-    except Exception:
-        logger(logging.INFO, 'could not find use_ssl in configuration -- please update your rucio.cfg')
-
-    port = config_get_int('messaging-fts3', 'port')
+    use_ssl = config_get_bool('messaging-fts3', 'use_ssl', default=True)
     vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
-    if not use_ssl:
-        username = config_get('messaging-fts3', 'username')
-        password = config_get('messaging-fts3', 'password')
+    destination = config_get('messaging-fts3', 'destination')
+
+    auth_kwargs = {}
+    if use_ssl:
+        port = config_get_int('messaging-fts3', 'port')
+        cert_file = config_get('messaging-fts3', 'ssl_cert_file')
+        key_file = config_get('messaging-fts3', 'ssl_key_file')
+        logger(logging.INFO, 'using ssl cert/key authentication.')
+    else:
         port = config_get_int('messaging-fts3', 'nonssl_port')
+        auth_kwargs['username'] = config_get('messaging-fts3', 'username')
+        auth_kwargs['password'] = config_get('messaging-fts3', 'password')
+        logger(logging.INFO, 'using username/password authentication.')
 
     conns = []
     for broker in brokers_resolved:
-        if not use_ssl:
-            logger(logging.INFO, 'setting up username/password authentication: %s' % broker)
-        else:
-            logger(logging.INFO, 'setting up ssl cert/key authentication: %s' % broker)
         con = stomp.Connection12(host_and_ports=[(broker, port)],
                                  vhost=vhost,
                                  reconnect_attempts_max=999)
         if use_ssl:
-            con.set_ssl(
-                key_file=config_get('messaging-fts3', 'ssl_key_file'),
-                cert_file=config_get('messaging-fts3', 'ssl_cert_file'),
-            )
+            con.set_ssl(key_file=key_file, cert_file=cert_file)
         conns.append(con)
 
     logger(logging.INFO, 'receiver started')
@@ -201,13 +197,8 @@ def receiver(
                             transfer_stats_manager=transfer_stats_manager,
                             all_vos=all_vos
                         ))
-                    if not use_ssl:
-                        conn.connect(username, password, wait=True)
-                    else:
-                        conn.connect(wait=True)
-                    conn.subscribe(destination=config_get('messaging-fts3', 'destination'),
-                                   id='rucio-messaging-fts3',
-                                   ack='auto')
+                    conn.connect(wait=True, **auth_kwargs)
+                    conn.subscribe(destination=destination, id='rucio-messaging-fts3', ack='auto')
             time.sleep(1)
 
         for conn in conns:
