@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import json
+import logging
 import time
 from re import match, search
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
+import requests
 from dogpile.cache.api import NoValue
-from sqlalchemy import and_, delete, insert, update
+from sqlalchemy import and_, delete, func, insert, update
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.sql.expression import bindparam, select
 
@@ -42,6 +44,8 @@ if TYPE_CHECKING:
 
     from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
     from rucio.common.types import InternalScope
+
+logger = logging.getLogger(__name__)
 
 METRICS = MetricManager(module=__name__)
 REGION = MemcacheRegion(expiration_time=7200)
@@ -140,6 +144,7 @@ def list_opendata_dids(
         A dictionary containing the total count, offset, and a list of DIDs.
     """
 
+    count_query = select(func.count()).select_from(models.OpenDataDid)
     query = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name,
@@ -150,20 +155,23 @@ def list_opendata_dids(
         models.OpenDataDid.updated_at
     )
 
+    if state is not None:
+        count_query = count_query.where(models.OpenDataDid.state == state)
+        query = query.where(models.OpenDataDid.state == state)
+
+    total = session.execute(count_query).scalar()
+
     if limit is not None:
         query = query.limit(limit)
 
     if offset is not None:
         query = query.offset(offset)
 
-    if state is not None:
-        query = query.where(models.OpenDataDid.state == state)
-
     dids = [{"scope": scope, "name": name, "state": state, "created_at": created_at, "updated_at": updated_at} for
             scope, name, state, created_at, updated_at in session.execute(query)]
 
     response = {
-        "total": len(dids),
+        "total": total,
         "offset": offset if offset is not None else 0,
         "dids": dids,
     }
@@ -276,11 +284,83 @@ def get_opendata_record_id(
         return int(result["record_id"])
 
 
+def _eos_grpc_gateway_token_command(
+        eos_host: str,
+        filename: str,
+        lifetime_seconds: int,
+) -> Optional[str]:
+    """
+    Sends a POST request to the EOS GRPC REST Gateway to generate an access token.
+    The following environment configuration may need to be set on the target EOS instance: `EOS_MGM_ENABLE_REST_API=1`
+
+    Args:
+        eos_host: The hostname/URL of the EOS instance (e.g., 'https://eospilot.cern.ch' or just 'eospilot.cern.ch').
+        filename: The path the token should grant access to.
+        lifetime_seconds: How many seconds the token should be valid for.
+
+    Returns:
+        Optional[str]: The raw token string if successful, or None if the token could not be fetched.
+    """
+    # Calculate the exact expiration Unix timestamp
+    expires_at = int(time.time()) + lifetime_seconds
+
+    # Ensure the host has a valid HTTP scheme before we construct the URL
+    if not eos_host.startswith("http://") and not eos_host.startswith("https://"):
+        eos_host = f"https://{eos_host}"
+
+    # Construct the endpoint URL
+    eos_host = eos_host.rstrip('/')
+    url = f"{eos_host}/v1/eos/rest/gateway/token_cmd"
+
+    payload = {
+        "path": filename,
+        "expires": str(expires_at),
+        "permission": "r",
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    # This is the default location the FTS renewal daemon uses to store the proxy.
+    cert = key = config_get("opendata", "eos_proxy_path", raise_exception=False, default="/opt/proxy/x509up")
+
+    # Grid CA bundle for SSL verification
+    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
+
+    timeout = config_get_int("opendata", "eos_token_request_timeout", raise_exception=False, default=5)
+
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            headers=headers,
+            cert=(cert, key),
+            verify=ca_bundle,
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        response_data = response.json()
+
+        token = response_data.get("stdOut", "").strip()
+
+        if not token:
+            logger.warning("EOS GRPC Gateway returned an empty token for '%s' on %s.", filename, eos_host)
+            return None
+
+        return token
+    except Exception as e:
+        logger.warning("Error fetching EOS GRPC token for '%s' on %s: %s", filename, eos_host, e)
+        return None
+
+
 def get_opendata_did_files(
         *,
         scope: "InternalScope",
         name: str,
         use_cache: bool = False,
+        include_download_urls: bool = False,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -290,6 +370,7 @@ def get_opendata_did_files(
         scope: The scope of the Opendata DID.
         name: The name of the Opendata DID.
         use_cache: If True, use caching to store/retrieve the result. Defaults to False.
+        include_download_urls: If True, include download URLs for the files. Defaults to False.
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -298,7 +379,9 @@ def get_opendata_did_files(
 
     time_start = time.perf_counter()
 
-    cache_key = f"opendata_did_files_{scope}_{name}"
+    # Append the include_download_urls flag to the cache key so we don't mix up responses
+    cache_key = f"opendata_did_files_{scope}_{name}_dl_{include_download_urls}"
+
     if use_cache:
         file_list = REGION.get(cache_key)
 
@@ -353,6 +436,39 @@ def get_opendata_did_files(
 
         file_list[i]["uris"] = uris
 
+    # Process download URLs before we cache the result
+    if include_download_urls:
+        for file in file_list:
+            download_urls = []
+            for uri in file.get("uris", []):
+                # split protocol host and path
+                uri_match = match(
+                    r'^(?P<protocol>\w+)://(?P<host>[^/:]+)(?::(?P<port>\d+))?(?P<path>/.*)$',
+                    uri
+                )
+                # host must match eos*.cern.ch
+                # should we lift this restriction for non-cern hosts?
+                if not uri_match or not match(r'^eos[^.]*\.cern\.ch$', uri_match.group("host")):
+                    continue
+
+                host = uri_match.group("host")
+                path = uri_match.group("path")
+                if path.startswith("//"):
+                    path = path[1:]
+
+                token = _eos_grpc_gateway_token_command(
+                    eos_host=host,
+                    filename=path,
+                    lifetime_seconds=3600 * 4,
+                )
+
+                if token:
+                    download_url = f"{uri}?token={token}"
+                    download_urls.append(download_url)
+
+            file["download_urls"] = download_urls
+
+    # Now that the file_list is fully built (with or without download URLs), cache it
     if use_cache:
         REGION.set(cache_key, file_list)
 
@@ -375,6 +491,7 @@ def get_opendata_did(
         include_doi: bool = True,
         include_rule: bool = True,
         include_record_id: bool = True,
+        include_download_urls: bool = False,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -389,6 +506,7 @@ def get_opendata_did(
         include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
         include_rule: If True, include the Opendata replication rule. Defaults to True.
         include_record_id: If True, include the record ID of the DID. Defaults to True.
+        include_download_urls: If True, include download URLs for the files. Defaults to False.
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -427,7 +545,8 @@ def get_opendata_did(
     if include_rule:
         result["rule"] = _fetch_opendata_rule(scope=scope, name=name, session=session)
     if include_files:
-        opendata_files = get_opendata_did_files(scope=scope, name=name, use_cache=True, session=session)
+        opendata_files = get_opendata_did_files(scope=scope, name=name, use_cache=True,
+                                                include_download_urls=include_download_urls, session=session)
         result["files"] = opendata_files["files"]
 
         bytes_sum = sum(file["bytes"] for file in result["files"])
@@ -615,7 +734,7 @@ def update_opendata_did(
         ValueError: If there is an error during the update process.
     """
 
-    if not any([state, meta, doi, record_id]):
+    if not any(x is not None for x in [state, meta, doi, record_id]):
         raise exception.InputValidationError(
             "Either 'state', 'meta', 'doi', or 'record_id' must be provided to update the Opendata DID.")
     if not _check_opendata_did_exists(scope=scope, name=name, session=session):
@@ -1000,7 +1119,7 @@ def update_opendata_record_id(
         raise exception.OpenDataDataIdentifierNotFound(f"OpenData DID '{scope}:{name}' not found.")
 
     if not isinstance(record_id, int) or record_id < 0:
-        raise exception.InputValidationError("DOI must be a positive integer.")
+        raise exception.InputValidationError("Record ID must be a non-negative integer.")
 
     # insert on the table if it does not exist, otherwise update it
     record_id_before = session.execute(select(models.OpenDataRecord.record_id).where(

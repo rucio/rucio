@@ -187,7 +187,7 @@ class OpenDataClient(BaseClient):
         path = '/'.join([self.opendata_private_dids_base_url, quote_plus(scope), quote_plus(name)])
         url = build_url(self.get_opendata_host(public=False), path=path)
 
-        if not any([meta, state, doi, record_id]):
+        if meta is None and state is None and doi is None and record_id is None:
             raise ValueError("Either 'meta', 'state', 'doi' or 'record_id' must be provided.")
 
         data: dict[str, Any] = {}
@@ -221,6 +221,7 @@ class OpenDataClient(BaseClient):
             include_metadata: bool = False,
             include_doi: bool = True,
             include_record_id: bool = True,
+            include_download_urls: bool = False,
             public: bool = False,
     ) -> dict[str, Any]:
         """
@@ -233,6 +234,7 @@ class OpenDataClient(BaseClient):
             include_metadata: If True, include extended metadata. Defaults to False.
             include_doi: If True, include DOI (Digital Object Identifier) information. Defaults to True.
             include_record_id: If True, include the record ID of the DID. Defaults to True.
+            include_download_urls: If True, include download URLs for the files. Defaults to False.
             public: If True, only return data if the DID is publicly accessible. Defaults to False.
 
         Returns:
@@ -249,6 +251,7 @@ class OpenDataClient(BaseClient):
             'meta': 1 if include_metadata else 0,
             'doi': 1 if include_doi else 0,
             'record_id': 1 if include_record_id else 0,
+            'download_urls': 1 if include_download_urls else 0,
         })
 
         if r.status_code == codes.ok:
