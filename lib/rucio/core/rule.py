@@ -2354,7 +2354,7 @@ def get_injected_rules(
 def get_stuck_rules(
     total_workers: int,
     worker_number: int,
-    delta: int = 600,
+    delta: float = 600.0,
     limit: int = 10,
     blocked_rules: Optional['Sequence[str]'] = None,
     *,
