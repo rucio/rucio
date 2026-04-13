@@ -153,6 +153,29 @@ class ReplicaClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
         raise exc_cls(exc_msg)
 
+    def replica_exists(self, scope: str, name: str, rse: str) -> bool:
+        """
+        Checks whether a replica of the specified file exists on the specified RSE.
+
+        Parameters
+        ----------
+        scope :
+            The scope of the file.
+        name :
+            The name of the file.
+        rse :
+            The RSE name.
+        """
+        payload = {'rse': rse}
+        url = build_url(self.host, path='/'.join([self.REPLICAS_BASEURL, quote_plus(scope), quote_plus(name), 'exists']), params=payload)
+        r = self._send_request(url, method=HTTPMethod.GET)
+        if r.status_code == codes.ok:
+            return True
+        elif r.status_code == codes.not_found:
+            return False
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
+
     def list_replicas(self, dids, schemes=None, ignore_availability=True,
                       all_states=False, metalink=False, rse_expression=None,
                       client_location=None, sort=None, domain=None,
