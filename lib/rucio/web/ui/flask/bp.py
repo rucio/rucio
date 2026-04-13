@@ -25,7 +25,6 @@ from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = get_policy()
 ATLAS_URLS = ()
-OTHER_URLS = ()
 
 
 def auth():
@@ -90,6 +89,7 @@ AUTH_URLS = (
 )
 
 COMMON_URLS = (
+    ('/', 'index', 'Index'),
     ('/account_rse_usage', 'account_rse_usage', 'Account RSE Usage'),
     ('/account', 'account', 'Account'),
     ('/bad_replicas', 'bad_replicas', 'Bad Replicas'),
@@ -107,8 +107,6 @@ COMMON_URLS = (
     ('/rse/protocol/add', 'rse_add_protocol', 'RSE Protocol'),
     ('/rses', 'rses', 'RSEs'),
     ('/rses/add', 'add_rse', 'Add RSE'),
-    ('/rse_usage', 'rse_usage', 'RSE Usage'),
-    ('/rse_locks', 'rse_locks', 'RSE Locks'),
     ('/rule', 'rule', 'Rule'),
     ('/rules', 'rules', 'Rules'),
     ('/search', 'search', 'Search'),
@@ -124,19 +122,12 @@ COMMON_URLS = (
 
 if POLICY == 'atlas':
     ATLAS_URLS = (
-        ('/', 'atlas_index', 'Index'),
         ('/account_usage', 'account_usage', 'Group Account Usage'),
-        ('/account_usage_history', 'account_usage_history', 'Account Usage History'),
         ('/dumps', 'dumps', 'Dumps'),
-        ('/accounting', 'accounting', 'Accounting'),
         ('/conditions_summary', 'cond', 'ConditionsDB Summary'),
         ('/dbrelease_summary', 'dbrelease', 'DBRelease Summary'),
         ('/infrastructure', 'infrastructure', 'Infrastucture'),
         ('/rule_backlog_monitor', 'backlog_mon', 'Rules Backlog Monitoring')
-    )
-else:
-    OTHER_URLS = (
-        ('/', 'index', 'Index'),
     )
 
 
@@ -152,10 +143,6 @@ def blueprint() -> Blueprint:
         bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
 
     for rule, endpoint, title in ATLAS_URLS:
-        template = endpoint + '.html'
-        bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
-
-    for rule, endpoint, title in OTHER_URLS:
         template = endpoint + '.html'
         bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
 
