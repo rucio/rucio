@@ -349,7 +349,7 @@ pydoc-markdown==4.8.2
     # via -r requirements.dev.in
 pyflakes==3.1.0
     # via -r requirements.dev.in
-pygments==2.19.2
+pygments==2.20.0
     # via
     #   -r requirements.server.txt
     #   rich
