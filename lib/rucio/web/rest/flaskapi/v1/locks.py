@@ -82,8 +82,7 @@ class LockByRSE(ErrorHandlingMethodView):
                         type: string
                       state:
                         description: "The state of the rule."
-                        type: string
-                        enum: ['R', 'O', 'S']
+                        $ref: "#/components/schemas/LockState"
                       length:
                         description: "The length of the rule."
                         type: integer
@@ -179,8 +178,7 @@ class LocksByScopeName(ErrorHandlingMethodView):
                         type: string
                       state:
                         description: "The state of the rule."
-                        type: string
-                        enum: ['R', 'O', 'S']
+                        $ref: "#/components/schemas/LockState"
                       length:
                         description: "The length of the rule."
                         type: integer
@@ -293,7 +291,7 @@ class DatasetLocksForDids(ErrorHandlingMethodView):
                       state:
                         description: "The state of the rule."
                         type: string
-                        enum: ['R', 'O', 'S']
+                        $ref: "#/components/schemas/LockState"
                       length:
                         description: "The length of the rule."
                         type: integer
