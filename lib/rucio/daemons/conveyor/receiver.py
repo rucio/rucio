@@ -152,15 +152,14 @@ def receiver(
     use_ssl = config_get_bool('messaging-fts3', 'use_ssl', default=True)
     vhost = config_get('messaging-fts3', 'broker_virtual_host', raise_exception=False)
     destination = config_get('messaging-fts3', 'destination')
+    port = config_get_int('messaging-fts3', 'port')
 
     auth_kwargs = {}
     if use_ssl:
-        port = config_get_int('messaging-fts3', 'port')
         cert_file = config_get('messaging-fts3', 'ssl_cert_file')
         key_file = config_get('messaging-fts3', 'ssl_key_file')
         logger(logging.INFO, 'using ssl cert/key authentication.')
     else:
-        port = config_get_int('messaging-fts3', 'nonssl_port')
         auth_kwargs['username'] = config_get('messaging-fts3', 'username')
         auth_kwargs['password'] = config_get('messaging-fts3', 'password')
         logger(logging.INFO, 'using username/password authentication.')
