@@ -975,6 +975,8 @@ class UploadClient:
         replica['scope'] = file['did_scope']
         replica['name'] = file['did_name']
         replica['bytes'] = file['bytes']
+        replica['adler32'] = file['checksum'].get('adler32')
+        replica['md5'] = file['checksum'].get('md5')
         replica['checksum'] = file['checksum']
         replica['meta'] = file['meta']
         replica['state'] = file['state']
