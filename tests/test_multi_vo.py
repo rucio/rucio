@@ -758,7 +758,7 @@ class TestMultiVoClients:
         scope_client.add_scope('root', shr)
         add_scope(new, 'root', 'root', vo=second_vo)
         add_scope(shr, 'root', 'root', vo=second_vo)
-        scope_list_tst = [s['scope'] for s in scope_client.list_scopes()]
+        scope_list_tst = scope_client.list_scopes()
         scope_list_new = list(list_scopes(filter_={}, vo=second_vo))
         assert tst in scope_list_tst
         assert new not in scope_list_tst
@@ -766,6 +766,11 @@ class TestMultiVoClients:
         assert tst not in scope_list_new
         assert new in scope_list_new
         assert shr in scope_list_new
+
+        scope_owners = scope_client.list_scope_owners()
+        assert {"scope": tst, "account": "root"} in scope_owners
+        assert {"scope": new, "account": "root"} not in scope_owners
+        assert {"scope": shr, "account": "root"} in scope_owners
 
     def test_subscriptions_at_different_vos(self, second_vo, account_client, did_client, rse_client, scope_client):
         """ MULTI VO (CLIENT): Test that subscriptions from 2nd vo don't interfere """

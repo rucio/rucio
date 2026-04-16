@@ -277,7 +277,7 @@ class TestScopeClient:
 
     def test_list_scope_with_owner(self, rucio_client, scope_factory, jdoe_account, vo):
         _, [scope] = scope_factory(vos=[vo], account_name=jdoe_account.external)
-        response = rucio_client.list_scopes()
+        response = rucio_client.list_scope_owners()
 
         assert isinstance(response, list)
         assert isinstance(response[0], dict)

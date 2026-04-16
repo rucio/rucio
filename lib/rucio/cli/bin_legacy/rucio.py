@@ -505,29 +505,36 @@ def list_scopes(args, client, logger, console, spinner):
 
     if args.account:
         scopes = client.list_scopes_for_account(args.account)
+        with_owner = False
     else:
-        scopes = client.list_scopes()
+        scopes = client.list_scope_owners()
+        with_owner = True
+
     if (cli_config == 'rich') and (not args.csv):
         if len(scopes) == 0:
             spinner.stop()
-        elif isinstance(scopes[0], dict):
-            table = generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
+        elif not with_owner:
+            scopes = [[scope] for scope in sorted(scopes)]
+            table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
         else:
-            scopes = [[scope] for scope in sorted(scopes)]
-            table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
+            scopes = [[s['scope'], s['account']] for s in scopes]
+            table = generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
     else:
         if len(scopes) == 0:
             pass
-        elif isinstance(scopes[0], str):  # TODO: Backwards compatibility - remove in v40 issue #8125
-            for scope in scopes:
-                print(scope)
         elif args.csv:
             for scope in scopes:
-                print(scope['scope'])
+                if not with_owner:
+                    print(scope)
+                else:
+                    print(f"{scope['scope']},{scope['account']}")
+        elif not with_owner:
+            for scope in scopes:
+                print(scope)
         else:
             scopes = [[s['scope'], s['account']] for s in scopes]
             print(tabulate(scopes, tablefmt=tablefmt, headers=['SCOPE', 'ACCOUNT'], disable_numparse=True))

@@ -190,7 +190,7 @@ def test_scope(random_account):
     cmd = "rucio list-scopes --csv"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
-    assert tmp_scp in out.split('\n')
+    assert f"{tmp_scp},{random_account}" in out.split('\n')
 
     cmd = f"rucio list-scopes --csv --account {random_account}"
     exitcode, out, err = execute(cmd)
