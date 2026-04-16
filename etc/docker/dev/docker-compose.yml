@@ -216,7 +216,7 @@ services:
   # ------------------------------------------------------------------
   fts:
     container_name: dev-fts-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-fts:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-fts:fts3-prod-3.14.4-el9"
     platform: linux/amd64
     profiles:
       - storage
@@ -250,7 +250,7 @@ services:
 
   xrd1:
     container_name: dev-xrd1-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:xrootd-5.9.2-el9"
     platform: linux/amd64
     profiles:
       - storage
@@ -268,7 +268,7 @@ services:
 
   xrd2:
     container_name: dev-xrd2-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:xrootd-5.9.2-el9"
     platform: linux/amd64
     profiles:
       - storage
@@ -286,7 +286,7 @@ services:
 
   xrd3:
     container_name: dev-xrd3-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:xrootd-5.9.2-el9"
     platform: linux/amd64
     profiles:
       - storage
@@ -304,7 +304,7 @@ services:
 
   xrd4:
     container_name: dev-xrd4-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:xrootd-5.9.2-el9"
     platform: linux/amd64
     profiles:
       - storage
@@ -322,7 +322,7 @@ services:
 
   xrd5:
     container_name: dev-xrd5-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-xrootd:xrootd-5.9.2-el9"
     platform: linux/amd64
     profiles:
       - storage
@@ -347,7 +347,7 @@ services:
 
   web1:
     container_name: ${RUCIO_WEB1_CONTAINER_NAME:-dev-web1-1}
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-webdav:latest"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-webdav:webdav-apache-2.4.58-ubuntu24.04"
     platform: linux/amd64
     environment:
       - QBITTORRENT_UI_USERNAME=rucio
@@ -381,7 +381,7 @@ services:
 
   ssh1:
     container_name: dev-ssh1-1
-    image: "docker.io/${DOCKER_REPO:-rucio}/test-ssh:${RUCIO_TAG:-latest}"
+    image: "docker.io/${DOCKER_REPO:-rucio}/test-ssh:ssh-8.7p1-el9"
     platform: linux/amd64
     profiles:
       - storage
