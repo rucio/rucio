@@ -33,6 +33,7 @@ import threading
 import time
 import types
 from collections import OrderedDict
+from configparser import NoOptionError, NoSectionError
 from enum import Enum
 from functools import cache, update_wrapper, wraps
 from io import StringIO
@@ -47,7 +48,7 @@ from typing_extensions import ParamSpec
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import BASE_SCHEME_MAP, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL
-from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
+from rucio.common.exception import ConfigNotFound, DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount, InternalScope, LFNDict, TraceDict
@@ -663,11 +664,16 @@ def extract_scope(
         default_extract: str = 'def',
         vo: str = DEFAULT_VO
 ) -> 'Sequence[str]':
-    scope_extraction_algorithms = ScopeExtractionAlgorithms(vo)
-    extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
-    if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
-        extract_scope_convention = default_extract
-    return scope_extraction_algorithms.extract_scope(did, scopes, extract_scope_convention)
+    try:
+        scope_extraction_algorithms = ScopeExtractionAlgorithms(vo)
+        extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
+        if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
+            extract_scope_convention = default_extract
+        extracted = scope_extraction_algorithms.extract_scope(did, scopes, extract_scope_convention)
+    except (ConfigNotFound, NoSectionError, NoOptionError):
+        logging.warning("Config option for scope extraction convention not found. Using default convention.")
+        extracted = ScopeExtractionAlgorithms.extract_scope_default(did, scopes)
+    return extracted
 
 
 def pid_exists(pid: int) -> bool:
