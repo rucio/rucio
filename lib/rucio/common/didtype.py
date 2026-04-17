@@ -15,10 +15,12 @@
 """
 DID type to represent a DID and to simplify operations on it
 """
-
+import logging
+from configparser import NoSectionError
 from typing import Any, Union
 
-from rucio.common.exception import DIDError
+from rucio.common.exception import ConfigNotFound, DIDError, InvalidAlgorithmName, PolicyPackageNotFound
+from rucio.common.utils import extract_scope
 
 
 class DID:
@@ -126,15 +128,11 @@ class DID:
         Construct the DID from a string.
         :param did: string containing the DID information
         """
-        did_parts = did.split(DID.SCOPE_SEPARATOR, 1)
-        if len(did_parts) == 1:
-            self.name = did
-            self._update_implicit_scope()
-            if not self.has_scope():
-                raise DIDError('Object construction from non-splitable string is ambigious')
-        else:
-            self.scope = did_parts[0]
-            self.name = did_parts[1]
+        try:
+            self.scope, self.name = extract_scope(did)
+        except (ImportError, InvalidAlgorithmName, ConfigNotFound, NoSectionError) as e:  # Only use when the policy can not be found
+            logging.error("Failure using extract_scope policy for '%s': %s" % (did, type(e).__name__))
+            raise PolicyPackageNotFound('ScopeExtractionAlgorithm')
 
     def _did_from_dict(self, did: dict[str, str]) -> None:
         """
