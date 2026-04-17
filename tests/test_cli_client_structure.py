@@ -562,6 +562,18 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
     assert "ERROR" not in err
     assert all([dataset in out for dataset in rucio_client.list_datasets_per_rse(mock_rse)])
 
+    # Test listing with multiple protocols
+
+    cmd = f"rucio replica list file {scope}:{name} --protocols https,root,srm"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    # Test with incorrectly specified protocols
+    cmd = f"rucio replica list file {scope}:{name} --protocols https;root;srm"
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+
 
 @pytest.mark.dirty
 def test_replica_state(mock_scope, rucio_client):
@@ -573,10 +585,10 @@ def test_replica_state(mock_scope, rucio_client):
 
     cmd = f"rucio replica state update bad {scope}:{name1} --rse {mock_rse} --reason testing"
     exitcode, _, err = execute(cmd)
-    print(err)
-    assert exitcode == 0
     if "ERROR" in err:
         assert "Details: ERROR, multiple matches" in err  # The test rses are strange. I don't know why this happens.
+    else:
+        assert exitcode == 0
 
     name2 = generate_uuid()
     rucio_client.add_replica(mock_rse, mock_scope.external, name2, 4, "deadbeef")
