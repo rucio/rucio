@@ -102,18 +102,7 @@ class LazyGroup(click.Group):
 @click.option("--config", help="The Rucio configuration file to use", envvar="RUCIO_CONFIG")
 @click.option("-H", "--hostname", help="The Rucio API host")
 # oidc auth
-@click.option("--oidc-user", help="OIDC username")
-@click.option("--oidc-password", help="OIDC password")
 @click.option("--oidc-audience", help="Defines which audience are tokens requested for.")
-@click.option(
-    "--oidc-auto",
-    is_flag=True,
-    default=False,
-    help="""
-        If not specified, username and password credentials are not required and users will be given a URL to use in their browser.
-        If specified, the users explicitly trust Rucio with their IdP credentials"
-    """,
-)
 @click.option(
     "--oidc-issuer",
     help="""
@@ -128,7 +117,6 @@ class LazyGroup(click.Group):
     help="""
         If not specified, user will be asked to enter a code returned by the browser to the command line.
         If --polling is set, Rucio Client should get the token without any further interaction of the user.
-        This option is active only if --auto is *not* specified
     """,
 )
 @click.option(
@@ -175,11 +163,8 @@ def main(
     no_pager: bool,
     user: Optional[str],
     password: Optional[str],
-    oidc_user: Optional[str],
-    oidc_password: Optional[str],
     oidc_scope: Optional[str],
     oidc_audience: Optional[str],
-    oidc_auto: bool,
     oidc_polling: bool,
     oidc_refresh_lifetime: Optional[str],
     oidc_issuer: Optional[str],
@@ -222,11 +207,8 @@ def main(
             "VO": vo,
             "username": user,
             "password": password,
-            "oidc_username": oidc_user,
-            "oidc_password": oidc_password,
             "oidc_scope": oidc_scope,
             "oidc_audience": oidc_audience,
-            "oidc_auto": oidc_auto,
             "oidc_polling": oidc_polling,
             "oidc_refresh_lifetime": oidc_refresh_lifetime,
             "oidc_issuer": oidc_issuer,
