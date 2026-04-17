@@ -18,6 +18,8 @@ import sqlalchemy as sa
 from alembic import context
 from alembic.op import add_column, drop_column
 
+from rucio.db.sqla.types import JSON
+
 # Alembic revision identifiers
 revision = '8ab4d628cffb'
 down_revision = '3b943000da18'
@@ -28,17 +30,17 @@ def upgrade():
 
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-        add_column('replicas', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('dids', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('deleted_dids', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('quarantined_replicas', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('quarantined_replicas_history', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('contents', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('archive_contents', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('archive_contents_history', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('contents_history', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('requests', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
-        add_column('requests_history', sa.Column('checksum', sa.JSON(), nullable=True), schema=schema)
+        add_column('replicas', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('dids', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('deleted_dids', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('quarantined_replicas', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('quarantined_replicas_history', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('contents', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('archive_contents', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('archive_contents_history', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('contents_history', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('requests', sa.Column('checksum', JSON(), nullable=True), schema=schema)
+        add_column('requests_history', sa.Column('checksum', JSON(), nullable=True), schema=schema)
 
 
 def downgrade():
