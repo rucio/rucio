@@ -188,7 +188,6 @@ class ScopeOwnershipList(ErrorHandlingMethodView):
         description: "List all scopes and their ownership."
         tags:
           - Scopes
-        parameters:
         responses:
           200:
             description: "OK"
