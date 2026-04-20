@@ -45,15 +45,16 @@ def upgrade():
 
 def downgrade():
     """Downgrade the database to the previous revision."""
-    schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
-    drop_column('replicas', 'checksum', schema=schema)
-    drop_column('dids', 'checksum', schema=schema)
-    drop_column('deleted_dids', 'checksum', schema=schema)
-    drop_column('quarantined_replicas', 'checksum', schema=schema)
-    drop_column('quarantined_replicas_history', 'checksum', schema=schema)
-    drop_column('contents', 'checksum', schema=schema)
-    drop_column('archive_contents', 'checksum', schema=schema)
-    drop_column('archive_contents_history', 'checksum', schema=schema)
-    drop_column('contents_history', 'checksum', schema=schema)
-    drop_column('requests', 'checksum', schema=schema)
-    drop_column('requests_history', 'checksum', schema=schema)
+    if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
+        schema = context.get_context().version_table_schema if context.get_context().version_table_schema else ''
+        drop_column('replicas', 'checksum', schema=schema)
+        drop_column('dids', 'checksum', schema=schema)
+        drop_column('deleted_dids', 'checksum', schema=schema)
+        drop_column('quarantined_replicas', 'checksum', schema=schema)
+        drop_column('quarantined_replicas_history', 'checksum', schema=schema)
+        drop_column('contents', 'checksum', schema=schema)
+        drop_column('archive_contents', 'checksum', schema=schema)
+        drop_column('archive_contents_history', 'checksum', schema=schema)
+        drop_column('contents_history', 'checksum', schema=schema)
+        drop_column('requests', 'checksum', schema=schema)
+        drop_column('requests_history', 'checksum', schema=schema)
