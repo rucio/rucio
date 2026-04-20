@@ -545,8 +545,12 @@ def test_upload_download():
     assert exitcode != 2  # Failure is not due to the command structure
 
 
+@pytest.mark.noparallel(reason='Modifies the configuration file')
 def test_lifetime_exception(rucio_client, mock_scope):
     from rucio.client.uploadclient import UploadClient
+
+    # Add the lifetime-exception endpoint
+    rucio_client.set_config_option("cli", "endpoints_add", "lifetime-exception")
 
     input_file = tempfile.NamedTemporaryFile()
     mock_did = tempfile.NamedTemporaryFile()

@@ -35,7 +35,7 @@ from rucio.common.utils import setup_logger
 # Taken directly from https://click.palletsprojects.com/en/stable/complex/#defining-the-lazy-group
 class LazyGroup(click.Group):
 
-    DEFAULT_COMMANDS: Final = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata", "lifetime-exception"}
+    DEFAULT_COMMANDS: Final = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata"}
     COMMAND_MAP: Final = {
         "account": "rucio.cli.account.account",
         "config": "rucio.cli.config.config",
