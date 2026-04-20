@@ -18,6 +18,7 @@ import sqlalchemy.types as types
 from sqlalchemy.dialects.mysql import BINARY
 from sqlalchemy.dialects.oracle import CLOB, RAW
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.sqlite import JSON as JSONSQ
 from sqlalchemy.sql import operators
 from sqlalchemy.types import CHAR, String, TypeDecorator
 
@@ -136,6 +137,8 @@ class JSON(TypeDecorator):
             return dialect.type_descriptor(types.JSON())
         elif dialect.name == 'oracle':
             return dialect.type_descriptor(CLOB())
+        elif dialect.name == 'sqlite':
+            return dialect.type_descriptor(JSONSQ())
         else:
             return dialect.type_descriptor(String())
 
