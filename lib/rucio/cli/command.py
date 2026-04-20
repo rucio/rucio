@@ -37,7 +37,7 @@ class LazyGroup(click.Group):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.DEFAULT_COMMANDS = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata", "lifetime-exception"}
+        self.DEFAULT_COMMANDS = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata"}
         self.command_locs = {
             "account": "rucio.cli.account.account",
             "config": "rucio.cli.config.config",
