@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import logging
 import os
 import re
 import traceback
@@ -627,8 +628,10 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     from unittest import mock
 
     from sqlalchemy import Column
+    from sqlalchemy.sql import select
 
     from rucio.common.utils import generate_uuid
+    from rucio.core.config import remove_option
     from rucio.db.sqla.models import PrimaryKeyConstraint, String
     from rucio.db.sqla.session import get_session
 
@@ -654,6 +657,13 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
 
     with mock.patch('rucio.core.config.models.Config', new=in_memory_config):
         yield
+
+        # remove temporary options explicitly, so they do not leak via cache after the test
+        stmt = select("*").select_from(in_memory_config)
+        for row in session.execute(stmt).all():
+            remove_option(row.section, row.opt, session=session)
+            logging.log(logging.DEBUG, "core_config_mock removing config option [%s] %s=%s", row.section, row.opt, row.value)
+        session.commit()
 
 
 @pytest.fixture(scope="session")
