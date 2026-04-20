@@ -5,6 +5,7 @@ atlas:
     schema: atlas
     lfn2pfn_algorithm_default: "hash"
     package: atlas_rucio_policy_package
+    endpoints_add: lifetime-exception
   tests:
     allow:
       - rucio_tests
