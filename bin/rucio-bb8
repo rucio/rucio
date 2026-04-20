@@ -21,6 +21,8 @@ import argparse
 
 from rucio.daemons.bb8.bb8 import run
 from rucio.daemons.bb8.common import rebalance_rse
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 
 def get_parser():
@@ -48,10 +50,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.decommission:
-        rebalance_rse(rse_id=args.rse, max_bytes=args.bytes, dry_run=args.dry_run,
-                      comment=args.comment, force_expression=args.force_expression,
-                      priority=args.priority,
-                      source_replica_expression=args.source_replica_expression,
-                      mode='decommission')
+        with db_session(DatabaseOperationType.WRITE) as session:
+            rebalance_rse(rse_id=args.rse, max_bytes=args.bytes, dry_run=args.dry_run,
+                          comment=args.comment, force_expression=args.force_expression,
+                          priority=args.priority,
+                          source_replica_expression=args.source_replica_expression,
+                          mode='decommission', session=session)
     else:
         run(once=args.run_once, rse_expression=args.rse, move_subscriptions=False, use_dump=False, sleep_time=args.sleep_time, threads=args.threads, dry_run=args.dry_run)

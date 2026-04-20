@@ -540,7 +540,8 @@ def get_conveyor_rses(
     if include_rses:
         for vo in vos:
             try:
-                parsed_rses = parse_expression(include_rses, filter_={'vo': vo}, session=None)
+                with db_session(DatabaseOperationType.READ) as session:
+                    parsed_rses = parse_expression(include_rses, filter_={'vo': vo}, session=session)
             except InvalidRSEExpression:
                 logger(logging.ERROR, "Invalid RSE exception %s to include RSEs", include_rses)
             else:
@@ -553,7 +554,8 @@ def get_conveyor_rses(
 
     if exclude_rses:
         try:
-            parsed_rses = parse_expression(exclude_rses, session=None)
+            with db_session(DatabaseOperationType.READ) as session:
+                parsed_rses = parse_expression(exclude_rses, session=session)
         except InvalidRSEExpression as error:
             logger(logging.ERROR, "Invalid RSE exception %s to exclude RSEs: %s", exclude_rses, error)
         else:
