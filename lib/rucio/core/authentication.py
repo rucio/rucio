@@ -81,6 +81,19 @@ def token_key_generator(namespace, fni, **kwargs):
     return generate_key
 
 
+def _hash_token_for_cache(token: str) -> str:
+    """
+    Hash token to create a safe cache key.
+
+    This prevents token exposure in cache and ensures consistent key length
+    (64 chars) that works with both Rucio tokens and long JWT tokens.
+
+    :param token: Authentication token to hash
+    :returns: SHA-256 hash of the token as a hex string (64 characters)
+    """
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
 if config_get_bool('cache', 'use_external_cache_for_auth_tokens', default=False):
     TOKENREGION = MemcacheRegion(expiration_time=900, function_key_generator=token_key_generator)
 else:
@@ -498,12 +511,15 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
 
     # Be gentle with bash variables, there can be whitespace
     token = token.strip()
-    cache_key = token.replace(' ', '')
+
+    # Hash token for cache key to prevent exposure and handle long JWT tokens
+    cache_key = _hash_token_for_cache(token)
 
     # Check if token can be found in cache region
     value: Union[NoValue, "TokenValidationDict"] = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
-        value = query_token(token, session=session)
+        # Query database using the original token (not the hash)
+        value = query_token(token)
         if not value:
             # identify JWT access token and validate
             # & save it in Rucio if scope and audience are correct
@@ -513,7 +529,7 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
                 value = validate_jwt(token, session=session)
             else:
                 raise CannotAuthenticate(traceback.format_exc())
-        # save token in the cache
+        # save token validation result in cache using hashed key
         TOKENREGION.set(cache_key, value)
     lifetime = value.get('lifetime', datetime.datetime(1970, 1, 1))  # type: ignore (value is narrowed to dict, but type-checker doesn't see it)
     if lifetime < datetime.datetime.utcnow():  # check if expired
