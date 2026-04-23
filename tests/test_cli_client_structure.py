@@ -798,17 +798,17 @@ def test_rule(rucio_client, mock_scope):
     assert exitcode == 0
     assert "ERROR" not in err
 
+    cmd = f"rucio -v rule update {rule_id} --locked True"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert rucio_client.get_replication_rule(rule_id)['locked']
+
     # Check that you can lock and unlock a rule
     cmd = f"rucio rule update {rule_id} --locked False"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert not rucio_client.get_replication_rule(rule_id)['locked']
-
-    cmd = f"rucio -v rule update {rule_id} --locked True"
-    exitcode, out, err = execute(cmd)
-    assert exitcode == 0
-    assert rucio_client.get_replication_rule(rule_id)['locked']
 
     # Testing the two different lifetime type options
     cmd = f"rucio rule update {rule_id} --lifetime 10"
