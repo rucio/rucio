@@ -339,7 +339,7 @@ def update(
     options = {}
     if lifetime:
         options['lifetime'] = None if lifetime.lower() == "none" else int(lifetime)
-    if locked:
+    if locked is not None:
         options['locked'] = locked
     if comment:
         options['comment'] = comment
