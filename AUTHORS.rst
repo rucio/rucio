@@ -71,6 +71,7 @@ Individual contributors to the source code
 - Paul Millar, <paul.millar@desy.de>, 2025
 - Vimalan S <vimalan.github@gmail.com>, 2025
 - Riccardo Di Maio <riccardodimaio11@gmail.com>, 2024-2025
+- Karanjot Singh <karanjot.singh@cern.ch>, 2025-2026
 
 Organisations employing contributors
 ------------------------------------
