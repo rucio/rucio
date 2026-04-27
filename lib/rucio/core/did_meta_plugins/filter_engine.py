@@ -430,6 +430,8 @@ class FilterEngine:
             and_expressions: list[str] = []
             for and_group in or_group:
                 key, oper, value = and_group
+                if not re.match(r'^[A-Za-z0-9_]+$', key):
+                    raise exception.DIDFilterSyntaxError("Invalid metadata key: '{}'".format(key))
                 if key in fixed_table_columns:                                              # is this key filtering on a column or in the jsonb?
                     is_in_json_column = False
                 else:
@@ -438,16 +440,17 @@ class FilterEngine:
                     if value in ('*', '%', '*', '%'):                                       # match wildcard exactly == no filtering on key
                         continue
                     else:                                                                   # partial match with wildcard == like || notlike
+                        safe_value = value.replace("'", "''").replace('*', '%').replace('_', '\_')  # NOQA: W605
                         if oper == operator.eq:
                             if is_in_json_column:
-                                expression = "{}->>'{}' LIKE '{}' ".format(jsonb_column, key, value.replace('*', '%').replace('_', '\_'))       # NOQA: W605
+                                expression = "{}->>'{}' LIKE '{}' ".format(jsonb_column, key, safe_value)
                             else:
-                                expression = "{} LIKE '{}' ".format(key, value.replace('*', '%').replace('_', '\_'))                            # NOQA: W605
+                                expression = "{} LIKE '{}' ".format(key, safe_value)
                         elif oper == operator.ne:
                             if is_in_json_column:
-                                expression = "{}->>'{}' NOT LIKE '{}' ".format(jsonb_column, key, value.replace('*', '%').replace('_', '\_'))   # NOQA: W605
+                                expression = "{}->>'{}' NOT LIKE '{}' ".format(jsonb_column, key, safe_value)
                             else:
-                                expression = "{} NOT LIKE '{}' ".format(key, value.replace('*', '%').replace('_', '\_'))                        # NOQA: W605
+                                expression = "{} NOT LIKE '{}' ".format(key, safe_value)
                 else:
                     # Infer what type key should be cast to from typecasting the value in the expression.
                     try:
@@ -470,14 +473,15 @@ class FilterEngine:
                                 expression = "{}::float {} {}".format(key, POSTGRES_OP_MAP[oper], value)
                         elif isinstance(value, datetime):
                             if is_in_json_column:
-                                expression = "({}->>'{}')::timestamp {} '{}'".format(jsonb_column, key, POSTGRES_OP_MAP[oper], value)
+                                expression = "({}->>'{}')::timestamp {} '{}'".format(jsonb_column, key, POSTGRES_OP_MAP[oper], str(value).replace("'", "''"))
                             else:
-                                expression = "{}::timestamp {} '{}'".format(key, POSTGRES_OP_MAP[oper], value)
+                                expression = "{}::timestamp {} '{}'".format(key, POSTGRES_OP_MAP[oper], str(value).replace("'", "''"))
                         else:
+                            safe_value = value.replace("'", "''")
                             if is_in_json_column:
-                                expression = "{}->>'{}' {} '{}'".format(jsonb_column, key, POSTGRES_OP_MAP[oper], value)
+                                expression = "{}->>'{}' {} '{}'".format(jsonb_column, key, POSTGRES_OP_MAP[oper], safe_value)
                             else:
-                                expression = "{} {} '{}'".format(key, POSTGRES_OP_MAP[oper], value)
+                                expression = "{} {} '{}'".format(key, POSTGRES_OP_MAP[oper], safe_value)
                     except Exception as e:
                         raise exception.FilterEngineGenericError(e)
                 and_expressions.append(expression)
