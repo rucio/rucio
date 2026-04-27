@@ -24,6 +24,7 @@ from rucio.common.exception import (
     DatabaseException,
     DataIdentifierAlreadyExists,
     DataIdentifierNotFound,
+    DIDFilterSyntaxError,
     DuplicateContent,
     FileAlreadyExists,
     FileConsistencyMismatch,
@@ -287,6 +288,8 @@ class Search(ErrorHandlingMethodView):
                     yield dumps(did) + '\n'
 
             return try_stream(generate(vo=request.environ['vo']))
+        except DIDFilterSyntaxError as error:
+            return generate_http_error_flask(400, error)
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
         except KeyNotFound as error:
