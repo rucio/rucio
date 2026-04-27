@@ -15,6 +15,7 @@
 import ast
 import fnmatch
 import operator
+import re
 from datetime import date, datetime, timedelta
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
@@ -246,13 +247,13 @@ class FilterEngine:
                 if len(key_tokenised) == 1:       # no operator suffix found, assume eq
                     try:
                         key_no_suffix = ast.literal_eval(key)
-                    except ValueError:
+                    except (ValueError, SyntaxError):
                         key_no_suffix = key
                     oper = ''
                 elif len(key_tokenised) == 2:     # operator suffix found
                     try:
                         key_no_suffix = ast.literal_eval(key_tokenised[0])
-                    except ValueError:
+                    except (ValueError, SyntaxError):
                         key_no_suffix = key_tokenised[0]
                     oper = key_tokenised[1]
                 else:
@@ -534,22 +535,22 @@ class FilterEngine:
                         expression = or_(expression, key.is_(None))
                 elif json_column:                                                                   # -> this key filters on the content of a json column
                     if session.bind.dialect.name == 'oracle':
+                        if not re.match(r'^[A-Za-z0-9_]+$', key):
+                            raise exception.DIDFilterSyntaxError("Invalid metadata key: '{}'".format(key))
                         if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
                             if value in ('*', '%', '*', '%'):                                       # match wildcard exactly == no filtering on key
                                 continue
                             else:                                                                   # partial match with wildcard == like || notlike
                                 if oper == operator.eq:
-                                    expression = text("json_exists({},'$?(@.{} like \"{}\")')".format(json_column.key, key, value.replace('*', '%')))
+                                    expression = text("json_exists({},'$?(@.{} like $val)' PASSING :val AS \"val\")".format(json_column.key, key)).bindparams(val=value.replace('*', '%'))
                                 elif oper == operator.ne:
                                     raise exception.FilterEngineGenericError("Oracle implementation does not support this operator.")
                         else:
                             try:
                                 if isinstance(value, (bool)):                                       # bool must be checked first (as bool subclass of int)
-                                    expression = text("json_exists({},'$?(@.{}.boolean() {} \"{}\")')".format(json_column.key, key, ORACLE_OP_MAP[oper], value))
-                                elif isinstance(value, (int, float)):
-                                    expression = text("json_exists({},'$?(@.{} {} {})')".format(json_column.key, key, ORACLE_OP_MAP[oper], value))
+                                    expression = text("json_exists({},'$?(@.{}.boolean() {} $val)' PASSING :val AS \"val\")".format(json_column.key, key, ORACLE_OP_MAP[oper])).bindparams(val=value)
                                 else:
-                                    expression = text("json_exists({},'$?(@.{} {} \"{}\")')".format(json_column.key, key, ORACLE_OP_MAP[oper], value))
+                                    expression = text("json_exists({},'$?(@.{} {} $val)' PASSING :val AS \"val\")".format(json_column.key, key, ORACLE_OP_MAP[oper])).bindparams(val=value)
                             except Exception as e:
                                 raise exception.FilterEngineGenericError(e)
                     else:
