@@ -301,6 +301,8 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                 fixed_table_columns=self.fixed_table_columns,
                 jsonb_column=self.jsonb_column
             )
+        except exception.DIDFilterSyntaxError:
+            raise
         except Exception as e:
             raise exception.DataIdentifierNotFound(e)
 
