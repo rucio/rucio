@@ -1921,6 +1921,9 @@ class Distance(ErrorHandlingMethodView):
                     deprecated: true
                     description: "Same as distance."
                     type: integer
+                  bidirectional:
+                    description: "If True, create distance in both directions."
+                    type: boolean
         responses:
           201:
             description: "OK"
@@ -1941,12 +1944,14 @@ class Distance(ErrorHandlingMethodView):
         distance = param_get(parameters, 'distance', default=None)
         if distance is None:
             distance = param_get(parameters, 'ranking', default=None)
+        bidirectional = param_get_bool(parameters, 'bidirectional', default=False)
 
         try:
             add_distance(
                 source=source,
                 destination=destination,
                 distance=distance,
+                bidirectional=bidirectional,
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],
             )
@@ -1992,6 +1997,9 @@ class Distance(ErrorHandlingMethodView):
                     deprecated: true
                     description: "Same as distance."
                     type: integer
+                  bidirectional:
+                    description: "If True, create distance in both directions."
+                    type: boolean
         responses:
           201:
             description: "OK"
@@ -2013,11 +2021,13 @@ class Distance(ErrorHandlingMethodView):
         if distance is None:
             distance = param_get(parameters, 'ranking', default=None)
 
+        bidirectional = param_get_bool(parameters, 'bidirectional', default=False)
         try:
             update_distance(
                 source=source,
                 destination=destination,
                 distance=distance,
+                bidirectional=bidirectional,
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],
             )
@@ -2028,7 +2038,7 @@ class Distance(ErrorHandlingMethodView):
 
         return '', 200
 
-    def delete(self, source, destination):
+    def delete(self, source: str, destination: str):
         """
         ---
         summary: Delete Rse Distance
@@ -2048,6 +2058,12 @@ class Distance(ErrorHandlingMethodView):
           schema:
             type: string
           style: simple
+        - name: bidirectional
+          in: query
+          description: "If True, delete distance in both directions."
+          schema:
+            type: boolean
+          style: simple
         responses:
           200:
             description: "OK"
@@ -2063,10 +2079,12 @@ class Distance(ErrorHandlingMethodView):
           406:
             description: "Not acceptable"
         """
+        bidirectional = param_get_bool(request.args, 'bidirectional', default=False)
         try:
             delete_distance(
                 source=source,
                 destination=destination,
+                bidirectional=bidirectional,
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo']
             )
