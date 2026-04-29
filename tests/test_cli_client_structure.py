@@ -964,3 +964,28 @@ def test_subscription(rucio_client, mock_scope, random_account, did_factory):
     assert "ERROR" not in err
     assert subscription_name_2 in out
     assert subscription_name not in out
+
+
+def test_rse_distance_bidirectional(rucio_client, rse_factory):
+    rse_name_1, _ = rse_factory.make_posix_rse()
+    rse_name_2, _ = rse_factory.make_posix_rse()
+
+    # add bidirectional distance between the RSEs
+    distance = 1
+    cmd = f'rucio rse distance add --bidirectional --distance 1 {rse_name_1} {rse_name_2}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Set distances between {rse_name_1} <-> {rse_name_2} to {distance}" in out
+
+    # update bidirectional distance between the RSEs
+    distance = 5
+    cmd = f'rucio rse distance update --bidirectional --distance 5 {rse_name_1} {rse_name_2}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Updated distances between {rse_name_1} <-> {rse_name_2} to {distance}" in out
+
+    # delete bidirectional distance between the RSEs
+    cmd = f'rucio rse distance remove --bidirectional {rse_name_1} {rse_name_2}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Deleted distances between {rse_name_1} <-> {rse_name_2}" in out

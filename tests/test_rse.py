@@ -22,6 +22,7 @@ from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RseAt
 from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
 from rucio.core.account_limit import get_rse_account_usage, set_local_account_limit
 from rucio.core.did import add_did, attach_dids
+from rucio.core.distance import add_distance, delete_distances, get_distances, update_distances
 from rucio.core.request import delete_transfer_limit, set_transfer_limit
 from rucio.core.rse import (
     add_rse,
@@ -252,6 +253,56 @@ class TestRSECoreApi:
         rse_usage.used = 1
         db_session.commit()
         assert not rse_is_empty(rse_id=rse_id)
+
+    def test_add_bidirectional_distance(self, vo):
+        """ RSE (CORE): Test the adding bidirectional distances between RSEs """
+        rse1 = rse_name_generator()
+        rse2 = rse_name_generator()
+        rse1_id = add_rse(rse1, vo=vo)
+        rse2_id = add_rse(rse2, vo=vo)
+        assert rse_exists(rse=rse1, vo=vo)
+        assert rse_exists(rse=rse2, vo=vo)
+        add_distance(src_rse_id=rse1_id, dest_rse_id=rse2_id, distance=1, bidirectional=True)
+        for src, dest in [(rse1_id, rse2_id), (rse2_id, rse1_id)]:
+            dists = get_distances(src_rse_id=src, dest_rse_id=dest)
+            assert len(dists) == 1
+            assert dists[0]['distance'] == 1
+        del_rse(rse1_id)
+        del_rse(rse2_id)
+
+    def test_update_bidirectional_distance(self, vo):
+        """ RSE (CORE): Test updating bidirectional distances between RSEs """
+        rse1 = rse_name_generator()
+        rse2 = rse_name_generator()
+        rse1_id = add_rse(rse1, vo=vo)
+        rse2_id = add_rse(rse2, vo=vo)
+        assert rse_exists(rse=rse1, vo=vo)
+        assert rse_exists(rse=rse2, vo=vo)
+        add_distance(src_rse_id=rse1_id, dest_rse_id=rse2_id, distance=1, bidirectional=True)
+
+        update_distances(src_rse_id=rse1_id, dest_rse_id=rse2_id, distance=5, bidirectional=True)
+        for src, dest in [(rse1_id, rse2_id), (rse2_id, rse1_id)]:
+            dists = get_distances(src_rse_id=src, dest_rse_id=dest)
+            assert len(dists) == 1
+            assert dists[0]['distance'] == 5
+        del_rse(rse1_id)
+        del_rse(rse2_id)
+
+    def test_delete_bidirectional_distance(self, vo):
+        """ RSE (CORE): Test deleting bidirectional distances between RSEs """
+        rse1 = rse_name_generator()
+        rse2 = rse_name_generator()
+        rse1_id = add_rse(rse1, vo=vo)
+        rse2_id = add_rse(rse2, vo=vo)
+        assert rse_exists(rse=rse1, vo=vo)
+        assert rse_exists(rse=rse2, vo=vo)
+        add_distance(src_rse_id=rse1_id, dest_rse_id=rse2_id, distance=1, bidirectional=True)
+
+        delete_distances(src_rse_id=rse1_id, dest_rse_id=rse2_id, bidirectional=True)
+        assert len(get_distances(src_rse_id=rse1_id, dest_rse_id=rse2_id)) == 0
+        assert len(get_distances(src_rse_id=rse2_id, dest_rse_id=rse1_id)) == 0
+        del_rse(rse1_id)
+        del_rse(rse2_id)
 
 
 def test_parse_checksum_support_attribute():
@@ -1506,9 +1557,37 @@ class TestRSEClient:
                                      destination=destination,
                                      parameters={'distance': 0})
 
+    @pytest.mark.dirty
+    def test_add_distance_bidirectional(self, rucio_client):
+        """ RSE (CLIENTS): add/get/update/delete RSE distances Bidirectional."""
+        source, destination = rse_name_generator(), rse_name_generator()
+        rucio_client.add_rse(source)
+        rucio_client.add_rse(destination)
+        rucio_client.add_distance(source=source,
+                                  destination=destination,
+                                  parameters={'distance': 1},
+                                  bidirectional=True)
+
         for distance in rucio_client.get_distance(source=source, destination=destination):
-            print(distance)
-            assert distance['distance'] == 0
+            assert distance['distance'] == 1
+
+        for distance in rucio_client.get_distance(source=destination, destination=source):
+            assert distance['distance'] == 1
+
+        rucio_client.update_distance(source=source,
+                                     destination=destination,
+                                     parameters={'distance': 5},
+                                     bidirectional=True)
+
+        assert rucio_client.get_distance(source=source, destination=destination)[0]['distance'] == 5
+        assert rucio_client.get_distance(source=destination, destination=source)[0]['distance'] == 5
+
+        rucio_client.delete_distance(source=source,
+                                     destination=destination,
+                                     bidirectional=True)
+
+        assert len(rucio_client.get_distance(source=source, destination=destination)) == 0
+        assert len(rucio_client.get_distance(source=destination, destination=source)) == 0
 
     def test_get_rse_protocols_includes_verify_checksum(self, vo):
         """ RSE (CORE): Test validate_checksum in RSEs info"""

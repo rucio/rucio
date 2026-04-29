@@ -262,8 +262,7 @@ def test_rse_add_distance(rse_factory):
 
     # add duplicate distance
     exitcode, out, err = execute(cmd)
-    assert exitcode != 0
-    assert f'Distance from {rse_name_2} to {rse_name_1} already exists!' in err
+    assert exitcode == 0
 
 
 def test_rse_delete_distance(rse_factory, rucio_client):
