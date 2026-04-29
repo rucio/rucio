@@ -293,7 +293,7 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         try:
             # instantiate fe and create postgres query
             fe = FilterEngine(filters, model_class=None, strict_coerce=False)
-            postgres_query_str = fe.create_postgres_query(
+            postgres_where_sql, filter_args = fe.create_postgres_query(
                 additional_filters=[
                     ('scope', operator.eq, scope.internal),
                     ('vo', operator.eq, scope.vo)
@@ -315,12 +315,12 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
         statement = sql.SQL("SELECT * FROM {} WHERE {} {}").format(
             sql.Identifier(self.table),
-            sql.SQL(postgres_query_str),  # type: ignore
+            postgres_where_sql,
             sql.SQL("LIMIT {}").format(sql.Literal(limit)) if limit else sql.SQL("")
         )
 
         cur = self.client.cursor(row_factory=dict_row)
-        cur.execute(statement)
+        cur.execute(statement, filter_args)
         query_result = cur.fetchall()
         cur.close()
 
