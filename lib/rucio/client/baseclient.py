@@ -242,6 +242,22 @@ class BaseClient:
         except ValueError:
             self.logger.debug('request_retries must be an integer. Taking default.')
 
+    def __create_temp_directory(self) -> None:
+        """
+        Ensure the temporary directory is there.
+        """
+        # check if rucio temp directory is there. If not create it with permissions only for the current user
+        if not os.path.isdir(self.token_path):
+            try:
+                self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
+                try:
+                    makedirs(self.token_path, 0o700)
+                except FileExistsError:
+                    msg = f'Token directory already exists at {self.token_path} - skipping'
+                    self.logger.debug(msg)
+            except Exception:
+                raise
+
     def _get_auth_tokens(self) -> tuple[Optional[str], str, str, str]:
         # if token file path is defined in the rucio.cfg file, use that file. Currently this prevents authenticating as another user or VO.
         auth_token_file_path = config_get('client', 'auth_token_file_path', False, None)
@@ -734,6 +750,7 @@ class BaseClient:
             self.logger.debug("Resetting the token expiration epoch file content.")
             # reset the token expiration epoch file content
             # at new CLI OIDC authentication
+            self.__create_temp_directory()
             self.token_exp_epoch = None
             file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_exp_epoch:
@@ -975,18 +992,7 @@ class BaseClient:
         """
         Write the current auth_token to the local token file.
         """
-        # check if rucio temp directory is there. If not create it with permissions only for the current user
-        if not os.path.isdir(self.token_path):
-            try:
-                self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
-                try:
-                    makedirs(self.token_path, 0o700)
-                except FileExistsError:
-                    msg = f'Token directory already exists at {self.token_path} - skipping'
-                    self.logger.debug(msg)
-            except Exception:
-                raise
-
+        self.__create_temp_directory()
         try:
             file_d, file_n = mkstemp(dir=self.token_path)
             with fdopen(file_d, "w") as f_token:
