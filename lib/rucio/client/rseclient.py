@@ -875,10 +875,20 @@ class RSEClient(BaseClient):
         """
         Add a src-dest distance.
 
-        :param source: The source.
-        :param destination: The destination.
-        :param parameters: A dictionary with property.
-        :param bidirectional: If True, also updates the distance from dest to src.
+        Parameters
+        ----------
+        source :
+            The source RSE.
+        destination :
+            The destination RSE.
+        parameters :
+            A dictionary with 'distance' key and int value.
+        bidirectional :
+            If True, also updates the distance from dest to src.
+
+        Returns
+        -------
+            True if distance was created successfully else False
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -912,6 +922,10 @@ class RSEClient(BaseClient):
             A dictionary with property
         bidirectional :
             If True, also updates the distance from dest to src.
+
+        Returns
+        -------
+            True if distance was created successfully else False
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
