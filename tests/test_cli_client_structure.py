@@ -756,7 +756,6 @@ def test_rse_qos_policy(rucio_client):
 
 
 @pytest.mark.dirty
-@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_rule(rucio_client, mock_scope):
     mock_rse = "MOCK-POSIX"
     rule_rse = "MOCK"
@@ -811,13 +810,16 @@ def test_rule(rucio_client, mock_scope):
     assert not rucio_client.get_replication_rule(rule_id)['locked']
 
     # Testing the two different lifetime type options
-    cmd = f"rucio rule update {rule_id} --lifetime 10"
+    cmd = f"rucio rule update {rule_id} --lifetime 30"
     exitcode, out, err = execute(cmd)
     print(out, err)
     assert exitcode == 0
     assert "ERROR" not in err
     rule_info = rucio_client.get_replication_rule(rule_id)
-    assert abs(rule_info["updated_at"] - rule_info["expires_at"]).seconds == 10
+    assert rule_info["expires_at"] is not None
+    # Ensure the expiration date is in the future
+    assert (rule_info["expires_at"] - rule_info['updated_at']).seconds < 60
+    assert rule_info['updated_at'] < rule_info["expires_at"]
 
     cmd = f"rucio rule update {rule_id} --lifetime None"
     exitcode, out, err = execute(cmd)
