@@ -64,7 +64,7 @@ SUCCESS = 0
 FAILURE = 1
 
 
-def exception_handler(function):
+def exception_handler(function: "Callable") -> "Callable":
     verbosity = ("-v" in sys.argv) or ("--verbose" in sys.argv)
     logger = setup_logger(module_name=__name__, logger_name="user", verbose=verbosity)
 
