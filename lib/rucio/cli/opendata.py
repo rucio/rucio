@@ -28,8 +28,6 @@ if TYPE_CHECKING:
 
     from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 
-cli_config = RichUtils.get_cli_config()
-
 
 def is_valid_json(s: str) -> bool:
     try:
@@ -69,12 +67,12 @@ def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITER
 
     table_data = []
 
-    if cli_config == 'rich':
+    if ctx.obj.use_rich == 'rich':
         spinner.update(status='Fetching Opendata DIDs')
         spinner.start()
 
     for did in dids_list["dids"]:
-        if cli_config == 'rich':
+        if ctx.obj.use_rich == 'rich':
             table_data.append([f"{did['scope']}:{did['name']}",
                                Text(did['state'], style=RichCLITheme.OPENDATA_DID_STATE.get(did['state'], 'default'))])
         else:
@@ -84,7 +82,7 @@ def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITER
         for did, _ in table_data:
             print(did)
     else:
-        if cli_config == 'rich':
+        if ctx.obj.use_rich == 'rich':
             table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[STATE]'], col_alignments=['left', 'left'])
             spinner.stop()
             RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
@@ -141,7 +139,7 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
                                    include_doi=True)
 
     output = []
-    if cli_config == 'rich':
+    if ctx.obj.use_rich == 'rich':
         spinner.update(status='Fetching Opendata DID stats')
         spinner.start()
         keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.OPENDATA_DID_STATE}
@@ -154,7 +152,7 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
         table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
         print(tabulate(table, tablefmt='plain', disable_numparse=True))
 
-    if cli_config == 'rich':
+    if ctx.obj.use_rich == 'rich':
         spinner.stop()
         RichUtils.print_output(*output, console=console, no_pager=ctx.obj.no_pager)
 
@@ -188,7 +186,7 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
     scope, name = extract_scope(did)
     info = client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi, record_id=record_id)
 
-    if cli_config == 'rich':
+    if ctx.obj.use_rich == 'rich':
         spinner.update(status='Fetching Opendata DID stats')
         spinner.start()
         keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.OPENDATA_DID_STATE}
