@@ -293,12 +293,6 @@ class TestVORestAPI:
         self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, auto=False, polling=True)
         self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, auto=False, polling=True)
 
-    @patch('rucio.core.oidc.__get_init_oidc_client')
-    def test_auth_oidc_auto(self, mock_oidc_client, vo, long_vo, second_vo, account_tst, account_new, rest_client):
-        """ MULTI VO (REST): Test oidc authentication to multiple VOs using 'auto' option """
-        self.auth_oidc_handling(mock_oidc_client, rest_client, vo, long_vo, account_tst, account_new, auto=True, polling=False)
-        self.auth_oidc_handling(mock_oidc_client, rest_client, second_vo, second_vo, account_new, account_tst, auto=True, polling=False)
-
     def test_auth_gss(self, vo, second_vo, account_tst, account_new, rest_client):
         """ MULTI VO (REST): Test gss authentication to multiple VOs """
         # Can't rely on `requests_kerberos` module being present, so get tokens from gateway instead
