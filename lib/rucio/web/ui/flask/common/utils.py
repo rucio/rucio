@@ -568,15 +568,12 @@ def oidc_auth(account, issuer, ui_vo=None):
 
     if not issuer:
         return render_template("problem.html", msg="Please provide IdP issuer.")
-    realhome = request.environ.get('REQUEST_SCHEME') + '://' + request.environ.get('HTTP_HOST') + request.environ.get('SCRIPT_NAME')
     kwargs = {'audience': None,
               'auth_scope': None,
               'issuer': issuer.lower(),
-              'auto': True,
               'polling': False,
               'refresh_lifetime': None,
-              'ip': None,
-              'webhome': realhome + '/oidc_final'}
+              'ip': None}
     auth_url = auth.get_auth_oidc(account, vo=ui_vo, **kwargs)
     if not auth_url:
         return render_template("problem.html", msg=("It was not possible to get the OIDC authentication url "
