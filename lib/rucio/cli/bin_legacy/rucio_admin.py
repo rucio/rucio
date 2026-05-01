@@ -33,8 +33,7 @@ from rich.tree import Tree
 from tabulate import tabulate
 
 from rucio import version
-from rucio.cli.utils import exception_handler, get_client, get_scope, setup_gfal2_logger, signal_handler
-from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
+from rucio.cli.utils import RichCLITheme, RichUtils, exception_handler, get_client, get_scope, setup_gfal2_logger, signal_handler
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     InputValidationError,
@@ -63,7 +62,7 @@ DEFAULT_PORT = 443
 
 
 tablefmt = 'psql'
-cli_config = get_cli_config()
+cli_config = RichUtils.get_cli_config()
 
 
 @exception_handler
@@ -147,9 +146,9 @@ def list_accounts(args, client, logger, console, spinner):
     if args.csv:
         print(*(account['account'] for account in accounts), sep=',')
     elif cli_config == 'rich':
-        table = generate_table([[account['account']] for account in accounts], headers=['ACCOUNT'], col_alignments=['left'])
+        table = RichUtils.generate_table([[account['account']] for account in accounts], headers=['ACCOUNT'], col_alignments=['left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for account in accounts:
             print(account['account'])
@@ -166,10 +165,10 @@ def info_account(args, client, logger, console, spinner):
     """
     info = client.get_account(account=args.account)
     if cli_config == 'rich':
-        keyword_style = {**CLITheme.ACCOUNT_STATUS, **CLITheme.ACCOUNT_TYPE}
+        keyword_style = {**RichCLITheme.ACCOUNT_STATUS, **RichCLITheme.ACCOUNT_TYPE}
         table_data = [(k, Text(str(v), style=keyword_style.get(str(v), 'default'))) for k, v in sorted(info.items())]
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
-        print_output(table, console=console, no_pager=args.no_pager)
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for k in info:
             print(k.ljust(10) + ' : ' + str(info[k]))
@@ -191,8 +190,8 @@ def list_identities(args, client, logger, console, spinner):
         else:
             print('Identity: %(identity)s,\ttype: %(type)s' % identity)
     if cli_config == 'rich':
-        table = generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
-        print_output(table, console=console, no_pager=args.no_pager)
+        table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -326,9 +325,9 @@ def list_rses(args, client, logger, console, spinner):
         print(*(rse['rse'] for rse in rses), sep='\n')
     elif cli_config == 'rich':
         table_data = [[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])]
-        table = generate_table(table_data, headers=['RSE'], col_alignments=['left'])
+        table = RichUtils.generate_table(table_data, headers=['RSE'], col_alignments=['left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for rse in rses:
             print(rse['rse'])
@@ -380,7 +379,7 @@ def info_rse(args, client, logger, console, spinner):
     rse_limits = client.get_rse_limits(args.rse)
 
     if cli_config == 'rich':
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.RSE_TYPE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.RSE_TYPE}
         output = []
         table_data = []
     else:
@@ -397,7 +396,7 @@ def info_rse(args, client, logger, console, spinner):
                 print('  ' + key + ': ' + str(rseinfo[key]))
 
     if cli_config == 'rich':
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
         table_data = []
     else:
@@ -412,7 +411,7 @@ def info_rse(args, client, logger, console, spinner):
             print('  ' + attribute + ': ' + str(attributes[attribute]))
 
     if cli_config == 'rich':
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
     else:
         print('Protocols:')
@@ -421,7 +420,7 @@ def info_rse(args, client, logger, console, spinner):
         if cli_config == 'rich':
             if i == 0:
                 output.append('\n[b]Protocols:[/]')
-            output.append(Padding.indent(Text(protocol['scheme'], style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
+            output.append(Padding.indent(Text(protocol['scheme'], style=RichCLITheme.SUBHEADER_HIGHLIGHT), 2))
         else:
             print('  ' + protocol['scheme'])
 
@@ -431,9 +430,9 @@ def info_rse(args, client, logger, console, spinner):
                 if item == 'domains':
                     tree = Tree('')
                     for domain, values in protocol[item].items():
-                        branch = tree.add(f'[{CLITheme.JSON_STR}]{domain}')
+                        branch = tree.add(f'[{RichCLITheme.JSON_STR}]{domain}')
                         for k, v in values.items():
-                            branch.add(f'[{CLITheme.JSON_STR}]{k}[/]: [{CLITheme.JSON_NUM}]{v}[/]')
+                            branch.add(f'[{RichCLITheme.JSON_STR}]{k}[/]: [{RichCLITheme.JSON_NUM}]{v}[/]')
                     table_data.append([item, tree])
                 else:
                     table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
@@ -444,7 +443,7 @@ def info_rse(args, client, logger, console, spinner):
                     print('    ' + item + ': ' + str(protocol[item]))
 
         if cli_config == 'rich':
-            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             output.append(Padding.indent(table, 2))
 
     if cli_config == 'rich':
@@ -474,7 +473,7 @@ def info_rse(args, client, logger, console, spinner):
 
     if cli_config == 'rich':
         if len(table_data) > 0:
-            usage_table = generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
+            usage_table = RichUtils.generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
             output.append(usage_table)
         table_data = []
     else:
@@ -490,10 +489,10 @@ def info_rse(args, client, logger, console, spinner):
 
     if cli_config == 'rich':
         if len(table_data) > 0:
-            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'right'])
+            table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'right'])
             output.append(table)
         spinner.stop()
-        print_output(*output, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -520,9 +519,9 @@ def get_attribute_rse(args, client, logger, console, spinner):
     """
     attributes = client.list_rse_attributes(rse=args.rse)
     if cli_config == 'rich':
-        table_data = [(k, Text(str(v), style=CLITheme.BOOLEAN.get(str(v), 'default'))) for k, v in sorted(attributes.items())]
-        table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
-        print_output(table, console=console, no_pager=args.no_pager)
+        table_data = [(k, Text(str(v), style=RichCLITheme.BOOLEAN.get(str(v), 'default'))) for k, v in sorted(attributes.items())]
+        table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for k in attributes:
             print(k + ': ' + str(attributes[k]))
@@ -565,9 +564,9 @@ def get_distance_rses(args, client, logger, console, spinner):
     distance_info = client.get_distance(args.source, args.destination)
     if cli_config == 'rich':
         if distance_info:
-            table = generate_table([[args.source, args.destination, str(distance_info[0]['distance'])]], headers=['SOURCE', 'DESTINATION', 'DISTANCE'],
+            table = RichUtils.generate_table([[args.source, args.destination, str(distance_info[0]['distance'])]], headers=['SOURCE', 'DESTINATION', 'DISTANCE'],
                                    col_alignments=['left', 'left', 'right'])
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(f"No distance set from {args.source} to {args.destination}")
     else:
@@ -692,9 +691,9 @@ def list_qos_policies(args, client, logger, console, spinner):
     qos_policies = client.list_qos_policies(args.rse)
     if cli_config == 'rich':
         qos_policies = [[qos_policy] for qos_policy in sorted(qos_policies)]
-        table = generate_table(qos_policies, headers=['QOS POLICY'], col_alignments=['left'])
+        table = RichUtils.generate_table(qos_policies, headers=['QOS POLICY'], col_alignments=['left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for qos_policy in sorted(qos_policies):
             print(qos_policy)
@@ -772,14 +771,14 @@ def list_scopes(args, client, logger, console, spinner):
             spinner.stop()
         elif not with_owner:
             scopes = [[scope] for scope in sorted(scopes)]
-            table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
+            table = RichUtils.generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             scopes = [[s['scope'], s['account']] for s in scopes]
-            table = generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
+            table = RichUtils.generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         if len(scopes) == 0:
             pass
@@ -889,7 +888,7 @@ def list_subscriptions(args, client, logger, console, spinner):
     if cli_config == 'rich':
         spinner.update(status='Fetching subscriptions')
         spinner.start()
-        keyword_styles = {**CLITheme.SUBSCRIPTION_STATE, **CLITheme.BOOLEAN}
+        keyword_styles = {**RichCLITheme.SUBSCRIPTION_STATE, **RichCLITheme.BOOLEAN}
 
     subs = client.list_subscriptions(name=args.name, account=account)
     for sub in subs:
@@ -901,14 +900,14 @@ def list_subscriptions(args, client, logger, console, spinner):
                         filter_tree = Tree('')
                         for filter, values in json.loads(sub['filter']).items():
                             values_str = ', '.join(values)
-                            filter_tree.add(f'[{CLITheme.JSON_STR}]{filter}[/]: {values_str}')
+                            filter_tree.add(f'[{RichCLITheme.JSON_STR}]{filter}[/]: {values_str}')
                         table_data.append(['filter', filter_tree])
                     elif k == 'replication_rules':
                         rule_tree = Tree('')
                         for i, rule in enumerate(json.loads(sub['replication_rules'])):
                             branch = rule_tree.add(Text('rule:', style='default'))
                             for k, v in rule.items():
-                                branch.add(f'[{CLITheme.JSON_STR}]{k}[/]: {v}')
+                                branch.add(f'[{RichCLITheme.JSON_STR}]{k}[/]: {v}')
                         table_data.append(['replication_rules', rule_tree])
                     else:
                         table_data.append([str(k), Text(str(v), style=keyword_styles.get(str(v), 'default'))])
@@ -930,16 +929,16 @@ def list_subscriptions(args, client, logger, console, spinner):
                 for i, rule in enumerate(json.loads(sub['replication_rules'])):
                     branch = rule_tree.add(Text('rule:', style='default'))
                     for k, v in rule.items():
-                        branch.add(f'[{CLITheme.JSON_STR}]{k}[/]: {v}')
+                        branch.add(f'[{RichCLITheme.JSON_STR}]{k}[/]: {v}')
                 table_data.append(['replication_rules', rule_tree])
                 table_data.append(['state', Text(str(sub['state']), keyword_styles.get(str(sub['state']), 'default'))])
             else:
                 print("%s: %s %s\n  priority: %s\n  filter: %s\n  rules: %s\n  comments: %s" % (sub['account'], sub['name'], sub['state'], sub['policyid'], sub['filter'], sub['replication_rules'], sub.get('comments', '')))
 
         if cli_config == 'rich':
-            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -991,8 +990,8 @@ def list_account_attributes(args, client, logger, console, spinner):
         table_data.append([attr['key'], attr['value']])
 
     if cli_config == 'rich':
-        table = generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
-        print_output(table, console=console, no_pager=args.no_pager)
+        table = RichUtils.generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         print(tabulate(table_data, tablefmt=tablefmt, headers=['Key', 'Value']))
     return SUCCESS
@@ -1286,7 +1285,7 @@ def import_data(args, client, logger, console, spinner):
     except ValueError as error:
         if cli_config == 'rich':
             spinner.stop()
-            print_output(f'{CLITheme.FAILURE_ICON} There was problem with decoding your file.', console=console, no_pager=True)
+            RichUtils.print_output(f'{RichCLITheme.FAILURE_ICON} There was problem with decoding your file.', console=console, no_pager=True)
             logger.error(error)
         else:
             print('There was problem with decoding your file.')
@@ -1295,7 +1294,7 @@ def import_data(args, client, logger, console, spinner):
     except OSError as error:
         if cli_config == 'rich':
             spinner.stop()
-            print_output(f'{CLITheme.FAILURE_ICON} There was a problem with reading your file.', console=console, no_pager=True)
+            RichUtils.print_output(f'{RichCLITheme.FAILURE_ICON} There was a problem with reading your file.', console=console, no_pager=True)
             logger.error(error)
         else:
             print('There was a problem with reading your file.')
@@ -1306,14 +1305,14 @@ def import_data(args, client, logger, console, spinner):
         client.import_data(data)
         if cli_config == 'rich':
             spinner.stop()
-            print_output(f'{CLITheme.SUCCESS_ICON} Data successfully imported.', console=console, no_pager=True)
+            RichUtils.print_output(f'{RichCLITheme.SUCCESS_ICON} Data successfully imported.', console=console, no_pager=True)
         else:
             print('Data successfully imported.')
         return SUCCESS
     else:
         if cli_config == 'rich':
             spinner.stop()
-            print_output('Nothing to import.', console=console, no_pager=True)
+            RichUtils.print_output('Nothing to import.', console=console, no_pager=True)
         else:
             print('Nothing to import.')
         raise ValueError
@@ -1342,14 +1341,14 @@ def export_data(args, client, logger, console, spinner):
                 print('File successfully written.')
         if cli_config == 'rich':
             spinner.stop()
-            print_output(f'{CLITheme.SUCCESS_ICON} Data successfully exported to {args.file_path}', console=console, no_pager=True)
+            RichUtils.print_output(f'{RichCLITheme.SUCCESS_ICON} Data successfully exported to {args.file_path}', console=console, no_pager=True)
         else:
             print('Data successfully exported to %s' % args.file_path)
         return SUCCESS
     except OSError as error:
         if cli_config == 'rich':
             spinner.stop()
-            print_output(f'{CLITheme.FAILURE_ICON} There was a problem with reading your file.', console=console, no_pager=True)
+            RichUtils.print_output(f'{RichCLITheme.FAILURE_ICON} There was a problem with reading your file.', console=console, no_pager=True)
             logger.error(error)
         else:
             print('There was a problem with reading your file.')
@@ -2462,16 +2461,16 @@ def main():
                     'delete_limit_rse': delete_limit_rse,
                     }
 
-        pager = get_pager()
-        console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
-        console.width = max(MIN_CONSOLE_WIDTH, console.width)
+        pager = RichUtils.get_pager()
+        console = Console(theme=Theme(RichCLITheme.LOG_THEMES), soft_wrap=True)
+        console.width = max(RichUtils.MIN_CONSOLE_WIDTH, console.width)
 
-        cli_config = get_cli_config()
-        spinner = Status('Initializing spinner', spinner=CLITheme.SPINNER, spinner_style=CLITheme.SPINNER_STYLE, console=console)
+        cli_config = RichUtils.get_cli_config()
+        spinner = Status('Initializing spinner', spinner=RichCLITheme.SPINNER, spinner_style=RichCLITheme.SPINNER_STYLE, console=console)
 
         if cli_config == 'rich':
-            install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
-            logger = setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
+            install(console=console, word_wrap=True, width=min(console.width, RichUtils.MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
+            logger = RichUtils.setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
         else:
             logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
 
