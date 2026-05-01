@@ -25,8 +25,7 @@ from rich.traceback import install
 
 from rucio import version
 from rucio.cli.bin_legacy.rucio import ping, test_server, whoami_account
-from rucio.cli.utils import Arguments, exception_handler, get_client, setup_gfal2_logger, signal_handler
-from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
+from rucio.cli.utils import Arguments, RichCLITheme, RichUtils, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.common.config import config_get_list
 from rucio.common.exception import ConfigurationError
 from rucio.common.utils import setup_logger
@@ -199,23 +198,23 @@ def main(
     ctx.obj.start_time = time.time()
     ctx.obj.verbose = verbose
 
-    use_rich = get_cli_config() == "rich"
+    use_rich = RichUtils.get_cli_config() == "rich"
 
-    console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
-    console.width = max(MIN_CONSOLE_WIDTH, console.width)
-    spinner = Status("Initializing spinner", spinner=CLITheme.SPINNER, spinner_style=CLITheme.SPINNER_STYLE, console=console)
+    console = Console(theme=Theme(RichCLITheme.LOG_THEMES), soft_wrap=True)
+    console.width = max(RichUtils.MIN_CONSOLE_WIDTH, console.width)
+    spinner = Status("Initializing spinner", spinner=RichCLITheme.SPINNER, spinner_style=RichCLITheme.SPINNER_STYLE, console=console)
 
     ctx.obj.use_rich = use_rich
     ctx.obj.spinner = spinner
     ctx.obj.console = console
     ctx.obj.no_pager = no_pager
-    ctx.obj.pager = get_pager()
+    ctx.obj.pager = RichUtils.get_pager()
     ctx.obj.human = not robot
     ctx.obj.tablefmt = 'psql'
 
     if use_rich:
-        install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
-        logger = setup_rich_logger(module_name=__name__, logger_name="user", verbose=verbose, console=console)
+        install(console=console, word_wrap=True, width=min(console.width, RichUtils.MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
+        logger = RichUtils.setup_rich_logger(module_name=__name__, logger_name="user", verbose=verbose, console=console)
     else:
         logger = setup_logger(module_name=__name__, logger_name="user", verbose=verbose)
     args = Arguments(
