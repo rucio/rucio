@@ -32,7 +32,7 @@ class AccountClient(BaseClient):
 
     ACCOUNTS_BASEURL = 'accounts'
 
-    def add_account(self, account: str, type_: str, email: str) -> bool:
+    def add_account(self, account: str, type_: Literal["USER", "GROUP", "SERVICE"], email: str) -> Literal[True]:
         """
         Create a new account. Accounts can be used to set permissions, identities, and quotas.
 
@@ -87,7 +87,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def delete_account(self, account: str) -> bool:
+    def delete_account(self, account: str) -> Literal[True]:
         """
         Disable an account.
         When an account is disabled, the account can no longer be used for authentication, but it will still exist in the system.
@@ -180,7 +180,7 @@ class AccountClient(BaseClient):
         exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
         raise exc_cls(exc_msg)
 
-    def update_account(self, account: str, key: str, value: Any) -> bool:
+    def update_account(self, account: str, key: Literal["status", "account_type", "email"], value: Any) -> Literal[True]:
         """
         Update a property of an account.
 
@@ -189,7 +189,7 @@ class AccountClient(BaseClient):
         account :
             Name of the account.
         key :
-            Account property. Choose from `status` (active, disabled, or suspended) or `type` (USER, GROUP, or SERVICE), or email.
+            Account property. Choose from `status` (active, disabled, or suspended) or `account_type` (USER, GROUP, or SERVICE), or email.
         value :
             Property value.
 
@@ -336,7 +336,7 @@ class AccountClient(BaseClient):
             email: str,
             default: bool = False,
             password: Optional[str] = None
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Add a membership association between identity and account.
 
@@ -386,7 +386,7 @@ class AccountClient(BaseClient):
             account: str,
             identity: str,
             authtype: str
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Delete an identity's membership association with an account.
 
@@ -527,7 +527,7 @@ class AccountClient(BaseClient):
             rse: str,
             bytes_: int,
             locality: Literal['local', 'global']
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Sets an account limit for a given limit scope.
         Limits are defined as a combination of rse{_expression} and locality.
@@ -599,7 +599,7 @@ class AccountClient(BaseClient):
             account: str,
             rse: str,
             locality: Literal['local', 'global']
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Deletes an account limit for a given limit scope.
 
@@ -770,7 +770,7 @@ class AccountClient(BaseClient):
             account: str,
             rse: str,
             bytes_: int
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Sends the request to set an account limit for an account.
 
@@ -816,7 +816,7 @@ class AccountClient(BaseClient):
             self,
             account: str,
             rse: str
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Remove a local account limit
 
@@ -862,7 +862,7 @@ class AccountClient(BaseClient):
             account: str,
             rse_expression: str,
             bytes_: int
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Set a global account limit for an account.
         A global limit applies to all RSEs that match the RSE Expression.
@@ -908,7 +908,7 @@ class AccountClient(BaseClient):
             self,
             account: str,
             rse_expression: str
-    ) -> bool:
+    ) -> Literal[True]:
         """
         Remove a global account limit.
 
@@ -1090,7 +1090,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def add_account_attribute(self, account: str, key: str, value: Any) -> bool:
+    def add_account_attribute(self, account: str, key: str, value: Any) -> Literal[True]:
         """
         Add an attribute to an account.
 
@@ -1128,7 +1128,7 @@ class AccountClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=res.headers, status_code=res.status_code, data=res.content)
             raise exc_cls(exc_msg)
 
-    def delete_account_attribute(self, account: str, key: str) -> bool:
+    def delete_account_attribute(self, account: str, key: str) -> Literal[True]:
         """
         Delete an attribute for an account.
 
