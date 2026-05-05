@@ -21,7 +21,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import sqlalchemy
-from sqlalchemy import Select, and_, cast, or_, select
+from sqlalchemy import Select, and_, bindparam, cast, or_, select
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.expression import text
 
@@ -525,9 +525,9 @@ class FilterEngine:
                 or_group.append(list(_filter))  # type: ignore
 
         or_expressions: list = []
-        for or_group in self._filters:
+        for oidx, or_group in enumerate(self._filters):
             and_expressions = []
-            for and_group in or_group:
+            for aidx, and_group in enumerate(or_group):
                 key, oper, value = and_group
                 if isinstance(key, InstrumentedAttribute):                # -> this key filters on a table column.
                     if isinstance(value, str) and any([char in value for char in ['*', '%']]):      # wildcards
@@ -546,20 +546,28 @@ class FilterEngine:
                     if session.bind.dialect.name == 'oracle':
                         if not re.match(r'^[A-Za-z0-9_]+$', key):
                             raise exception.DIDFilterSyntaxError("Invalid metadata key: '{}'".format(key))
+                        # create a unique name per filter entry for the query
+                        filter_key = f'filter_{oidx}_{aidx}'
                         if isinstance(value, str) and any([char in value for char in ['*', '%']]):  # wildcards
                             if value in ('*', '%', '*', '%'):                                       # match wildcard exactly == no filtering on key
                                 continue
                             else:                                                                   # partial match with wildcard == like || notlike
                                 if oper == operator.eq:
-                                    expression = text("json_exists({},'$?(@.{} like $val)' PASSING :val AS \"val\")".format(json_column.key, key)).bindparams(val=value.replace('*', '%'))
+                                    expression = text(
+                                        f"json_exists({json_column.key},'$?(@.{key} like ${filter_key})' PASSING :{filter_key} AS \"{filter_key}\")"
+                                    ).bindparams(bindparam(filter_key, value.replace("*", "%")))
                                 elif oper == operator.ne:
                                     raise exception.FilterEngineGenericError("Oracle implementation does not support this operator.")
                         else:
                             try:
                                 if isinstance(value, (bool)):                                       # bool must be checked first (as bool subclass of int)
-                                    expression = text("json_exists({},'$?(@.{}.boolean() {} $val)' PASSING :val AS \"val\")".format(json_column.key, key, ORACLE_OP_MAP[oper])).bindparams(val=value)
+                                    expression = text(
+                                        f"json_exists({json_column.key},'$?(@.{key}.boolean() {ORACLE_OP_MAP[oper]} ${filter_key})' PASSING :{filter_key} AS \"{filter_key}\")"
+                                    ).bindparams(bindparam(filter_key, value))
                                 else:
-                                    expression = text("json_exists({},'$?(@.{} {} $val)' PASSING :val AS \"val\")".format(json_column.key, key, ORACLE_OP_MAP[oper])).bindparams(val=value)
+                                    expression = text(
+                                        f"json_exists({json_column.key},'$?(@.{key} {ORACLE_OP_MAP[oper]} ${filter_key})' PASSING :{filter_key} AS \"{filter_key}\")"
+                                    ).bindparams(bindparam(filter_key, value))
                             except Exception as e:
                                 raise exception.FilterEngineGenericError(e)
                     else:
