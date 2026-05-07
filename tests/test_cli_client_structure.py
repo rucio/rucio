@@ -107,7 +107,8 @@ def test_help_menus():
             continue
 
 
-def test_account(rucio_client):
+def test_account(rucio_client, rse_factory):
+    rse, _ = rse_factory.make_posix_rse()
     new_account = account_name_generator()
     command = f"rucio account add {new_account} USER"
     exitcode, _, err = execute(command)
@@ -128,11 +129,22 @@ def test_account(rucio_client):
     assert "ERROR" not in err
     assert new_account in out
 
+    rucio_client.add_account_attribute(new_account, "test_key", "test_value")
+    rucio_client.add_identity(new_account, authtype="userpass", identity="test_email@cern.ch", email="test_email@cern.ch", password="123456")
+    rucio_client.set_account_limit(new_account, rse, 10, locality="local")
+    rucio_client.set_account_limit(new_account, rse, 20, locality="global")
+
     command = f"rucio account show {new_account}"
     exitcode, out, err = execute(command)
+
     assert exitcode == 0
     assert "ERROR" not in err
     assert new_account in out
+    assert "test_key" in out
+    assert "test_email" in out
+    assert rse in out
+    assert "20.000 B" in out
+    assert "10.000 B" in out
 
     command = f"rucio account remove {new_account}"
     exitcode, out, err = execute(command)
@@ -341,11 +353,17 @@ def test_did(rucio_client, root_account, file_config_mock):
     assert f"{scope}:{dataset}" in out
     assert "ERROR" not in err
 
+    # Shows settings, metadata, and parents
+    rucio_client.attach_dids(scope=scope, name=container, dids=[{"scope": scope, "name": dataset}])
+    rucio_client.set_metadata(scope=scope, name=dataset, key="campaign", value="test_value")
+
     cmd = f"rucio did show {scope}:{dataset}"
     exitcode, out, err = execute(cmd)
-    assert exitcode == 0
-    assert "ERROR" not in err
+    assert "ERROR" not in err, err
+    assert exitcode == 0, out
     assert dataset in out  # At least list the name properly
+    assert container in out
+    assert "test_value" in out
 
     # Add the collection DIDs
     scope = scope_name_generator()
