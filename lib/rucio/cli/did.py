@@ -116,36 +116,69 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
 
 
 @did.command("show")
-@click.argument("dids", nargs=-1)
+@click.argument("did", nargs=1)
 @click.pass_context
-def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
-    """List attributes, statuses, or parents for data identifiers"""
+def show(ctx: click.Context, did: str) -> None:
+    """List attributes, statuses, or parents for a data identifier"""
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching DID stats')
         ctx.obj.spinner.start()
         keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE}
 
-    output = []
-    for i, did in enumerate(dids):
-        scope, name = get_scope(did, ctx.obj.client)
-        info = ctx.obj.client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
-        if ctx.obj.use_rich:
-            if i > 0:
-                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
-            elif len(dids) > 1:
-                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
-            table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
-            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
-            output.append(table)
-        else:
-            if i > 0:
-                print('------')
-            table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-            print(tabulate(table, tablefmt='plain', disable_numparse=True))
+    scope, did_name = get_scope(did, ctx.obj.client)
+    settings = ctx.obj.client.get_did(scope=scope, name=did_name, dynamic_depth='DATASET')
+    meta_plugins = config_get("metadata", "plugins", default="DID_COLUMN,JSON").split(",")
+    metadata = {plugin: ctx.obj.client.get_metadata(scope=scope, name=did_name, plugin=plugin) for plugin in meta_plugins}
+    parents = list(ctx.obj.client.list_parent_dids(scope=scope, name=did_name))
 
     if ctx.obj.use_rich:
+        output = []
+        # Settings
+        # Key and value pairs
+        output.append("[b]Settings:[/]")
+        table_data = [[key, Text(str(item), style=keyword_styles.get(str(item), 'default'))] for key, item in settings.items()]
+        output.append(generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left']))
+
+        # Metadata
+        # table with "Key" and "Value" for each plugin, with the plugin type as a header
+        output.append("[b]Metadata:[/]\n")
+        for plugin, meta in metadata.items():
+            if len(meta) != 0:
+                output.append(Text(plugin, style=CLITheme.SUBHEADER_HIGHLIGHT))
+                # TODO protect against non-string-ifiable values
+                table_data = [[key, Text(str(item), style=keyword_styles.get(str(item), 'default'))] for key, item in meta.items()]
+                output.append(generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left']))
+
+        # Parents
+        # table of "SCOPE:NAME" and "TYPE" for parents
+        output.append("[b]Parentage:[/]")
+        table_data = [[
+            f"{parent['scope']}:{parent['name']}",
+            Text(str(parent["type"]), style=CLITheme.DID_TYPE.get(parent["type"], 'default'))
+        ] for parent in parents]
+        output.append(generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'], headers=['SCOPE:NAME', '[DID TYPE]']))
+
         ctx.obj.spinner.stop()
         print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+
+    else:
+        # DID Settings
+        print("Settings\n===========")
+        for key, value in settings.items():
+            print(f"{ctx.obj.spacing}{key}: {value}")
+
+        # Metadata for the DID
+        print("Metadata\n===========")
+        for plugin, meta in metadata.items():
+            if len(meta) != 0:
+                print(ctx.obj.spacing, plugin)
+                for key, value in meta.items():
+                    print(f"{ctx.obj.spacing * 2 }{key}: {value}")
+
+        # Parentage
+        print("Parentage\n===========")
+        for parent in parents:
+            print(f"{ctx.obj.spacing}{parent['scope']}:{parent['name']} ({parent['type']})")
 
 
 @did.command("add")
