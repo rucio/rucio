@@ -235,7 +235,7 @@ lxml==6.1.0
     #   -r requirements.server.txt
     #   python3-saml
     #   xmlsec
-mako==1.3.11
+mako==1.3.12
     # via
     #   -r requirements.server.txt
     #   alembic
