@@ -53,18 +53,21 @@ def sections(
     :returns: ['section_name', ...]
     """
 
-    all_sections = NoValue()
+    cached_value = NoValue()
     if use_cache:
-        all_sections = read_from_cache(SECTIONS_CACHE_KEY, expiration_time)
-    if isinstance(all_sections, NoValue):
+        cached_value = read_from_cache(SECTIONS_CACHE_KEY, expiration_time)
+    sections_list: list[str]
+    if isinstance(cached_value, NoValue):
         stmt = select(
             models.Config.section
         ).distinct(
         )
-        all_sections = list(session.execute(stmt).scalars().all())
-        write_to_cache(SECTIONS_CACHE_KEY, all_sections)
+        sections_list = list(session.execute(stmt).scalars().all())
+        write_to_cache(SECTIONS_CACHE_KEY, sections_list)
+    else:
+        sections_list = cached_value  # type: ignore
 
-    return all_sections
+    return sections_list
 
 
 @transactional_session
@@ -96,18 +99,22 @@ def has_section(
     :returns: True/False
     """
     has_section_key = 'has_section_%s' % section
-    has_section = NoValue()
+    cached_value = NoValue()
     if use_cache:
-        has_section = read_from_cache(has_section_key, expiration_time)
-    if isinstance(has_section, NoValue):
+        cached_value = read_from_cache(has_section_key, expiration_time)
+    _has_section: bool
+    if isinstance(cached_value, NoValue):
         stmt = select(
             models.Config
         ).where(
             models.Config.section == section
         )
-        has_section = session.execute(stmt).first() is not None
-        write_to_cache(has_section_key, has_section)
-    return has_section
+        _has_section = session.execute(stmt).first() is not None
+        write_to_cache(has_section_key, _has_section)
+    else:
+        _has_section = cached_value  # type: ignore
+
+    return _has_section
 
 
 @read_session
@@ -128,18 +135,22 @@ def options(
     :returns: ['option', ...]
     """
     options_key = CacheKey.options(section)
-    options = NoValue()
+    cached_value = NoValue()
     if use_cache:
-        options = read_from_cache(options_key, expiration_time)
-    if isinstance(options, NoValue):
+        cached_value = read_from_cache(options_key, expiration_time)
+    options_list: list[str]
+    if isinstance(cached_value, NoValue):
         stmt = select(
             models.Config.opt
         ).where(
             models.Config.section == section
         ).distinct()
-        options = list(session.execute(stmt).scalars().all())
-        write_to_cache(options_key, options)
-    return options
+        options_list = list(session.execute(stmt).scalars().all())
+        write_to_cache(options_key, options_list)
+    else:
+        options_list = cached_value  # type: ignore
+
+    return options_list
 
 
 @read_session
@@ -162,19 +173,23 @@ def has_option(
     :returns: True/False
     """
     has_option_key = CacheKey.has_option(section, option)
-    has_option = NoValue()
+    cached_value = NoValue()
     if use_cache:
-        has_option = read_from_cache(has_option_key, expiration_time)
-    if isinstance(has_option, NoValue):
+        cached_value = read_from_cache(has_option_key, expiration_time)
+    _has_option: bool
+    if isinstance(cached_value, NoValue):
         stmt = select(
             models.Config
         ).where(
             and_(models.Config.section == section,
                  models.Config.opt == option)
         )
-        has_option = session.execute(stmt).first() is not None
-        write_to_cache(has_option_key, has_option)
-    return has_option
+        _has_option = session.execute(stmt).first() is not None
+        write_to_cache(has_option_key, _has_option)
+    else:
+        _has_option = cached_value  # type: ignore
+
+    return _has_option
 
 
 @read_session
@@ -204,10 +219,11 @@ def get(
     :returns: The auto-coerced value.
     """
     value_key = CacheKey.value(section, option)
-    value = NoValue()
+    cached_value = NoValue()
     if use_cache:
-        value = read_from_cache(value_key, expiration_time)
-    if isinstance(value, NoValue):
+        cached_value = read_from_cache(value_key, expiration_time)
+    value: T
+    if isinstance(cached_value, NoValue):
         stmt = select(
             models.Config.value
         ).where(
@@ -224,7 +240,7 @@ def get(
             value = default
             write_to_cache(value_key, value)  # Also write default to cache
     else:
-        value = convert_type_fnc(value)
+        value = convert_type_fnc(cached_value)  # type: ignore
     return value
 
 
@@ -248,19 +264,24 @@ def items(
     :returns: [('option', auto-coerced value), ...]
     """
     items_key = CacheKey.items(section)
-    items = NoValue()
+    cached_value = NoValue()
     if use_cache:
-        items = read_from_cache(items_key, expiration_time)
-    if isinstance(items, NoValue):
+        cached_value = read_from_cache(items_key, expiration_time)
+    _items: list[tuple[str, T]]
+    if isinstance(cached_value, NoValue):
         stmt = select(
             models.Config.opt,
             models.Config.value
         ).where(
             models.Config.section == section
         )
-        items = session.execute(stmt).all()
-        write_to_cache(items_key, items)
-    return [(opt, convert_type_fnc(val)) for opt, val in items]
+        database_result = session.execute(stmt).all()
+        write_to_cache(items_key, database_result)
+        _items = [(opt, convert_type_fnc(val)) for opt, val in database_result]
+    else:
+        _items = [(opt, convert_type_fnc(val)) for opt, val in cached_value]  # type: ignore
+
+    return _items
 
 
 @transactional_session
