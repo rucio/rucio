@@ -62,6 +62,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "flaky(reruns, reruns_delay): mark test as flaky and rerun on failure"
     )
 
+    # disable configuration cache globally. Fixes side effects when using, e.g., core_config_mock
+    os.environ['RUCIO_CONFIG_DISABLE_CACHE_READ'] = 'true'
+
     if config.pluginmanager.hasplugin("xdist"):
         from .ruciopytest import xdist_noparallel_scheduler
         config.pluginmanager.register(xdist_noparallel_scheduler)
