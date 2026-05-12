@@ -18,10 +18,8 @@ import tempfile
 from random import choice
 from string import ascii_uppercase
 
-import pytest
-
-from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
 from rucio.common.types import InternalScope
+from rucio.core import config as core_config
 from rucio.core.did import get_metadata, list_dids, list_files
 from rucio.core.scope import add_scope
 from rucio.daemons.automatix.automatix import automatix
@@ -31,26 +29,25 @@ from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import scope_name_generator
 
 
-@pytest.mark.noparallel(reason='changes global configuration value')
-def test_automatix(vo, root_account, rse_factory):
+def test_automatix(vo, root_account, rse_factory, core_config_mock):
     """Automatix: Test the automatix daemon"""
     scope = scope_name_generator()
+    rse, rse_id = rse_factory.make_posix_rse()
     with db_session(DatabaseOperationType.WRITE) as session:
         add_scope(scope=InternalScope(scope, vo), account=root_account, session=session)
-    if not config_has_section("automatix"):
-        config_add_section("automatix")
-    rse, rse_id = rse_factory.make_posix_rse()
-    config_set("automatix", "rses", rse)
-    config_set("automatix", "scope", scope)
-    if os.environ.get("POLICY") == "belleii":
-        config_set(
-            "automatix",
-            "dataset_pattern",
-            "did_prefix/version/project/date/campaign/release/datatype",
-        )
-        config_set("automatix", "file_pattern", "dsn/uuid")
-        config_set("automatix", "did_prefix", "/belle/ddm/tests")
-        config_set("automatix", "separator", "/")
+
+        core_config.set(section="automatix", option="rses", value=rse, session=session)
+        core_config.set(section="automatix", option="scope", value=scope, session=session)
+        if os.environ.get("POLICY") == "belleii":
+            core_config.set(
+                section="automatix",
+                option="dataset_pattern",
+                value="did_prefix/version/project/date/campaign/release/datatype",
+                session=session
+            )
+            core_config.set(section="automatix", option="file_pattern", value="dsn/uuid", session=session)
+            core_config.set(section="automatix", option="did_prefix", value="/belle/ddm/tests", session=session)
+            core_config.set(section="automatix", option="separator", value="/", session=session)
 
     project = ''.join(choice(ascii_uppercase) for _ in range(8))
     test_dict = {
@@ -66,7 +63,7 @@ def test_automatix(vo, root_account, rse_factory):
         file_.flush()
         automatix(
             inputfile=file_.name,
-            sleep_time=10,
+            sleep_time=0,
             once=True,
         )
         dids = [
@@ -90,5 +87,3 @@ def test_automatix(vo, root_account, rse_factory):
         assert status
         for file_ in files:
             assert file_dict["%s:%s" % (file_["scope"], file_["name"])] is True
-    config_remove_option("automatix", "rses")
-    config_remove_option("automatix", "scope")
