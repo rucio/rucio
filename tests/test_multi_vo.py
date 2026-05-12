@@ -30,7 +30,7 @@ from rucio.client.client import Client
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.uploadclient import UploadClient
-from rucio.common.config import config_add_section, config_has_section, config_remove_option, config_set
+from rucio.common.config import config_remove_option, config_set
 from rucio.common.constants import DEFAULT_VO, RseAttr
 from rucio.common.exception import AccessDenied, Duplicate, InvalidRSEExpression, RucioException, UnsupportedAccountName, UnsupportedOperation
 from rucio.common.types import InternalAccount
@@ -1055,10 +1055,8 @@ class TestMultiVODaemons:
         add_rse_attribute(rse=shr_rse, key=RseAttr.SKIP_UPLOAD_STAT, value=True, issuer='root', vo=second_vo)
         add_protocol(rse=shr_rse, data=mock_protocol, issuer='root', vo=second_vo)
 
-        if not config_has_section("automatix"):
-            config_add_section("automatix")
-        config_set("automatix", "rses", shr_rse)
-        config_set("automatix", "scope", shr_scope)
+        core_config.set("automatix", "rses", shr_rse)
+        core_config.set("automatix", "scope", shr_scope)
 
         automatix(
             inputfile='/opt/rucio/etc/automatix.json',
