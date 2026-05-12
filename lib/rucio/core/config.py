@@ -15,7 +15,7 @@
 import os
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
-from dogpile.cache.api import NoValue, NO_VALUE
+from dogpile.cache.api import NO_VALUE
 from sqlalchemy import and_, delete, func, select, update
 
 from rucio.common.cache import CacheKey, MemcacheRegion
@@ -53,11 +53,11 @@ def sections(
     :returns: ['section_name', ...]
     """
 
-    cached_value = NoValue()
+    cached_value = NO_VALUE
     if use_cache:
         cached_value = read_from_cache(SECTIONS_CACHE_KEY, expiration_time)
     sections_list: list[str]
-    if isinstance(cached_value, NoValue):
+    if cached_value is NO_VALUE:
         stmt = select(
             models.Config.section
         ).distinct(
@@ -99,11 +99,11 @@ def has_section(
     :returns: True/False
     """
     has_section_key = 'has_section_%s' % section
-    cached_value = NoValue()
+    cached_value = NO_VALUE
     if use_cache:
         cached_value = read_from_cache(has_section_key, expiration_time)
     _has_section: bool
-    if isinstance(cached_value, NoValue):
+    if cached_value is NO_VALUE:
         stmt = select(
             models.Config
         ).where(
@@ -135,11 +135,11 @@ def options(
     :returns: ['option', ...]
     """
     options_key = CacheKey.options(section)
-    cached_value = NoValue()
+    cached_value = NO_VALUE
     if use_cache:
         cached_value = read_from_cache(options_key, expiration_time)
     options_list: list[str]
-    if isinstance(cached_value, NoValue):
+    if cached_value is NO_VALUE:
         stmt = select(
             models.Config.opt
         ).where(
@@ -173,11 +173,11 @@ def has_option(
     :returns: True/False
     """
     has_option_key = CacheKey.has_option(section, option)
-    cached_value = NoValue()
+    cached_value = NO_VALUE
     if use_cache:
         cached_value = read_from_cache(has_option_key, expiration_time)
     _has_option: bool
-    if isinstance(cached_value, NoValue):
+    if cached_value is NO_VALUE:
         stmt = select(
             models.Config
         ).where(
@@ -219,11 +219,11 @@ def get(
     :returns: The auto-coerced value.
     """
     value_key = CacheKey.value(section, option)
-    cached_value = NoValue()
+    cached_value = NO_VALUE
     if use_cache:
         cached_value = read_from_cache(value_key, expiration_time)
     value: T
-    if isinstance(cached_value, NoValue):
+    if cached_value is NO_VALUE:
         stmt = select(
             models.Config.value
         ).where(
@@ -264,11 +264,11 @@ def items(
     :returns: [('option', auto-coerced value), ...]
     """
     items_key = CacheKey.items(section)
-    cached_value = NoValue()
+    cached_value = NO_VALUE
     if use_cache:
         cached_value = read_from_cache(items_key, expiration_time)
     _items: list[tuple[str, T]]
-    if isinstance(cached_value, NoValue):
+    if cached_value is NO_VALUE:
         stmt = select(
             models.Config.opt,
             models.Config.value
