@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
-from dogpile.cache.api import NoValue
+from dogpile.cache.api import NoValue, NO_VALUE
 from sqlalchemy import and_, delete, func, select, update
 
 from rucio.common.cache import CacheKey, MemcacheRegion
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 
 
 REGION = MemcacheRegion(expiration_time=900)
+DISABLE_CACHE_READ = os.environ.get('RUCIO_CONFIG_DISABLE_CACHE_READ', "").lower() in ('true', '1')
 
 SECTIONS_CACHE_KEY = 'sections'
 
@@ -413,6 +415,8 @@ def read_from_cache(key: str, expiration_time: int = 900) -> Any:
     :param key: Key that stores the value.
     :param expiration_time: Time in seconds that a value should not be older than.
     """
+    if DISABLE_CACHE_READ:
+        return NO_VALUE
     key = key.replace(' ', '')
     value = REGION.get(key, expiration_time=expiration_time)
     return value
