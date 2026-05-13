@@ -587,9 +587,8 @@ def test_replica_state(mock_scope, rucio_client):
     rucio_client.add_replica(mock_rse, mock_scope.external, name3, 4, "deadbeef")
     cmd = f"rucio replica state update quarantine {mock_scope}:{name3} --rse {mock_rse}"
     exitcode, _, err = execute(cmd)
-
-    assert exitcode == 0
-    assert "ERROR" not in err
+    assert exitcode != 0
+    assert "Cannot quarantine a replica from the CLI" in err
 
 
 def test_rse(rucio_client):
