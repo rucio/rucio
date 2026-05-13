@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Optional
 import click
 
 from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_datasets_rse, list_file_replicas, list_suspicious_replicas
-from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, quarantine_replicas, set_tombstone
+from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, set_tombstone
 from rucio.cli.utils import Arguments
 
 if TYPE_CHECKING:
@@ -159,18 +159,10 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
     declare_temporary_unavailable_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
-@state_update.command("quarantine")
+@state_update.command("quarantine", hidden=True)
 @click.argument("replicas", nargs=-1)
 @click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--rse", "--rse-name")  # TODO What does this do?
 @click.pass_context
 def update_quarantine(ctx, replicas, as_file, rse):
-    """Quarantine a replica"""
-    args = {"rse": rse}
-    if as_file:
-        args["paths_file"] = replicas
-    else:
-        args["paths_list"] = replicas
-
-    # TODO Add a reason option
-    quarantine_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    raise NotImplementedError("Cannot quarantine a replica from the CLI, please use python API via Client().quarantine_replicas()")
