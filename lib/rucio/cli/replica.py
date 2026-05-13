@@ -162,7 +162,7 @@ def update_unavailable(ctx, replicas, reason, as_file, duration):
 @state_update.command("quarantine", hidden=True)
 @click.argument("replicas", nargs=-1)
 @click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
-@click.option("--rse", "--rse-name")  # TODO What does this do?
+@click.option("--rse", "--rse-name")
 @click.pass_context
 def update_quarantine(ctx, replicas, as_file, rse):
     raise NotImplementedError("Cannot quarantine a replica from the CLI, please use python API via Client().quarantine_replicas()")
