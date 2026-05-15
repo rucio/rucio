@@ -279,7 +279,7 @@ def set(
     """
 
     if not has_option(section=section, option=option, use_cache=False, session=session):
-        section_existed = has_section(section=section)
+        section_existed = has_section(section=section, session=session)
 
         new_option = models.Config(section=section, opt=option, value=value)
         new_option.save(session=session)
