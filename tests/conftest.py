@@ -631,6 +631,7 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     from rucio.common.utils import generate_uuid
     from rucio.db.sqla.models import PrimaryKeyConstraint, String
     from rucio.db.sqla.session import get_session
+    from rucio.tests.common_server import set_config_defaults
 
     # Get the fixture parameters
     table_content = []
@@ -653,6 +654,8 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     session.commit()
 
     with mock.patch('rucio.core.config.models.Config', new=in_memory_config):
+        set_config_defaults(session=session)
+        session.commit()
         yield
 
 
