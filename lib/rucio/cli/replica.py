@@ -17,8 +17,9 @@ from typing import Literal, Optional
 
 import click
 import tabulate
+from rich.text import Text
 
-from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_datasets_rse, list_suspicious_replicas
+from rucio.cli.bin_legacy.rucio import list_suspicious_replicas
 from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, set_tombstone
 from rucio.cli.utils import Arguments, get_scope
 from rucio.client.richclient import CLITheme, generate_table, print_output
@@ -221,11 +222,109 @@ def list_dataset(
     long: bool) -> None:
     """List dataset replicas, or view all datasets at a RSE"""
     if rse is None:  # TODO Long option for dataset replicas
-        args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "deep": deep, "csv": csv})
-        list_dataset_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+        result = {}
+        datasets = []
+
+        def _append_to_datasets(scope, name):
+            filedid = {'scope': scope, 'name': name}
+            if filedid not in datasets:
+                datasets.append(filedid)
+
+        def _fetch_datasets_for_meta(meta):
+            """Internal function to fetch datasets and recurse into files."""
+            if meta['did_type'] != 'DATASET':
+                dids = ctx.obj.client.scope_list(scope=meta['scope'], name=meta['name'], recursive=True)
+                for did in dids:
+                    if did['type'] == 'FILE':
+                        _append_to_datasets(did['parent']['scope'], did['parent']['name'])
+            else:
+                _append_to_datasets(meta['scope'], meta['name'])
+
+        def _append_result(dsn, replica):
+            if dsn not in result:
+                result[dsn] = {}
+            result[dsn][replica['rse']] = [replica['rse'], replica['available_length'], replica['length']]
+
+        if ctx.obj.use_rich:
+            ctx.obj.spinner.update(status='Fetching dataset replicas')
+            ctx.obj.spinner.start()
+
+        if len(dids) == 1:
+            scope, name = get_scope(dids[0], ctx.obj.client)
+            dmeta = ctx.obj.client.get_metadata(scope, name)
+            _fetch_datasets_for_meta(meta=dmeta)
+        else:
+            extractdids = (get_scope(did, ctx.obj.client) for did in dids)
+            splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
+            for dmeta in ctx.obj.client.get_metadata_bulk(dids=splitdids):
+                _fetch_datasets_for_meta(meta=dmeta)
+
+        if deep or len(datasets) < 2:
+            for did in datasets:
+                dsn = f"{did['scope']}:{did['name']}"
+                for rep in ctx.obj.client.list_dataset_replicas(scope=did['scope'], name=did['name'], deep=deep):
+                    _append_result(dsn=dsn, replica=rep)
+        else:
+            for rep in ctx.obj.client.list_dataset_replicas_bulk(dids=datasets):
+                dsn = f"{rep['scope']}:{rep['name']}"
+                _append_result(dsn=dsn, replica=rep)
+
+        if csv:
+            for dsn in result:
+                for result_rse in list(result[dsn].values()):
+                    print(result_rse[0], result_rse[1], result_rse[2], sep=',')
+
+            if ctx.obj.use_rich:
+                ctx.obj.spinner.stop()
+        else:
+            output = []
+            for i, dsn in enumerate(result):
+                if ctx.obj.use_rich:
+                    if i > 0:
+                        output.append(Text(f'\nDATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+                    elif len(result) > 1:
+                        output.append(Text(f'DATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+
+                    table = generate_table(list(result[dsn].values()), headers=['RSE', 'FOUND', 'TOTAL'], col_alignments=['left', 'right', 'right'])
+                    output.append(table)
+                else:
+                    print(f'\nDATASET: {dsn}')
+                    print(tabulate.tabulate(list(result[dsn].values()), tablefmt=ctx.obj.tablefmt, headers=['RSE', 'FOUND', 'TOTAL']))
+
+            if ctx.obj.use_rich:
+                ctx.obj.spinner.stop()
+                print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
-        args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse, "long": long})
-        list_datasets_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+        if ctx.obj.use_rich:
+            ctx.obj.spinner.update(status='Fetching datasets at RSE')
+            ctx.obj.spinner.start()
+
+        if long:
+            table_data = []
+            for dsn in ctx.obj.client.list_datasets_per_rse(rse):
+                table_data.append([f"{dsn['scope']}:{dsn['name']}"
+                                f"{str(dsn['available_length'])}/{str(dsn['length'])}",
+                                f"{str(dsn['available_bytes'])}/{str(dsn['bytes'])}"])
+
+            if ctx.obj.use_rich:
+                table_data.sort()
+                table = generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
+                ctx.obj.spinner.stop()
+                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+            else:
+                print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
+        else:
+            dsns = list(set([f"{dsn['scope']}:{dsn['name']}" for dsn in ctx.obj.client.list_datasets_per_rse(rse)]))
+            dsns.sort()
+            if ctx.obj.use_rich:
+                table = generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
+                ctx.obj.spinner.stop()
+                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.args.no_pager)
+            else:
+                print("SCOPE:NAME")
+                print('----------')
+                for dsn in dsns:
+                    print(dsn)
 
 
 @replica.command("remove")
