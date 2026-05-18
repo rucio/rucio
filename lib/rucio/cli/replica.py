@@ -78,19 +78,21 @@ def list_(
 @click.option("--rse", default=None, help="RSE name to use a filter")
 @click.option("--deep", default=False, is_flag=True, help="Make a deep check, checking the contents of datasets in datasets")
 @click.option("--csv", help="Write output to comma separated values", is_flag=True, default=False)
+@click.option("--long", is_flag=True, default=False, help="Display extra details")
 @click.pass_context
 def list_dataset(
     ctx: click.Context,
     dids: tuple[str, ...],
     rse: Optional[str],
     deep: bool,
-    csv: bool) -> None:
+    csv: bool,
+    long: bool) -> None:
     """List dataset replicas, or view all datasets at a RSE"""
-    if rse is None:
+    if rse is None:  # TODO Long option for dataset replicas
         args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "deep": deep, "csv": csv})
         list_dataset_replicas(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
     else:
-        args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse})
+        args = Arguments({"no_pager": ctx.obj.no_pager, "rse": rse, "long": long})
         list_datasets_rse(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
