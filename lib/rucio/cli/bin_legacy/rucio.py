@@ -208,6 +208,7 @@ def list_file_replicas(args, client, logger, console, spinner):
     """
     if args.missing:
         args.all_states = True
+        logger.debug("Specified missing - looking at all replica states.")
 
     protocols = None
     if args.protocols:
