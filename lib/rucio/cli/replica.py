@@ -105,14 +105,14 @@ def list_(
                                     client_location=detect_client_location(),
                                     sort=sort, domain=domain,
                                     resolve_archives=not no_resolve_archives)
-    rses = [rse["rse"] for rse in ctx.obj.client.list_rses(rse_expression=rses)]
+    resolved_rses = [rse["rse"] for rse in ctx.obj.client.list_rses(rse_expression=rses)]
 
     if metalink:
         print(replicas[:-1])  # Last character is newline, no need to print that.
         return
 
     if missing:
-        for replica, rse in itertools.product(replicas, rses):
+        for replica, rse in itertools.product(replicas, resolved_rses):
             if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
                 if ctx.obj.use_rich:
                     replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
@@ -129,7 +129,7 @@ def list_(
     elif link:
         pfn_dir, dst_dir = link.split(':')
         if rses:
-            for replica, rse in itertools.product(replicas, rses):
+            for replica, rse in itertools.product(replicas, resolved_rses):
                 if replica['rses'].get(rse):
                     for pfn in replica['rses'][rse]:
                         os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
@@ -190,8 +190,8 @@ def list_(
                                 rse_string = f'{rse}: [u bright_blue]{pfn}[/]'
                         else:
                             rse_string = '{0}: {1}'.format(rse, pfn)
-                    if rses:
-                        for selected_rse in rses:
+                    if resolved_rses:
+                        for selected_rse in resolved_rses:
                             if rse == selected_rse:
                                 table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], human), replica['adler32'], rse_string])
                     else:
