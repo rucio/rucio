@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 import itertools
 import math
 import os
@@ -20,12 +21,11 @@ import click
 import tabulate
 from rich.text import Text
 
-from rucio.cli.bin_legacy.rucio_admin import declare_temporary_unavailable_replicas
-from rucio.cli.utils import Arguments, get_scope
+from rucio.cli.utils import get_scope
 from rucio.client.richclient import CLITheme, generate_table, print_output
 from rucio.common.client import detect_client_location
 from rucio.common.constants import ReplicaState
-from rucio.common.exception import InputValidationError
+from rucio.common.exception import InputValidationError, InvalidObject
 from rucio.common.utils import chunks, clean_pfns, sizefmt
 
 if TYPE_CHECKING:
@@ -528,12 +528,35 @@ def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_fi
 @click.pass_context
 def update_unavailable(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_file: bool, duration: int) -> None:
     """Declare a replica unavailable"""
-    args = {"reason": reason, "duration": duration}
+    bad_files = []
     if as_file:
-        args["inputfile"] = replicas
+        with open(replicas[0]) as infile:
+            for line in infile:
+                bad_file = line.rstrip('\n')
+                if '://' not in bad_file:
+                    msg = f'{bad_file} is not a valid PFN. Aborting'
+                    raise InvalidObject(msg)
+                if bad_file != '':
+                    bad_files.append(bad_file)
     else:
-        args["listbadfiles"] = replicas
-    declare_temporary_unavailable_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+        bad_files = replicas
+
+    if duration is None:
+        raise InputValidationError("Duration should have been set, something went wrong!")
+    expiration_date = (datetime.datetime.utcnow() + datetime.timedelta(seconds=duration)).isoformat()
+
+    chunk_size = 10000
+    tot_files = len(bad_files)
+    cnt = 0
+    nchunk = math.ceil(tot_files / chunk_size)
+    for chunk in chunks(bad_files, chunk_size):
+        cnt += 1
+        ctx.obj.client.add_bad_pfns(pfns=chunk, reason=reason, state='TEMPORARY_UNAVAILABLE', expires_at=expiration_date)
+        ndeclared = len(chunk)
+        print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+    print('--------------------------------')
+    print('Summary')
+    print('%s replicas successfully declared' % tot_files)
 
 
 @state_update.command("quarantine", hidden=True)
