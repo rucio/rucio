@@ -11,16 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING, Optional
+from typing import Literal, Optional
 
 import click
 
 from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_datasets_rse, list_file_replicas, list_suspicious_replicas
 from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, set_tombstone
 from rucio.cli.utils import Arguments
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 
 @click.group()
@@ -57,7 +54,20 @@ def replica_list():
 @click.option("--rses", "--rse-exp", "rses", help="The RSE filter expression")
 @click.option("--human", default=True, hidden=True)
 @click.pass_context
-def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
+def list_(
+    ctx: click.Context,
+    dids: tuple[str, ...],
+    protocols: str,
+    all_states: bool,
+    pfns: bool,
+    domain: Literal['wan', 'lan', 'all'],
+    link: Optional[str],
+    missing: bool,
+    metalink: bool,
+    no_resolve_archives: bool,
+    sort: Optional[Literal['geoip', 'random']],
+    rses: Optional[str],
+    human: bool) -> None:
     """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
     args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
     list_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
@@ -69,7 +79,12 @@ def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalin
 @click.option("--deep", default=False, is_flag=True, help="Make a deep check, checking the contents of datasets in datasets")
 @click.option("--csv", help="Write output to comma separated values", is_flag=True, default=False)
 @click.pass_context
-def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep: bool, csv: bool):
+def list_dataset(
+    ctx: click.Context,
+    dids: tuple[str, ...],
+    rse: Optional[str],
+    deep: bool,
+    csv: bool) -> None:
     """List dataset replicas, or view all datasets at a RSE"""
     if rse is None:
         args = Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "deep": deep, "csv": csv})
@@ -83,11 +98,11 @@ def list_dataset(ctx, dids: Optional["Sequence[str]"], rse: Optional[str], deep:
 @click.argument("dids", nargs=-1)
 @click.option("--rse", "--rse-name", "rse", required=True)
 @click.pass_context
-def remove(ctx, dids, rse):
+def remove(ctx: click.Context, dids: tuple[str, ...], rse: str) -> None:
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
     # TODO: Fix set_tombstone to not expect a comma separated DID str
-    dids = ",".join(dids)
-    set_tombstone(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids, "rse": rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    joined_dids = ",".join(dids)
+    set_tombstone(Arguments({"no_pager": ctx.obj.no_pager, "dids": joined_dids, "rse": rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @replica.group()
@@ -102,7 +117,7 @@ def state():
 @click.option("--younger-than", help='List files that have been marked suspicious since the date "younger_than", e.g. 2021-11-29T00:00:00')  # NOQA: E501
 @click.option("--n-attempts", help="Minimum number of failed attempts to access a suspicious file")
 @click.pass_context
-def state_list(ctx, state_type, rses, younger_than, n_attempts):
+def state_list(ctx: click.Context, state_type: Literal['suspicious'], rses: Optional[str], younger_than: Optional[str], n_attempts: Optional[str]) -> None:
     """List replicas by state. WARNING: Only implemented for 'suspicious'"""
 
     if state_type != "suspicious":
@@ -125,7 +140,7 @@ def state_update():
 @click.option("--scope", help="Common scope for bad replicas specified with LFN list, ignored without --lfn")
 @click.option("--rse", "--rse-name", help="Common RSE for bad replicas specified with LFN list, ignored without --lfn")
 @click.pass_context
-def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
+def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_file: bool, collection: bool, lfn: bool, scope: Optional[str], rse: Optional[str]) -> None:
     """Mark a replica bad"""
     args = {"reason": reason, "allow_collection": collection, "scope": scope, "rse": rse}
     if as_file:
@@ -149,7 +164,7 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
 @click.option("--as-file", is_flag=True, default=False, help="[REPLICAS] arg is a path to a file of names to update")
 @click.option("--duration", required=True, type=int, help="Timeout (in seconds) after which the replicas will become available again")
 @click.pass_context
-def update_unavailable(ctx, replicas, reason, as_file, duration):
+def update_unavailable(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_file: bool, duration: int) -> None:
     """Declare a replica unavailable"""
     args = {"reason": reason, "duration": duration}
     if as_file:
