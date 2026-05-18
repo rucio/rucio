@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import itertools
+import math
 import os
 from typing import TYPE_CHECKING, Literal, Optional
 
@@ -19,13 +20,13 @@ import click
 import tabulate
 from rich.text import Text
 
-from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas
+from rucio.cli.bin_legacy.rucio_admin import declare_temporary_unavailable_replicas
 from rucio.cli.utils import Arguments, get_scope
 from rucio.client.richclient import CLITheme, generate_table, print_output
 from rucio.common.client import detect_client_location
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import InputValidationError
-from rucio.common.utils import sizefmt
+from rucio.common.utils import chunks, clean_pfns, sizefmt
 
 if TYPE_CHECKING:
 
@@ -433,11 +434,11 @@ def __declare_bad_file_replicas_by_lfns(scope: Optional[str], rse: Optional[str]
 @click.pass_context
 def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_file: bool, collection: bool, lfn: bool, scope: Optional[str], rse: Optional[str]) -> None:
     """Mark a replica bad"""
-    args = {"reason": reason, "allow_collection": collection, "scope": scope, "rse": rse}
     if as_file:
         if len(replicas) != 1:
             raise ValueError("Exactly one positional argument expected in case as-file")
-        args["inputfile"] = replicas[0]
+        with open(replicas[0]) as infile:
+            bad_files = list(filter(None, [line.strip() for line in infile]))
     elif lfn:
         if (scope is None) or (rse is None):
             raise ValueError("Scope and RSE are required when using LFNs")
@@ -446,8 +447,77 @@ def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_fi
         lfns = replicas[0]
         return __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns=lfns, client=ctx.obj.client, logger=ctx.obj.logger)
     else:
-        args["listbadfiles"] = replicas
-    declare_bad_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+        bad_files = replicas
+
+    # Interpret filenames not in scheme://* format as LFNs and convert them to PFNs
+    bad_files_pfns = []
+    for bad_file in bad_files:
+        if bad_file.find('://') == -1:
+            scope, name = get_scope(bad_file, ctx.obj.client)
+            did_info = ctx.obj.client.get_did(scope, name)
+            if did_info['type'].upper() != 'FILE' and not collection:
+                msg = f'DID {scope}:{name} is a collection and --allow-collection was not specified.'
+                raise InputValidationError(msg)
+            resolved_replicas = [replica for rep in ctx.obj.client.list_replicas([{'scope': scope, 'name': name}])
+                        for replica in list(rep['pfns'].keys())]
+            bad_files_pfns.extend(resolved_replicas)
+        else:
+            bad_files_pfns.append(bad_file)
+    if ctx.obj.verbose:
+        print("PFNs that will be declared bad:")
+        for pfn in bad_files_pfns:
+            print(pfn)
+
+    if len(bad_files_pfns) < 100:
+        # Using the old API to declare
+        non_declared = ctx.obj.client.declare_bad_file_replicas(bad_files_pfns, reason)
+        for rse in non_declared:
+            for pfn in non_declared[rse]:
+                print('%s : PFN %s cannot be declared.' % (rse, pfn))
+    else:
+        print('Getting the information about RSE protocols. It can take several seconds')
+        dict_rse = ctx.obj.client.export_data(distance=False)
+        prot_dict = {}
+        for rse, dict_attr in dict_rse['rses'].items():
+            protocols = dict_attr['protocols']
+            for prot in protocols:
+                prot_dict[str('%s://%s%s' % (prot['scheme'], prot['hostname'], prot['prefix']))] = rse
+                prot_dict[str('%s://%s:%s%s' % (prot['scheme'], prot['hostname'], prot['port'], prot['prefix']))] = rse
+        print('Protocol information retrieved')
+
+        chunk_size = 10000
+        print('Starting the declaration by chunks of %s' % chunk_size)
+
+        tot_files = len(bad_files)
+        tot_file_declared = 0
+        cnt = 0
+        nchunk = math.ceil(tot_files / chunk_size)
+        for chunk in chunks(bad_files_pfns, chunk_size):
+            list_bad_pfns = []
+            cnt += 1
+            previous_pattern = None
+            for pfn in clean_pfns(chunk):
+                unknown = True
+                if previous_pattern:
+                    if previous_pattern in pfn:
+                        list_bad_pfns.append(pfn)
+                        unknown = False
+                        continue
+                for pattern in prot_dict:
+                    if pattern in pfn:
+                        previous_pattern = prot_dict[pattern]
+                        list_bad_pfns.append(pfn)
+                        unknown = False
+                        break
+                if unknown:
+                    print('Cannot find any RSE associated to %s' % pfn)
+            ctx.obj.client.add_bad_pfns(pfns=list_bad_pfns, reason=reason, state='BAD', expires_at=None)
+            ndeclared = len(list_bad_pfns)
+            tot_file_declared += ndeclared
+            print('Chunk %s/%s : %s replicas successfully declared' % (int(cnt), int(nchunk), ndeclared))
+        print('--------------------------------')
+        print('Summary')
+        print('%s/%s replicas successfully declared' % (tot_file_declared, tot_files))
 
 
 @state_update.command("unavailable")
