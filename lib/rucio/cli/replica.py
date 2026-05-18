@@ -13,7 +13,7 @@
 # limitations under the License.
 import itertools
 import os
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import click
 import tabulate
@@ -26,6 +26,12 @@ from rucio.common.client import detect_client_location
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import InputValidationError
 from rucio.common.utils import sizefmt
+
+if TYPE_CHECKING:
+
+    from logging import Logger
+
+    from rucio.client.client import Client
 
 
 @click.group()
@@ -387,6 +393,35 @@ def state_update():
     "Change the state of replicas"
 
 
+def __declare_bad_file_replicas_by_lfns(scope: Optional[str], rse: Optional[str], reason: Optional[str], lfns: str, client: "Client", logger: "Logger") -> None:
+    """
+    Declare a list of bad replicas using RSE name, scope and list of LFNs.
+    """
+    if not scope or not rse:
+        raise InputValidationError("--lfns requires using --rse and --scope")
+    replicas = []
+
+    # send requests in chunks
+    chunk_size = 10000
+
+    def do_declare(client, lst, reason):
+        non_declared = client.declare_bad_file_replicas(lst, reason)
+        for rse, undeclared in non_declared.items():
+            for r in undeclared:
+                msg = f'{rse} : replica cannot be declared: {r}'
+                logger.warning(msg)
+
+    for line in open(lfns, "r"):
+        lfn = line.strip()
+        if lfn:
+            replicas.append({"scope": scope, "rse": rse, "name": lfn})
+            if len(replicas) >= chunk_size:
+                do_declare(client, replicas, reason)
+                replicas = []
+    if replicas:
+        do_declare(client, replicas, reason)
+
+
 @state_update.command("bad")
 @click.argument("replicas", nargs=-1)
 @click.option("--reason", required=True, help="Reason")
@@ -408,7 +443,8 @@ def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_fi
             raise ValueError("Scope and RSE are required when using LFNs")
         if len(replicas) != 1:
             raise ValueError("Exactly one positional argument expected in case of LFN list")
-        args["lfns"] = replicas[0]
+        lfns = replicas[0]
+        return __declare_bad_file_replicas_by_lfns(scope, rse, reason, lfns=lfns, client=ctx.obj.client, logger=ctx.obj.logger)
     else:
         args["listbadfiles"] = replicas
     declare_bad_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
