@@ -11,13 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import itertools
+import os
 from typing import Literal, Optional
 
 import click
+import tabulate
 
-from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_datasets_rse, list_file_replicas, list_suspicious_replicas
+from rucio.cli.bin_legacy.rucio import list_dataset_replicas, list_datasets_rse, list_suspicious_replicas
 from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, set_tombstone
-from rucio.cli.utils import Arguments
+from rucio.cli.utils import Arguments, get_scope
+from rucio.client.richclient import CLITheme, generate_table, print_output
+from rucio.common.client import detect_client_location
+from rucio.common.constants import ReplicaState
+from rucio.common.exception import InputValidationError
+from rucio.common.utils import sizefmt
 
 
 @click.group()
@@ -69,8 +77,132 @@ def list_(
     rses: Optional[str],
     human: bool) -> None:
     """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
-    args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
-    list_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if missing:
+        all_states = True
+        ctx.obj.logger.debug("Specified missing - looking at all replica states.")
+
+    table_data = []
+    did_list = []
+    if missing and not rses:
+        raise InputValidationError('Cannot use --missing without specifying a RSE')
+    if link and ':' not in link:
+        raise ValueError('The substitution parameter must equal --link="/pfn/dir:/dst/dir"')
+
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.update(status='Fetching file replicas')
+        ctx.obj.spinner.start()
+
+    for did in dids:
+        scope, name = get_scope(did, ctx.obj.client)
+        ctx.obj.client.get_metadata(scope=scope, name=name)  # Break with Exception before streaming replicas if DID does not exist.
+        did_list.append({'scope': scope, 'name': name})
+
+    replicas = ctx.obj.client.list_replicas(did_list, schemes=protocols,
+                                    ignore_availability=True,
+                                    all_states=all_states,
+                                    rse_expression=rses,
+                                    metalink=metalink,
+                                    client_location=detect_client_location(),
+                                    sort=sort, domain=domain,
+                                    resolve_archives=not no_resolve_archives)
+    rses = [rse["rse"] for rse in ctx.obj.client.list_rses(rse_expression=rses)]
+
+    if metalink:
+        print(replicas[:-1])  # Last character is newline, no need to print that.
+        return
+
+    if missing:
+        for replica, rse in itertools.product(replicas, rses):
+            if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
+                if ctx.obj.use_rich:
+                    replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
+                    table_data.append([replica['scope'], replica['name'], '({0}) {1}'.format(replica_state, rse)])
+                else:
+                    table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
+        if ctx.obj.use_rich:
+            table = generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
+            ctx.obj.spinner.stop()
+            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        else:
+            print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
+
+    elif link:
+        pfn_dir, dst_dir = link.split(':')
+        if rses:
+            for replica, rse in itertools.product(replicas, rses):
+                if replica['rses'].get(rse):
+                    for pfn in replica['rses'][rse]:
+                        os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+        else:
+            for replica in replicas:
+                for rse in replica['rses']:
+                    if replica['rses'][rse]:
+                        for pfn in replica['rses'][rse]:
+                            os.symlink(dst_dir + pfn.rsplit(pfn_dir)[-1], replica['name'])
+    elif pfns:
+        if rses:
+            for replica in replicas:
+                for pfn in replica['pfns']:
+                    rse = replica['pfns'][pfn]['rse']
+                    if replica['rses'].get(rse):
+                        if ctx.obj.use_rich:
+                            table_data.append([pfn])
+                        else:
+                            print(pfn)
+        else:  # TODO remove this extra branch
+            for replica in replicas:
+                for pfn in replica['pfns']:
+                    rse = replica['pfns'][pfn]['rse']
+                    if replica['rses'][rse]:
+                        if ctx.obj.use_rich:
+                            table_data.append([pfn])
+                        else:
+                            print(pfn)
+        if ctx.obj.use_rich:
+            table = generate_table(table_data, headers=['PFN'], col_alignments=['left'])
+            ctx.obj.spinner.stop()
+            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        if all_states:
+            header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
+        else:
+            header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', 'RSE: REPLICA']
+        for replica in replicas:
+            if 'bytes' in replica:
+                for pfn in replica['pfns']:
+                    rse = replica['pfns'][pfn]['rse']
+                    if all_states:
+                        if ctx.obj.use_rich:
+                            replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
+                            # Less does not display hyperlinks well if the table is very wide.
+                            if ctx.obj.no_pager:
+                                rse_string = f'({replica_state}) {rse}: [u bright_blue link={pfn}]{pfn}[/]'
+                            else:
+                                rse_string = f'({replica_state}) {rse}: [u bright_blue]{pfn}[/]'
+                        else:
+                            rse_string = '({2}) {0}: {1}'.format(rse, pfn, ReplicaState[replica['states'][rse]].value)
+                    else:
+                        if ctx.obj.use_rich:
+                            # Less does not display hyperlinks well if the table is very wide.
+                            if ctx.obj.no_pager:
+                                rse_string = f'{rse}: [u bright_blue link={pfn}]{pfn}[/]'
+                            else:
+                                rse_string = f'{rse}: [u bright_blue]{pfn}[/]'
+                        else:
+                            rse_string = '{0}: {1}'.format(rse, pfn)
+                    if rses:
+                        for selected_rse in rses:
+                            if rse == selected_rse:
+                                table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], human), replica['adler32'], rse_string])
+                    else:
+                        table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], human), replica['adler32'], rse_string])
+
+        if ctx.obj.use_rich:
+            table = generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
+            ctx.obj.spinner.stop()
+            print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        else:
+            print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=header, disable_numparse=True))
 
 
 @replica_list.command("dataset")
