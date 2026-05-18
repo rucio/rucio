@@ -20,7 +20,7 @@ import tabulate
 from rich.text import Text
 
 from rucio.cli.bin_legacy.rucio import list_suspicious_replicas
-from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas, set_tombstone
+from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas
 from rucio.cli.utils import Arguments, get_scope
 from rucio.client.richclient import CLITheme, generate_table, print_output
 from rucio.common.client import detect_client_location
@@ -335,7 +335,13 @@ def remove(ctx: click.Context, dids: tuple[str, ...], rse: str) -> None:
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
     # TODO: Fix set_tombstone to not expect a comma separated DID str
     joined_dids = ",".join(dids)
-    set_tombstone(Arguments({"no_pager": ctx.obj.no_pager, "dids": joined_dids, "rse": rse}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    dids = [joined_dids] if ',' not in joined_dids else joined_dids.split(',')
+    replicas = []
+    for did in dids:
+        scope, name = get_scope(did, ctx.obj.client)
+        replicas.append({'scope': scope, 'name': name, 'rse': rse})
+    ctx.obj.client.set_tombstone(replicas)
+    ctx.obj.logger.info('Set tombstone successfully on: %s' % dids)
 
 
 @replica.group()
