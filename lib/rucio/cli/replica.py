@@ -340,7 +340,8 @@ def remove(ctx: click.Context, dids: tuple[str, ...], rse: str) -> None:
         scope, name = get_scope(did, ctx.obj.client)
         replicas.append({'scope': scope, 'name': name, 'rse': rse})
     ctx.obj.client.set_tombstone(replicas)
-    ctx.obj.logger.info('Set tombstone successfully on: %s' % dids)
+    msg = f'Set tombstone successfully on: {dids}'
+    ctx.obj.logger.info(msg)
 
 
 @replica.group()
