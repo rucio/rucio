@@ -19,7 +19,6 @@ import click
 import tabulate
 from rich.text import Text
 
-from rucio.cli.bin_legacy.rucio import list_suspicious_replicas
 from rucio.cli.bin_legacy.rucio_admin import declare_bad_file_replicas, declare_temporary_unavailable_replicas
 from rucio.cli.utils import Arguments, get_scope
 from rucio.client.richclient import CLITheme, generate_table, print_output
@@ -359,7 +358,25 @@ def state_list(ctx: click.Context, state_type: Literal['suspicious'], rses: Opti
 
     if state_type != "suspicious":
         raise ValueError(f"Cannot list state by {state_type}, please choose from ('suspicious')")
-    list_suspicious_replicas(Arguments({"no_pager": ctx.obj.no_pager, "rse_expression": rses, "younger_than": younger_than, "nattempts": n_attempts}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.update(status='Fetching suspicious replicas')
+        ctx.obj.spinner.start()
+
+    # Generator is a list with one entry, which itself is a list of lists.
+    replicas_gen = ctx.obj.client.list_suspicious_replicas(rses, younger_than, n_attempts)
+    for i in replicas_gen:
+        replicas = i
+    table = []
+    table_data = []
+    for rep in replicas:
+        table_data.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
+
+    if ctx.obj.use_rich:
+        table = generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
+        ctx.obj.spinner.stop()
+        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        print(tabulate.tabulate(table_data, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
 
 
 @state.group("update")
