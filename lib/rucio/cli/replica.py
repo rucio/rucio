@@ -335,9 +335,6 @@ def list_dataset(
 @click.pass_context
 def remove(ctx: click.Context, dids: tuple[str, ...], rse: str) -> None:
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
-    # TODO: Fix set_tombstone to not expect a comma separated DID str
-    joined_dids = ",".join(dids)
-    dids = [joined_dids] if ',' not in joined_dids else joined_dids.split(',')
     replicas = []
     for did in dids:
         scope, name = get_scope(did, ctx.obj.client)
