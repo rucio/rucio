@@ -12,12 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib.machinery import SourceFileLoader
+from types import ModuleType
 from unittest.mock import Mock
 
 import pytest
 
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, adler32, crc32, is_checksum_valid, md5, set_preferred_checksum, sha256
 from rucio.common.exception import ChecksumCalculationError
+
+
+def test_rucio_checksum_utility(tmp_path, capsys):
+    test_file = tmp_path / 'file.txt'
+    test_file.write_text('hello test\n')
+
+    loader = SourceFileLoader('rucio_checksum', 'bin/rucio-checksum')
+    checksum_utility = ModuleType(loader.name)
+    loader.exec_module(checksum_utility)
+
+    assert checksum_utility.main([str(test_file)]) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ''
+    assert captured.out == f'198d03ff  {test_file}\n'
+
+    assert checksum_utility.main(['--algorithm', 'md5', str(test_file)]) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ''
+    assert captured.out == f'31d50dd6285b9ff9f8611d0762265d04  {test_file}\n'
+
+    assert checksum_utility.main(['--algorithm', 'md5', str(tmp_path / 'missing-file'), str(test_file)]) == 1
+    captured = capsys.readouterr()
+    assert f'An error occurred while calculating the md5 checksum of file {tmp_path / "missing-file"}.' in captured.err
+    assert captured.out == f'31d50dd6285b9ff9f8611d0762265d04  {test_file}\n'
 
 
 class TestChecksumUtils:

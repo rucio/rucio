@@ -90,6 +90,7 @@ script-files = [
   "bin/rucio-bb8",
   "bin/rucio-cache-client",
   "bin/rucio-cache-consumer",
+  "bin/rucio-checksum",
   "bin/rucio-conveyor-finisher",
   "bin/rucio-conveyor-poller",
   "bin/rucio-conveyor-preparer",

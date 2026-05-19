@@ -19,6 +19,7 @@ include tools/reset_database.py
 include tools/merge_rucio_configs.py
 include bin/rucio
 include bin/rucio-admin
+include bin/rucio-checksum
 prune lib/rucio/web/ui
 prune dist
 prune examples
