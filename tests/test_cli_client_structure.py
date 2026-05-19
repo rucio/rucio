@@ -564,8 +564,8 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
 
 
 @pytest.mark.dirty
-def test_replica_state(mock_scope, rucio_client):
-    mock_rse = "MOCK3"
+def test_replica_state(mock_scope, rucio_client, rse_factory):
+    mock_rse, _ = rse_factory.make_posix_rse()
     scope = mock_scope.external
 
     name1 = generate_uuid()
@@ -575,8 +575,6 @@ def test_replica_state(mock_scope, rucio_client):
     exitcode, _, err = execute(cmd)
     print(err)
     assert exitcode == 0
-    if "ERROR" in err:
-        assert "Details: ERROR, multiple matches" in err  # The test rses are strange. I don't know why this happens.
 
     name2 = generate_uuid()
     rucio_client.add_replica(mock_rse, mock_scope.external, name2, 4, "deadbeef")
