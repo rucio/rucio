@@ -165,16 +165,6 @@ def attribute_set(ctx: click.Context, account_name: str, key: str, value: str):
     ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
 
 
-@attribute.command("add")
-@click.argument("account-name")
-@click.option('--key', help='Attribute key', required=True)
-@click.option('--value', help='Attribute value', required=True)
-@click.pass_context
-def attribute_add(ctx: click.Context, account_name: str, key: str, value: str):
-    """Add a new attribute [key] to an account"""
-    ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
-
-
 @attribute.command("remove")
 @click.argument("account-name")
 @click.option("--key", help="Attribute key", required=True)
