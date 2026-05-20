@@ -152,6 +152,19 @@ def attribute_list(ctx: click.Context, account_name: str):
         print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['Key', 'Value']))
 
 
+@attribute.command("set")
+@click.argument("account-name")
+@click.option('--key', help='Attribute key', required=True)
+@click.option('--value', help='Attribute value', required=True)
+@click.pass_context
+def attribute_set(ctx: click.Context, account_name: str, key: str, value: str):
+    """Add or update an attribute [key] to an account"""
+    if key in [attr['key'] for attr in next(ctx.obj.client.list_account_attributes(account_name))]:
+        ctx.obj.logger.debug("key %s already exists for account %s! Overwriting..." % (key, account_name))
+        ctx.obj.client.delete_account_attribute(account=account_name, key=key)
+    ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
+
+
 @attribute.command("add")
 @click.argument("account-name")
 @click.option('--key', help='Attribute key', required=True)
