@@ -66,11 +66,11 @@ def set(ctx: click.Context, section: str, key: str, value: str):
     print(f'Set configuration: {section}.{key}={value}')
 
 
-@config.command("remove")
+@config.command("unset")
 @click.option("-s", "--section", help="Section", required=True)
 @click.option("-k", "--key", help="Key in section", required=True)
 @click.pass_context
-def remove(ctx: click.Context, section: str, key: str):
+def unset(ctx: click.Context, section: str, key: str):
     """Remove the section.key from the config."""
     if ctx.obj.client.delete_config_option(section=section, option=key):
         print(f"Deleted section '{section}' option '{key}'")
