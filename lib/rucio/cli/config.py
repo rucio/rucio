@@ -47,6 +47,25 @@ def list_(ctx: click.Context, section: Optional[str], key: Optional[str]):
                     print(f'{config_key}={value}')
 
 
+@config.command("set")
+@click.option("-s", "--section", help="Section name", required=True)
+@click.option('--key', help='Attribute key', required=True)
+@click.option('--value', help='Attribute value', required=True)
+@click.pass_context
+def set(ctx: click.Context, section: str, key: str, value: str):
+    """
+    Modify the section.key/value of the config. Overwrites if option already exists.
+
+    \b
+        $ rucio config set --section my-section --key key --value value
+    """
+    if ctx.obj.client.get_config().get(section, {}).get(key, None) is not None:
+        ctx.obj.logger.debug("%s.%s already exists. Overwriting..." % (section, key))
+
+    ctx.obj.client.set_config_option(section=section, option=key, value=value)
+    print(f'Set configuration: {section}.{key}={value}')
+
+
 @config.command("add")
 @click.option("-s", "--section", help="Section name", required=True)
 @click.option('--key', help='Attribute key', required=True)
