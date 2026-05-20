@@ -165,12 +165,12 @@ def attribute_set(ctx: click.Context, account_name: str, key: str, value: str):
     ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
 
 
-@attribute.command("remove")
+@attribute.command("unset")
 @click.argument("account-name")
 @click.option("--key", help="Attribute key", required=True)
 @click.pass_context
-def attribute_remove(ctx: click.Context, account_name: str, key: str):
-    """Remove an attribute from an account without reassigning it"""
+def attribute_unset(ctx: click.Context, account_name: str, key: str):
+    """Reset an attribute to its default for an account without reassigning it"""
     ctx.obj.client.delete_account_attribute(account=account_name, key=key)
 
 
