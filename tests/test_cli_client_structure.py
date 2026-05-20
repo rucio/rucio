@@ -157,10 +157,16 @@ def test_account(rucio_client):
 
 def test_account_attribute(jdoe_account):
     fake_key = generate_uuid()[:15]
-    cmd = f"rucio account attribute add {jdoe_account} --key test_{fake_key}_key --value True"
+    cmd = f"rucio account attribute set {jdoe_account} --key test_{fake_key}_key --value True"
     exitcode, _, log = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in log
+
+    cmd = f"rucio -v account attribute set {jdoe_account} --key test_{fake_key}_key --value False"
+    exitcode, _, log = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in log
+    assert f"test_{fake_key}_key already exists" in log
 
     cmd = f"rucio account attribute list {jdoe_account}"
     exitcode, out, err = execute(cmd)
@@ -169,7 +175,7 @@ def test_account_attribute(jdoe_account):
     assert "ERROR" not in err
     assert f"test_{fake_key}_key" in out
 
-    cmd = f"rucio account attribute remove {jdoe_account} --key test_{fake_key}_key"
+    cmd = f"rucio account attribute unset {jdoe_account} --key test_{fake_key}_key"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
