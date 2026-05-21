@@ -26,6 +26,7 @@ from rucio.tests.common import did_name_generator, skip_non_belleii
 
 
 @skip_non_belleii
+@pytest.mark.noparallel(reason='changes global configuration value')
 @pytest.mark.parametrize("file_lifetime", [86400.0, None])
 def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client, file_lifetime):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
