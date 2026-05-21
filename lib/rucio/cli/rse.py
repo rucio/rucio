@@ -391,12 +391,12 @@ def attribute_set(ctx: click.Context, rse_name: str, key: str, value: str) -> No
     print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
 
 
-@attribute.command("remove")
+@attribute.command("unset")
 @click.argument("rse-name")
-@click.option("--attribute", help="Attribute to remove", required=True)
+@click.option("--attribute", help="Attribute to unset", required=True)
 @click.pass_context
-def attribute_remove(ctx: click.Context, rse_name: str, attribute: str) -> None:
-    """Remove an existing attribute from an RSE"""
+def attribute_unset(ctx: click.Context, rse_name: str, attribute: str) -> None:
+    """Reset an attribute back to its default behavoir"""
     ctx.obj.client.delete_rse_attribute(rse=rse_name, key=attribute)
     print(f'Deleted RSE attribute for {rse_name}: {attribute} ')
 
