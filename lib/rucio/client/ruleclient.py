@@ -53,6 +53,7 @@ class RuleClient(BaseClient):
         delay_injection: Optional[int] = None,
         comment: Optional[str] = None,
         weight: Optional[int] = None,
+        split_container: bool = False,
     ) -> Any:
         """
         Add a replication rule.
@@ -100,6 +101,8 @@ class RuleClient(BaseClient):
             Comment about the rule.
         weight :
             If the weighting option of the replication rule is used, the choice of RSEs takes their weight into account.
+        split_container :
+            Split a container rule into individual dataset rules. Default is False.
 
         """
         path = self.RULE_BASEURL + '/'
@@ -110,7 +113,8 @@ class RuleClient(BaseClient):
                       'account': account, 'locked': locked, 'source_replica_expression': source_replica_expression,
                       'activity': activity, 'notify': notify, 'purge_replicas': purge_replicas,
                       'ignore_availability': ignore_availability, 'comment': comment, 'ask_approval': ask_approval,
-                      'asynchronous': asynchronous, 'delay_injection': delay_injection, 'priority': priority, 'meta': meta})
+                      'asynchronous': asynchronous, 'delay_injection': delay_injection, 'priority': priority, 'meta': meta,
+                      'split_container': split_container})
         r = self._send_request(url, method=HTTPMethod.POST, data=data)
         if r.status_code == codes.created:
             return loads(r.text)

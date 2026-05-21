@@ -46,6 +46,7 @@ def rule():
 @click.option("--asynchronous", is_flag=True, default=False, help="Create rule asynchronously")
 @click.option("--delay-injection", type=int, help="Delay (in seconds) to wait before starting applying the rule. This option implies --asynchronous.")
 @click.option("--account", help="The account owning the rule")
+@click.option("--split-container", is_flag=True, default=False, help="Split a container rule into individual dataset rules")
 @click.option("--skip-duplicates", is_flag=True, default=False, help="Skip duplicate rules")
 @click.pass_context
 def add_(
@@ -65,6 +66,7 @@ def add_(
     ask_approval: bool,
     delay_injection: Optional[int],
     account: Optional[str],
+    split_container: bool,
     skip_duplicates: bool
 ) -> None:
     """Add replication rule to define how replicas of a list of DIDs are created on RSEs."""
@@ -89,7 +91,8 @@ def add_(
             comment=comment,
             ask_approval=ask_approval,
             asynchronous=asynchronous,
-            delay_injection=delay_injection
+            delay_injection=delay_injection,
+            split_container=split_container
     )
     except DuplicateRule as error:
         if skip_duplicates:
@@ -110,7 +113,8 @@ def add_(
                         comment=comment,
                         ask_approval=ask_approval,
                         asynchronous=asynchronous,
-                        delay_injection=delay_injection
+                        delay_injection=delay_injection,
+                        split_container=split_container
                     )
                     rule_ids.extend(rule_id)
                 except DuplicateRule:

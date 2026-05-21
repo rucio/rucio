@@ -1226,7 +1226,8 @@ def add_rule(args, client, logger, console, spinner):
                                                comment=args.comment,
                                                ask_approval=args.ask_approval,
                                                asynchronous=args.asynchronous,
-                                               delay_injection=args.delay_injection)
+                                               delay_injection=args.delay_injection,
+                                               split_container=args.split_container)
     except DuplicateRule as error:
         if args.ignore_duplicate:
             for did in dids:
@@ -1245,7 +1246,8 @@ def add_rule(args, client, logger, console, spinner):
                                                           comment=args.comment,
                                                           ask_approval=args.ask_approval,
                                                           asynchronous=args.asynchronous,
-                                                          delay_injection=args.delay_injection)
+                                                          delay_injection=args.delay_injection,
+                                                          split_container=args.split_container)
                     rule_ids.extend(rule_id)
                 except DuplicateRule:
                     print('Duplicate rule for %s:%s found; Skipping.' % (did['scope'], did['name']))
@@ -2547,6 +2549,7 @@ You can filter by key/value, e.g.::
     add_rule_parser.add_argument('--asynchronous', dest='asynchronous', action='store_true', help='Create rule asynchronously')
     add_rule_parser.add_argument('--delay-injection', dest='delay_injection', action='store', type=int, help='Delay (in seconds) to wait before starting applying the rule. This option implies --asynchronous.')
     add_rule_parser.add_argument('--account', dest='rule_account', action='store', help='The account owning the rule')
+    add_rule_parser.add_argument('--split-container', dest='split_container', action='store_true', help='Split a container rule into individual dataset rules')
     add_rule_parser.add_argument('--skip-duplicates', dest='ignore_duplicate', action='store_true', help='Skip duplicate rules')
 
     # Delete replication rule subparser
