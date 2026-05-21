@@ -677,16 +677,46 @@ def test_rse(rucio_client):
 
 def test_rse_attribute():
     rse_name = rse_name_generator()
+    attr_name = str(generate_uuid())[:8]
+    attr_value = str(generate_uuid())[:8]
+
     _, _, err = execute(f"rucio rse add {rse_name}")
     assert "ERROR" not in err
 
-    cmd = f"rucio rse attribute list {rse_name}"
-    _, _, err = execute(cmd)
+    cmd = f"rucio rse attribute add {rse_name} --key {attr_name} --value {attr_value}"
+    exitcode, out, err = execute(cmd)
+    print(out, err)
     assert "ERROR" not in err
+    assert exitcode == 0
 
-    cmd = f"rucio rse attribute add {rse_name} --key name --value {rse_name}"
-    _, _, err = execute(cmd)
+    cmd = f"rucio rse attribute list {rse_name}"
+    exitcode, out, err = execute(cmd)
     assert "ERROR" not in err
+    assert attr_name in out
+    assert attr_value in out
+
+    cmd = f"rucio -v rse attribute add {rse_name} --key {attr_name} --value {attr_value}2"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+
+    cmd = f"rucio rse attribute list {rse_name}"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert attr_name in out
+    assert attr_value + '2' in out
+
+    cmd = f"rucio -v rse attribute remove {rse_name} --attribute {attr_name}"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+
+    cmd = f"rucio rse attribute list {rse_name}"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert attr_name not in out
 
 
 def test_rse_protocol():
