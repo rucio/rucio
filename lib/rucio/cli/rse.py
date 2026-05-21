@@ -372,6 +372,25 @@ def attr_list_(ctx: click.Context, rse_name: str) -> None:
             print(f'{k}: {attributes[k]}')
 
 
+@attribute.command("set")
+@click.argument("rse-name")
+@click.option('--key', help='Attribute key', required=True)
+@click.option('--value', help='Attribute value', required=True)
+@click.pass_context
+def attribute_set(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
+    """Modify attributes for an RSE
+
+    \b
+    Example:
+        $ rucio rse attribute set my-rse --key My-Attribute  --value True
+    """
+    if ctx.obj.client.list_rse_attributes(rse_name).get(key, None) is not None:
+        ctx.obj.logger.debug("RSE %s already has attribute %s. Overwritting..." % (rse_name, key))
+
+    ctx.obj.client.add_rse_attribute(rse=rse_name, key=key, value=value)
+    print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
+
+
 @attribute.command("add")
 @click.argument("rse-name")
 @click.option('--key', help='Attribute key', required=True)
@@ -386,8 +405,6 @@ def attribute_add_(ctx: click.Context, rse_name: str, key: str, value: str) -> N
     """
     ctx.obj.client.add_rse_attribute(rse=rse_name, key=key, value=value)
     print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
-
-# TODO Update attribute - only overwrites existing attributes
 
 
 @attribute.command("remove")
