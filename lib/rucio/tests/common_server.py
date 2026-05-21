@@ -134,7 +134,8 @@ def cleanup_db_deps(
 def reset_config_table() -> None:
     """ Clear the config table and install any default entries needed for the tests.
     """
-    db_session = get_session()()
+    session_scoped = get_session()
+    db_session = session_scoped()
     db_session.query(models.Config).delete()
     set_config_defaults(session=db_session)
     db_session.commit()
