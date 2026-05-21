@@ -651,7 +651,8 @@ def core_config_mock(request: pytest.FixtureRequest) -> "Iterator[None]":
     )
 
     # Fill the table with the requested mock data
-    session = get_session()()
+    session_scoped = get_session()
+    session = session_scoped()
     for section, option, value in (table_content or []):
         in_memory_config(section=section, opt=option, value=value).save(flush=True, session=session)
     session.commit()
