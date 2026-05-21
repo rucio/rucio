@@ -58,20 +58,20 @@ rucio rse protocol add --hostname web1 --scheme davs --prefix /rucio --port 443 
 rucio rse protocol add --hostname web1 --scheme magnet --prefix /var/www/webdav/data/rucio/ --port 10000 --impl rucio.rse.protocols.bittorrent.Default --domain-json '{"wan": {"read": 1, "write": null, "delete": null, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": null, "delete": null}}' WEB1
 
 # Set test_container_xrd attribute for xrd containers
-rucio rse attribute add XRD1 --key test_container_xrd --value True
-rucio rse attribute add XRD2 --key test_container_xrd --value True
-rucio rse attribute add XRD3 --key test_container_xrd --value True
-rucio rse attribute add XRD4 --key test_container_xrd --value True
-rucio rse attribute add SSH1 --key test_container_ssh --value True
-rucio rse attribute add XRD5 --key oidc_support --value True
-rucio rse attribute add XRD5 --key bittorrent_driver --value qbittorrent
-rucio rse attribute add XRD5 --key qbittorrent_management_address --value https://xrd5:8098/
-rucio rse attribute add XRD5 --key bittorrent_tracker_addr --value http://xrd5:10001/announce
-rucio rse attribute add WEB1 --key oidc_support --value True
-rucio rse attribute add WEB1 --key verify_checksum --value False
-rucio rse attribute add WEB1 --key bittorrent_driver --value qbittorrent
-rucio rse attribute add WEB1 --key qbittorrent_management_address --value https://web1:8099/
-rucio rse attribute add WEB1 --key bittorrent_tracker_addr --value http://web1:10001/announce
+rucio rse attribute set XRD1 --key test_container_xrd --value True
+rucio rse attribute set XRD2 --key test_container_xrd --value True
+rucio rse attribute set XRD3 --key test_container_xrd --value True
+rucio rse attribute set XRD4 --key test_container_xrd --value True
+rucio rse attribute set SSH1 --key test_container_ssh --value True
+rucio rse attribute set XRD5 --key oidc_support --value True
+rucio rse attribute set XRD5 --key bittorrent_driver --value qbittorrent
+rucio rse attribute set XRD5 --key qbittorrent_management_address --value https://xrd5:8098/
+rucio rse attribute set XRD5 --key bittorrent_tracker_addr --value http://xrd5:10001/announce
+rucio rse attribute set WEB1 --key oidc_support --value True
+rucio rse attribute set WEB1 --key verify_checksum --value False
+rucio rse attribute set WEB1 --key bittorrent_driver --value qbittorrent
+rucio rse attribute set WEB1 --key qbittorrent_management_address --value https://web1:8099/
+rucio rse attribute set WEB1 --key bittorrent_tracker_addr --value http://web1:10001/announce
 
 # Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd1 xrdfs xrd1:1094 query config xrd1:1094
@@ -80,16 +80,16 @@ XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd3 xrdfs xrd3:1096 
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd4 xrdfs xrd4:1097 query config xrd4:1097
 
 # Enable FTS
-rucio rse attribute add XRD1 --key fts --value https://fts:8446
-rucio rse attribute add XRD2 --key fts --value https://fts:8446
-rucio rse attribute add XRD3 --key fts --value https://fts:8446
-rucio rse attribute add XRD4 --key fts --value https://fts:8446
-rucio rse attribute add XRD5 --key fts --value https://fts:8446
-rucio rse attribute add SSH1 --key fts --value https://fts:8446
-rucio rse attribute add WEB1 --key fts --value https://fts:8446
+rucio rse attribute set XRD1 --key fts --value https://fts:8446
+rucio rse attribute set XRD2 --key fts --value https://fts:8446
+rucio rse attribute set XRD3 --key fts --value https://fts:8446
+rucio rse attribute set XRD4 --key fts --value https://fts:8446
+rucio rse attribute set XRD5 --key fts --value https://fts:8446
+rucio rse attribute set SSH1 --key fts --value https://fts:8446
+rucio rse attribute set WEB1 --key fts --value https://fts:8446
 
 # Enable multihop transfers via XRD3
-rucio rse attribute add XRD3 --key available_for_multihop --value True
+rucio rse attribute set XRD3 --key available_for_multihop --value True
 
 # Connect the RSEs
 rucio rse distance add --distance 1 XRD1 XRD2

@@ -391,22 +391,6 @@ def attribute_set(ctx: click.Context, rse_name: str, key: str, value: str) -> No
     print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
 
 
-@attribute.command("add")
-@click.argument("rse-name")
-@click.option('--key', help='Attribute key', required=True)
-@click.option('--value', help='Attribute value', required=True)
-@click.pass_context
-def attribute_add_(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
-    """Add a new attribute for an RSE
-
-    \b
-    Example:
-        $ rucio rse attribute add my-rse --key My-Attribute  --value True
-    """
-    ctx.obj.client.add_rse_attribute(rse=rse_name, key=key, value=value)
-    print(f'Added new RSE attribute for {rse_name}: {key}-{value} ')
-
-
 @attribute.command("remove")
 @click.argument("rse-name")
 @click.option("--attribute", help="Attribute to remove", required=True)
