@@ -256,6 +256,21 @@ def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> 
             print(f"No distance set from {source_rse} to {destination_rse}")
 
 
+@distance.command("set")
+@click.argument("source-rse")
+@click.argument("destination-rse")
+@click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
+@click.pass_context
+def distance_set(ctx: click.Context, source_rse: str, destination_rse: str, distance: int) -> None:
+    """Create a link from SOURCE-RSE to DESTINATION-RSE with a distance"""
+    params = {'distance': distance}
+    if ctx.obj.client.get_distance(source_rse, destination_rse):
+        ctx.obj.client.update_distance(source_rse, destination_rse, params)
+    else:
+        ctx.obj.client.add_distance(source_rse, destination_rse, params)
+    print(f'Set distance from {source_rse} to {destination_rse} to {distance}')
+
+
 @distance.command("add")
 @click.argument("source-rse")
 @click.argument("destination-rse")
