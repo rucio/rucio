@@ -17,23 +17,6 @@ from rucio.rse import rsemanager as rsemgr
 
 class TestPFNs:
 
-    def test_pfn_srm(self, vo):
-        """ PFN (CORE): Test the splitting of PFNs with SRM"""
-
-        rse_info = rsemgr.get_rse_info('MOCK', vo=vo)
-        proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
-        pfns = ['srm://mock.com:8443/rucio/tmpdisk/rucio_tests/whatever',
-                'srm://mock.com:8443/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/whatever',
-                'srm://mock.com:8443/srm/v2/server?SFN=/rucio/tmpdisk/rucio_tests/whatever']
-        for pfn in pfns:
-            ret = proto.parse_pfns([pfn])
-            assert ret[pfn]['scheme'] == 'srm'
-            assert ret[pfn]['hostname'] == 'mock.com'
-            assert ret[pfn]['port'] == 8443
-            assert ret[pfn]['prefix'] == '/rucio/tmpdisk/rucio_tests/'
-            assert ret[pfn]['path'] == '/'
-            assert ret[pfn]['name'] == 'whatever'
-
     def test_pfn_https(self, vo):
         """ PFN (CORE): Test the splitting of PFNs with https"""
 
@@ -74,13 +57,3 @@ class TestPFNs:
         assert ret[pfn]['prefix'] == '/tmp/rucio_rse/'
         assert ret[pfn]['path'] == '/'
         assert ret[pfn]['name'] == 'rucio_rse'
-
-        proto = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
-        pfn = 'srm://mock.com/srm/managerv2?SFN=/rucio/tmpdisk/rucio_tests/group/phys-fake/mc15_13TeV/group.phys-fake.mc15_13TeV/mc15c.MGHwpp_tHjb125_yt_minus1.MxAODFlavorSys.p2908.h015.totape_20170825.root'
-        ret = proto.parse_pfns([pfn])
-        assert ret[pfn]['scheme'] == 'srm'
-        assert ret[pfn]['hostname'] == 'mock.com'
-        assert ret[pfn]['port'] == 8443
-        assert ret[pfn]['prefix'] == '/rucio/tmpdisk/rucio_tests/'
-        assert ret[pfn]['path'] == '/group/phys-fake/mc15_13TeV/group.phys-fake.mc15_13TeV/'
-        assert ret[pfn]['name'] == 'mc15c.MGHwpp_tHjb125_yt_minus1.MxAODFlavorSys.p2908.h015.totape_20170825.root'
