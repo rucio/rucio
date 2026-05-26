@@ -147,10 +147,6 @@ class TestDeterministicTranslation:
         translator = RSEDeterministicTranslation(self.rse, rse_attributes, protocol_attributes)
         assert translator.path("foo", "bar") == "https://T2_Mock/foo/bar"
 
-        protocol_attributes['scheme'] = 'srm'
-        translator = RSEDeterministicTranslation(self.rse, rse_attributes, protocol_attributes)
-        assert translator.path("foo", "bar") == "srm://T2_Mock/foo/bar"
-
     def test_module_load(self):
         """LFN2PFN: Test ability to provide LFN2PFN functions via module (Success)"""
         if not config.config_has_section('policy'):
