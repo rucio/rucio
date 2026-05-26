@@ -92,18 +92,18 @@ rucio rse attribute set WEB1 --key fts --value https://fts:8446
 rucio rse attribute set XRD3 --key available_for_multihop --value True
 
 # Connect the RSEs
-rucio rse distance add --distance 1 XRD1 XRD2
-rucio rse distance add --distance 1 XRD1 XRD3
-rucio rse distance add --distance 1 XRD2 XRD1
-rucio rse distance add --distance 2 XRD2 XRD3
-rucio rse distance add --distance 1 XRD3 XRD1
-rucio rse distance add --distance 2 XRD3 XRD2
-rucio rse distance add --distance 3 XRD3 XRD4
-rucio rse distance add --distance 3 XRD4 XRD3
-rucio rse distance add --distance 1 XRD4 XRD5
-rucio rse distance add --distance 1 XRD5 XRD4
-rucio rse distance add --distance 1 XRD5 WEB1
-rucio rse distance add --distance 1 WEB1 XRD5
+rucio rse distance set --distance 1 XRD1 XRD2
+rucio rse distance set --distance 1 XRD1 XRD3
+rucio rse distance set --distance 1 XRD2 XRD1
+rucio rse distance set --distance 2 XRD2 XRD3
+rucio rse distance set --distance 1 XRD3 XRD1
+rucio rse distance set --distance 2 XRD3 XRD2
+rucio rse distance set --distance 3 XRD3 XRD4
+rucio rse distance set --distance 3 XRD4 XRD3
+rucio rse distance set --distance 1 XRD4 XRD5
+rucio rse distance set --distance 1 XRD5 XRD4
+rucio rse distance set --distance 1 XRD5 WEB1
+rucio rse distance set --distance 1 WEB1 XRD5
 
 # Indefinite limits for root
 rucio account limit add root --rse XRD1 --bytes -1

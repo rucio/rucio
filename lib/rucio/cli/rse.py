@@ -256,7 +256,7 @@ def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> 
             print(f"No distance set from {source_rse} to {destination_rse}")
 
 
-@distance.command("add")
+@distance.command("set")
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option(
@@ -269,24 +269,29 @@ def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> 
     "--bidirectional",
     is_flag=True,
     default=False,
-    help="If set, also creates the reverse distance (destination → source)."
+    help="If set, also set the reverse distance (destination → source)."
 )
 @click.pass_context
-def distance_add(
+def distance_set(
     ctx: click.Context,
     source_rse: str,
     destination_rse: str,
     distance: int,
     bidirectional: bool
 ) -> None:
-    """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
+    """Create a link from SOURCE-RSE to DESTINATION-RSE with a distance"""
     params = {'distance': distance}
-    ctx.obj.client.add_distance(
-        source_rse,
-        destination_rse,
-        parameters=params,
-        bidirectional=bidirectional
-    )
+
+    if ctx.obj.client.get_distance(source_rse, destination_rse):
+        ctx.obj.client.update_distance(source_rse, destination_rse, params, bidirectional)
+
+    else:
+        ctx.obj.client.add_distance(
+            source_rse,
+            destination_rse,
+            parameters=params,
+            bidirectional=bidirectional
+        )
 
     if bidirectional:
         print(f"Set distances between {source_rse} <-> {destination_rse} to {distance}")
@@ -294,7 +299,7 @@ def distance_add(
         print(f"Set distance from {source_rse} -> {destination_rse} to {distance}")
 
 
-@distance.command("remove")
+@distance.command("unset")
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.option(
@@ -304,7 +309,7 @@ def distance_add(
     help="If set, also removes the reverse distance (destination → source)."
 )
 @click.pass_context
-def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, bidirectional: bool = False) -> None:
+def distance_unset(ctx: click.Context, source_rse: str, destination_rse: str, bidirectional: bool = False) -> None:
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
     ctx.obj.client.delete_distance(
         source_rse,
@@ -314,42 +319,6 @@ def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str, b
         print(f"Deleted distances between {source_rse} <-> {destination_rse}")
     else:
         print(f"Deleted distance from {source_rse} -> {destination_rse}")
-
-
-@distance.command("update")
-@click.argument("source-rse")
-@click.argument("destination-rse")
-@click.option(
-    "--distance",
-    type=int,
-    help="Relative distance between RSEs",
-    required=True
-)
-@click.option(
-    "--bidirectional",
-    is_flag=True,
-    default=False,
-    help="If set, also updates the reverse distance (destination → source)."
-)
-@click.pass_context
-def distance_update(
-    ctx: click.Context,
-    source_rse: str,
-    destination_rse: str,
-    distance: int,
-    bidirectional: bool
-) -> None:
-    """Update the existing distance from SOURCE-RSE to DESTINATION-RSE"""
-    params = {"distance": distance}
-    ctx.obj.client.update_distance(
-        source_rse,
-        destination_rse,
-        parameters=params,
-        bidirectional=bidirectional)
-    if bidirectional:
-        print(f"Updated distances between {source_rse} <-> {destination_rse} to {distance}")
-    else:
-        print(f"Updated distance from {source_rse} -> {destination_rse} to {distance}")
 
 
 @rse.group()
