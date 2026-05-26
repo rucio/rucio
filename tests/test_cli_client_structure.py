@@ -280,7 +280,7 @@ def test_account_limit(jdoe_account, rucio_client):
     mock_rse = "MOCK"
 
     bytes_limit = 10
-    cmd = f"rucio account limit add {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
+    cmd = f"rucio account limit set {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
     _, _, set_log = execute(cmd)
     assert "ERROR" not in set_log
     assert bytes_limit == rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse]
@@ -290,12 +290,12 @@ def test_account_limit(jdoe_account, rucio_client):
     assert "ERROR" not in err
     assert mock_rse in out
 
-    cmd = f"rucio account limit remove {jdoe_account} --rse {mock_rse}"
+    cmd = f"rucio account limit unset {jdoe_account} --rse {mock_rse}"
     _, _, rm_log = execute(cmd)
     assert "ERROR" not in rm_log
     assert rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse] is None
 
-    cmd = f"rucio account limit add {jdoe_account} --rse {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
+    cmd = f"rucio account limit set {jdoe_account} --rse {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
     exitcode, _, _ = execute(cmd)
     assert exitcode == 1  # Fails bc locality is limited to local or global
 
