@@ -742,13 +742,13 @@ def test_rse_distance():
     source_rse = "MOCK"
     dest_rse = "MOCK2"
 
-    cmd = f"rucio rse distance remove {source_rse} {dest_rse}"
+    cmd = f"rucio rse distance unset {source_rse} {dest_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     if "ERROR" in err:
         assert f"Distance from {source_rse} to {dest_rse}" in err
 
-    cmd = f"rucio rse distance add {source_rse} {dest_rse} --distance 1"
+    cmd = f"rucio rse distance set {source_rse} {dest_rse} --distance 1"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -760,7 +760,7 @@ def test_rse_distance():
     assert dest_rse in out
     assert "1" in out
 
-    cmd = f"rucio rse distance update {source_rse} {dest_rse} --distance 10"
+    cmd = f"rucio rse distance set {source_rse} {dest_rse} --distance 10"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -772,7 +772,7 @@ def test_rse_distance():
     assert dest_rse in out
     assert "10" in out
 
-    cmd = f"rucio rse distance remove {source_rse} {dest_rse}"
+    cmd = f"rucio rse distance unset {source_rse} {dest_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
