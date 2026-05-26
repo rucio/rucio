@@ -494,7 +494,7 @@ def test_did_metadata(rucio_client, root_account):
     rucio_client.add_did(scope=scope, name=dataset, did_type="dataset")
 
     metadata_value = f"mock_{generate_uuid()[:15]}"
-    cmd = f"rucio did metadata add {scope}:{dataset} --key project --value {metadata_value}"
+    cmd = f"rucio did metadata set {scope}:{dataset} --key project --value {metadata_value}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
