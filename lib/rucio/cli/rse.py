@@ -271,11 +271,11 @@ def distance_set(ctx: click.Context, source_rse: str, destination_rse: str, dist
     print(f'Set distance from {source_rse} to {destination_rse} to {distance}')
 
 
-@distance.command("remove")
+@distance.command("unset")
 @click.argument("source-rse")
 @click.argument("destination-rse")
 @click.pass_context
-def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str) -> None:
+def distance_unset(ctx: click.Context, source_rse: str, destination_rse: str) -> None:
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
     ctx.obj.client.delete_distance(source_rse, destination_rse)
     print(f'Deleted distance information from {source_rse} to {destination_rse}.')
