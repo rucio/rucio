@@ -683,7 +683,7 @@ def test_rse_attribute():
     _, _, err = execute(f"rucio rse add {rse_name}")
     assert "ERROR" not in err
 
-    cmd = f"rucio rse attribute add {rse_name} --key {attr_name} --value {attr_value}"
+    cmd = f"rucio rse attribute set {rse_name} --key {attr_name} --value {attr_value}"
     exitcode, out, err = execute(cmd)
     print(out, err)
     assert "ERROR" not in err
@@ -695,7 +695,7 @@ def test_rse_attribute():
     assert attr_name in out
     assert attr_value in out
 
-    cmd = f"rucio -v rse attribute add {rse_name} --key {attr_name} --value {attr_value}2"
+    cmd = f"rucio -v rse attribute set {rse_name} --key {attr_name} --value {attr_value}2"
     exitcode, _, err = execute(cmd)
     assert "ERROR" not in err
     assert exitcode == 0
@@ -707,7 +707,7 @@ def test_rse_attribute():
     assert attr_name in out
     assert attr_value + '2' in out
 
-    cmd = f"rucio -v rse attribute remove {rse_name} --attribute {attr_name}"
+    cmd = f"rucio -v rse attribute unset {rse_name} --attribute {attr_name}"
     exitcode, _, err = execute(cmd)
     assert "ERROR" not in err
     assert exitcode == 0
