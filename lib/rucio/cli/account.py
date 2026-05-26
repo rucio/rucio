@@ -222,7 +222,7 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
         print_output(table1, table2, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
-@limit.command("add")
+@limit.command("set")
 @click.argument(
     "account-name",
 )
@@ -230,8 +230,8 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
 @click.option("--bytes", "bytes_", help='Value of the limit; can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"', required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
-def limit_add(ctx: click.Context, account_name: str, rse: str, bytes_: str, locality: str):
-    """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
+def limit_set(ctx: click.Context, account_name: str, rse: str, bytes_: str, locality: str):
+    """Set a limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
     byte_limit = None
     limit_input = bytes_.lower()
 
@@ -252,12 +252,12 @@ def limit_add(ctx: click.Context, account_name: str, rse: str, bytes_: str, loca
     print('Set account limit for account %s on RSE %s: %s' % (account_name, rse, sizefmt(byte_limit, True)))
 
 
-@limit.command("remove")
+@limit.command("unset")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Full RSE name", required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
-def limit_remove(ctx: click.Context, account_name: str, rse: str, locality: str):
+def limit_unset(ctx: click.Context, account_name: str, rse: str, locality: str):
     """Remove existing limits for an account on an RSE"""
     ctx.obj.client.delete_account_limit(account=account_name, rse=rse, locality=locality)
     print('Deleted account limit for account %s and RSE %s' % (account_name, rse))
