@@ -54,7 +54,6 @@ atlas:
       - rucio_tests/test_utils.py
       - rucio_tests/test_meta_did.py
       - rucio_tests/test_naming_convention.py
-      - rucio_tests/test_rse_protocol_srm.py
       - rucio_tests/test_rse_protocol_posix.py
       - rucio_tests/test_rse_protocol_webdav.py
       - rucio_tests/test_dumper_consistency.py
@@ -125,7 +124,6 @@ belleii:
       - rucio_tests/test_config.py
       - rucio_tests/test_utils.py
       - rucio_tests/test_meta_did.py
-      - rucio_tests/test_rse_protocol_srm.py
       - rucio_tests/test_rse_protocol_posix.py
       - rucio_tests/test_rse_protocol_webdav.py
       - rucio_tests/test_dumper_consistency.py
