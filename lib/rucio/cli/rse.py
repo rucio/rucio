@@ -271,18 +271,6 @@ def distance_set(ctx: click.Context, source_rse: str, destination_rse: str, dist
     print(f'Set distance from {source_rse} to {destination_rse} to {distance}')
 
 
-@distance.command("add")
-@click.argument("source-rse")
-@click.argument("destination-rse")
-@click.option("--distance", default=1, type=int, help="Relative distance between RSEs")
-@click.pass_context
-def distance_add(ctx: click.Context, source_rse: str, destination_rse: str, distance: int) -> None:
-    """Create a new link from SOURCE-RSE to DESTINATION-RSE with a distance"""
-    params = {'distance': distance}
-    ctx.obj.client.add_distance(source_rse, destination_rse, params)
-    print(f'Set distance from {source_rse} to {destination_rse} to {distance}')
-
-
 @distance.command("remove")
 @click.argument("source-rse")
 @click.argument("destination-rse")
@@ -291,18 +279,6 @@ def distance_remove(ctx: click.Context, source_rse: str, destination_rse: str) -
     """Un-link SOURCE-RSE from DESTINATION-RSE by removing the distance between them"""
     ctx.obj.client.delete_distance(source_rse, destination_rse)
     print(f'Deleted distance information from {source_rse} to {destination_rse}.')
-
-
-@distance.command("update")
-@click.argument("source-rse")
-@click.argument("destination-rse")
-@click.option("--distance", type=int, help="Relative distance between RSEs", required=True)
-@click.pass_context
-def distance_update(ctx: click.Context, source_rse: str, destination_rse: str, distance: int) -> None:
-    """Update the existing distance from SOURCE-RSE to DESTINATION-RSE"""
-    params = {"distance": distance}
-    ctx.obj.client.update_distance(source_rse, destination_rse, params)
-    print(f'Update distance information from {source_rse} to {destination_rse}:\n - Distance set to {params["distance"]}')
 
 
 @rse.group()
