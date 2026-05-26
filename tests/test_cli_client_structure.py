@@ -780,13 +780,13 @@ def test_rse_limits(rucio_client):
     mock_rse = 'MOCK'
     limit = "mock_limit"
 
-    cmd = f"rucio rse limit add {mock_rse} --limit {limit} 100"
+    cmd = f"rucio rse limit set {mock_rse} --limit {limit} 100"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert 100 == rucio_client.get_rse_limits(mock_rse)[limit]
 
-    cmd = f"rucio rse limit remove {mock_rse} --limit {limit}"
+    cmd = f"rucio rse limit unset {mock_rse} --limit {limit}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -796,13 +796,13 @@ def test_rse_limits(rucio_client):
         pass
 
     not_int_limit = "askjd"
-    cmd = f"rucio rse limit add {mock_rse} --limit {limit}_2 {not_int_limit}"
+    cmd = f"rucio rse limit set {mock_rse} --limit {limit}_2 {not_int_limit}"
     exitcode, _, err = execute(cmd)
     assert exitcode != 0
     assert f"'{not_int_limit}' is not a valid integer" in err  # The click error message for invalid type
 
     non_existent_limit = "askjd"
-    cmd = f"rucio rse limit remove {mock_rse} --limit {non_existent_limit}"
+    cmd = f"rucio rse limit unset {mock_rse} --limit {non_existent_limit}"
     exitcode, _, err = execute(cmd)
     assert exitcode != 0
     assert f'Limit {non_existent_limit} not defined in RSE {mock_rse}' in err
