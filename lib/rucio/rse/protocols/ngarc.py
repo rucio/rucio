@@ -27,9 +27,9 @@ except Exception:
 class DataPoint:
     '''
     Wrapper around arc.datapoint_from_url() which does not clean up DataPoints
-    when python objects are destroyed, leading to connection leaking when used
-    with gridftp. This class should be used instead of arc.datapoint_from_url().
-    It can be called like dp = DataPoint('gsiftp://...', uc); dp.h.Stat()
+    when python objects are destroyed.
+    This class should be used instead of arc.datapoint_from_url().
+    It can be called like dp = DataPoint('scheme://...', uc); dp.h.Stat()
     where uc is an arc.UserConfig object.
     '''
     def __init__(self, u, uc):

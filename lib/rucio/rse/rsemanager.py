@@ -864,7 +864,7 @@ def __check_compatible_scheme(
         src_scheme: str
 ) -> bool:
     """
-    Check if two schemes are compatible, such as srm and gsiftp
+    Check if two schemes are compatible
 
     :param dest_scheme:    Destination scheme
     :param src_scheme:     Source scheme
