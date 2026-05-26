@@ -744,7 +744,7 @@ class RSEClient(BaseClient):
             The name of the requested operation (read, write, or delete).
             If None, 'write' is used by default.
         scheme :
-            The identifier of the requested protocol (gsiftp, https, davs, etc), by default None.
+            The identifier of the requested protocol (https, davs, etc), by default None.
 
         Returns
         -------

@@ -415,7 +415,7 @@ def protocol_add(
 
     \b
     Example, adding a default protocol hosted at jdoes.test.org to the RSE JDOE_DATADISK
-        $ rucio rse protocol add JDOE_DATADISK --hostname jdoes.test.org --scheme gsiftp --prefix '/atlasdatadisk/rucio/' --port 8443'
+        $ rucio rse protocol add JDOE_DATADISK --hostname jdoes.test.org --scheme https --prefix '/atlasdatadisk/rucio/' --port 8443'
 
     """
     proto = {
