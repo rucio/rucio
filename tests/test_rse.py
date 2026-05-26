@@ -1489,13 +1489,13 @@ class TestRSEClient:
     def test_set_rse_usage(self, rucio_client, rse_factory):
         """ RSE (CLIENTS): Test the update of RSE usage."""
         rse, _ = rse_factory.make_posix_rse()
-        assert rucio_client.set_rse_usage(rse=rse, source='srm', used=999200, free=800)
+        assert rucio_client.set_rse_usage(rse=rse, source='https', used=999200, free=800)
         usages = rucio_client.get_rse_usage(rse=rse)
         for usage in usages:
-            if usage['source'] == 'srm':
+            if usage['source'] == 'https':
                 assert usage['files'] is None
                 assert usage['total'] == 1000000
-        assert rucio_client.set_rse_usage(rse=rse, source='srm', used=999920, free=80, files=50)
+        assert rucio_client.set_rse_usage(rse=rse, source='https', used=999920, free=80, files=50)
         for usage in rucio_client.list_rse_usage_history(rse=rse):
             assert usage['free'] == 80
             assert usage['files'] == 50
@@ -1541,7 +1541,7 @@ class TestRSEClient:
                                        'impl': 'rucio.rse.protocols.gfal.Default',
                                        'port': 8443,
                                        'prefix': '/castor/ads.rl.ac.uk/prod/atlas/stripInput/atlasdatadisk/rucio/',
-                                       'scheme': 'srm'}],
+                                       'scheme': 'https'}],
                         'rse': 'MOCK',
                         'rse_type': 'DISK',
                         'staging_area': False,
