@@ -375,16 +375,16 @@ def limit():
     """Manage storage size limits"""
 
 
-@limit.command("add")
+@limit.command("set")
 @click.argument("rse-name")
 @click.option("--limit", type=(str, int), required=True, help="Name of limit and value in bytes")
 @click.pass_context
-def limit_add(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None:
-    """Add a usage limit to an RSE
+def limit_set(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None:
+    """Define a usage limit to an RSE
 
     \b
     Example, add a limit of 1KB to XRD1 named "MinFreeSpace":
-        $ rucio rse limit add XRD1 --limit MinFreeSpace 10000
+        $ rucio rse limit set XRD1 --limit MinFreeSpace 10000
     """
     name = limit[0]
     value = limit[1]
@@ -394,11 +394,11 @@ def limit_add(ctx: click.Context, rse_name: str, limit: tuple[str, int]) -> None
         ctx.obj.logger.info(msg)
 
 
-@limit.command("remove")
+@limit.command("unset")
 @click.argument("rse-name")
 @click.option("--limit", required=True, help="Name of limit to remove")
 @click.pass_context
-def limit_remove(ctx: click.Context, rse_name: str, limit: str) -> None:
+def limit_unset(ctx: click.Context, rse_name: str, limit: str) -> None:
     """Remove an existing RSE limit"""
     limits = ctx.obj.client.get_rse_limits(rse_name)
     if limit not in limits.keys():
