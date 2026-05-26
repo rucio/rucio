@@ -106,11 +106,11 @@ rucio rse distance set --distance 1 XRD5 WEB1
 rucio rse distance set --distance 1 WEB1 XRD5
 
 # Indefinite limits for root
-rucio account limit add root --rse XRD1 --bytes -1
-rucio account limit add root --rse XRD2 --bytes -1
-rucio account limit add root --rse XRD3 --bytes -1
-rucio account limit add root --rse XRD4 --bytes -1
-rucio account limit add root --rse SSH1 --bytes -1
+rucio account limit set root --rse XRD1 --bytes -1
+rucio account limit set root --rse XRD2 --bytes -1
+rucio account limit set root --rse XRD3 --bytes -1
+rucio account limit set root --rse XRD4 --bytes -1
+rucio account limit set root --rse SSH1 --bytes -1
 
 # Create a default scope for testing
 rucio scope add test --account root
