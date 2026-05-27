@@ -34,7 +34,7 @@ import time
 import types
 from collections import OrderedDict
 from enum import Enum
-from functools import cache, update_wrapper, wraps
+from functools import update_wrapper, wraps
 from io import StringIO
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
@@ -45,8 +45,8 @@ from xml.etree import ElementTree  # noqa: S405 -- trusted XML input
 import requests
 from typing_extensions import ParamSpec
 
-from rucio.common.config import config_get, config_get_bool
-from rucio.common.constants import BASE_SCHEME_MAP, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL
+from rucio.common.config import config_get
+from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import DIDFilterSyntaxError, DuplicateCriteriaInDIDFilter, InputValidationError, InvalidType, MetalinkJsonParsingError, MissingModuleException, RucioException
 from rucio.common.extra import import_extras
 from rucio.common.plugins import PolicyPackageAlgorithms
@@ -1710,21 +1710,6 @@ def is_method_overridden(obj, base_cls, method_name):
     if getattr(type(obj), method_name, None) is getattr(base_cls, method_name, None):  # Caring for bound/unbound cases
         return False
     return True
-
-
-@cache
-def get_transfer_schemas() -> dict[str, list[str]]:
-    """
-    Extend base schema map based on SRM HTTPS compatibility.
-    """
-    scheme_map = BASE_SCHEME_MAP
-    if config_get_bool('transfers', 'srm_https_compatibility', raise_exception=False, default=False):
-        scheme_map['srm'].append('https')
-        scheme_map['https'].append('srm')
-        scheme_map['srm'].append('davs')
-        scheme_map['davs'].append('srm')
-
-    return scheme_map
 
 
 def wlcg_token_discovery() -> Optional[str]:
