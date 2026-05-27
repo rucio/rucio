@@ -714,7 +714,7 @@ class TestOpenDataCLI:
     @pytest.mark.parametrize("subcommand, expected_options", [
         ("add", {"--help"}),
         ("list", {"--help", "--state", "--public", "--short"}),
-        ("show", {"--help", "--meta", "--files", "--public"}),
+        ("show", {"--help", "--meta", "--files", "--public", "--download-urls"}),
         ("update", {"--help", "--meta", "--state", "--doi", "--record-id"}),
         ("remove", {"--help"}),
     ])
