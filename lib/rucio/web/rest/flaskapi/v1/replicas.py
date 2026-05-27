@@ -58,6 +58,7 @@ from rucio.gateway.replica import (
     list_dataset_replicas_vp,
     list_datasets_per_rse,
     list_replicas,
+    replica_exists,
     set_tombstone,
     update_replicas_states,
 )
@@ -65,6 +66,8 @@ from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
 from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, json_parameters, param_get, param_get_bool, parse_scope_name, response_headers, try_stream
 
 if TYPE_CHECKING:
+    from flask.typing import ResponseReturnValue
+
     from rucio.common.types import IPDict
 
 
@@ -1829,6 +1832,52 @@ class Tombstone(ErrorHandlingMethodView):
         return 'Created', 201
 
 
+class ReplicaExists(ErrorHandlingMethodView):
+
+    def get(self, scope_name: str) -> 'ResponseReturnValue':
+        """
+        ---
+        summary: Check replica existence
+        description: "Check replica existence."
+        tags:
+         - Replicas
+        parameters:
+        - name: scope_name
+          in: path
+          description: "data identifier (scope)/(name)."
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: query
+          description: "RSE name."
+          schema:
+            type: string
+        responses:
+          200:
+            description: "OK"
+          400:
+            description: "Bad request."
+          404:
+            description: "Not found"
+        """
+        try:
+            scope, name = parse_scope_name(scope_name, request.environ['vo'])
+            did = { 'scope': scope, 'name': name }
+            rse = request.args.get('rse', default='')
+            if not replica_exists(
+                    did=did,
+                    rse=rse,
+                    issuer=request.environ['issuer'],
+                    vo=request.environ['vo']):
+                raise ReplicaNotFound()
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+        except (RSENotFound, ReplicaNotFound) as error:
+            return generate_http_error_flask(404, error)
+        return '', 200
+
+
 def blueprint(with_doc=False):
     bp = AuthenticatedBlueprint('replicas', __name__, url_prefix='/replicas')
 
@@ -1869,6 +1918,9 @@ def blueprint(with_doc=False):
     set_tombstone_view = Tombstone.as_view('set_tombstone')
     bp.add_url_rule('/tombstone', view_func=set_tombstone_view, methods=[HTTPMethod.POST.value])
 
+    replica_exists_view = ReplicaExists.as_view('replica_exists')
+    bp.add_url_rule('/<path:scope_name>/exists', view_func=replica_exists_view, methods=['get', ])
+
     if not with_doc:
         bp.add_url_rule('/list/', view_func=list_replicas_view, methods=[HTTPMethod.POST.value])
         bp.add_url_rule('/suspicious/', view_func=suspicious_replicas_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value])
@@ -1884,6 +1936,7 @@ def blueprint(with_doc=False):
         bp.add_url_rule('/<path:scope_name>/', view_func=replicas_view, methods=[HTTPMethod.GET.value])
         bp.add_url_rule('/tombstone/', view_func=set_tombstone_view, methods=[HTTPMethod.POST.value])
         bp.add_url_rule('/quarantine/', view_func=quarantine_replicas_view, methods=[HTTPMethod.POST.value])
+        bp.add_url_rule('/<path:scope_name>/exists/', view_func=replica_exists_view, methods=[HTTPMethod.GET.value])
 
     bp.after_request(response_headers)
     return bp

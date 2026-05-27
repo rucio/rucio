@@ -31,7 +31,22 @@ from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifi
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_access_cnt, get_did_atime, list_files, set_status
-from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_rse_coverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
+from rucio.core.replica import (
+    add_bad_dids,
+    add_replica,
+    add_replicas,
+    delete_replicas,
+    get_bad_pfns,
+    get_replica,
+    get_replica_atime,
+    get_replicas_state,
+    get_rse_coverage_of_dataset,
+    list_replicas,
+    replica_exists,
+    set_tombstone,
+    touch_replica,
+    update_replica_state,
+)
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
@@ -715,6 +730,23 @@ class TestReplicaCore:
         assert len(replica['pfns']) == 1
         [replica] = list(list_replicas([did2], rse_expression='group2=true'))
         assert len(replica['pfns']) == 1
+
+    def test_replica_exists(self, rse_factory, mock_scope, root_account):
+        """ REPLICA (CORE): Replica existence check """
+        _, rse_id = rse_factory.make_mock_rse()
+        filename = did_name_generator('file')
+
+        assert not replica_exists(scope=mock_scope, name=filename, rse_id=rse_id)
+
+        files = [{'scope': mock_scope, 'name': filename, 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}}]
+
+        add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
+
+        assert replica_exists(scope=mock_scope, name=filename, rse_id=rse_id)
+
+        delete_replicas(rse_id=rse_id, files=files)
+
+        assert not replica_exists(scope=mock_scope, name=filename, rse_id=rse_id)
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
