@@ -129,6 +129,11 @@ ADLER32 = {"description": "adler32",
            "type": "string",
            "pattern": "^[a-fA-F\\d]{8}$"}
 
+CHECKSUM = {"description": "Checksum dictionary",
+            "type": "object",
+            "properties": {"adler32": {"type": "string"},
+                           "md5": {"type": "string"}}}
+
 WEIGHT = {"description": "Rule weight",
           "type": ["string", "null"]}
 
@@ -254,6 +259,7 @@ DID = {"description": "Data Identifier(DID)",
                       "bytes": BYTES,
                       "adler32": ADLER32,
                       "md5": MD5,
+                      "checksum": CHECKSUM,
                       "state": REPLICA_STATE,
                       "pfn": PFN},
        "required": ["scope", "name"],
@@ -273,6 +279,7 @@ R_DID = {"description": "Data Identifier(DID)",
                         "bytes": BYTES,
                         "adler32": ADLER32,
                         "md5": MD5,
+                        "checksum": CHECKSUM,
                         "state": REPLICA_STATE,
                         "pfn": PFN},
          "required": ["scope", "name"],

@@ -669,6 +669,7 @@ def _create_transfer_definitions(
                     name=rws.name,
                     md5=rws.md5,
                     adler32=rws.adler32,
+                    checksum=rws.checksum,
                     byte_count=rws.byte_count,
                     activity=rws.activity,
                     attributes={
@@ -680,6 +681,7 @@ def _create_transfer_definitions(
                         'bytes': rws.byte_count,
                         'md5': rws.md5,
                         'adler32': rws.adler32,
+                        'checksum': rws.checksum,
                         'priority': None,
                         'allow_tape_source': True
                     },
