@@ -25,7 +25,7 @@ from rucio.common.config import config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.constraints import STRING_TYPES
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import get_transfer_schemas, make_valid_did
+from rucio.common.utils import make_valid_did
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -873,8 +873,6 @@ def __check_compatible_scheme(
     """
 
     if dest_scheme == src_scheme:
-        return True
-    if src_scheme in get_transfer_schemas().get(dest_scheme, []):
         return True
 
     return False

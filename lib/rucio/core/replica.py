@@ -1153,12 +1153,6 @@ def _list_replicas(
                     # never end up here
                     print(format_exc())
 
-                if protocol.attributes['scheme'] == 'srm':
-                    try:
-                        file['space_token'] = protocol.attributes['extended_attributes']['space_token']
-                    except KeyError:
-                        file['space_token'] = None
-
         # fill the 'pfns' and 'rses' dicts in file
         if pfns:
             # set the total order for the priority
