@@ -390,8 +390,6 @@ def protocol():
 @click.option("--hostname", help="Endpoint hostname", required=True)
 @click.option("--scheme", help="Endpoint URL scheme", required=True)
 @click.option("--prefix", help="Endpoint URL path prefix", required=True)
-@click.option("--space-token", help="Space token name (SRM-only)")
-@click.option("--web-service-path", help="Web service URL (SRM-only)")
 @click.option("--port", type=int, help="URL port")
 @click.option("--impl", default="rucio.rse.protocols.gfal.Default", help="Transfer protocol implementation to use")
 @click.option("--domain-json", type=json.loads, help="JSON describing the WAN / LAN setup")
@@ -403,8 +401,6 @@ def protocol_add(
     hostname: str,
     scheme: str,
     prefix: str,
-    space_token: Optional[str],
-    web_service_path: Optional[str],
     port: Optional[str],
     impl: Optional[str],
     domain_json: Optional[dict],
@@ -430,12 +426,6 @@ def protocol_add(
     proto.setdefault('extended_attributes', {})
     if extended_attributes_json:
         proto['extended_attributes'] = extended_attributes_json
-    if proto['scheme'] == 'srm' and not web_service_path:
-        raise InputValidationError('Error: space-token and web-service-path must be provided for SRM endpoints.')
-    if space_token:
-        proto['extended_attributes']['space_token'] = space_token
-    if web_service_path:
-        proto['extended_attributes']['web_service_path'] = web_service_path
     # Cannot have an empty extended_attributes
     if not proto['extended_attributes']:
         del proto['extended_attributes']
