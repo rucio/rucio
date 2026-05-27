@@ -31,7 +31,7 @@ from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
-from rucio.core.message import add_message
+from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import filter_thread_work, models
@@ -2913,6 +2913,7 @@ def insert_content_history(
     ).where(
         filter_
     )
+    messages = []
     for cont in session.execute(stmt).all():
         if not did_created_at:
             new_did_created_at = cont.created_at
@@ -2934,6 +2935,12 @@ def insert_content_history(
             did_created_at=new_did_created_at,
             deleted_at=datetime.utcnow()
         ).save(session=session, flush=False)
+        messages.append({'event_type': 'ERASE_FILE',
+                         'payload': {'scope': cont.scope,
+                                     'name': cont.name,
+                                     'did_type': cont.did_type}})
+    for chunk in chunks(messages, 100):
+        add_messages(chunk, session=session)
 
 
 @transactional_session
