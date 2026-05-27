@@ -235,3 +235,53 @@ class SubscriptionClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
             raise exc_cls(exc_msg)
+
+    def list_subscription_rule_states(
+            self,
+            account: str,
+            name: Optional[str] = None,
+            include_details: bool = False
+    ) -> "Iterator[dict[str, Any]]":
+        """
+        List the aggregated rule states for subscriptions.
+
+        Parameters
+        ----------
+        account :
+            Account identifier
+        name :
+            Name of the subscription (optional)
+        include_details :
+            Include subscription metadata (state, last_processed, lifetime, expired_at, comments)
+
+        Returns
+        -------
+        Iterator of dictionaries with subscription rule state information
+
+        Raises
+        ------
+        NotFound
+            If subscription is not found
+        """
+        # Build path
+        path_parts = [self.SUB_BASEURL, account]
+        if name:
+            path_parts.append(name)
+        path_parts.extend(['rules', 'states'])
+        path = '/'.join(path_parts)
+
+        # Build query parameters
+        params = {}
+        if include_details:
+            params['include_details'] = 'true'
+
+        url = build_url(choice(self.list_hosts), path=path, params=params)
+        result = self._send_request(url, method=HTTPMethod.GET)
+
+        if result.status_code == codes.ok:   # pylint: disable=no-member
+            return self._load_json_data(result)
+        elif result.status_code == codes.not_found:   # pylint: disable=no-member
+            return iter([])  # Return empty iterator for not found
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=result.headers, status_code=result.status_code, data=result.content)
+            raise exc_cls(exc_msg)
