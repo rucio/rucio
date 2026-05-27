@@ -28,9 +28,9 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from rucio.common.config import config_get, config_get_list
-from rucio.common.constants import DEFAULT_VO, SUPPORTED_PROTOCOLS, RseAttr, TransferLimitDirection
+from rucio.common.constants import DEFAULT_VO, SCHEME_MAP, SUPPORTED_PROTOCOLS, RseAttr, TransferLimitDirection
 from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RSEProtocolNotSupported, RucioException, UnsupportedOperation
-from rucio.common.utils import construct_non_deterministic_pfn, get_transfer_schemas
+from rucio.common.utils import construct_non_deterministic_pfn
 from rucio.core import did
 from rucio.core import message as message_core
 from rucio.core import request as request_core
@@ -1330,7 +1330,7 @@ def __add_compatible_schemes(schemes, allowed_schemes):
     for scheme in schemes:
         if scheme in allowed_schemes:
             return_schemes.append(scheme)
-            for scheme_map_scheme in get_transfer_schemas().get(scheme, []):
+            for scheme_map_scheme in SCHEME_MAP.get(scheme, []):
                 if scheme_map_scheme not in allowed_schemes:
                     continue
                 else:
