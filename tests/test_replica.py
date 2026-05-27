@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import hashlib
+import importlib
 import os
 import time
 from datetime import datetime, timedelta
@@ -25,6 +26,7 @@ import pytest
 import xmltodict
 from werkzeug.datastructures import Headers, MultiDict
 
+import rucio.core.permission
 from rucio.client.ruleclient import RuleClient
 from rucio.common.constants import RseAttr
 from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
@@ -38,6 +40,7 @@ from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expira
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import OBSOLETE, BadPFNStatus, DatabaseOperationType, DIDType, ReplicaState
 from rucio.db.sqla.session import db_session
+from rucio.gateway import replica as replica_gateway
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import Mime, accept, auth, did_name_generator, execute, headers
 
@@ -715,6 +718,29 @@ class TestReplicaCore:
         assert len(replica['pfns']) == 1
         [replica] = list(list_replicas([did2], rse_expression='group2=true'))
         assert len(replica['pfns']) == 1
+
+
+class TestReplicaGateway:
+
+    @pytest.mark.dirty
+    @pytest.mark.noparallel(reason='overrides global permission module')
+    def test_add_replicas(self, rse_factory, mock_scope, vo):
+        """ REPLICA (GATEWAY): Access denied when adding new DIDs """
+        rse_name, _ = rse_factory.make_mock_rse()
+
+        nbfiles = 10
+        files = [{'scope': str(mock_scope), 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
+
+        # override permissions module so that add_dids permission check fails
+        old_module = rucio.core.permission.permission_modules[vo]
+        rucio.core.permission.permission_modules[vo] = importlib.import_module('tests.mocks.permission_no_add_dids')
+
+        # check that exception is actually raised
+        with pytest.raises(AccessDenied):
+            replica_gateway.add_replicas(rse=rse_name, files=files, issuer='root', ignore_availability=True, vo=vo)
+
+        # restore original permissions module
+        rucio.core.permission.permission_modules[vo] = old_module
 
 
 @pytest.mark.parametrize("core_config_mock", [{"table_content": [
