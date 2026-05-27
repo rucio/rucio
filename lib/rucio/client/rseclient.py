@@ -35,21 +35,80 @@ class RSEClient(BaseClient):
 
     def get_rse(self, rse: str) -> dict[str, Any]:
         """
-        Returns details about the referred RSE.
+        Returns details about an RSE.
 
         Parameters
         ----------
         rse:
-            Name of the referred RSE
+            Name of the RSE
 
         Returns
         --------
-        A dict containing all attributes of the referred RSE.
+        Dictionary of settings and attributes.
+        Additional attributes can be added beyond the ones listed below by using "RSEClient.add_rse_attribute"
+            **`availability_delete`**:
+                bool: Can the replicas on the RSE be deleted?
+
+            **`availability_read`**:
+                bool: Can replicas on the RSE be read?
+
+            **`availability_write`**:
+                bool: Can the RSE be written to?
+
+            **`credentials`**:
+                Optional[str]: Crediental for an attached protocol (if any)
+
+            **`deterministic`**:
+                bool: Are the PFNs on the RSE set deteriminstically?
+
+            **`domain`**:
+              dict|list: Domains (lan/wan) the RSE can act on (and premissions, if dictionary)
+
+            **`id`**:
+                str: ID of the RSE
+
+            **`lfn2pfn_algorithm`**:
+                Optional[str]: Algorithm for LFN to PFNs
+
+            **`protocols`**:
+                list[dict]: Describing the protocols used by the RSE for storage
+
+            **`qos_class`**:
+                Optional[str]: QoS Policy
+
+            **`rse`**:
+                str: Name of the RSE
+
+            **`rse_type`**:
+                str: Storage type of RSE, typically "DISK" or "TAPE"
 
         Raises
         -------
         RSENotFound:
             if the referred RSE was not found in the database.
+
+        Examples
+        --------
+        ??? Example
+
+            Query an RSE via an RSE Expression and get it attributes of all RSEs that match
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_expression="rse_type=DISK"
+            possible_rses = [rse['rse'] for rse in c.list_rses(rse_expression)]
+            for rse in possible_rses:
+                print(c.get_rse(rse))
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.add_rse_attribute
+        rucio.client.rseclient.RSEClient.update_rse
+        rucio.client.rseclient.RSEClient.list_rses
+        rucio.client.rseclient.RSEClient.list_rse_attributes
         """
         path = '/'.join([self.RSE_BASEURL, rse])
         url = build_url(choice(self.list_hosts), path=path)
@@ -65,7 +124,7 @@ class RSEClient(BaseClient):
     def add_rse(self, rse: str, **kwargs) -> Literal[True]:
 
         """
-        Sends the request to create a new RSE.
+        Create a new RSE
 
         Parameters
         ----------
@@ -102,12 +161,37 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-            True if RSE was created successfully else False
+            True if RSE was created successfully created.
 
         Raises
         ------
         Duplicate
             If RSE already exists.
+
+        Examples
+        --------
+        ??? Example
+
+            Create a new disk RSE and add a few attributes
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyNewRSE"
+            rse_client.add_rse(rse_name, rse_type="DISK")
+
+            rse_client.add_rse_attribute(rse_name, key="TIER", value="3")  # Custom organizational attribute
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.delete_rse
+        rucio.client.rseclient.RSEClient.update_rse
+        rucio.client.rseclient.RSEClient.add_protocol
+        rucio.client.rseclient.RSEClient.list_rses
+
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -126,7 +210,33 @@ class RSEClient(BaseClient):
         rse:
             The name of the RSE.
         parameters:
-            A dictionary with property (name, read, write, delete as keys).
+            Dictionary of properties (attributes or settings) to update. Format as
+            {"name": "updated_value"}.
+
+
+        Examples
+        --------
+        ??? Example
+
+            Create a new disk RSE and add a few attributes
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyNewRSE"
+            rse_client.add_rse(rse_name, rse_type="DISK")
+
+            rse_client.add_rse_attribute(rse_name, key="TIER", value="3")  # Custom organizational attribute
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.delete_rse
+        rucio.client.rseclient.RSEClient.update_rse
+        rucio.client.rseclient.RSEClient.add_protocol
+
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -147,7 +257,19 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-        True if RSE was deleted successfully else False.
+        True if RSE was deleted successfully.
+
+        Raises
+        ------
+        RSENotFound
+            If the RSE was not found.
+        RSEOperationNotSupported
+            If the RSE is not empty.
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.add_rse
+        rucio.client.rseclient.RSEClient.update_rse
         """
         path = 'rses/' + rse
         url = build_url(choice(self.list_hosts), path=path)
@@ -160,15 +282,46 @@ class RSEClient(BaseClient):
 
     def list_rses(self, rse_expression: Optional[str] = None) -> "Iterator[dict[str, Any]]":
         """
-        Sends the request to list all rucio locations(RSEs).
+        List all RSEs that match the given RSE Expression.
+        RSE Expressions are constructed using attributes, settings, and the name of the RSE, using logical operators and wildcards.
+
 
         Parameters
         ----------
         rse_expression
             RSE expression to use as filter.
+
         Returns
         -------
-        A list containing the names of all rucio locations.
+        All RSE names matching the RSE expression, if given, otherwise all RSEs.
+
+        Examples
+        --------
+        ??? Example
+
+            Create a new disk RSE and add an attribute
+
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+
+            for rse in rse_client.list_rses():
+                print(rse)  # Print all RSEs
+
+            for rse in rse_client.list_rses("rse_type=TAPE"):
+                print(rse) # Print all RSEs of type "TAPE"
+
+            for rse in rse_client.list_rses("RSE_*"):
+                print(rse) # Print all RSEs that have names starting with "RSE_"
+
+            for rse in rse_client.list_rses("rse_type=DISK&availability_read=True"):
+                print(rse) # Print all RSEs that are of type "DISK" and have read availability set to True
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_rse
         """
         if rse_expression:
             path = ['rses', "?expression=" + quote(rse_expression)]
@@ -190,7 +343,8 @@ class RSEClient(BaseClient):
             value: Any
     ) -> Literal[True]:
         """
-        Sends the request to add a RSE attribute.
+       Add an RSE attribute.
+       Attributes are key/value pairs that can be used in policies, constructing RSE expressions, or defining custom properties (such as LFN2PFN algorithms.)
 
         Parameters
         ----------
@@ -203,12 +357,33 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-        True if RSE attribute was created successfully else False.
+        True if RSE attribute was created successfully.
 
         Raises
         -------
         Duplicate
             If RSE attribute already exists.
+
+        Examples
+        --------
+        ??? Example
+
+            Add an attribute
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyRSE"
+            rse_client.add_rse_attribute(rse_name, key="TIER", value="3")  # Custom organizational attribute
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.delete_rse_attribute
+        rucio.client.rseclient.RSEClient.get_rse
+        rucio.client.rseclient.RSEClient.update_rse
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
@@ -223,7 +398,7 @@ class RSEClient(BaseClient):
 
     def delete_rse_attribute(self, rse: str, key: str) -> Literal[True]:
         """
-        Sends the request to delete a RSE attribute.
+        Delete an RSE attribute.
 
         Parameters
         ----------
@@ -234,7 +409,33 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-        True if RSE attribute was deleted successfully else False.
+        True if RSE attribute was deleted successfully.
+
+        Raises
+        -------
+        RSEAttributeNotFound
+            If the attribute to delete was not found for the given RSE.
+
+        Examples
+        --------
+        ??? Example
+
+            Remove an attribute
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyRSE"
+            rse_client.delete_rse_attribute(rse_name, key="TIER")
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.add_rse_attribute
+        rucio.client.rseclient.RSEClient.list_rse_attributes
+        rucio.client.rseclient.RSEClient.update_rse
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr', key])
         url = build_url(choice(self.list_hosts), path=path)
@@ -248,7 +449,7 @@ class RSEClient(BaseClient):
 
     def list_rse_attributes(self, rse: str) -> dict[str, Any]:
         """
-        Sends the request to get RSE attributes.
+       List all RSE attributes.
 
         Parameters
         ----------
@@ -258,6 +459,33 @@ class RSEClient(BaseClient):
         Returns
         -------
         A dict with the RSE attribute name/value pairs.
+        Attributes returned can be any attribute previously added to the RSE via `rucio.client.rseclient.RSEClient.add_rse_attribute`.
+
+        Raises
+        ------
+        RSENotFound
+            RSE does not exist.
+
+        Examples
+        --------
+        ??? Example
+            List all attributes of an RSE
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_name="MyRSE"
+            attributes = rse_client.list_rse_attributes(rse_name)
+            for key, value in attributes.items():
+                print(f"{key}: {value}")
+
+            > TIER: 3
+            > TEST: True
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.add_rse_attribute
+        rucio.client.rseclient.RSEClient.delete_rse_attribute
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'attr/'])
         url = build_url(choice(self.list_hosts), path=path)
@@ -271,7 +499,10 @@ class RSEClient(BaseClient):
 
     def add_protocol(self, rse: str, params: dict[str, Any]) -> Literal[True]:
         """
-        Sends the request to create a new protocol for the given RSE.
+        Add a new protocol for an RSE.
+        This is required to read/write data onto the RSE.
+
+        Multiple protocols can be added to the same RSE, but they cannot have the same scheme, hostname, and port.
 
         Parameters
         ----------
@@ -279,6 +510,7 @@ class RSEClient(BaseClient):
             The name of the RSE.
         params :
             Attributes of the protocol. Supported are:
+
             - scheme: identifier of this protocol
             - hostname: hostname for this protocol (default = localhost)
             - port: port for this protocol (default = 0)
@@ -288,6 +520,9 @@ class RSEClient(BaseClient):
             - write: integer representing the priority of this protocol for write operations (default = -1)
             - delete: integer representing the priority of this protocol for delete operations (default = -1)
             - extended_attributes: miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
+
+            Extended attributes required for each protocol can be seen listed in the documentation for each protocol implementation
+            (e.g. `rucio.rse.protocols.posix.Default` for the POSIX protocol).
 
         Returns
         -------
@@ -299,10 +534,43 @@ class RSEClient(BaseClient):
             If protocol with same hostname, port and protocol identifier already exists for the given RSE.
         RSENotFound
             If the RSE doesn't exist.
-        KeyNotFound
+        InvalidObject
             If params is missing mandatory attributes to create the protocol.
         AccessDenied
             If not authorized.
+
+        Examples
+        --------
+        ??? Example
+
+            Adding a POSIX protocol to an RSE, suitable for testing
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyRSE"
+            protocol_params = {
+                'scheme': 'file',
+                'hostname': 'localhost',
+                'port': 0,
+                'prefix': '/path/posix_rse',
+                'impl': 'rucio.rse.protocols.posix.Default',
+                'domains': {
+                    'lan': {'read': 1, 'write': 1, 'delete': 1},
+                    'wan': {'read': 1, 'write': 1, 'delete': 1,
+                            'third_party_copy_read': 1, 'third_party_copy_write': 1}
+                },
+            }
+            rse_client.add_protocol(rse_name, protocol_params)
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_rse
+        rucio.client.rseclient.RSEClient.get_protocols
+        rucio.client.rseclient.RSEClient.delete_protocols
         """
         scheme = params['scheme']
         path = '/'.join([self.RSE_BASEURL, rse, 'protocols', scheme])
@@ -323,27 +591,34 @@ class RSEClient(BaseClient):
             scheme: Optional['SUPPORTED_PROTOCOLS_LITERAL'] = None
     ) -> Any:
         """
-        Returns protocol information.
-        Parameter combinations are: (operation OR default) XOR protocol.
+        Get protocol information for an RSE
 
         Parameters
         ----------
         rse :
             The RSE name.
         protocol_domain :
-            The scope of the protocol. Supported are 'LAN', 'WAN', and 'ALL', by default 'ALL'.
+            The scope of the protocol.
         operation :
-            The name of the requested operation (read, write, or delete).
-            If None, all operations are queried, by default None.
+            The name of the requested operation. If None, all operations are queried.
         default :
-            Indicates if only the default operations should be returned, by default False.
+            Only return the default protocol
         scheme :
-            The identifier of the requested protocol, by default None.
+            The identifier of the requested protocol.
 
         Returns
         -------
-            A dict with details about each matching protocol.
+            A list of dicts with details about each matching protocol.
+            Each protocol contains the following keys:
+            - scheme [str]: identifier
+            - hostname [str]: hostname
+            - port [int]: port
+            - prefix [str]: string used as a prefix for this protocol when generating the PFN
+            - impl [str]: qualified name of the implementation class for this protocol
+            - domains [dict]: dictionary with domain (lan/wan) as keys and permissions for operations as values
+            - extended_attributes [Optional[dict]]: miscellaneous protocol specific information
 
+            If only on protocol matches the query, a single dict is returned instead of a list.
         Raises
         ------
         RSENotFound
@@ -352,6 +627,30 @@ class RSEClient(BaseClient):
             If no matching protocol entry could be found.
         RSEOperationNotSupported
             If no matching protocol entry for the requested operation could be found.
+
+        Examples
+        --------
+        ??? Example
+
+            Query different protocols that exist for MyRSE
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyRSE"
+            rse_client.get_protocols(rse_name)  # Get all protocols
+            rse_client.get_protocols(rse_name, default=True) # Get default protocol
+            # Get protocols that can be used for read operations on wan domain
+            rse_client.get_protocols(rse_name, protocol_domain='wan', operation='read')
+            rse_client.get_protocols(rse_name, scheme='file') # Get protocol with file scheme
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_rse
+        rucio.client.rseclient.RSEClient.add_protocol
+        rucio.client.rseclient.RSEClient.delete_protocols
         """
 
         path = None
@@ -393,8 +692,11 @@ class RSEClient(BaseClient):
             The RSE name.
         lfns :
             A list of LFN strings to translate to PFNs.
+            LFNs are typically written as "scope:name", though the exact format can vary depending on
+            the Rucio instance's implementation of ScopeExtraction.
+            Contact your Rucio administrator if you are unsure about the expected format of LFNs for your instance.
         protocol_domain :
-            The scope of the protocol.
+            The scope of the protocol. (e.g., 'wan' or 'lan').
         operation :
             The name of the requested operation (read, write, or delete).
             If None, all operations are queried, by default None.
@@ -413,6 +715,21 @@ class RSEClient(BaseClient):
             If no matching protocol entry could be found.
         RSEOperationNotSupported
             If no matching protocol entry for the requested operation could be found.
+
+        Examples
+        --------
+        ??? Example
+        ```python
+
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_name="MyRSE"
+            lfns = ["scope1:name1", "scope2:name2"] # Exact format depends on ScopeExtraction implimentation for your rucio instance
+            pfns = rse_client.lfns2pfns(rse_name, lfns)  # Get PFNs for the LFNs on MyRSE
+            > {"scope1:name1": "protocol://host:port/prefix/scope1/name1",
+            >  "scope2:name2": "protocol://host:port/prefix/scope2/name2"}
+
+        ```
         """
         path = '/'.join([self.RSE_BASEURL, rse, 'lfns2pfns'])
         params = []
@@ -445,6 +762,7 @@ class RSEClient(BaseClient):
         """
         Deletes matching protocols from RSE. Protocols using the same identifier can be
         distinguished by hostname and port.
+        If not hostname and port and not provided, all protocols with the same scheme will be deleted.
 
         Parameters
         ----------
@@ -469,6 +787,36 @@ class RSEClient(BaseClient):
             If the RSE doesn't exist.
         AccessDenied
             If not authorized.
+
+        Examples
+        --------
+        ??? Example
+            Delete a specific protocol by providing scheme, hostname, and port
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyRSE"
+            # Only removes the protocol on host1:8443
+            rse_client.delete_protocols(rse_name, scheme='srm', hostname='host1', port=8443)
+            ```
+
+            Delete all protocols with a specific scheme by providing only the scheme
+
+            ```python
+            from rucio.client.client import Client
+
+            rse_client = Client()
+            rse_name="MyRSE"
+            # Removes all SRM protocols, regardless of hostname and port
+            rse_client.delete_protocols(rse_name, scheme='srm')
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_protocols
+        rucio.client.rseclient.RSEClient.add_protocol
         """
         path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
@@ -493,8 +841,12 @@ class RSEClient(BaseClient):
             hostname: Optional[str] = None,
             port: Optional[int] = None):
         """
-        Updates matching protocols from RSE. Protocol using the same identifier can be
-        distinguished by hostname and port.
+        Updates matching protocols from RSE.
+        Protocols are uniquely defined by a combination of identifier, hostname, and port.
+        If hostname and port are not provided, there must be a scheme without hostname and port.
+
+        ** Note ** - You cannot change the hostname and port of a protocol.
+        To change this, the protocol must be deleted and re-made with the new hostname and port.
 
         Parameters
         ----------
@@ -504,6 +856,11 @@ class RSEClient(BaseClient):
             The identifier of the protocol.
         data:
             A dict providing the new values of the protocol attributes. Keys must match column names in database.
+            ** domains **: Dict with domain (lan/wan) as keys and permissions for operations as values. Example: {"lan": {"read": 1, "write": 1, "delete": 1}, "wan": {"read": 1, "write": 1, "delete": 1}}
+            ** prefix **: String used as a prefix for this protocol when generating the PFN.
+            ** impl **: Qualified name of the implementation class for this protocol.
+            ** extended_attributes **: Dict with protocol specific information
+
         hostname:
             The hostname of the protocol.
         port:
@@ -522,6 +879,41 @@ class RSEClient(BaseClient):
             If invalid data was provided for update.
         AccessDenied
             If not authorized.
+
+        Examples
+        --------
+        ??? Example
+
+            Update the prefix attribute of a protocol
+
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_name="MyRSE"
+            # Update the prefix for the protocol with scheme 'srm' on host1:844
+            rse_client.update_protocols(rse_name, scheme='srm', hostname='host1', port=8443, data={'prefix': '/new/prefix'})
+            ```
+
+            [INCORRECT USAGE] Try to update without providing hostname and port where all scheme are defined with those attributes
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_name="MyRSE"
+
+            c.get_protocols(rse_name, scheme='srm')
+            > [{'scheme': 'srm', 'hostname': 'host1', 'port': 8443, 'prefix': '/old/prefix', ...},
+            >  {'scheme': 'srm', 'hostname': 'host2', 'port': 8443, 'prefix': '/old/prefix', ...}]
+
+            c.update_protocols(rse_name, scheme='srm', data={'prefix': '/new/prefix'})
+            > rucio.common.exception.RSEProtocolNotSupported: RSE does not support requested protocol.
+            > Details: RSE 'MyRse' does not support protocol 'srm' for hostname 'None' on port 'None'
+
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_protocols
+        rucio.client.rseclient.RSEClient.add_protocol
         """
         path = [self.RSE_BASEURL, rse, 'protocols', scheme]
         if hostname:
@@ -593,6 +985,7 @@ class RSEClient(BaseClient):
                               protocol_b['hostname'], protocol_b['port'])
         return True
 
+    # TODO Remove QoS functionality, #8509
     def add_qos_policy(self, rse: str, qos_policy: str) -> Literal[True]:
         """
         Add a QoS policy to an RSE.
@@ -689,23 +1082,39 @@ class RSEClient(BaseClient):
     ) -> Literal[True]:
         """
         Set RSE usage information.
+        Added to the history of the RSE usage, for monitoring and accounting.
 
         Parameters
         ----------
         rse:
             The RSE name.
         source:
-            The information source, e.g. srm.
+            The information source, any string used for accounting and documenting source of usage inforrmation
         used:
-            The used space in bytes.
+            The used space in bytes
         free:
-            The free space in bytes.
+            The free space in bytes
         files:
-            The number of files.
+            The number of files, optional.
 
         Returns
         -------
-        True if successful.
+        True if successful
+
+        Examples
+        --------
+        ??? Example
+            Set RSE usage information
+
+            ```python
+            from rucio.client.client import Client
+            Client().set_rse_usage("MyRse", source="automated_script", used=1000000000, free=500000000)
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_rse_usage
+        rucio.client.rseclient.RSEClient.list_rse_usage_history
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
@@ -724,18 +1133,33 @@ class RSEClient(BaseClient):
             filters: Optional[dict[str, Any]] = None
     ) -> "Iterator[dict[str, Any]]":
         """
-        Get RSE usage information.
+        Get RSE usage information as set by `RSEClient.set_rse_usage`. Will only show the most recent usage of a source.
 
         Parameters
         ----------
         rse:
             The RSE name.
         filters:
-            dictionary of attributes by which the results should be filtered
+            Optional filters to apply.
+                ** source ** [str]: Source of usage
+                ** used ** [int]: Used space in bytes
+                ** free ** [int]: Free space in bytes
+                ** files ** [int|None]: Number of files
 
         Returns
         -------
-        True if successful, otherwise false.
+        List of dictionaries, containing the following:
+            ** rse_id ** [str]: The RSE id
+            ** source ** [str]: Source of usage
+            ** used ** [int]: Used space in bytes
+            ** free ** [int]: Free space in bytes
+            ** files ** [int|None]: Number of files
+            ** updated_at ** [datetime.datetime]: Timestamp of the usage information
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.set_rse_usage
+        rucio.client.rseclient.RSEClient.list_rse_usage_history
         """
         path = [self.RSE_BASEURL, rse, 'usage']
         path = '/'.join(path)
@@ -760,11 +1184,27 @@ class RSEClient(BaseClient):
         rse:
             The RSE name.
         filters:
-            dictionary of attributes by which the results should be filtered
+            Optional filters to apply.
+                ** source ** [str]: Source of usage
+                ** used ** [int]: Used space in bytes
+                ** free ** [int]: Free space in bytes
+                ** files ** [int|None]: Number of files
 
         Returns
         -------
-        list of dictionaries
+        List of dictionaries, containing the following:
+            ** rse_id ** [str]: The RSE id
+            ** source ** [str]: Source of usage
+            ** used ** [int]: Used space in bytes
+            ** free ** [int]: Free space in bytes
+            ** files ** [int|None]: Number of files
+            ** updated_at ** [datetime.datetime]: Timestamp of the usage information
+        Will show all historical usage information for the RSE, including the current usage information as set by `RSEClient.set_rse_usage`
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.set_rse_usage
+        rucio.client.rseclient.RSEClient.list_rse_usage_history
         """
         path = [self.RSE_BASEURL, rse, 'usage', 'history']
         path = '/'.join(path)
@@ -785,7 +1225,12 @@ class RSEClient(BaseClient):
             value: int
     ) -> Literal[True]:
         """
-        Set RSE limit information.
+        Set the limit for the amount of data that can be stored on the RSE.
+        If an RSE limit with the same name already exists, it will be overwritten.
+
+        The name "MaxSpaceAvailable" will be used to when selecting RSEs create replicas
+        if multiple RSEs match rule requirements and have the avaiable quotas.
+
 
         Parameters
         ----------
@@ -794,11 +1239,28 @@ class RSEClient(BaseClient):
         name:
             The name of the limit.
         value:
-            The feature value.
+            Limit given in bytes.
 
         Returns
         -------
         True if successful.
+
+
+        Examples
+        --------
+        ??? Example
+            Set a limit for the amount of data that can be stored on an RSE
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_name="MyRSE"
+            rse_client.set_rse_limits(rse_name, name="MaxSpaceAvailable", value=1000000000000)  # Set a limit of 1TB for the RSE
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.get_rse_limits
+        rucio.client.rseclient.RSEClient.delete_rse_limits
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
@@ -825,7 +1287,24 @@ class RSEClient(BaseClient):
 
         Returns
         -------
-        An iterator of RSE limits as dicts with 'name' and 'value' as keys.
+        Dictionaries with the name and value of each limit for the RSE.
+
+        Examples
+        --------
+        ??? Example
+            Get RSE limits
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_name="MyRSE"
+            rse_client.get_rse_limits(rse_name)
+            > {"MaxSpaceAvailable": 1000000000000, "AnotherLimit": 500000000000}
+
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.set_rse_limits
+        rucio.client.rseclient.RSEClient.delete_rse_limits
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
@@ -847,11 +1326,21 @@ class RSEClient(BaseClient):
         rse:
             The RSE name.
         name:
-            The name of the limit.
+            The name of the limit, can be any limit made with `set_rse_limits`.
 
         Returns
         -------
-        True if successful.
+        True if successful, will not fail if the limit did not exist.
+
+        Raises
+        ------
+        RSENotFound
+            If the RSE doesn't exist.
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.set_rse_limits
+        rucio.client.rseclient.RSEClient.get_rse_limits
         """
         path = [self.RSE_BASEURL, rse, 'limits']
         path = '/'.join(path)
@@ -872,11 +1361,40 @@ class RSEClient(BaseClient):
             parameters: dict[str, int]
     ) -> Literal[True]:
         """
-        Add a src-dest distance.
+        Add a distance between two RSEs.
+        Distances are used to deterimine paths between RSEs during transfers, a lower distance will be preferred over a higher one.
 
-        :param source: The source.
-        :param destination: The destination.
-        :param parameters: A dictionary with property.
+        RSEs must have distances between them for them to be used in multi-hop transfers.
+
+        Parameters
+        ----------
+        source :
+            The source RSE name.
+        destination :
+            The destination RSE name.
+        parameters :
+            Dicionary in the format {"distance": int}.
+
+        Returns
+        -------
+        True if successful.
+
+        Raises
+        ------
+        Duplicate
+            If a distance between the RSEs already exists.
+        RSENotFound
+            If either of the RSEs doesn't exist.
+
+        Examples
+        --------
+        ??? Example
+            Add a distance between two RSEs
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_client.add_distance(source="RSE1", destination="RSE2", parameters={"distance": 10})
+            ```
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -896,7 +1414,9 @@ class RSEClient(BaseClient):
             parameters: dict[str, int]
     ) -> Literal[True]:
         """
-        Update distances with the given RSE ids.
+        Update distances between RSEs.
+
+        If the distance does not exist, it will not be created.
 
         Parameters
         ----------
@@ -905,7 +1425,27 @@ class RSEClient(BaseClient):
         destination :
             The destination RSE.
         parameters :
-            A dictionary with property
+            Updated distance in the form {"distance": int}.
+
+        Returns
+        -------
+        True if successful.
+
+        Examples
+        --------
+        ??? Example
+            Add a distance between two RSEs
+            ```python
+            from rucio.client.client import Client
+            rse_client = Client()
+            rse_client.add_distance(source="RSE1", destination="RSE2", parameters={"distance": 10})
+
+            rse_client.update_distance(source="RSE1", destination="RSE2", parameters={"distance": 20})  # Update the distance to 20
+            ```
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.add_distance
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -931,12 +1471,21 @@ class RSEClient(BaseClient):
         source :
             The source RSE.
         destination :
-
             The destination RSE.
 
         Returns
         -------
             A list of dictionaries with the distance information.
+            Each dictionary contains the following keys:
+            ** created_at ** [datetime.datetime]: Datetime when the distance was created.
+            ** updated_at ** [datetime.datetime]: Datetime when the distance was last updated.
+            ** src_rse_id ** [str]:  ID of the source RSE.
+            ** src_rse ** [str]: Name of source RSE.
+            ** dest_rse_id ** [str]: ID of the destination RSE.
+            ** dest_rse ** [str]: Name of destination RSE.
+            ** distance ** [int]: Value of distance between RSEs.
+            ** ranking ** [int]: Legacy name for distance, same value as distance.
+
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
@@ -955,12 +1504,23 @@ class RSEClient(BaseClient):
         """
         Delete distances with the given RSE ids.
 
+        If both source->destination and destination->source distances exist, only the source->destination distance will be deleted.
+
         Parameters
         ----------
         source :
             The source
         destination :
             The destination
+
+        Returns
+        -------
+            True if successful.
+
+        Raises
+        ------
+        RSENotFound
+            If either of the RSEs doesn't exist.
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
