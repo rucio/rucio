@@ -307,7 +307,7 @@ def set_rse_usage(rse, source, used, free, issuer, files=None, vo=DEFAULT_VO):
     Set RSE usage information.
 
     :param rse: The RSE name.
-    :param source: the information source, e.g. srm.
+    :param source: the information source.
     :param used: the used space in bytes.
     :param free: the free space in bytes.
     :param issuer: The issuer account.
@@ -356,7 +356,7 @@ def list_rse_usage_history(rse, issuer, source=None, vo=DEFAULT_VO):
 
     :param rse: The RSE name.
     :param issuer: The issuer account.
-    :param source: The source of the usage information (srm, rucio).
+    :param source: The source of the usage information (e.g. rucio).
     :param vo: The VO to act on.
 
     :returns: A list of historic RSE usage.

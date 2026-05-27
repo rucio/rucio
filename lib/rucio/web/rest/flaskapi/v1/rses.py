@@ -865,7 +865,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
           required: True
         - name: scheme
           in: query
-          description: "Optional argument to help with the protocol selection (e.g., http / srm)"
+          description: "Optional argument to help with the protocol selection (e.g., http / root)"
           schema:
             type: string
         - name: domain
