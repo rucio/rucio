@@ -61,10 +61,6 @@ class TestDumper:
         with patch('os.path.exists', Mock(return_value=True)):
             assert dumper.cacert_config(config, '.') is False
 
-    def test_cacert_config_no_cfg_found(self):
-        with patch('os.path.exists', Mock(return_value=True)):
-            assert dumper.cacert_config(config, '.') is False
-
     @pytest.mark.parametrize("file_config_mock", [
         {"overrides": [('client', 'ca_cert', '/opt/rucio/etc/web/ca.crt')]},
     ], indirect=True)
