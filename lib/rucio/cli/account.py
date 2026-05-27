@@ -82,19 +82,100 @@ def show(ctx: click.Context, account_name: str):
     """
     Show info about a single account
     """
-    info = ctx.obj.client.get_account(account=account_name)
     if ctx.obj.use_rich:
-        keyword_style = {**CLITheme.ACCOUNT_STATUS, **CLITheme.ACCOUNT_TYPE}
-        table_data = [(k, Text(str(v), style=keyword_style.get(str(v), 'default'))) for k, v in sorted(info.items())]
-        table = generate_table(
+        ctx.obj.spinner.update(status='Fetching account info')
+        ctx.obj.spinner.start()
+        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE}
+
+    settings = ctx.obj.client.get_account(account=account_name)
+    attributes = next(ctx.obj.client.list_account_attributes(account_name))
+    local_limits = list(ctx.obj.client.get_local_account_usage(account=account_name))
+    global_limits = []
+    for limit_rse in ctx.obj.client.get_global_account_limits(account=account_name).keys():  # Get all the rse expressions with limits
+        # Get the usage for that RSE Expression
+        global_limits += list(ctx.obj.client.get_global_account_usage(account=account_name, rse_expression=limit_rse))
+    identities = ctx.obj.client.list_identities(account=account_name)
+
+    if ctx.obj.use_rich:
+        output = []
+        # Settings
+        # Key and value pairs
+        output.append("[b]Settings:[/]")
+        table_data = [[key, Text(str(item), style=keyword_styles.get(str(item), 'default'))] for key, item in settings.items()]
+        output.append(generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left']))
+
+        # table with "Key" and "Value" for each plugin, with the plugin type as a header
+        output.append("[b]Attributes:[/]\n")
+        table_data = [[attr['key'], Text(str(attr['value']), style=keyword_styles.get(str(attr['value']), 'default'))] for attr in attributes]
+        output.append(generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left']))
+
+        # Local and global limits
+        output.append(Text("Local Limits", style=CLITheme.SUBHEADER_HIGHLIGHT))
+        table_data = [[limit['rse'],
+                Text(sizefmt(limit['bytes'], ctx.obj.human), style=keyword_styles.get(str(limit['bytes']), 'default')),
+                Text(sizefmt(limit['bytes_limit'], ctx.obj.human), style=keyword_styles.get(str(limit['bytes_limit']), 'default')),
+                Text(sizefmt(0 if float(limit['bytes_remaining']) < 0 else float(limit['bytes_remaining']), ctx.obj.human), style=keyword_styles.get(str(limit['bytes_remaining']), 'default'))
+            ] for limit in local_limits]
+        output.append(generate_table(
             table_data,
             row_styles=['none'],
-            col_alignments=['left', 'left']
+            headers=["RSE", "USAGE", "LIMIT", "QUOTA LEFT"],
+            col_alignments=['right', 'left', 'left', 'left'])
         )
-        print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+
+        output.append(Text("Global Limits", style=CLITheme.SUBHEADER_HIGHLIGHT))
+        table_data = [[limit['rse_expression'],
+                       Text(sizefmt(limit['bytes'], ctx.obj.human), style=keyword_styles.get(str(limit['bytes']), 'default')),
+                       Text(sizefmt(limit['bytes_limit'], ctx.obj.human), style=keyword_styles.get(str(limit['bytes_limit']), 'default')),
+                       Text(sizefmt(0 if float(limit['bytes_remaining']) < 0 else float(limit['bytes_remaining']), ctx.obj.human), style=keyword_styles.get(str(limit['bytes_remaining']), 'default'))
+                    ] for limit in global_limits]
+        output.append(generate_table(
+            table_data,
+            row_styles=['none'],
+            headers=["RSE EXPRESSION", "USAGE", "LIMIT", "QUOTA LEFT"],
+            col_alignments=['right', 'left', 'left', 'left'])
+        )
+
+        output.append(Text("Identities", style=CLITheme.SUBHEADER_HIGHLIGHT))
+        table_data = [[identity['identity'], Text(identity['type'], style=keyword_styles.get(str(identity['type']), 'default'))] for identity in identities]
+        output.append(generate_table(table_data, row_styles=['none'], headers=["IDENTITY", "TYPE"], col_alignments=['left', 'left']))
+
+        ctx.obj.spinner.stop()
+        print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+
     else:
-        for k in info:
-            print(k.ljust(10) + ' : ' + str(info[k]))
+        print("Settings\n===========")
+        for key, value in settings.items():
+            print(f"{ctx.obj.spacing}{key}: {value}")
+
+        print("Attributes\n===========")
+        for attr in attributes:
+            print(f"{ctx.obj.spacing}{attr['key']}: {attr['value']}")
+
+        print("Limits\n===========")
+        if len(list(local_limits)) != 0:
+            print(f"{ctx.obj.spacing}Local limits")
+            table_data = []
+            for limit in local_limits:
+                remaining = 0 if float(limit['bytes_remaining']) < 0 else float(limit['bytes_remaining'])
+                table_data.append([limit['rse'], sizefmt(limit['bytes'], ctx.obj.human), sizefmt(limit['bytes_limit'], ctx.obj.human), sizefmt(remaining, ctx.obj.human)])
+            print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+        if len(list(global_limits)) != 0:
+            print(f"{ctx.obj.spacing}Global limits")
+            table_data = []
+            for limit in global_limits:
+                remaining = 0 if float(limit['bytes_remaining']) < 0 else float(limit['bytes_remaining'])
+                table_data.append([limit['rse_expression'], sizefmt(limit['bytes'], ctx.obj.human), sizefmt(limit['bytes_limit'], ctx.obj.human), sizefmt(remaining, ctx.obj.human)])
+            print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
+
+        print("Identities\n===========")
+        table_data = []
+        for identity in identities:
+            if len(identity['identity']) > 100:
+                identity['identity'] = f"{identity['identity'][:20]} ... {identity['identity'][-20:]} (truncated)"
+            table_data.append([identity['identity'], identity['type']])
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['IDENTITY', 'TYPE']))
 
 
 @account.command("remove")
