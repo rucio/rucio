@@ -467,7 +467,7 @@ def get_hops(
     :param dest_rse_id:         Dest RSE id of the transfer.
     :param multihop_rse_ids:    List of RSE ids that can be used for multihop. If empty, multihop is disabled.
     :param limit_dest_schemes:  List of destination schemes the matching scheme algorithm should be limited to for a single hop.
-    :returns:                   List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'srm', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'srm', 'dest_scheme_priority': N}]
+    :returns:                   List of hops in the format [{'source_rse_id': source_rse_id, 'source_scheme': 'file', 'source_scheme_priority': N, 'dest_rse_id': dest_rse_id, 'dest_scheme': 'file', 'dest_scheme_priority': N}]
     :raises:                    NoDistance
     """
     if not limit_dest_schemes:
