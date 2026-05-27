@@ -357,24 +357,24 @@ def metadata() -> None:
     """Manage metadata for DIDs"""
 
 
-@metadata.command("add")
+@metadata.command("set")
 @click.argument("did")
 @click.option('--key', help='Attribute key', required=True)
 @click.option('--value', help='Attribute value', required=True)
 @click.pass_context
-def metadata_add_(ctx: click.Context, did: str, key: str, value: Union[str, float]) -> None:
-    """Add metadata to a DID"""
+def metadata_set(ctx: click.Context, did: str, key: str, value: Union[str, float]) -> None:
+    """Define metadata for a DID"""
     if key == 'lifetime':
         value = None if value.lower() == 'none' else float(value)  # type: ignore
     scope, name = get_scope(did, ctx.obj.client)
     ctx.obj.client.set_metadata(scope=scope, name=name, key=key, value=value)
 
 
-@metadata.command("remove")
+@metadata.command("unset")
 @click.argument("did")
 @click.option("--key", help="Key to remove from a DID's metadata.", required=True)
 @click.pass_context
-def metadata_remove(ctx: click.Context, did: str, key: str) -> None:
+def metadata_unset(ctx: click.Context, did: str, key: str) -> None:
     """Remove metadata from a DID"""
     scope, name = get_scope(did, ctx.obj.client)
     ctx.obj.client.delete_metadata(scope=scope, name=name, key=key)

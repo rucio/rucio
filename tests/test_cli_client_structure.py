@@ -157,10 +157,16 @@ def test_account(rucio_client):
 
 def test_account_attribute(jdoe_account):
     fake_key = generate_uuid()[:15]
-    cmd = f"rucio account attribute add {jdoe_account} --key test_{fake_key}_key --value True"
+    cmd = f"rucio account attribute set {jdoe_account} --key test_{fake_key}_key --value True"
     exitcode, _, log = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in log
+
+    cmd = f"rucio -v account attribute set {jdoe_account} --key test_{fake_key}_key --value False"
+    exitcode, _, log = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in log
+    assert f"test_{fake_key}_key already exists" in log
 
     cmd = f"rucio account attribute list {jdoe_account}"
     exitcode, out, err = execute(cmd)
@@ -169,7 +175,7 @@ def test_account_attribute(jdoe_account):
     assert "ERROR" not in err
     assert f"test_{fake_key}_key" in out
 
-    cmd = f"rucio account attribute remove {jdoe_account} --key test_{fake_key}_key"
+    cmd = f"rucio account attribute unset {jdoe_account} --key test_{fake_key}_key"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -216,7 +222,7 @@ def test_account_limit(jdoe_account, rucio_client):
     mock_rse = "MOCK"
 
     bytes_limit = 10
-    cmd = f"rucio account limit add {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
+    cmd = f"rucio account limit set {jdoe_account} --rse {mock_rse} --bytes {bytes_limit}"
     _, _, set_log = execute(cmd)
     assert "ERROR" not in set_log
     assert bytes_limit == rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse]
@@ -226,12 +232,12 @@ def test_account_limit(jdoe_account, rucio_client):
     assert "ERROR" not in err
     assert mock_rse in out
 
-    cmd = f"rucio account limit remove {jdoe_account} --rse {mock_rse}"
+    cmd = f"rucio account limit unset {jdoe_account} --rse {mock_rse}"
     _, _, rm_log = execute(cmd)
     assert "ERROR" not in rm_log
     assert rucio_client.get_account_limits(jdoe_account, mock_rse, locality="local")[mock_rse] is None
 
-    cmd = f"rucio account limit add {jdoe_account} --rse {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
+    cmd = f"rucio account limit set {jdoe_account} --rse {mock_rse} --bytes {bytes_limit} --locality NotAnOption"
     exitcode, _, _ = execute(cmd)
     assert exitcode == 1  # Fails bc locality is limited to local or global
 
@@ -244,62 +250,42 @@ def test_config():
     assert "ERROR" not in err
 
     section = str(generate_uuid())
-    option = "new_option"
-    value = "new_value"
+    option = str(generate_uuid())[:8]
+    value = str(generate_uuid())[:8]
 
-    cmd = f"rucio config add --section {section} --key {option} --value {value}"
+    cmd = f"rucio config set --section {section} --key {option} --value {value}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
-    assert "ERROR" not in err
-
-    # Verify you cannot "add" on top of a section that already exists
-    cmd = f"rucio config add --section {section} --key {option} --value {value}"
-    exitcode, _, err = execute(cmd)
-    assert "ERROR" in err
-
-    # But you can add a different option
-    cmd = f"rucio config add --section {section} --key {section} --value {section}"
-    exitcode, _, err = execute(cmd)
     assert "ERROR" not in err
 
     exitcode, out, err = execute(f"rucio config list --section {section} --key {option}")
     assert exitcode == 0
     assert "ERROR" not in err
     assert value in out
+    assert option in out
 
-    cmd = f"rucio config remove --section {section} --key {option}"
+    # But you can set a different option over it, logs a warning
+    cmd = f"rucio -v config set --section {section} --key {option} --value {value}2"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert f"{section}.{option} already exists" in err
+
+    exitcode, out, err = execute(f"rucio config list --section {section} --key {option}")
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert value + '2' in out
+
+    cmd = f"rucio config unset --section {section} --key {option}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
 
-    exitcode, out, err = execute(f"rucio config list --section {section}")
+    exitcode, out, err = execute("rucio config list")
     assert exitcode == 0
     assert "ERROR" not in err
     assert value not in out
-
-    # Verify you can update
-    section = str(generate_uuid())
-    new_value = "newer_value"
-
-    # Using `update` on a non-existent field is not allowed
-    cmd = f"rucio config update --section {section} --key {option} --value {value}"
-    exitcode, _, err = execute(cmd)
-    assert "ERROR" in err
-
-    # Re-adding to the existing option
-    cmd = f"rucio config add --section {section} --key {option} --value {value}"
-    exitcode, _, err = execute(cmd)
-    assert "ERROR" not in err
-
-    # Use update to change it to the new value
-    cmd = f"rucio config update --section {section} --key {option} --value {new_value}"
-    exitcode, _, err = execute(cmd)
-    assert exitcode == 0
-    assert "ERROR" not in err
-
-    exitcode, out, err = execute(f"rucio config list --section {section}")
-    assert exitcode == 0
-    assert new_value in out
+    assert value + '2' not in out
+    assert option not in out
 
 
 @pytest.mark.parametrize("file_config_mock", [
@@ -449,7 +435,7 @@ def test_did_metadata(rucio_client, root_account):
     rucio_client.add_did(scope=scope, name=dataset, did_type="dataset")
 
     metadata_value = f"mock_{generate_uuid()[:15]}"
-    cmd = f"rucio did metadata add {scope}:{dataset} --key project --value {metadata_value}"
+    cmd = f"rucio did metadata set {scope}:{dataset} --key project --value {metadata_value}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -628,16 +614,46 @@ def test_rse(rucio_client):
 
 def test_rse_attribute():
     rse_name = rse_name_generator()
+    attr_name = str(generate_uuid())[:8]
+    attr_value = str(generate_uuid())[:8]
+
     _, _, err = execute(f"rucio rse add {rse_name}")
     assert "ERROR" not in err
 
-    cmd = f"rucio rse attribute list {rse_name}"
-    _, _, err = execute(cmd)
+    cmd = f"rucio rse attribute set {rse_name} --key {attr_name} --value {attr_value}"
+    exitcode, out, err = execute(cmd)
+    print(out, err)
     assert "ERROR" not in err
+    assert exitcode == 0
 
-    cmd = f"rucio rse attribute add {rse_name} --key name --value {rse_name}"
-    _, _, err = execute(cmd)
+    cmd = f"rucio rse attribute list {rse_name}"
+    exitcode, out, err = execute(cmd)
     assert "ERROR" not in err
+    assert attr_name in out
+    assert attr_value in out
+
+    cmd = f"rucio -v rse attribute set {rse_name} --key {attr_name} --value {attr_value}2"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+
+    cmd = f"rucio rse attribute list {rse_name}"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert attr_name in out
+    assert attr_value + '2' in out
+
+    cmd = f"rucio -v rse attribute unset {rse_name} --attribute {attr_name}"
+    exitcode, _, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+
+    cmd = f"rucio rse attribute list {rse_name}"
+    exitcode, out, err = execute(cmd)
+    assert "ERROR" not in err
+    assert exitcode == 0
+    assert attr_name not in out
 
 
 def test_rse_protocol():
@@ -663,13 +679,13 @@ def test_rse_distance():
     source_rse = "MOCK"
     dest_rse = "MOCK2"
 
-    cmd = f"rucio rse distance remove {source_rse} {dest_rse}"
+    cmd = f"rucio rse distance unset {source_rse} {dest_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     if "ERROR" in err:
         assert f"Distance from {source_rse} to {dest_rse}" in err
 
-    cmd = f"rucio rse distance add {source_rse} {dest_rse} --distance 1"
+    cmd = f"rucio rse distance set {source_rse} {dest_rse} --distance 1"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -681,7 +697,7 @@ def test_rse_distance():
     assert dest_rse in out
     assert "1" in out
 
-    cmd = f"rucio rse distance update {source_rse} {dest_rse} --distance 10"
+    cmd = f"rucio rse distance set {source_rse} {dest_rse} --distance 10"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -693,7 +709,7 @@ def test_rse_distance():
     assert dest_rse in out
     assert "10" in out
 
-    cmd = f"rucio rse distance remove {source_rse} {dest_rse}"
+    cmd = f"rucio rse distance unset {source_rse} {dest_rse}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -703,13 +719,13 @@ def test_rse_limits(rucio_client):
     mock_rse = 'MOCK'
     limit = "mock_limit"
 
-    cmd = f"rucio rse limit add {mock_rse} --limit {limit} 100"
+    cmd = f"rucio rse limit set {mock_rse} --limit {limit} 100"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert 100 == rucio_client.get_rse_limits(mock_rse)[limit]
 
-    cmd = f"rucio rse limit remove {mock_rse} --limit {limit}"
+    cmd = f"rucio rse limit unset {mock_rse} --limit {limit}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -719,13 +735,13 @@ def test_rse_limits(rucio_client):
         pass
 
     not_int_limit = "askjd"
-    cmd = f"rucio rse limit add {mock_rse} --limit {limit}_2 {not_int_limit}"
+    cmd = f"rucio rse limit set {mock_rse} --limit {limit}_2 {not_int_limit}"
     exitcode, _, err = execute(cmd)
     assert exitcode != 0
     assert f"'{not_int_limit}' is not a valid integer" in err  # The click error message for invalid type
 
     non_existent_limit = "askjd"
-    cmd = f"rucio rse limit remove {mock_rse} --limit {non_existent_limit}"
+    cmd = f"rucio rse limit unset {mock_rse} --limit {non_existent_limit}"
     exitcode, _, err = execute(cmd)
     assert exitcode != 0
     assert f'Limit {non_existent_limit} not defined in RSE {mock_rse}' in err
