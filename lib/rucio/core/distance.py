@@ -14,7 +14,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import aliased
 
@@ -28,19 +28,24 @@ if TYPE_CHECKING:
 
 
 @transactional_session
-def add_distance(src_rse_id: str, dest_rse_id: str, distance: Optional[int] = None, *, session: "Session") -> None:
+def add_distance(src_rse_id: str, dest_rse_id: str, distance: Optional[int] = None, bidirectional: bool = False, *, session: "Session") -> None:
     """
     Add a src-dest distance.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
     :param distance: Distance as an integer.
+    :param bidirectional: If True, also adds the distance from dest to src.
     :param session: The database session to use.
     """
+    pairs = [(src_rse_id, dest_rse_id)]
+    if bidirectional:
+        pairs.append((dest_rse_id, src_rse_id))
 
     try:
-        new_distance = Distance(src_rse_id=src_rse_id, dest_rse_id=dest_rse_id, distance=distance)
-        new_distance.save(session=session)
+        for src, dest in pairs:
+            new_distance = Distance(src_rse_id=src, dest_rse_id=dest, distance=distance)
+            new_distance.save(session=session)
     except IntegrityError:
         raise exception.Duplicate()
     except DatabaseError as error:
@@ -83,51 +88,62 @@ def get_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] =
 
 
 @transactional_session
-def delete_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] = None, *, session: "Session") -> None:
+def delete_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] = None, bidirectional: bool = False, *, session: "Session") -> None:
     """
     Delete distances with the given RSE IDs.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
+    :param bidirectional: If True, also deletes the distance from dest to src.
     :param session: The database session to use.
     """
 
     if not dest_rse_id or not src_rse_id:
         return
     try:
-        stmt = delete(
-            Distance
-        ).where(
-            and_(Distance.src_rse_id == src_rse_id,
-                 Distance.dest_rse_id == dest_rse_id)
-        )
+        condition = and_(Distance.src_rse_id == src_rse_id, Distance.dest_rse_id == dest_rse_id)
+
+        if bidirectional:
+            condition = or_(
+                condition,
+                and_(Distance.src_rse_id == dest_rse_id, Distance.dest_rse_id == src_rse_id)
+            )
+
+        stmt = delete(Distance).where(condition)
         session.execute(stmt)
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
 
 @transactional_session
-def update_distances(src_rse_id: Optional[str] = None, dest_rse_id: Optional[str] = None, distance: Optional[str] = None, *, session: "Session") -> None:
+def update_distances(src_rse_id: str, dest_rse_id: str, distance: Optional[int] = None, bidirectional: bool = False, *, session: "Session") -> None:
     """
     Update distances with the given RSE IDs.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
-    :param distance: The new distance to set
+    :param distance: The new distance to set.
+    :param bidirectional: If True, also updates the distance from dest to src.
     :param session: The database session to use.
     """
     if not dest_rse_id or not src_rse_id:
         return
+
+    pairs = [(src_rse_id, dest_rse_id)]
+    if bidirectional:
+        pairs.append((dest_rse_id, src_rse_id))
+
     try:
-        stmt = update(
-            Distance
-        ).where(
-            and_(Distance.src_rse_id == src_rse_id,
-                 Distance.dest_rse_id == dest_rse_id)
-        ).values({
-            Distance.distance: distance
-        })
-        session.execute(stmt)
+        for src, dest in pairs:
+            stmt = update(
+                Distance
+            ).where(
+                and_(Distance.src_rse_id == src,
+                     Distance.dest_rse_id == dest)
+            ).values({
+                Distance.distance: distance
+            })
+            session.execute(stmt)
     except IntegrityError as error:
         raise exception.RucioException(error.args)
 
