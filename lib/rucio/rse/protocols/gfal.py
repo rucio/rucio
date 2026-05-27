@@ -40,7 +40,7 @@ TIMEOUT = config.config_get('deletion', 'timeout', False, None)
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the srm protocol."""
+    """ Implementing access to RSEs using the gfal protocol."""
 
     def lfns2pfns(self, lfns):
         """
