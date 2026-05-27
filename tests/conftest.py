@@ -318,7 +318,8 @@ def random_account(vo: str) -> "Iterator[InternalAccount]":
     from rucio.common.types import InternalAccount
     from rucio.core.account import add_account, del_account
     from rucio.db.sqla import models
-    from rucio.db.sqla.constants import AccountType
+    from rucio.db.sqla.constants import AccountType, DatabaseOperationType
+    from rucio.db.sqla.session import db_session
     from rucio.tests.common_server import cleanup_db_deps
 
     account = InternalAccount(''.join(random.choice(string.ascii_lowercase) for _ in range(10)), vo=vo)
@@ -330,10 +331,12 @@ def random_account(vo: str) -> "Iterator[InternalAccount]":
         c.delete_account(account=account.external)
 
     else:
-        add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com', session=session)
         yield account
         cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
-        del_account(account)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            del_account(account, session=session)
 
 
 @pytest.fixture
@@ -345,7 +348,8 @@ def random_account_factory(vo: str) -> "Iterator[InternalAccount]":
     from rucio.common.types import InternalAccount
     from rucio.core.account import add_account, del_account
     from rucio.db.sqla import models
-    from rucio.db.sqla.constants import AccountType
+    from rucio.db.sqla.constants import AccountType, DatabaseOperationType
+    from rucio.db.sqla.session import db_session
     from rucio.tests.common_server import cleanup_db_deps
 
     made_accounts = []
@@ -357,7 +361,8 @@ def random_account_factory(vo: str) -> "Iterator[InternalAccount]":
             c = Client(vo=vo)
             c.add_account(account=account.external, type_="user", email=f'{account.external}@email.com')
         else:
-            add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com')
+            with db_session(DatabaseOperationType.WRITE) as session:
+                add_account(account=account, type_=AccountType.USER, email=f'{account.external}@email.com', session=session)
         return account
 
     yield make_account
@@ -368,7 +373,8 @@ def random_account_factory(vo: str) -> "Iterator[InternalAccount]":
             c.delete_account(account=account.external)
         else:
             cleanup_db_deps(model=models.Account, select_rows_stmt=models.Account.account == account)
-            del_account(account)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                del_account(account, session=session)
 
 
 @pytest.fixture(scope="module")
