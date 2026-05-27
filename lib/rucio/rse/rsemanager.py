@@ -71,7 +71,7 @@ def get_rse_info(
                     deterministic      ...     boolean indicating of the naming of the files follows the defined determinism
                     domain            ...     indicating the domain that should be assumed for transfers. Values are 'ALL', 'LAN', or 'WAN'
                     protocols         ...     all supported protocol in form of a list of dict objects with the following structure
-                    - scheme              ...     protocol scheme e.g. http, srm, ...
+                    - scheme              ...     protocol scheme e.g. http, ...
                     - hostname            ...     hostname of the site
                     - prefix              ...     path to the folder where the files are stored
                     - port                ...     port used for this protocol
