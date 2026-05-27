@@ -107,6 +107,64 @@ def test_help_menus():
             continue
 
 
+@pytest.mark.skipif(os.environ.get('POLICY') == 'atlas', reason='ATLAS config does not allow for CLI modification')
+@pytest.mark.noparallel(reason='Modifies the configuration file')
+def test_setting_command_options(rucio_client):
+    # Show removing an option does not allow you to use it
+    rucio_client.set_config_option("cli", "endpoints_remove", "account")
+    try:
+        cmd = "rucio account --help"
+        exitcode, _, err = execute(cmd)
+        print(err)
+        assert exitcode == 1
+
+    finally:
+        # teardown
+        rucio_client.delete_config_section("cli")
+
+    # Show adding that option back in lets you use it
+    # lifetime-exception is a non-default option
+    rucio_client.set_config_option("cli", "endpoints_add", "lifetime-exception")
+    try:
+        cmd = "rucio lifetime-exception --help"
+        exitcode, _, _ = execute(cmd)
+        assert exitcode == 0
+    finally:
+        rucio_client.delete_config_section("cli")
+
+    # Show replacing the whole thing only lets you use that option
+    rucio_client.set_config_option("cli", "endpoints", "config")
+    try:
+        cmd = "rucio ping --help"
+        exitcode, _, err = execute(cmd)
+        print(err)
+        assert exitcode == 0
+
+        cmd = "rucio config --help"
+        exitcode, _, err = execute(cmd)
+        print(err)
+        assert exitcode == 0
+
+        cmd = "rucio account --help"
+        exitcode, _, _ = execute(cmd)
+        assert exitcode == 1
+    finally:
+        rucio_client.delete_config_section("cli")
+
+    # Raise a non-implemented when trying to use a command that has no implementation
+    rucio_client.set_config_option("cli", "endpoints_add", "not-a-real-command")
+    try:
+        cmd = "rucio not-a-real-command --help"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 1
+
+        cmd = "rucio ping --help"
+        exitcode, _, err = execute(cmd)
+        assert exitcode == 1
+    finally:
+        rucio_client.delete_config_section("cli")
+
+
 def test_account(rucio_client):
     new_account = account_name_generator()
     command = f"rucio account add {new_account} USER"
@@ -481,8 +539,12 @@ def test_upload_download():
     assert exitcode != 2  # Failure is not due to the command structure
 
 
+@pytest.mark.noparallel(reason='Modifies the configuration file')
 def test_lifetime_exception(rucio_client, mock_scope):
     from rucio.client.uploadclient import UploadClient
+
+    # Add the lifetime-exception endpoint
+    rucio_client.set_config_option("cli", "endpoints_add", "lifetime-exception")
 
     input_file = tempfile.NamedTemporaryFile()
     mock_did = tempfile.NamedTemporaryFile()

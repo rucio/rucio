@@ -27,22 +27,57 @@ from rucio import version
 from rucio.cli.bin_legacy.rucio import ping, test_server, whoami_account
 from rucio.cli.utils import Arguments, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
+from rucio.common.config import config_get_list
+from rucio.common.exception import ConfigurationError
 from rucio.common.utils import setup_logger
 
 
 # Taken directly from https://click.palletsprojects.com/en/stable/complex/#defining-the-lazy-group
 class LazyGroup(click.Group):
-    def __init__(self, *args, lazy_subcommands=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # lazy_subcommands is a map of the form:
-        #
-        #   {command-name} -> {module-name}.{command-object-name}
-        #
-        self.lazy_subcommands = lazy_subcommands or {}
+
+        self.DEFAULT_COMMANDS = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata"}
+        self.command_locs = {
+            "account": "rucio.cli.account.account",
+            "config": "rucio.cli.config.config",
+            "did": "rucio.cli.did.did",
+            "download": "rucio.cli.download.download",
+            "lifetime-exception": "rucio.cli.lifetime_exception.lifetime_exception",
+            "replica": "rucio.cli.replica.replica",
+            "rse": "rucio.cli.rse.rse",
+            "rule": "rucio.cli.rule.rule",
+            "scope": "rucio.cli.scope.scope",
+            "subscription": "rucio.cli.subscription.subscription",
+            "upload": "rucio.cli.upload.upload_command",
+            "opendata": "rucio.cli.opendata.opendata",
+        }
+        self.lazy_subcommands = self.pick_commands()
+
+    def pick_commands(self):
+        commands = set(config_get_list('cli', 'endpoints', raise_exception=False, default=[]))
+        commands_add = set(config_get_list('cli', 'endpoints_add', raise_exception=False, default=[]))
+        commands_remove = set(config_get_list('cli', 'endpoints_remove', raise_exception=False, default=[]))
+
+        if commands and (commands_add or commands_remove):
+            raise ConfigurationError("Endpoints cannot be set in both 'endpoints' and 'endpoints_add'/'endpoints_remove'")
+
+        if commands_add.intersection(commands_remove):
+            raise ConfigurationError("Endpoints cannot be in both 'endpoints_add' and 'endpoints_remove'")
+
+        for config_setting, name in zip([commands, commands_add, commands_remove], ["endpoints", "endpoints_add", "endpoints_remove"]):
+            if config_setting and not config_setting.issubset(set(self.command_locs.keys())):
+                msg = f"Endpoints in '{name}', {config_setting} must be a subset of {list(self.command_locs.keys())}"
+                raise ConfigurationError(msg)
+
+        if not commands:
+            commands = self.DEFAULT_COMMANDS - commands_remove | commands_add
+
+        return commands
 
     def list_commands(self, ctx):
         base = super().list_commands(ctx)
-        lazy = sorted(self.lazy_subcommands.keys())
+        lazy = sorted(self.lazy_subcommands)
         return base + lazy
 
     def get_command(self, ctx, cmd_name):
@@ -52,7 +87,7 @@ class LazyGroup(click.Group):
 
     def _lazy_load(self, cmd_name):
         # lazily loading a command, first get the module name and attribute name
-        import_path = self.lazy_subcommands[cmd_name]
+        import_path = self.command_locs[cmd_name]
         modname, cmd_object_name = import_path.rsplit(".", 1)
         # do the import
         mod = importlib.import_module(modname)
@@ -76,20 +111,6 @@ class LazyGroup(click.Group):
 
 @click.group(
     cls=LazyGroup,
-    lazy_subcommands={
-        "account": "rucio.cli.account.account",
-        "config": "rucio.cli.config.config",
-        "did": "rucio.cli.did.did",
-        "download": "rucio.cli.download.download",
-        "lifetime-exception": "rucio.cli.lifetime_exception.lifetime_exception",
-        "replica": "rucio.cli.replica.replica",
-        "rse": "rucio.cli.rse.rse",
-        "rule": "rucio.cli.rule.rule",
-        "scope": "rucio.cli.scope.scope",
-        "subscription": "rucio.cli.subscription.subscription",
-        "upload": "rucio.cli.upload.upload_command",
-        "opendata": "rucio.cli.opendata.opendata",
-    },
     context_settings={"help_option_names": ["-h", "--help"]}
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
 @click.option("--account", "--issuer", "issuer", help="Rucio account to use.")
