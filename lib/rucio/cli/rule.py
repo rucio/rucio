@@ -47,6 +47,7 @@ def rule():
 @click.option("--delay-injection", type=int, help="Delay (in seconds) to wait before starting applying the rule. This option implies --asynchronous.")
 @click.option("--account", help="The account owning the rule")
 @click.option("--skip-duplicates", is_flag=True, default=False, help="Skip duplicate rules")
+@click.option("--split-container", is_flag=True, default=False, help="Split the container into individual datasets when adding the rule")
 @click.pass_context
 def add_(
     ctx: click.Context,
@@ -65,7 +66,8 @@ def add_(
     ask_approval: bool,
     delay_injection: Optional[int],
     account: Optional[str],
-    skip_duplicates: bool
+    skip_duplicates: bool,
+    split_container: bool
 ) -> None:
     """Add replication rule to define how replicas of a list of DIDs are created on RSEs."""
     did_list = []
