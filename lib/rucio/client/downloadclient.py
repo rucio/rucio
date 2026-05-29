@@ -36,7 +36,7 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
 from rucio.common.pcache import Pcache
-from rucio.common.utils import execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
+from rucio.common.utils import execute, extract_scope, generate_uuid, parse_replicas_from_file, send_trace, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -1496,7 +1496,7 @@ class DownloadClient:
             if nrandom:
                 logger(logging.INFO, 'Selecting %d random replicas from DID(s): %s' % (nrandom, [str(did) for did in input_dids]))
 
-            metalink_str = self.client.list_replicas([{'scope': did.scope, 'name': did.name} for did in input_dids],
+            replica_json = self.client.list_replicas([{'scope': did.scope, 'name': did.name} for did in input_dids],
                                                      schemes=schemes,
                                                      ignore_availability=False,
                                                      rse_expression=rse_expression,
@@ -1505,13 +1505,16 @@ class DownloadClient:
                                                      resolve_archives=not item.get('no_resolve_archives'),
                                                      resolve_parents=True,
                                                      nrandom=nrandom,
-                                                     metalink=True)
-            file_items = parse_replicas_from_string(metalink_str)  # type: ignore
+                                                     metalink=False)
+
+            file_items = [i for i in replica_json]
             for file in file_items:
+                file['did'] = DID(scope=file['scope'], name=file['name'])  # file returns a scope and name part
+                file['parent_dids'] = [DID(parent) for parent in file.get('parents', [])]  # parent just has DIDs as strings
                 if impl:
                     file['impl'] = impl
                 elif not item.get('force_scheme'):
-                    file['impl'] = self.preferred_impl(file['sources'])
+                    file['impl'] = self.preferred_impl(file['rses'])
 
             logger(logging.DEBUG, 'num resolved files: %s' % len(file_items))
 
@@ -1524,29 +1527,47 @@ class DownloadClient:
                 for input_did in input_dids:
                     if not any([input_did == f['did'] or str(input_did) in f['parent_dids'] for f in file_items]):
                         logger(logging.ERROR, 'DID does not exist: %s' % input_did)
-                        # TODO: store DID directly as DIDType object
-                        file_items.append({'did': str(input_did), 'adler32': None, 'md5': None, 'sources': [], 'parent_dids': set(), 'impl': impl or None})
+                        file_items.append({'did': input_did, 'adler32': None, 'md5': None, 'rses': {}, 'parent_dids': set(), 'impl': impl or None})
 
             # filtering out tape sources
             if self.is_tape_excluded:
                 for file_item in file_items:
-                    unfiltered_sources = copy.copy(file_item['sources'])
+                    unfiltered_sources = copy.copy([file_item['rses'].keys()])
                     for src in unfiltered_sources:
-                        if src['rse'] in tape_rses:
-                            file_item['sources'].remove(src)
-                    if unfiltered_sources and not file_item['sources']:
+                        if src in tape_rses:
+                            file_item['rses'].remove(src)
+                    if unfiltered_sources and not file_item['rses']:
                         logger(logging.WARNING, 'The requested DID {} only has replicas on tape. Direct download from tape is prohibited. '
                                                 'Please request a transfer to a non-tape endpoint.'.format(file_item['did']))
+
+            def resolve_source_info(sources: dict[str, str]) -> list[dict[str, str]]:
+                resolved_rses = []
+                for src, pfns in sources.items():
+                    for pfn in pfns:
+                        protocols = self.client.get_rse(src).get('protocols', [])
+                        for protocol in protocols:
+                            resolved_rses.append(
+                                {
+                                    "rse": src,
+                                    "pfn": pfn,
+                                    'client_extract': item.get('no_resolve_archives'),
+                                    'priority': protocol.get('priority', 0),
+                                    'domain': protocol.get('domain', 'wan')
+                                }
+                        )
+                return resolved_rses
 
             # Match the file DID back to the DIDs which were provided to list_replicas.
             # Later, this will allow to match the file back to input_items via did_to_input_items
             for file_item in file_items:
-                file_did = DID(file_item['did'])
+                file_did = file_item['did']
 
                 file_input_dids = {DID(did) for did in file_item.get('parent_dids', [])}.intersection(input_dids)
                 if file_did in input_dids:
                     file_input_dids.add(file_did)
                 file_item['input_dids'] = {did: input_dids[did] for did in file_input_dids}
+                # Make sure the sources match the item requirements
+                file_item['sources'] = resolve_source_info(file_item['rses'])
             merged_items_with_sources.extend(file_items)
 
         return did_to_input_items, merged_items_with_sources
@@ -1910,6 +1931,12 @@ class DownloadClient:
         elif not deactivate_file_download_exceptions and num_failed > 0:
             raise NotAllFilesDownloaded()
 
+        # convert DIDs to a string for cleaner outputs
+        for item in output_items:
+            # Check parent and input dids
+            for did_key in ['parent_dids', 'input_dids']:
+                if did_key in item:
+                    item[did_key] = [str(did) for did in item[did_key]]
         return output_items
 
     def _send_trace(self, trace: dict[str, Any]) -> None:
