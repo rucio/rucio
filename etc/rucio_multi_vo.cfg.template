@@ -95,7 +95,7 @@ enable_metrics = False
 metrics_port = 8080
 
 [conveyor]
-scheme = srm,gsiftp,root,http,https
+scheme = root,http,https
 transfertool = fts3
 cacert = /opt/rucio/etc/web/ca.crt
 usercert = /opt/rucio/tools/x509up

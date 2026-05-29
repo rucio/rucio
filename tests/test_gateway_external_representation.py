@@ -36,7 +36,7 @@ from rucio.gateway.account import add_account, get_account_info, list_accounts
 from rucio.gateway.did import add_did, add_did_to_followed, attach_dids_to_dids, get_users_following_did, scope_list
 from rucio.gateway.exporter import export_data
 from rucio.gateway.identity import add_account_identity, list_accounts_for_identity
-from rucio.gateway.replica import add_replicas, get_did_from_pfns, list_replicas
+from rucio.gateway.replica import add_replicas, list_replicas
 from rucio.gateway.request import get_request_by_did, list_requests
 from rucio.gateway.rule import add_replication_rule
 from rucio.gateway.scope import add_scope, get_scopes, list_scopes
@@ -249,30 +249,13 @@ class TestGatewayExternalRepresentation:
 
         did = did_name_generator('file')
         did_parent = did_name_generator('dataset')
-        rse2, rse2_id = rse_factory.make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.gfal.Default', deterministic=False)
-        protocols = gateway_rse.get_rse_protocols(rse2, issuer='root', vo=vo)
-        pfn = 'srm://%s:%s/srm/managerv2?SFN=%s%s/%s' % (protocols['protocols'][0]['hostname'],
-                                                         protocols['protocols'][0]['port'],
-                                                         protocols['protocols'][0]['prefix'],
-                                                         scope_name,
-                                                         generate_uuid())
-        add_replicas(rse2, files=[{'scope': scope_name, 'name': did, 'bytes': 100, 'pfn': pfn}], issuer='root', vo=vo)
+        rse2, rse2_id = rse_factory.make_posix_rse()
+        add_replicas(rse2, files=[{'scope': scope_name, 'name': did, 'bytes': 100}], issuer='root', vo=vo)
 
         add_did(scope_name, did_parent, 'dataset', issuer='root', account=account_name, vo=vo)
         attachment = {'scope': scope_name, 'name': did_parent,
                       'dids': [{'scope': scope_name, 'name': did}]}
         attach_dids_to_dids([attachment], issuer='root', vo=vo)
-
-        out = get_did_from_pfns([pfn], rse2, vo=vo)
-        out = list(out)
-        assert 0 != len(out)
-        did_found = False
-        for p in out:
-            for key in p:
-                if p[key]['name'] == did:
-                    did_found = True
-                    assert scope_name == p[key]['scope']
-        assert did_found
 
         out = list_replicas(dids=[{'scope': scope_name, 'name': did}], resolve_parents=True, vo=vo)
         out = list(out)

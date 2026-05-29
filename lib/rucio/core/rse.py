@@ -1195,7 +1195,7 @@ def set_rse_usage(
     Set RSE usage information.
 
     :param rse_id: the location id.
-    :param source: The information source, e.g. srm.
+    :param source: The information source.
     :param used: the used space in bytes.
     :param free: the free in bytes.
     :param files: the number of files
@@ -1404,7 +1404,7 @@ def list_rse_usage_history(
     List RSE usage history information.
 
     :param rse_id: The RSE id.
-    :param source: The source of the usage information (srm, rucio).
+    :param source: The source of the usage information (e.g. rucio).
     :param session: The database session in use.
 
     :returns: A list of historic RSE usage.

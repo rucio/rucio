@@ -31,7 +31,7 @@ from rucio.tests.common import did_name_generator, skip_non_belleii
 def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client, file_lifetime):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
     nbfiles = 5
-    rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
+    rse1, rse1_id = rse_factory.make_posix_rse(deterministic=True)
     rse_client.add_rse_attribute(rse=rse1, key='ANY', value='True')
     config_set('dirac', 'lifetime', '{"user.*": 2592400}')
 
@@ -101,7 +101,7 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
 @skip_non_belleii
 def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
-    rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
+    rse1, rse1_id = rse_factory.make_posix_rse(deterministic=True)
     rse_client.add_rse_attribute(rse=rse1, key='ANY', value='True')
     config_set('dirac', 'lifetime', '{"user.*": 2592400}')
     lfn_name = did_name_generator('file')

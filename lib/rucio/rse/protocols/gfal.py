@@ -40,7 +40,7 @@ TIMEOUT = config.config_get('deletion', 'timeout', False, None)
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the srm protocol."""
+    """ Implementing access to RSEs using the gfal protocol."""
 
     def lfns2pfns(self, lfns):
         """
@@ -183,7 +183,7 @@ class Default(protocol.RSEProtocol):
             gfal2.set_verbose(gfal2.verbose_level.warning)
 
         self.__ctx = gfal2.creat_context()  # pylint: disable=no-member
-        self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["gsiftp", "rfio", "gsidcap", "dcap", "kdcap"])
+        self.__ctx.set_opt_string_list("SRM PLUGIN", "TURL_PROTOCOLS", ["rfio", "gsidcap", "dcap", "kdcap"])
         self.__ctx.set_opt_string("XROOTD PLUGIN", "XRD.WANTPROT", "gsi,unix")
         self.__ctx.set_opt_boolean("XROOTD PLUGIN", "NORMALIZE_PATH", False)
         self.__ctx.set_opt_boolean("HTTP PLUGIN", "RETRIEVE_BEARER_TOKEN", False)
@@ -218,7 +218,6 @@ class Default(protocol.RSEProtocol):
                 timeout = int(TIMEOUT)
                 self.__ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", timeout)
                 self.__ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", timeout)
-                self.__ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", timeout)
             except ValueError:
                 self.logger(logging.ERROR, 'wrong timeout value %s', TIMEOUT)
 
@@ -449,7 +448,6 @@ class Default(protocol.RSEProtocol):
         if transfer_timeout:
             ctx.set_opt_integer("HTTP PLUGIN", "OPERATION_TIMEOUT", int(transfer_timeout))
             ctx.set_opt_integer("SRM PLUGIN", "OPERATION_TIMEOUT", int(transfer_timeout))
-            ctx.set_opt_integer("GRIDFTP PLUGIN", "OPERATION_TIMEOUT", int(transfer_timeout))
             watchdog = Timer(int(transfer_timeout) + 60, self.__gfal2_cancel)
         params = ctx.transfer_parameters()
         if src_spacetoken:

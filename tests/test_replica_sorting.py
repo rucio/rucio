@@ -57,7 +57,7 @@ base_rse_info = [
     {'site': 'APERTURE', 'address': 'aperture.com', 'ip': LOCATION_TO_IP['Austria']},
     {'site': 'BLACKMESA', 'address': 'blackmesa.com', 'ip': LOCATION_TO_IP['Japan']},
 ]
-schemes = ['root', 'gsiftp', 'davs']
+schemes = ['root', 'davs']
 
 
 @pytest.fixture
@@ -141,23 +141,6 @@ def protocols_setup(vo, root_account, mock_scope):
                                      'domains': {
                                          'lan': {'read': 1, 'write': 1, 'delete': 1},
                                          'wan': {'read': 1, 'write': 1, 'delete': 1}}})
-    add_protocol(rse_info[0]['id'], {'scheme': 'gsiftp',
-                                     'hostname': ('gsiftp.%s' % base_rse_info[0]['address']),
-                                     'port': 8446,
-                                     'prefix': '/test/chamber/',
-                                     'impl': 'rucio.rse.protocols.gfal.Default',
-                                     'domains': {
-                                         'lan': {'read': None, 'write': None, 'delete': None},
-                                         'wan': {'read': 2, 'write': 2, 'delete': 2}}})
-
-    add_protocol(rse_info[1]['id'], {'scheme': 'gsiftp',
-                                     'hostname': ('gsiftp.%s' % base_rse_info[1]['address']),
-                                     'port': 8446,
-                                     'prefix': '/lambda/complex/',
-                                     'impl': 'rucio.rse.protocols.gfal.Default',
-                                     'domains': {
-                                         'lan': {'read': 1, 'write': 1, 'delete': 1},
-                                         'wan': {'read': 0, 'write': 0, 'delete': 0}}})
     add_protocol(rse_info[1]['id'], {'scheme': 'davs',
                                      'hostname': ('davs.%s' % base_rse_info[1]['address']),
                                      'port': 443,
@@ -204,8 +187,8 @@ def test_sort_geoip_wan_client_location(vo, rest_client, auth_token, protocols_s
         test_with_cache = True
         data['client_location'] = {'site': CLIENT_SITE}
 
-    first_aut_then_jpn = ['root.aperture.com', 'davs.aperture.com', 'gsiftp.aperture.com', 'gsiftp.blackmesa.com', 'davs.blackmesa.com', 'root.blackmesa.com']
-    first_jpn_then_aut = ['gsiftp.blackmesa.com', 'davs.blackmesa.com', 'root.blackmesa.com', 'root.aperture.com', 'davs.aperture.com', 'gsiftp.aperture.com']
+    first_aut_then_jpn = ['root.aperture.com', 'davs.aperture.com', 'davs.blackmesa.com', 'root.blackmesa.com']
+    first_jpn_then_aut = ['davs.blackmesa.com', 'root.blackmesa.com', 'root.aperture.com', 'davs.aperture.com']
     for client_location, expected_order in (
             ('Switzerland', first_aut_then_jpn),
             ('Romania', first_aut_then_jpn),
@@ -292,7 +275,7 @@ def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_ty
         assert len(replicas) == 1
         sources_list = replicas[0]['sources']
         print(sources_list)
-        assert len(sources_list) == 6
+        assert len(sources_list) == 4
 
         sorted_replica_hosts = list(sorted(sources_list, key=lambda source: source['priority']))
         sorted_replica_hosts = list(map(lambda source: urlparse(source['pfn']).hostname, sorted_replica_hosts))
@@ -303,7 +286,7 @@ def test_sort_geoip_wan(vo, rest_client, auth_token, protocols_setup, content_ty
         print(replicas)
         assert len(replicas) == 1
         sources_dict = replicas[0]['pfns']
-        assert len(sources_dict) == 6
+        assert len(sources_dict) == 4
 
         sorted_replica_hosts = list(sorted(sources_dict, key=lambda pfn: sources_dict[pfn]['priority']))
         sorted_replica_hosts = list(map(lambda source: urlparse(source).hostname, sorted_replica_hosts))
@@ -367,13 +350,19 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
         assert len(replicas) == 1
         sources_list = replicas[0]['sources']
         print(sources_list)
-        # 3 for wan and 2 for lan, since one is blocked for lan for each site
-        assert len(sources_list) == 5
+        if not info_id:
+            assert len(sources_list) == 4
+        else:
+            assert len(sources_list) == 3
 
         sorted_replica_hosts = list(sorted(sources_list, key=lambda source: source['priority']))
         print(sorted_replica_hosts)
         lan_pfns = list(filter(lambda source: source['domain'] == 'lan', sorted_replica_hosts))
-        assert len(lan_pfns) == 2
+
+        if info_id:
+            assert len(lan_pfns) == 1
+        else:
+            assert len(lan_pfns) == 2
         for lanpfn in lan_pfns:
             assert protocols_setup['rse_info'][info_id]['name'] == lanpfn['rse']
 
@@ -386,12 +375,18 @@ def test_sort_geoip_lan_before_wan(vo, rest_client, auth_token, protocols_setup,
         print(replicas)
         assert len(replicas) == 1
         sources_dict = replicas[0]['pfns']
-        # 3 for wan and 2 for lan, since one is blocked for lan for each site
-        assert len(sources_dict) == 5
+        # 2 for wan and 1 for lan, since one is blocked for lan for each site
+        if not info_id:
+            assert len(sources_dict) == 4
+        else:
+            assert len(sources_dict) == 3
 
         sorted_replica_hosts = list(sorted(sources_dict, key=lambda pfn: sources_dict[pfn]['priority']))
         lan_pfns = list(filter(lambda pfn: sources_dict[pfn]['domain'] == 'lan', sorted_replica_hosts))
-        assert len(lan_pfns) == 2
+        if info_id:
+            assert len(lan_pfns) == 1
+        else:
+            assert len(lan_pfns) == 2
         for lanpfn in lan_pfns:
             assert protocols_setup['rse_info'][info_id]['id'] == sources_dict[lanpfn]['rse_id']
 
@@ -437,16 +432,16 @@ def test_not_sorting_lan_replicas(vo, rest_client, auth_token, protocols_setup, 
         assert len(replicas) == 1
         sources_list = replicas[0]['sources']
         print(sources_list)
-        # 4 for lan, since one is blocked for lan for each site
-        assert len(sources_list) == 4
+        # 3 for lan, since one is blocked for lan for each site
+        assert len(sources_list) == 3
 
     elif content_type == Mime.JSON_STREAM:
         replicas = list(map(json.loads, filter(bool, map(str.strip, replicas_response.splitlines(keepends=False)))))
         print(replicas)
         assert len(replicas) == 1
         sources_dict = replicas[0]['pfns']
-        # 4 for lan, since one is blocked for lan for each site
-        assert len(sources_dict) == 4
+        # 3 for lan, since one is blocked for lan for each site
+        assert len(sources_dict) == 3
 
 
 @pytest.mark.noparallel(reason='fails when run in parallel')

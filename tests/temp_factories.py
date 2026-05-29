@@ -149,8 +149,6 @@ class TemporaryRSEFactory:
                     }
                 }
             }
-            if scheme == 'srm':
-                protocol_parameters["extended_attributes"] = {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"}
             protocol_parameters.update(parameters or {})
 
             self.client.add_protocol(
@@ -202,8 +200,6 @@ class TemporaryRSEFactory:
                     }
                 }
             }
-            if scheme == 'srm':
-                protocol_parameters["extended_attributes"] = {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"}
             protocol_parameters.update(parameters or {})
             rse_core.add_protocol(rse_id=rse_id, parameter=protocol_parameters, session=session)
         self.created_rses.add(rse_id)
@@ -237,16 +233,6 @@ class TemporaryRSEFactory:
             **kwargs
     ) -> tuple[str, str]:
         return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs, session=session)
-
-    def make_srm_rse(
-            self,
-            session: Optional["Session"] = None,
-            **kwargs
-    ) -> tuple[str, str]:
-        parameters = {
-            "extended_attributes": {"web_service_path": "/srm/managerv2?SFN=", "space_token": "RUCIODISK"},
-        }
-        return self._make_rse(scheme='srm', protocol_impl='rucio.rse.protocols.srm.Default', parameters=parameters, add_rse_kwargs=kwargs, session=session)
 
 
 class TemporaryDidFactory:
