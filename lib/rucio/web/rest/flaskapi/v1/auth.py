@@ -701,7 +701,7 @@ class TokenOIDC(ErrorHandlingMethodView):
             domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)
             response.headers.extend(headers)
-            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
+            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/', httpOnly = True)
             response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
             # response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
             # response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
