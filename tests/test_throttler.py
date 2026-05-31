@@ -191,7 +191,7 @@ class TestSimpleLimits:
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account)
 
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
 
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.WAITING
@@ -204,7 +204,7 @@ class TestSimpleLimits:
 
         delete_transfer_limit(dest_rse, activity=self.all_activities)
 
-        throttler(once=True)
+        throttler(once=True, partition_wait_time=0)
 
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
@@ -229,8 +229,8 @@ class TestSimpleLimits:
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account)
 
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.WAITING
         request_2 = get_request_by_did(mock_scope, name2, dest_rse_id)
@@ -252,8 +252,8 @@ class TestSimpleLimits:
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account)
 
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         # released because it got requested first
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
@@ -284,8 +284,8 @@ class TestSimpleLimits:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
@@ -302,8 +302,8 @@ class TestSimpleLimits:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2018)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
 
@@ -325,8 +325,8 @@ class TestSimpleLimits:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.WAITING
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
@@ -348,8 +348,8 @@ class TestSimpleLimits:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
@@ -393,8 +393,8 @@ class TestSimpleLimits:
             ]
         )
 
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id2)
@@ -418,8 +418,8 @@ class TestSimpleLimits:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
@@ -463,8 +463,8 @@ class TestSimpleLimits:
                 },
             ]
         )
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         # release because max_transfers=1
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -517,7 +517,7 @@ class TestSimpleLimits:
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account)
 
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.WAITING
         request_2 = get_request_by_did(mock_scope, name2, dest_rse_id2)
@@ -527,7 +527,7 @@ class TestSimpleLimits:
         request_4 = get_request_by_did(mock_scope, name4, dest_rse_id2)
         assert request_4['state'] == RequestState.WAITING
 
-        throttler(once=True)
+        throttler(once=True, partition_wait_time=0)
         # released because it got requested first
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
@@ -604,8 +604,8 @@ class TestOverlappingLimits:
             ]
         )
 
-        preparer(once=True, transfertools=['mock'])
-        throttler(once=True)
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
+        throttler(once=True, partition_wait_time=0)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
         request2 = get_request_by_did(mock_scope, name2, dest_rse_id)
@@ -661,7 +661,7 @@ class TestRequestCoreRelease:
                 },
             ]
         )
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_per_free_volume(dest_rse_id, volume=volume)
         # released because small enough
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
@@ -710,7 +710,7 @@ class TestRequestCoreRelease:
         dataset2_name = generate_uuid()
         add_did(mock_scope, dataset2_name, DIDType.DATASET, root_account)
         attach_dids(mock_scope, dataset2_name, [{'name': name2, 'scope': mock_scope}, {'name': name3, 'scope': mock_scope}], root_account)
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_per_free_volume(dest_rse_id, volume=volume)
         # released because dataset fits in volume
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
@@ -733,7 +733,7 @@ class TestRequestCoreRelease:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2015)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_per_free_volume(dest_rse_id, volume=volume)
         # waiting because no available volume
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
@@ -757,7 +757,7 @@ class TestRequestCoreRelease:
             ]
         )
 
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_grouped_fifo(dest_rse_id, count=1, volume=0, deadline=0)
         request = get_request_by_did(mock_scope, name, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -773,7 +773,7 @@ class TestRequestCoreRelease:
         dataset_name = generate_uuid()
         add_did(mock_scope, dataset_name, DIDType.DATASET, root_account)
         attach_dids(mock_scope, dataset_name, [{'name': name, 'scope': mock_scope}], root_account)
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_grouped_fifo(dest_rse_id, count=1, volume=0, deadline=0)
         request = get_request_by_did(mock_scope, name, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -797,7 +797,7 @@ class TestRequestCoreRelease:
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}, {'name': name2, 'scope': mock_scope}], root_account)
         attach_dids(mock_scope, dataset_2_name, [{'name': name3, 'scope': mock_scope}, {'name': name4, 'scope': mock_scope}], root_account)
 
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_grouped_fifo(dest_rse_id, count=1, deadline=0, volume=0)
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request_1['state'] == RequestState.QUEUED
@@ -828,7 +828,7 @@ class TestRequestCoreRelease:
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account)
         transfer_limit_factory(dest_rse, self.all_activities, volume=10, max_transfers=1)
 
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         amount_updated_requests = release_waiting_requests_grouped_fifo(dest_rse_id, count=1, deadline=0, volume=10)
         assert amount_updated_requests == 3
         # released because it got requested first
@@ -861,7 +861,7 @@ class TestRequestCoreRelease:
         attach_dids(mock_scope, dataset_1_name, [{'name': name1, 'scope': mock_scope}], root_account)
         attach_dids(mock_scope, dataset_1_name, [{'name': name2, 'scope': mock_scope}], root_account)
         transfer_limit_factory(dest_rse, self.all_activities, volume=5, max_transfers=1)
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_grouped_fifo(dest_rse_id, count=1, deadline=0, volume=5)
         # released because it got requested first
         request_1 = get_request_by_did(mock_scope, name1, dest_rse_id)
@@ -885,7 +885,7 @@ class TestRequestCoreRelease:
             ]
         )
 
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_grouped_fifo(source_rse_id=source_rse_id, count=0, deadline=1, volume=0)
         # queued because of deadline
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
@@ -910,7 +910,7 @@ class TestRequestCoreRelease:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_fifo(dest_rse_id, count=1)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -944,7 +944,7 @@ class TestRequestCoreRelease:
                 },
             ]
         )
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_fifo(dest_rse_id, count=2, account=root_account, activity=self.user_activity)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -968,7 +968,7 @@ class TestRequestCoreRelease:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_all_waiting_requests(dest_rse_id)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -991,7 +991,7 @@ class TestRequestCoreRelease:
                 {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow()},
             ]
         )
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_per_deadline(source_rse_id=source_rse_id, deadline=1)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
@@ -1010,7 +1010,7 @@ class TestRequestCoreRelease:
         dataset_name = generate_uuid()
         add_did(mock_scope, dataset_name, DIDType.DATASET, root_account)
         attach_dids(mock_scope, dataset_name, [{'name': name1, 'scope': mock_scope}, {'name': name2, 'scope': mock_scope}], root_account)
-        preparer(once=True, transfertools=['mock'])
+        preparer(once=True, partition_wait_time=0, transfertools=['mock'])
         release_waiting_requests_per_deadline(source_rse_id=source_rse_id, deadline=1)
         request = get_request_by_did(mock_scope, name1, dest_rse_id)
         assert request['state'] == RequestState.QUEUED
