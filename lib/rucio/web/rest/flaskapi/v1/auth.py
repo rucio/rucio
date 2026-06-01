@@ -701,8 +701,8 @@ class TokenOIDC(ErrorHandlingMethodView):
             domain = '.'.join(urlparse(webhome).netloc.split('.')[1:])
             response = redirect(webhome, code=303)
             response.headers.extend(headers)
-            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/')
-            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/')
+            response.set_cookie('x-rucio-auth-token', value=result['token']['token'], domain=domain, path='/', httponly=True, secure=True)
+            response.set_cookie('rucio-auth-token-created-at', value=str(time.time()), domain=domain, path='/', httponly=True, secure=True)
             # response.set_cookie('x-rucio-auth-token', value=result['token']['token'])
             # response.set_cookie('rucio-auth-token-created-at', value=str(time.time()))
             return response
@@ -1531,7 +1531,7 @@ class SAML(ErrorHandlingMethodView):
         if not errors:
             if auth.is_authenticated():
                 response = Response()
-                response.set_cookie('saml-nameid', value=auth.get_nameid(), path='/')
+                response.set_cookie('saml-nameid', value=auth.get_nameid(), path='/', httponly=True, secure=True)
                 return response
         return '', 200
 
