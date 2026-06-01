@@ -655,7 +655,7 @@ class DIDClient(BaseClient):
             self,
             dids: "Sequence[Mapping[str, Any]]",
             inherit: bool = False,
-            plugin: str = "JSON",
+            plugin: str = "DID_COLUMN",
     ) -> "Iterator[dict[str, Any]]":
         """
         Bulk get data identifier metadata

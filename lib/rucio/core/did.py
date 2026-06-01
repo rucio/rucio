@@ -2089,7 +2089,7 @@ def list_parent_dids_bulk(
 def get_metadata_bulk(
     dids: list["Mapping[Any, Any]"],
     inherit: bool = False,
-    plugin: str = 'JSON',
+    plugin: str = 'DID_COLUMN',
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
