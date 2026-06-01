@@ -1778,7 +1778,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
                       - scope: "user"
                         name: "dataset_002"
                     inherit: true
-                    plugin: "JSON"
+                    plugin: "DID_COLUMN"
 
         responses:
           200:
