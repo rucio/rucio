@@ -40,7 +40,7 @@ def list_(ctx: click.Context, section: Optional[str], key: Optional[str]):
                 else:
                     print(f'[{config_section}]')
             if not isinstance(option, dict):
-                print(f'{section}={option}')
+                print(f'{config_section}={option}')
                 print_header = False
             else:
                 for config_key, value in option.items():
