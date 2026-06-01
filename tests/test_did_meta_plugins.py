@@ -21,7 +21,7 @@ from sqlalchemy import update
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import KeyNotFound
 from rucio.common.utils import generate_uuid
-from rucio.core.did import add_did, delete_dids, get_metadata_bulk, set_dids_metadata_bulk, set_metadata_bulk
+from rucio.core.did import add_did, attach_dids, delete_dids, get_metadata_bulk, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
 from rucio.core.did_meta_plugins.elasticsearch_meta import ElasticDidMeta
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
@@ -192,19 +192,47 @@ class TestDidMetaJSON:
         skip_without_json()
 
         dids = []
-        expected_meta = []
+        expected_metadata_by_name = {}
 
-        meta_key = 'data_product_id'
+        json_key = 'data_product_id'
         for _ in range(5):
             did_name = did_name_generator('dataset')
-            meta_value = generate_uuid()
-            add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account)
-            set_metadata(scope=mock_scope, name=did_name, key=meta_key, value=meta_value)
+            project = 'data12_8TeV'
+            json_value = generate_uuid()
+            add_did(scope=mock_scope, name=did_name, did_type='DATASET', account=root_account, meta={'project': project})
+            set_metadata(scope=mock_scope, name=did_name, key=json_key, value=json_value)
             dids.append({'scope': mock_scope, 'name': did_name})
-            expected_meta.append({'scope': mock_scope, 'name': did_name, meta_key: meta_value})
+            expected_metadata_by_name[did_name] = {'project': project, json_key: json_value}
 
-        meta = list(get_metadata_bulk(dids, plugin="JSON", inherit=True))
-        assert meta == expected_meta
+        column_metadata_by_name = {meta['name']: meta for meta in get_metadata_bulk(dids)}
+        json_metadata_by_name = {meta['name']: meta for meta in get_metadata_bulk(dids, plugin='JSON')}
+        all_metadata_by_name = {meta['name']: meta for meta in get_metadata_bulk(dids, plugin='ALL')}
+
+        # Check first the DIDs (names only) match before comparing plugin-specific metadata.
+        assert set(column_metadata_by_name) == set(json_metadata_by_name) == set(all_metadata_by_name) == set(expected_metadata_by_name)
+
+        for name, expected in expected_metadata_by_name.items():
+            assert column_metadata_by_name[name]['project'] == expected['project']
+            assert json_key not in column_metadata_by_name[name]
+            assert json_metadata_by_name[name][json_key] == expected[json_key]
+            assert 'project' not in json_metadata_by_name[name]
+            assert all_metadata_by_name[name]['project'] == expected['project']
+            assert all_metadata_by_name[name][json_key] == expected[json_key]
+
+        parent_name = did_name_generator('container')
+        parent_json_key = 'parent_data_product_id'
+        parent_json_value = generate_uuid()
+        add_did(scope=mock_scope, name=parent_name, did_type='CONTAINER', account=root_account)
+        set_metadata(scope=mock_scope, name=parent_name, key=parent_json_key, value=parent_json_value)
+        attach_dids(scope=mock_scope, name=parent_name, dids=[dids[0]], account=root_account)
+
+        inherited_meta = list(get_metadata_bulk(dids, plugin='JSON', inherit=True))
+        expected_inherited_meta = [
+            {'scope': mock_scope, 'name': did['name'], json_key: expected_metadata_by_name[did['name']][json_key]}
+            for did in dids
+        ]
+        expected_inherited_meta[0][parent_json_key] = parent_json_value
+        assert inherited_meta == expected_inherited_meta
 
     @pytest.mark.dirty
     def test_get_metadata(self, mock_scope, root_account):
