@@ -265,7 +265,8 @@ def test_config():
     exitcode, out, err = execute(f"rucio config list --section {section} --key {option}")
     assert exitcode == 0
     assert "ERROR" not in err
-    assert value in out
+    assert f"[{section}]" in out
+    assert f"{option}={value}" in out
 
     cmd = f"rucio config remove --section {section} --key {option}"
     exitcode, _, err = execute(cmd)
@@ -299,7 +300,12 @@ def test_config():
 
     exitcode, out, err = execute(f"rucio config list --section {section}")
     assert exitcode == 0
-    assert new_value in out
+    assert f"{option}={new_value}" in out
+
+    exitcode, out, err = execute("rucio config list")
+    assert exitcode == 0
+    assert f'[{section}]' in out
+    assert f"{option}={new_value}" in out
 
 
 @pytest.mark.parametrize("file_config_mock", [
