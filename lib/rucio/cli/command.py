@@ -15,7 +15,7 @@ import importlib
 import signal
 import sys
 import time
-from typing import Optional
+from typing import Final, Optional, Union
 
 import click
 from rich.console import Console
@@ -35,8 +35,8 @@ from rucio.common.utils import setup_logger
 # Taken directly from https://click.palletsprojects.com/en/stable/complex/#defining-the-lazy-group
 class LazyGroup(click.Group):
 
-    DEFAULT_COMMANDS = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata", "lifetime-exception"}
-    COMMAND_MAP = {
+    DEFAULT_COMMANDS: Final = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata", "lifetime-exception"}
+    COMMAND_MAP: Final = {
         "account": "rucio.cli.account.account",
         "config": "rucio.cli.config.config",
         "did": "rucio.cli.did.did",
@@ -51,12 +51,12 @@ class LazyGroup(click.Group):
         "opendata": "rucio.cli.opendata.opendata",
     }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.lazy_subcommands = self.pick_commands()
 
-    def pick_commands(self):
+    def pick_commands(self) -> set[str]:
         commands = set(config_get_list('cli', 'endpoints', raise_exception=False, default=[]))
         commands_add = set(config_get_list('cli', 'endpoints_add', raise_exception=False, default=[]))
         commands_remove = set(config_get_list('cli', 'endpoints_remove', raise_exception=False, default=[]))
@@ -77,17 +77,17 @@ class LazyGroup(click.Group):
 
         return commands
 
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: click.Context) -> list[str]:
         base = super().list_commands(ctx)
         lazy = sorted(self.lazy_subcommands)
         return base + lazy
 
-    def get_command(self, ctx, cmd_name):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Union[Optional[click.Command], click.BaseCommand]:
         if cmd_name in self.lazy_subcommands:
             return self._lazy_load(cmd_name)
         return super().get_command(ctx, cmd_name)
 
-    def _lazy_load(self, cmd_name):
+    def _lazy_load(self, cmd_name: str) -> click.BaseCommand:
         # lazily loading a command, first get the module name and attribute name
         import_path = self.COMMAND_MAP[cmd_name]
         modname, cmd_object_name = import_path.rsplit(".", 1)
@@ -101,10 +101,10 @@ class LazyGroup(click.Group):
         return cmd_object
 
     @exception_handler
-    def _invoke_with_handler(self, ctx: click.Context):
+    def _invoke_with_handler(self, ctx: click.Context) -> Optional[int]:
         return super().invoke(ctx)
 
-    def invoke(self, ctx: click.Context):
+    def invoke(self, ctx: click.Context) -> Optional[int]:
         result = self._invoke_with_handler(ctx)
         if result not in (None, 0):
             sys.exit(1 if result != 2 else 2)
