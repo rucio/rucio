@@ -15,12 +15,13 @@
 """Decommissioning profile definitions."""
 from rucio.common.config import config_get_list
 
-from .atlas import atlas_move
+from .atlas import AtlasMove
 from .generic import RSEDecommisionerProfilePlugin
 
-PROFILE_MAP = {"atlas_move": atlas_move}
+RSEDecommisionerProfilePlugin.register("atlas_move", AtlasMove.policy)
 
-profile_names = ["generic_move", "generic_delete"] + config_get_list("rse-decommissioner", "custom_profile", raise_exception=False, default=[])
+PROFILE_MAP = {}
+profile_names = ["generic_move", "generic_delete", "atlas_move"] + config_get_list("rse-decommissioner", "custom_profile", raise_exception=False, default=[])
 for profile_name in profile_names:
     plugin_profile = RSEDecommisionerProfilePlugin.get_algorithm(profile_name)
     PROFILE_MAP[profile_name] = RSEDecommisionerProfilePlugin.policy
