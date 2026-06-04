@@ -17,7 +17,7 @@ import json
 import logging
 import subprocess  # noqa: S404 -- subprocess used for external commands
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from math import floor
 from secrets import choice
 from typing import TYPE_CHECKING, Any, Final, Optional, Union
@@ -102,7 +102,7 @@ def _token_cache_get(
         METRICS.counter('token_cache.invalid').inc()
         return None
 
-    now = datetime.utcnow().timestamp()
+    now = datetime.now(tz=timezone.utc).timestamp()
     expiration = payload.get('exp', 0)    # type: ignore
     if now + min_lifetime > expiration:
         METRICS.counter('token_cache.expired').inc()
