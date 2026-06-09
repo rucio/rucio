@@ -218,7 +218,7 @@ def _format_value(value: Optional[Union[RenderableType, int, float, bool, dateti
     if value is None or str(value) == 'None':
         return ''
     if isinstance(value, bool):
-        return CLITheme.BOOLEAN[str(value)]
+        return Text(str(value), style=CLITheme.BOOLEAN[str(value)])
     if isinstance(value, (int, float, datetime)):
         return str(value)
     return value
