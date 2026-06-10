@@ -31,7 +31,7 @@ from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
-from rucio.core.message import add_message
+from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import filter_thread_work, models
@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.selectable import Select
 
     from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
+    from rucio.core.message import MessagesListType, MessageType
 
 
 METRICS = MetricManager(module=__name__)
@@ -1180,6 +1181,62 @@ def delete_dids(
         session.execute(stmt)
 
 
+def generate_did_detach_messages(
+    parent_scope: "InternalScope",
+    parent_name: str,
+    parent_type: "DIDType",
+    child_scope: "InternalScope",
+    child_name: str,
+    child_type: "DIDType",
+) -> "Iterator[MessageType]":
+    """
+    Generate messages to be emitted when a child DID is detached from its parent.
+
+    The resulting messages can be collected in a list and used as an argument to
+    `rucio.core.message.add_messages`.
+    """
+
+    # Send message for AMI. To be removed in the future when they use the DETACH messages
+    if parent_type == DIDType.CONTAINER:
+        if child_type == DIDType.CONTAINER:
+            chld_type = "CONTAINER"
+        elif child_type == DIDType.DATASET:
+            chld_type = "DATASET"
+        else:
+            chld_type = "UNKNOWN"
+
+        message = {
+            "scope": parent_scope.external,
+            "name": parent_name,
+            "childscope": child_scope.external,
+            "childname": child_name,
+            "childtype": chld_type,
+        }
+        if parent_scope.vo != DEFAULT_VO:
+            message["vo"] = parent_scope.vo
+
+        yield {
+            "event_type": "ERASE_CNT",
+            "payload": message,
+        }
+
+    message = {
+        "scope": parent_scope.external,
+        "name": parent_name,
+        "did_type": str(parent_type),
+        "child_scope": child_scope.external,
+        "child_name": child_name,
+        "child_type": str(child_type),
+    }
+    if parent_scope.vo != DEFAULT_VO:
+        message["vo"] = parent_scope.vo
+
+    yield {
+        "event_type": "DETACH",
+        "payload": message,
+    }
+
+
 @transactional_session
 def detach_dids(
     scope: "InternalScope",
@@ -1227,6 +1284,7 @@ def detach_dids(
     )
     if session.execute(stmt).scalar() is None:
         raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' has no child data identifiers.")
+    messages: "MessagesListType" = []
     for source in dids:
         if (scope == source['scope']) and (name == source['name']):
             raise exception.UnsupportedOperation('Self-detach is not valid.')
@@ -1273,35 +1331,16 @@ def detach_dids(
                                                              deleted_at=datetime.utcnow())
         new_detach.save(session=session, flush=False)
 
-        # Send message for AMI. To be removed in the future when they use the DETACH messages
-        if did.did_type == DIDType.CONTAINER:
-            if child_type == DIDType.CONTAINER:
-                chld_type = 'CONTAINER'
-            elif child_type == DIDType.DATASET:
-                chld_type = 'DATASET'
-            else:
-                chld_type = 'UNKNOWN'
-
-            message = {'scope': scope.external,
-                       'name': name,
-                       'childscope': source['scope'].external,
-                       'childname': source['name'],
-                       'childtype': chld_type}
-            if scope.vo != DEFAULT_VO:
-                message['vo'] = scope.vo
-
-            add_message('ERASE_CNT', message, session=session)
-
-        message = {'scope': scope.external,
-                   'name': name,
-                   'did_type': str(did.did_type),
-                   'child_scope': source['scope'].external,
-                   'child_name': str(source['name']),
-                   'child_type': str(child_type)}
-        if scope.vo != DEFAULT_VO:
-            message['vo'] = scope.vo
-
-        add_message('DETACH', message, session=session)
+        for msg in generate_did_detach_messages(
+            parent_scope=scope,
+            parent_name=name,
+            parent_type=did.did_type,
+            child_scope=source['scope'],
+            child_name=source['name'],
+            child_type=child_type,
+        ):
+            messages.append(msg)
+    add_messages(messages=messages, session=session)
 
 
 @stream_session
