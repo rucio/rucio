@@ -2097,6 +2097,7 @@ def __cleanup_after_replica_deletion(
             models.DataIdentifierAssociation.did_type,
             models.DataIdentifierAssociation.child_scope,
             models.DataIdentifierAssociation.child_name,
+            models.DataIdentifierAssociation.child_type,
         ).distinct(
         ).join_from(
             scope_name_temp_table,
@@ -2125,11 +2126,22 @@ def __cleanup_after_replica_deletion(
         )
 
         clt_to_set_not_archive.append(set())
-        for parent_scope, parent_name, did_type, child_scope, child_name in session.execute(stmt):
+        for parent_scope, parent_name, did_type, child_scope, child_name, child_type in session.execute(stmt):
 
             # Schedule removal of child file/dataset/container from the parent dataset/container
             did_associations_to_remove.add(Association(scope=parent_scope, name=parent_name,
                                                        child_scope=child_scope, child_name=child_name))
+
+            # Create detachment messages for removal of child DID
+            for msg in rucio.core.did.generate_did_detach_messages(
+                parent_scope=parent_scope,
+                parent_name=parent_name,
+                parent_type=did_type,
+                child_scope=child_scope,
+                child_name=child_name,
+                child_type=child_type,
+            ):
+                messages.append(msg)
 
             # Schedule setting is_archive = False on parents which don't have any children with is_archive == True anymore
             clt_to_set_not_archive[-1].add(ScopeName(scope=parent_scope, name=parent_name))
