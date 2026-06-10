@@ -110,6 +110,37 @@ def test_reaper(vo, caches_mock, message_mock):
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
     'rucio.daemons.reaper.reaper.REGION'
 ]}], indirect=True)
+def test_reaper_dataset_detachment_messages(vo, did_factory, root_account, caches_mock, message_mock):
+    """ REAPER (DAEMON): Test the reaper daemon for DID detachment messages."""
+    [cache_region] = caches_mock
+    scope = InternalScope('data13_hip', vo=vo)
+
+    nb_files = 1
+    file_size = 200  # 2G
+    rse_name, rse_id, dids = __add_test_rse_and_replicas(vo=vo, scope=scope, rse_name=rse_name_generator(),
+                                                         names=['lfn' + generate_uuid() for _ in range(nb_files)], file_size=file_size)
+    dataset = did_factory.make_dataset()
+    did_core.attach_dids(dids=dids, account=root_account, **dataset)
+
+    rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=nb_files * file_size)
+    assert len(list(replica_core.list_replicas(dids=dids, rse_expression=rse_name))) == nb_files
+
+    # Run reaper, assert deletion of replica
+    cache_region.invalidate()
+    rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=nb_files * file_size, free=1)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None)
+    assert len(list(replica_core.list_replicas(dids, rse_expression=rse_name))) == 0
+
+    # check messages for detachment
+    msgs = message_core.retrieve_messages()
+    message_types = [msg['event_type'] for msg in msgs]
+    assert 'DETACH' in message_types
+
+
+@pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
+    'rucio.daemons.reaper.reaper.REGION'
+]}], indirect=True)
 def test_reaper_bulk_delete(vo, caches_mock):
     """ REAPER (DAEMON): Mock test the reaper daemon on async bulk delete request."""
     [cache_region] = caches_mock
