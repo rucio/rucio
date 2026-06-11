@@ -35,9 +35,11 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.scopeclient import ScopeClient
 from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.touchclient import TouchClient
+from rucio.client.loadinjectionclient import LoadInjectionClient
 
 
 class Client(AccountClient,
+             LoadInjectionClient,
              MetaConventionClient,
              PingClient,
              ReplicaClient,

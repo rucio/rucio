@@ -124,7 +124,10 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'export': perm_export,
             'list_transfer_limits': perm_list_transfer_limits,
             'set_transfer_limit': perm_set_transfer_limit,
-            'delete_transfer_limit': perm_delete_transfer_limit}
+            'delete_transfer_limit': perm_delete_transfer_limit,
+            'add_load_injection_plans': perm_add_load_injection_plans,
+            'get_load_injection_plans': perm_get_load_injection_plans,
+            'delete_load_injection_plans': perm_delete_load_injection_plans}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs, session=session)
 
@@ -1175,3 +1178,39 @@ def perm_delete_transfer_limit(issuer: "InternalAccount", kwargs: dict[str, Any]
     :returns: True if account is allowed, otherwise False
     """
     return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+
+def perm_add_load_injection_plans(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can bulk add load injection plans.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session)
+
+
+def perm_get_load_injection_plans(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can get load injection plans.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session)
+
+
+def perm_delete_load_injection_plans(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can delete load injection plans.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session)
