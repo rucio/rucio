@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json as jsonlib
+
 from flask import Flask, request, Response
 from typing import Union
 
@@ -334,7 +336,7 @@ class Plans(ErrorHandlingMethodView):
           404:
             description: Plan not found
         """
-        updates = request.get_json(silent=True) or {}
+        updates = request.get_json(silent=True) or jsonlib.loads(request.data)
         try:
             update_load_injection_plan(
                 src_rse=src_rse,
