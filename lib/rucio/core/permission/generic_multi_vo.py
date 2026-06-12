@@ -123,7 +123,10 @@ def has_permission(issuer, action, kwargs, session: "Session"):
             'list_vos': perm_list_vos,
             'recover_vo_root_identity': perm_recover_vo_root_identity,
             'update_vo': perm_update_vo,
-            'access_rule_vo': perm_access_rule_vo}
+            'access_rule_vo': perm_access_rule_vo,
+            'add_load_injection_plans': perm_add_load_injection_plans,
+            'get_load_injection_plans': perm_get_load_injection_plans,
+            'delete_load_injection_plans': perm_delete_load_injection_plans}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs, session=session)
 
@@ -1156,3 +1159,18 @@ def perm_access_rule_vo(issuer, kwargs, session: "Session"):
     :returns: True if account is allowed, otherwise False
     """
     return get_rule(kwargs['rule_id'])['scope'].vo == issuer.vo
+
+
+def perm_add_load_injection_plans(issuer, kwargs, session):
+    """Checks if an account can add load injection plans. Root or loadinjection attribute."""
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session)
+
+
+def perm_get_load_injection_plans(issuer, kwargs, session):
+    """Checks if an account can get load injection plans. Root or loadinjection attribute."""
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session)
+
+
+def perm_delete_load_injection_plans(issuer, kwargs, session):
+    """Checks if an account can delete load injection plans. Root or loadinjection attribute."""
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='loadinjection', session=session)

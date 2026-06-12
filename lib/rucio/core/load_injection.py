@@ -804,6 +804,29 @@ def heartbeat_injecting_plan(
 
 
 @transactional_session
+def finish_injecting_plan(
+    src_rse_id: str, dest_rse_id: str, *, session: "Session"
+) -> bool:
+    """
+    Transition INJECTING → FINISHED. Conditional: only succeeds if the
+    plan is still INJECTING (not KILLED by a concurrent operator action).
+    """
+    stmt = (
+        update(models.LoadInjectionPlans)
+        .where(
+            and_(
+                models.LoadInjectionPlans.src_rse_id == src_rse_id,
+                models.LoadInjectionPlans.dest_rse_id == dest_rse_id,
+                models.LoadInjectionPlans.state == constants.LoadInjectionState.INJECTING,
+            )
+        )
+        .values(state=constants.LoadInjectionState.FINISHED)
+    )
+    result = session.execute(stmt)
+    return result.rowcount == 1
+
+
+@transactional_session
 def try_recover_zombie_plan(
     src_rse_id: str, dest_rse_id: str, deadline: datetime.datetime, *, session: "Session"
 ) -> bool:

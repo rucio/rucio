@@ -27,6 +27,7 @@ from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.load_injection import (
     add_injection_plans_history,
     delete_injection_plan,
+    finish_injecting_plan,
     get_injection_plan_state,
     get_injection_plans,
     get_unique_rse_pair_datasets,
@@ -320,25 +321,27 @@ def plan_submitter(
             f"Graceful stop — plan stays INJECTING, {len(rule_ids)} rules active.",
         )
     elif rule_ids:
-        # Normal completion with rules created.
-        update_injection_plan_state(
-            src_rse_id=src_rse_id,
-            dest_rse_id=dest_rse_id,
-            new_state=LoadInjectionState.FINISHED,
-        )
+        # Normal completion with rules created. Conditional transition
+        # so a concurrent kill is never overwritten.
+        finish_injecting_plan(src_rse_id, dest_rse_id)
         logger(
             logging.INFO,
             f"Sub: {src_rse_name} -> {dest_rse_name} :: "
             f"Plan completed with {len(rule_ids)} rules created.",
         )
     else:
-        # Zero rules over the entire plan lifetime means every
-        # add_rule attempt failed — misconfiguration or dependency outage.
-        update_injection_plan_state(
-            src_rse_id=src_rse_id,
-            dest_rse_id=dest_rse_id,
-            new_state=LoadInjectionState.KILLED,
-        )
+        # Zero rules — mark KILLED. Conditional via heartbeat check so
+        # a concurrent operator kill is preserved.
+        heartbeat_injecting_plan(src_rse_id, dest_rse_id)  # returns False if KILLED
+        if (
+            get_injection_plan_state(src_rse_id, dest_rse_id)
+            == LoadInjectionState.INJECTING
+        ):
+            update_injection_plan_state(
+                src_rse_id=src_rse_id,
+                dest_rse_id=dest_rse_id,
+                new_state=LoadInjectionState.KILLED,
+            )
         logger(
             logging.WARNING,
             f"Sub: {src_rse_name} -> {dest_rse_name} :: "
