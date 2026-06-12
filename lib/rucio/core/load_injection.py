@@ -780,6 +780,32 @@ def try_claim_plan(
 
 
 @transactional_session
+def heartbeat_injecting_plan(
+    src_rse_id: str, dest_rse_id: str, *, session: "Session"
+) -> bool:
+    """
+    Refresh updated_at on an INJECTING plan. Uses a conditional UPDATE
+    so a KILL signal written by the gateway is never overwritten.
+
+    :returns: True if the heartbeat succeeded (plan still INJECTING),
+              False if the plan was KILLED or otherwise changed.
+    """
+    stmt = (
+        update(models.LoadInjectionPlans)
+        .where(
+            and_(
+                models.LoadInjectionPlans.src_rse_id == src_rse_id,
+                models.LoadInjectionPlans.dest_rse_id == dest_rse_id,
+                models.LoadInjectionPlans.state == constants.LoadInjectionState.INJECTING,
+            )
+        )
+        .values(state=constants.LoadInjectionState.INJECTING)
+    )
+    result = session.execute(stmt)
+    return result.rowcount == 1
+
+
+@transactional_session
 def try_recover_zombie_plan(
     src_rse_id: str, dest_rse_id: str, deadline: datetime.datetime, *, session: "Session"
 ) -> bool:

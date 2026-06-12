@@ -30,6 +30,7 @@ from rucio.core.load_injection import (
     get_injection_plan_state,
     get_injection_plans,
     get_unique_rse_pair_datasets,
+    heartbeat_injecting_plan,
     try_claim_plan,
     try_recover_zombie_plan,
     update_injection_plan_state,
@@ -119,10 +120,9 @@ def plan_submitter(
             # Let the kill guard below handle cleanup next iteration.
             pass
         elif current_state == LoadInjectionState.INJECTING:
-            update_injection_plan_state(
+            heartbeat_injecting_plan(
                 src_rse_id=src_rse_id,
                 dest_rse_id=dest_rse_id,
-                new_state=LoadInjectionState.INJECTING,
             )
 
         # Check for explicit operator kill — expire all rules immediately.
