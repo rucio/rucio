@@ -323,6 +323,15 @@ _UPDATE_EXP_DELAY = click.option(
 _UPDATE_RULE_LT = click.option(
     "--rule-lifetime", "--lifetime", type=int, default=None,
     help="Rule lifetime in seconds.",)
+_UPDATE_BIG_FIRST = click.option(
+    "--big-first", is_flag=True, default=None,
+    help="Inject larger datasets first.",)
+_UPDATE_DRY_RUN = click.option(
+    "--dry-run", "--dryrun", is_flag=True, default=None,
+    help="Dry run: do not actually submit rules.",)
+_UPDATE_COMMENTS = click.option(
+    "--comments", "--comment", type=str, default=None,
+    help="Comments for the plan.",)
 
 
 @loadinjection.command("update")
@@ -336,9 +345,9 @@ _UPDATE_RULE_LT = click.option(
 @_UPDATE_MAX_INJ
 @_UPDATE_EXP_DELAY
 @_UPDATE_RULE_LT
-@_BIG_FIRST_OPTION
-@_DRY_RUN_OPTION
-@_COMMENTS_OPTION
+@_UPDATE_BIG_FIRST
+@_UPDATE_DRY_RUN
+@_UPDATE_COMMENTS
 @click.pass_context
 def update(
     ctx, src_rse, dest_rse, inject_rate, start_time, end_time,
