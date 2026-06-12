@@ -666,9 +666,11 @@ def delete_injection_plans(
             and_(f, models.LoadInjectionPlans.vo == vo) for f in pair_filters
         ]
 
-    # Bulk fetch all plans to archive
+    # Bulk fetch and lock plans for archival. FOR UPDATE prevents a
+    # TOCTOU race where try_claim_plan transitions WAITING→INJECTING
+    # between our SELECT and DELETE.
     stmt = select(models.LoadInjectionPlans).where(or_(*pair_filters))
-    results = session.execute(stmt).scalars().all()
+    results = session.execute(stmt.with_for_update()).scalars().all()
 
     if not results or len(results) != len(plans):
         raise exception.NoLoadInjectionPlanFound(
