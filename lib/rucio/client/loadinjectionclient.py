@@ -175,7 +175,7 @@ class LoadInjectionClient(BaseClient):
         """
         path = "/".join([self.LOADINJECTION_BASEURL, src_rse, dest_rse])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.PUT, data=render_json(updates))
+        r = self._send_request(url, method=HTTPMethod.PUT, data=render_json(**updates))
         if r.status_code == codes.ok:
             return True
         else:
