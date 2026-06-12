@@ -133,7 +133,7 @@ class LoadInjectionClient(BaseClient):
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
-            return self._load_json_data(r)
+            return r.json()
         else:
             exc_cls, exc_msg = self._get_exception(
                 headers=r.headers, status_code=r.status_code, data=r.content
