@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-''' add load injection tables '''
+"""add load injection tables"""    # noqa: D400, D415
 
 import datetime
 
@@ -29,17 +29,13 @@ from alembic.op import (
 from rucio.db.sqla.types import GUID
 
 # Alembic revision identifiers
-revision = 'a1b2c3d4e5f6'
+revision = '8e60cb4b5c39'
 down_revision = '3b943000da18'
 
 
 def upgrade():
-    '''
-    Upgrade the database to this revision
-    '''
-
+    """Upgrade the database to this revision."""
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
-        # LoadInjectionDatasets table
         create_table(
             'load_injection_datasets',
             sa.Column('scope', sa.String(25)),
@@ -51,44 +47,19 @@ def upgrade():
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
-        create_primary_key(
-            'LOAD_INJECTION_DATASETS_PK',
-            'load_injection_datasets',
-            ['scope', 'name', 'src_rse_id', 'dest_rse_id'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_DATASETS_SCOPE_NAME_FK',
-            'load_injection_datasets',
-            'dids',
-            ['scope', 'name'],
-            ['scope', 'name'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_DATASETS_SRC_RSE_FK',
-            'load_injection_datasets',
-            'rses',
-            ['src_rse_id'],
-            ['id'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_DATASETS_DEST_RSE_FK',
-            'load_injection_datasets',
-            'rses',
-            ['dest_rse_id'],
-            ['id'],
-        )
-        create_index(
-            'LOAD_INJECTION_DATASETS_SCOPE_NAME_IDX',
-            'load_injection_datasets',
-            ['scope', 'name'],
-        )
-        create_index(
-            'LOAD_INJECTION_DATASETS_SRC_RSE_DEST_RSE_IDX',
-            'load_injection_datasets',
-            ['src_rse_id', 'dest_rse_id'],
-        )
+        create_primary_key('LOAD_INJECTION_DATASETS_PK', 'load_injection_datasets',
+                           ['scope', 'name', 'src_rse_id', 'dest_rse_id'])
+        create_foreign_key('LOAD_INJECTION_DATASETS_SCOPE_NAME_FK', 'load_injection_datasets',
+                           'dids', ['scope', 'name'], ['scope', 'name'])
+        create_foreign_key('LOAD_INJECTION_DATASETS_SRC_RSE_FK', 'load_injection_datasets',
+                           'rses', ['src_rse_id'], ['id'])
+        create_foreign_key('LOAD_INJECTION_DATASETS_DEST_RSE_FK', 'load_injection_datasets',
+                           'rses', ['dest_rse_id'], ['id'])
+        create_index('LOAD_INJECTION_DATASETS_SCOPE_NAME_IDX', 'load_injection_datasets',
+                     ['scope', 'name'])
+        create_index('LOAD_INJECTION_DATASETS_SRC_RSE_DEST_RSE_IDX', 'load_injection_datasets',
+                     ['src_rse_id', 'dest_rse_id'])
 
-        # LoadInjectionPlans table
         create_table(
             'load_injection_plans',
             sa.Column('plan_id', GUID()),
@@ -110,32 +81,14 @@ def upgrade():
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
-        create_primary_key(
-            'LOAD_INJECTION_PLANS_PK',
-            'load_injection_plans',
-            ['src_rse_id', 'dest_rse_id'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_PLANS_SRC_RSE_FK',
-            'load_injection_plans',
-            'rses',
-            ['src_rse_id'],
-            ['id'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_PLANS_DEST_RSE_FK',
-            'load_injection_plans',
-            'rses',
-            ['dest_rse_id'],
-            ['id'],
-        )
-        create_index(
-            'LOAD_INJECTION_PLANS_PLAN_IDX',
-            'load_injection_plans',
-            ['plan_id'],
-        )
+        create_primary_key('LOAD_INJECTION_PLANS_PK', 'load_injection_plans',
+                           ['src_rse_id', 'dest_rse_id'])
+        create_foreign_key('LOAD_INJECTION_PLANS_SRC_RSE_FK', 'load_injection_plans',
+                           'rses', ['src_rse_id'], ['id'])
+        create_foreign_key('LOAD_INJECTION_PLANS_DEST_RSE_FK', 'load_injection_plans',
+                           'rses', ['dest_rse_id'], ['id'])
+        create_index('LOAD_INJECTION_PLANS_PLAN_IDX', 'load_injection_plans', ['plan_id'])
 
-        # LoadInjectionPlansHistory table
         create_table(
             'load_injection_plans_history',
             sa.Column('plan_id', GUID()),
@@ -157,42 +110,19 @@ def upgrade():
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
-        create_primary_key(
-            'LOAD_INJECTION_PLANS_HISTORY_PK',
-            'load_injection_plans_history',
-            ['plan_id', 'src_rse_id', 'dest_rse_id'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_PLANS_HISTORY_SRC_RSE_FK',
-            'load_injection_plans_history',
-            'rses',
-            ['src_rse_id'],
-            ['id'],
-        )
-        create_foreign_key(
-            'LOAD_INJECTION_PLANS_HISTORY_DEST_RSE_FK',
-            'load_injection_plans_history',
-            'rses',
-            ['dest_rse_id'],
-            ['id'],
-        )
-        create_index(
-            'LOAD_INJECTION_PLANS_HISTORY_PLAN_IDX',
-            'load_injection_plans_history',
-            ['plan_id'],
-        )
-        create_index(
-            'LOAD_INJECTION_PLANS_HISTORY_RSE_IDX',
-            'load_injection_plans_history',
-            ['src_rse_id', 'dest_rse_id'],
-        )
+        create_primary_key('LOAD_INJECTION_PLANS_HISTORY_PK', 'load_injection_plans_history',
+                           ['plan_id', 'src_rse_id', 'dest_rse_id'])
+        create_foreign_key('LOAD_INJECTION_PLANS_HISTORY_SRC_RSE_FK', 'load_injection_plans_history',
+                           'rses', ['src_rse_id'], ['id'])
+        create_foreign_key('LOAD_INJECTION_PLANS_HISTORY_DEST_RSE_FK', 'load_injection_plans_history',
+                           'rses', ['dest_rse_id'], ['id'])
+        create_index('LOAD_INJECTION_PLANS_HISTORY_PLAN_IDX', 'load_injection_plans_history', ['plan_id'])
+        create_index('LOAD_INJECTION_PLANS_HISTORY_RSE_IDX', 'load_injection_plans_history',
+                     ['src_rse_id', 'dest_rse_id'])
 
 
 def downgrade():
-    '''
-    Downgrade the database to the previous revision
-    '''
-
+    """Downgrade the database to the previous revision."""
     if context.get_context().dialect.name in ['oracle', 'mysql', 'postgresql']:
         drop_table('load_injection_plans_history')
         drop_table('load_injection_plans')
