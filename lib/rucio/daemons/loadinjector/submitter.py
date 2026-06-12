@@ -183,15 +183,9 @@ def plan_submitter(
         # Refresh heartbeat before potentially long per-dataset rule creation.
         # Without this, a second worker could consider us stale during a large
         # batch and incorrectly trigger zombie recovery.
-        if (
-            get_injection_plan_state(src_rse_id, dest_rse_id)
-            == LoadInjectionState.INJECTING
-        ):
-            update_injection_plan_state(
-                src_rse_id=src_rse_id,
-                dest_rse_id=dest_rse_id,
-                new_state=LoadInjectionState.INJECTING,
-            )
+        if not heartbeat_injecting_plan(src_rse_id, dest_rse_id):
+            # State was changed (likely KILLED) — exit loop
+            break
 
         # Select datasets until we reach the target byte count for this interval.
         selected_datasets = []

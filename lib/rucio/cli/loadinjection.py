@@ -298,17 +298,44 @@ def remove(ctx, src_rse, dest_rse):
         raise SystemExit(f"No plan found for {src_rse} -> {dest_rse}.")
 
 
+# Update-specific options with default=None so only explicit params are sent
+_UPDATE_INJECT_RATE = click.option(
+    "--inject-rate", "--rate", "--mbps", type=int, default=None,
+    help="Injection rate in Mbps.",)
+_UPDATE_START_TIME = click.option(
+    "--start-time", "--start", type=str, default=None,
+    help="Start time (UTC) YYYY-MM-DD HH:MM:SS.",)
+_UPDATE_END_TIME = click.option(
+    "--end-time", "--end", type=str, default=None,
+    help="End time (UTC) YYYY-MM-DD HH:MM:SS.",)
+_UPDATE_INTERVAL = click.option(
+    "--interval", "--time-interval", type=int, default=None,
+    help="Injection interval in seconds.",)
+_UPDATE_FUDGE = click.option(
+    "--fudge", "--fudge-factor", type=float, default=None,
+    help="Fudge factor.",)
+_UPDATE_MAX_INJ = click.option(
+    "--max-injection", "--max", type=float, default=None,
+    help="Max fraction beyond target rate.",)
+_UPDATE_EXP_DELAY = click.option(
+    "--expiration-delay", "--delay", type=int, default=None,
+    help="Dataset reuse delay in seconds.",)
+_UPDATE_RULE_LT = click.option(
+    "--rule-lifetime", "--lifetime", type=int, default=None,
+    help="Rule lifetime in seconds.",)
+
+
 @loadinjection.command("update")
 @_SRC_RSE_OPTION
 @_DEST_RSE_OPTION
-@_INJECT_RATE_OPTION
-@_START_TIME_OPTION
-@_END_TIME_OPTION
-@_INTERVAL_OPTION
-@_FUDGE_OPTION
-@_MAX_INJECTION_OPTION
-@_EXPIRATION_DELAY_OPTION
-@_RULE_LIFETIME_OPTION
+@_UPDATE_INJECT_RATE
+@_UPDATE_START_TIME
+@_UPDATE_END_TIME
+@_UPDATE_INTERVAL
+@_UPDATE_FUDGE
+@_UPDATE_MAX_INJ
+@_UPDATE_EXP_DELAY
+@_UPDATE_RULE_LT
 @_BIG_FIRST_OPTION
 @_DRY_RUN_OPTION
 @_COMMENTS_OPTION
@@ -318,21 +345,37 @@ def update(
     interval, fudge, max_injection, expiration_delay, rule_lifetime,
     big_first, dry_run, comments,
 ):
-    """Update an existing load injection plan."""
-    if start_time is None:
-        start_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    if end_time is None:
-        end_time = (datetime.utcnow() + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
-
+    """Update an existing load injection plan. Only specified options are sent."""
     client = ctx.obj.client
-    updates = {
-        "inject_rate": inject_rate, "start_time": start_time,
-        "end_time": end_time, "interval": interval,
-        "fudge": fudge, "max_injection": max_injection,
-        "expiration_delay": expiration_delay,
-        "rule_lifetime": rule_lifetime, "big_first": big_first,
-        "dry_run": dry_run, "comments": comments,
-    }
+    # Collect only parameters the user explicitly set (non-None/non-default)
+    updates = {}
+    if inject_rate is not None:
+        updates["inject_rate"] = inject_rate
+    if start_time is not None:
+        updates["start_time"] = start_time
+    if end_time is not None:
+        updates["end_time"] = end_time
+    if interval is not None:
+        updates["interval"] = interval
+    if fudge is not None:
+        updates["fudge"] = fudge
+    if max_injection is not None:
+        updates["max_injection"] = max_injection
+    if expiration_delay is not None:
+        updates["expiration_delay"] = expiration_delay
+    if rule_lifetime is not None:
+        updates["rule_lifetime"] = rule_lifetime
+    if big_first is not None:
+        updates["big_first"] = big_first
+    if dry_run is not None:
+        updates["dry_run"] = dry_run
+    if comments is not None:
+        updates["comments"] = comments
+
+    if not updates:
+        click.echo("No updates specified.")
+        return
+
     try:
         client.update_load_injection_plan(src_rse, dest_rse, updates)
         click.echo(f"Plan {src_rse} -> {dest_rse} updated.")
