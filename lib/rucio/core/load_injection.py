@@ -670,12 +670,10 @@ def delete_injection_plans(
     stmt = select(models.LoadInjectionPlans).where(or_(*pair_filters))
     results = session.execute(stmt).scalars().all()
 
-    if not results:
+    if not results or len(results) != len(plans):
         raise exception.NoLoadInjectionPlanFound(
-            "No load injection plans found for the given RSE pairs."
+            "Not all requested plans were found. Delete is all-or-nothing."
         )
-
-    # Reject deletion of INJECTING plans — they have active submitter threads.
     injecting = [r for r in results if r.state == constants.LoadInjectionState.INJECTING]
     if injecting:
         src_rse_ids = {r.src_rse_id for r in injecting}
