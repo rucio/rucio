@@ -112,6 +112,17 @@ def plan_submitter(
     unique_datasets = load_unique_datasets()
     rule_ids: list[str] = []
     loop_count = 0
+
+    logger(
+        logging.INFO,
+        f"Sub: {src_rse_name} -> {dest_rse_name} :: "
+        f"plan={plan['plan_id'][:8]}...  rate={mbps} Mbps  "
+        f"target={injection_bytes/1e9:.2f} GB/interval  "
+        f"interval={plan['interval']}s  end={plan['end_time'].strftime('%H:%M:%S')}  "
+        f"cached={len(unique_datasets)} datasets  "
+        f"mode={'DRY-RUN' if plan['dry_run'] else 'LIVE'}",
+    )
+
     while True:
         # Heartbeat at the top of every loop so the updated_at timestamp
         # is fresh before any work—including long rule-creation batches.
@@ -172,7 +183,14 @@ def plan_submitter(
         # Periodically refresh the unique dataset cache from DB so that
         # datasets added by the scanner mid-plan become available.
         if loop_count > 0 and loop_count % REFRESH_EVERY_N_LOOPS == 0:
+            prev_count = len(unique_datasets)
             unique_datasets = load_unique_datasets()
+            logger(
+                logging.DEBUG,
+                f"Sub: {src_rse_name} -> {dest_rse_name} :: "
+                f"cache refreshed: {prev_count} -> {len(unique_datasets)} datasets "
+                f"(loop #{loop_count})",
+            )
 
         fresh_datasets = get_fresh_datasets(unique_datasets)
         logger(
@@ -423,9 +441,19 @@ def run_once(heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
         if not plans:
             logger(
                 logging.INFO,
-                "Main: No more plans to deal with, go sleep and wait for next loop.",
+                "Main: No plans found. Sleeping.",
             )
         else:
+            # Summarize plan states
+            by_state: dict[str, int] = {}
+            for p in plans:
+                s = str(p.get("state", "?"))
+                by_state[s] = by_state.get(s, 0) + 1
+            state_summary = " ".join(f"{s}={c}" for s, c in sorted(by_state.items()))
+            logger(
+                logging.INFO,
+                f"Main: {len(plans)} plans found  [{state_summary}]",
+            )
             for plan in plans:
                 if plan["state"] == LoadInjectionState.WAITING:
                     now = datetime.datetime.utcnow()
@@ -454,7 +482,9 @@ def run_once(heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
                                 continue
                             logger(
                                 logging.INFO,
-                                f"Main: Submitting plan {plan['plan_id']} with comment \"{plan['comments']}\".",
+                                f"Main: Claimed + starting plan {plan['plan_id']}  "
+                                f"{get_rse_name(plan['src_rse_id'])} -> {get_rse_name(plan['dest_rse_id'])}  "
+                                f"\"{plan.get('comments', '')}\"",
                             )
                             thread = threading.Thread(target=plan_submitter, args=(plan, logger))
                             thread.start()
