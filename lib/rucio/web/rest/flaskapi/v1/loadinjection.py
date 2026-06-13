@@ -20,6 +20,7 @@ from typing import Union
 from rucio.common.exception import (
     AccessDenied,
     DuplicateLoadInjectionPlan,
+    InvalidObject,
     NoLoadInjectionPlanFound,
 )
 
@@ -336,7 +337,10 @@ class Plans(ErrorHandlingMethodView):
           404:
             description: Plan not found
         """
-        updates = request.get_json(silent=True) or jsonlib.loads(request.data)
+        try:
+            updates = request.get_json(silent=True) or jsonlib.loads(request.data)
+        except (jsonlib.JSONDecodeError, TypeError, ValueError):
+            return generate_http_error_flask(406, InvalidObject("Malformed or empty request body."))
         try:
             update_load_injection_plan(
                 src_rse=src_rse,

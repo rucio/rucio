@@ -230,7 +230,47 @@ def plan_submitter(
         new_rule_ids = []
         now = datetime.datetime.utcnow()
         if selected_datasets:
-            for ds in selected_datasets:
+            for i, ds in enumerate(selected_datasets):
+                # Guard: stop creating rules if end_time has passed.
+                # This is a free check (no DB call) that prevents
+                # over-injection past the plan window boundary.
+                if datetime.datetime.utcnow() >= plan["end_time"]:
+                    logger(
+                        logging.INFO,
+                        f"Sub: {src_rse_name} -> {dest_rse_name} :: "
+                        f"end_time reached mid-batch, stopping after "
+                        f"{i}/{len(selected_datasets)} datasets.",
+                    )
+                    break
+
+                # Guard: check for KILLED every 10 datasets.  The DB
+                # lookup is indexed and cheap; doing it per-dataset
+                # would be wasteful without meaningfully faster
+                # reaction time.
+                if i % 10 == 0:
+                    if (
+                        get_injection_plan_state(src_rse_id, dest_rse_id)
+                        == LoadInjectionState.KILLED
+                    ):
+                        # Expire the rules we just created so they
+                        # don't outlive the kill signal.
+                        for rule_id in new_rule_ids:
+                            try:
+                                update_rule(
+                                    rule_id=rule_id, options={"lifetime": 0}
+                                )
+                            except Exception:
+                                pass
+                        rule_ids.extend(new_rule_ids)
+                        new_rule_ids = []
+                        logger(
+                            logging.INFO,
+                            f"Sub: {src_rse_name} -> {dest_rse_name} :: "
+                            f"KILLED mid-batch, expired "
+                            f"{len(rule_ids)} rules total.",
+                        )
+                        break
+
                 # Create one rule per dataset for fault isolation —
                 # a single bad dataset won't block the entire batch.
                 try:

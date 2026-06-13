@@ -728,7 +728,6 @@ class TestPlanClient:
         new_plan["dest_rse"] = dest_rse
         new_plan.pop("src_rse_id", None)
         new_plan.pop("dest_rse_id", None)
-        new_plan["vo"] = vo
         result = rucio_client.add_load_injection_plan(**new_plan)
         assert result
 

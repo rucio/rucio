@@ -188,8 +188,13 @@ def add_unique_rse_pair_datasets(
     :param datasets: The list of unique datasets for the given RSE pair.
     :param session: The database session in use.
     """
-    try:
-        for dataset in datasets:
+    for dataset in datasets:
+        # Use a savepoint so a duplicate row inserted by a concurrent
+        # scanner worker only rolls back this single insert, not the
+        # entire batch.  Without this, one PK conflict can silently drop
+        # every other non-conflicting row in the batch from the cache.
+        savepoint = session.begin_nested()
+        try:
             new_dataset = models.LoadInjectionDatasets(
                 scope=dataset["scope"],
                 name=dataset["name"],
@@ -199,9 +204,16 @@ def add_unique_rse_pair_datasets(
                 length=dataset["length"],
             )
             new_dataset.save(session=session, flush=False)
-        session.flush()
-    except IntegrityError as error:
-        raise exception.DuplicateContent(error.args)
+            session.flush()
+            savepoint.commit()
+        except IntegrityError as error:
+            savepoint.rollback()
+            # Only suppress duplicate primary key violations from
+            # concurrent scanner workers.  Any other integrity error
+            # (FK violation, NOT NULL, etc.) signals a real problem
+            # and must propagate.
+            if 'LOAD_INJECTION_DATASETS_PK' not in str(error):
+                raise
 
 
 @transactional_session
@@ -318,6 +330,7 @@ def get_injection_plan(
     dest_rse_id: str,
     *,
     vo: "Optional[str]" = None,
+    for_update: bool = False,
     session: "Session",
 ) -> "Mapping[str, Any]":
     """
@@ -327,6 +340,8 @@ def get_injection_plan(
     :param dest_rse_id: The destination RSE ID.
     :param vo: Optional VO scope filter. When provided, the plan is only
         returned if both RSEs belong to this VO.
+    :param for_update: If True, lock the row with FOR UPDATE.
+        Must be called within an existing transaction.
     :param session: The database session in use.
     :returns: An injection plan.
     """
@@ -340,6 +355,8 @@ def get_injection_plan(
             ),
             vo,
         )
+        if for_update:
+            stmt = stmt.with_for_update()
         query_result = session.execute(stmt).scalar_one()
         return query_result.to_dict()
     except NoResultFound as error:
@@ -577,24 +594,34 @@ def get_injection_plan_history(
     src_rse_id: str, dest_rse_id: str, *, session: "Session"
 ) -> "Mapping[str,Any]":
     """
-    Get one injection plan history from the database.
+    Get the most recent injection plan history entry for an RSE pair.
 
     :param src_rse_id: The source RSE ID.
     :param dest_rse_id: The destination RSE ID.
     :param session: The database session in use.
-    :returns: A injection history plan.
+    :returns: The most recent injection history plan.
     """
-    try:
-        stmt = select(models.LoadInjectionPlansHistory).where(
+    stmt = (
+        select(models.LoadInjectionPlansHistory)
+        .where(
             and_(
                 models.LoadInjectionPlansHistory.src_rse_id == src_rse_id,
                 models.LoadInjectionPlansHistory.dest_rse_id == dest_rse_id,
             )
         )
-        query_result = session.execute(stmt).scalar_one()
-        return query_result.to_dict()
-    except NoResultFound as error:
-        raise exception.NoLoadInjectionPlanFound(error.args)
+        .order_by(
+            models.LoadInjectionPlansHistory.created_at.desc(),
+            models.LoadInjectionPlansHistory.plan_id.desc(),
+        )
+        .limit(1)
+    )
+    query_result = session.execute(stmt).scalar_one_or_none()
+    if query_result is None:
+        raise exception.NoLoadInjectionPlanFound(
+            "No load injection plan history found for src_rse_id=%s dest_rse_id=%s"
+            % (src_rse_id, dest_rse_id)
+        )
+    return query_result.to_dict()
 
 
 @read_session

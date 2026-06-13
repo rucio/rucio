@@ -56,19 +56,41 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
     unique_datasets_db = get_unique_rse_pair_datasets(src_rse_id, dest_rse_id)
     unique_datasets_scanned = scan_unique_rse_pair_datasets(src_rse_id, dest_rse_id)
 
-    # Diff using (scope, name) key — much cheaper than tuple(dict.items())
-    db_keys = {_dataset_key(ds) for ds in unique_datasets_db}
-    scanned_keys = {_dataset_key(ds) for ds in unique_datasets_scanned}
+    # Build lookup maps keyed by (scope, name).
+    db_map = {_dataset_key(ds): ds for ds in unique_datasets_db}
+    scanned_map = {_dataset_key(ds): ds for ds in unique_datasets_scanned}
 
     datasets_to_add = [
-        ds for ds in unique_datasets_scanned if _dataset_key(ds) not in db_keys
+        ds for key, ds in scanned_map.items() if key not in db_map
     ]
     datasets_to_remove = [
-        ds for ds in unique_datasets_db if _dataset_key(ds) not in scanned_keys
+        ds for key, ds in db_map.items() if key not in scanned_map
     ]
+
+    # Detect metadata changes on datasets that remain unique.
+    # The key (scope, name) still matches, but bytes or length may
+    # have changed between scanner cycles.  Replace stale rows so
+    # the submitter always works from fresh metadata.
+    datasets_to_update = []
+    for key, db_ds in db_map.items():
+        scanned_ds = scanned_map.get(key)
+        if scanned_ds is None:
+            continue
+        if (db_ds["bytes"] != scanned_ds["bytes"]
+                or db_ds["length"] != scanned_ds["length"]):
+            datasets_to_update.append(scanned_ds)
 
     if datasets_to_remove:
         delete_unique_rse_pair_datasets(datasets_to_remove)
+    if datasets_to_update:
+        # Delete-then-add replaces stale metadata in two separate
+        # transactions.  This is acceptable because the scanner runs
+        # every 12 h and a brief cache gap is harmless.
+        delete_unique_rse_pair_datasets(datasets_to_update)
+        try:
+            add_unique_rse_pair_datasets(datasets_to_update)
+        except DuplicateContent:
+            pass
     if datasets_to_add:
         try:
             add_unique_rse_pair_datasets(datasets_to_add)

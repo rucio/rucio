@@ -19,10 +19,12 @@ import datetime
 import sqlalchemy as sa
 from alembic import context
 from alembic.op import (
+    create_check_constraint,
     create_foreign_key,
     create_index,
     create_primary_key,
     create_table,
+    create_unique_constraint,
     drop_table,
 )
 
@@ -59,15 +61,17 @@ def upgrade():
                      ['scope', 'name'])
         create_index('LOAD_INJECTION_DATASETS_SRC_RSE_DEST_RSE_IDX', 'load_injection_datasets',
                      ['src_rse_id', 'dest_rse_id'])
+        create_check_constraint('LOAD_INJECTION_DATASETS_CREATED_NN', 'load_injection_datasets', 'created_at IS NOT NULL')
+        create_check_constraint('LOAD_INJECTION_DATASETS_UPDATED_NN', 'load_injection_datasets', 'updated_at IS NOT NULL')
 
         create_table(
             'load_injection_plans',
-            sa.Column('plan_id', GUID()),
+            sa.Column('plan_id', GUID(), nullable=False),
             sa.Column('src_rse_id', GUID()),
             sa.Column('dest_rse_id', GUID()),
             sa.Column('vo', sa.String(3)),
-            sa.Column('inject_rate', sa.BigInteger),
-            sa.Column('interval', sa.BigInteger),
+            sa.Column('inject_rate', sa.BigInteger, nullable=False),
+            sa.Column('interval', sa.BigInteger, nullable=False),
             sa.Column('start_time', sa.DateTime),
             sa.Column('end_time', sa.DateTime),
             sa.Column('fudge', sa.Float),
@@ -77,7 +81,7 @@ def upgrade():
             sa.Column('rule_lifetime', sa.BigInteger),
             sa.Column('comments', sa.String(4000)),
             sa.Column('dry_run', sa.Boolean),
-            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LOAD_INJECTION_PLANS_STATE_CHK')),
+            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LOAD_INJECTION_PLANS_STATE_CHK', create_constraint=True), nullable=False),
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
@@ -87,16 +91,18 @@ def upgrade():
                            'rses', ['src_rse_id'], ['id'])
         create_foreign_key('LOAD_INJECTION_PLANS_DEST_RSE_FK', 'load_injection_plans',
                            'rses', ['dest_rse_id'], ['id'])
-        create_index('LOAD_INJECTION_PLANS_PLAN_IDX', 'load_injection_plans', ['plan_id'])
+        create_unique_constraint('LOAD_INJECTION_PLANS_PLAN_UC', 'load_injection_plans', ['plan_id'])
+        create_check_constraint('LOAD_INJECTION_PLANS_CREATED_NN', 'load_injection_plans', 'created_at IS NOT NULL')
+        create_check_constraint('LOAD_INJECTION_PLANS_UPDATED_NN', 'load_injection_plans', 'updated_at IS NOT NULL')
 
         create_table(
             'load_injection_plans_history',
-            sa.Column('plan_id', GUID()),
+            sa.Column('plan_id', GUID(), nullable=False),
             sa.Column('src_rse_id', GUID()),
             sa.Column('dest_rse_id', GUID()),
             sa.Column('vo', sa.String(3)),
-            sa.Column('inject_rate', sa.BigInteger),
-            sa.Column('interval', sa.BigInteger),
+            sa.Column('inject_rate', sa.BigInteger, nullable=False),
+            sa.Column('interval', sa.BigInteger, nullable=False),
             sa.Column('start_time', sa.DateTime),
             sa.Column('end_time', sa.DateTime),
             sa.Column('fudge', sa.Float),
@@ -106,7 +112,7 @@ def upgrade():
             sa.Column('rule_lifetime', sa.BigInteger),
             sa.Column('comments', sa.String(4000)),
             sa.Column('dry_run', sa.Boolean),
-            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LOAD_INJECTION_PLANS_HISTORY_STATE_CHK')),
+            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LOAD_INJECTION_PLANS_HISTORY_STATE_CHK', create_constraint=True), nullable=False),
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
@@ -119,6 +125,8 @@ def upgrade():
         create_index('LOAD_INJECTION_PLANS_HISTORY_PLAN_IDX', 'load_injection_plans_history', ['plan_id'])
         create_index('LOAD_INJECTION_PLANS_HISTORY_RSE_IDX', 'load_injection_plans_history',
                      ['src_rse_id', 'dest_rse_id'])
+        create_check_constraint('LOAD_INJECTION_PLANS_HISTORY_CREATED_NN', 'load_injection_plans_history', 'created_at IS NOT NULL')
+        create_check_constraint('LOAD_INJECTION_PLANS_HISTORY_UPDATED_NN', 'load_injection_plans_history', 'updated_at IS NOT NULL')
 
 
 def downgrade():
@@ -127,3 +135,10 @@ def downgrade():
         drop_table('load_injection_plans_history')
         drop_table('load_injection_plans')
         drop_table('load_injection_datasets')
+        if context.get_context().dialect.name == 'postgresql':
+            context.get_context().execute(
+                'DROP TYPE IF EXISTS "LOAD_INJECTION_PLANS_STATE_CHK"'
+            )
+            context.get_context().execute(
+                'DROP TYPE IF EXISTS "LOAD_INJECTION_PLANS_HISTORY_STATE_CHK"'
+            )

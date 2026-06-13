@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import math
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -50,18 +51,6 @@ def add_load_injection_plans(
     :param vo: The VO to act on.
     :param session: The database session in use.
     """
-    for plan in injection_plans:
-        src_rse_id = get_rse_id(plan["src_rse"], vo=vo, session=session)
-        dest_rse_id = get_rse_id(plan["dest_rse"], vo=vo, session=session)
-        plan["src_rse_id"] = src_rse_id
-        plan["dest_rse_id"] = dest_rse_id
-        plan["state"] = LoadInjectionState.WAITING
-        plan["plan_id"] = generate_uuid()
-        plan["vo"] = vo
-        plan["start_time"] = _parse_datetime(plan.get("start_time"), "start_time")
-        plan["end_time"] = _parse_datetime(plan.get("end_time"), "end_time")
-        _validate_plan_params(plan)
-
     kwargs = {"issuer": issuer}
     auth_result = rucio.gateway.permission.has_permission(
         issuer=issuer,
@@ -75,6 +64,18 @@ def add_load_injection_plans(
             "Account %s can not bulk add load injection plans. %s"
             % (issuer, auth_result.message)
         )
+
+    for plan in injection_plans:
+        src_rse_id = get_rse_id(plan["src_rse"], vo=vo, session=session)
+        dest_rse_id = get_rse_id(plan["dest_rse"], vo=vo, session=session)
+        plan["src_rse_id"] = src_rse_id
+        plan["dest_rse_id"] = dest_rse_id
+        plan["state"] = LoadInjectionState.WAITING
+        plan["plan_id"] = generate_uuid()
+        plan["vo"] = vo
+        plan["start_time"] = _parse_datetime(plan.get("start_time"), "start_time")
+        plan["end_time"] = _parse_datetime(plan.get("end_time"), "end_time")
+        _validate_plan_params(plan)
 
     present_plans = load_injection.get_injection_plans(vo=vo, session=session)
     for new_plan in injection_plans:
@@ -285,9 +286,13 @@ def update_load_injection_plan(
     src_rse_id = get_rse_id(src_rse, vo=vo, session=session)
     dest_rse_id = get_rse_id(dest_rse, vo=vo, session=session)
 
-    # Fetch the existing plan
+    # Fetch and lock the existing plan within this transaction.
+    # FOR UPDATE prevents a TOCTOU race where the daemon claims and
+    # finishes the plan between our state check and the delete+add below.
     try:
-        existing = load_injection.get_injection_plan(src_rse_id, dest_rse_id)
+        existing = load_injection.get_injection_plan(
+            src_rse_id, dest_rse_id, vo=vo, for_update=True, session=session
+        )
     except NoLoadInjectionPlanFound:
         raise
 
@@ -401,35 +406,43 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 def _validate_plan_params(plan: dict[str, Any]) -> None:
     """
     Validate plan parameters at the gateway boundary so the daemon never
-    receives impossible values (zero intervals, inverted times, etc.).
+    receives impossible values (zero intervals, inverted times, NaN, etc.).
 
     :raises InvalidObject: If any parameter is out of range.
     """
     inject_rate = plan.get("inject_rate", 0)
-    if inject_rate <= 0:
-        raise InvalidObject("inject_rate must be positive, got %s." % inject_rate)
+    if not isinstance(inject_rate, int) or inject_rate <= 0:
+        raise InvalidObject("inject_rate must be a positive integer, got %s." % inject_rate)
     if inject_rate > 1000000:
         raise InvalidObject("inject_rate must be <= 1,000,000 Mbps, got %s." % inject_rate)
 
     interval = plan.get("interval", 0)
-    if interval < 1:
-        raise InvalidObject("interval must be >= 1 second, got %s." % interval)
+    if not isinstance(interval, int) or interval < 1:
+        raise InvalidObject("interval must be a positive integer (>= 1 second), got %s." % interval)
     if interval > 86400:
         raise InvalidObject("interval must be <= 86400 seconds (24h), got %s." % interval)
 
     rule_lifetime = plan.get("rule_lifetime", 0)
-    if rule_lifetime < 1:
-        raise InvalidObject("rule_lifetime must be >= 1 second, got %s." % rule_lifetime)
+    if not isinstance(rule_lifetime, int) or rule_lifetime < 1:
+        raise InvalidObject("rule_lifetime must be a positive integer (>= 1 second), got %s." % rule_lifetime)
+    if rule_lifetime > 604800:
+        raise InvalidObject("rule_lifetime must be <= 604800 seconds (7 days), got %s." % rule_lifetime)
 
     expiration_delay = plan.get("expiration_delay", 0)
-    if expiration_delay < 0:
-        raise InvalidObject("expiration_delay must be >= 0, got %s." % expiration_delay)
+    if not isinstance(expiration_delay, int) or expiration_delay < 0:
+        raise InvalidObject("expiration_delay must be a non-negative integer, got %s." % expiration_delay)
+    if expiration_delay > 604800:
+        raise InvalidObject("expiration_delay must be <= 604800 seconds (7 days), got %s." % expiration_delay)
 
     fudge = plan.get("fudge", 0)
+    if not isinstance(fudge, (int, float)) or not math.isfinite(fudge):
+        raise InvalidObject("fudge must be a finite number, got %s." % fudge)
     if fudge < 0 or fudge > 1:
         raise InvalidObject("fudge must be between 0 and 1, got %s." % fudge)
 
     max_injection = plan.get("max_injection", 0)
+    if not isinstance(max_injection, (int, float)) or not math.isfinite(max_injection):
+        raise InvalidObject("max_injection must be a finite number, got %s." % max_injection)
     if max_injection < 0 or max_injection > 1:
         raise InvalidObject("max_injection must be between 0 and 1, got %s." % max_injection)
 

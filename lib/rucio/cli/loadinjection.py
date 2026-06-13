@@ -324,11 +324,17 @@ _UPDATE_RULE_LT = click.option(
     "--rule-lifetime", "--lifetime", type=int, default=None,
     help="Rule lifetime in seconds.",)
 _UPDATE_BIG_FIRST = click.option(
-    "--big-first", is_flag=True, default=None,
+    "--big-first", "big_first", flag_value=True, default=None,
     help="Inject larger datasets first.",)
+_UPDATE_NO_BIG_FIRST = click.option(
+    "--no-big-first", "big_first", flag_value=False,
+    help="Do not inject larger datasets first.",)
 _UPDATE_DRY_RUN = click.option(
-    "--dry-run", "--dryrun", is_flag=True, default=None,
+    "--dry-run", "--dryrun", "dry_run", flag_value=True, default=None,
     help="Dry run: do not actually submit rules.",)
+_UPDATE_NO_DRY_RUN = click.option(
+    "--no-dry-run", "--no-dryrun", "dry_run", flag_value=False,
+    help="Actually submit rules (disable dry run).",)
 _UPDATE_COMMENTS = click.option(
     "--comments", "--comment", type=str, default=None,
     help="Comments for the plan.",)
@@ -346,7 +352,9 @@ _UPDATE_COMMENTS = click.option(
 @_UPDATE_EXP_DELAY
 @_UPDATE_RULE_LT
 @_UPDATE_BIG_FIRST
+@_UPDATE_NO_BIG_FIRST
 @_UPDATE_DRY_RUN
+@_UPDATE_NO_DRY_RUN
 @_UPDATE_COMMENTS
 @click.pass_context
 def update(

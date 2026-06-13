@@ -1876,7 +1876,7 @@ class LoadInjectionPlans(BASE, ModelBase):
     _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='LOAD_INJECTION_PLANS_PK'),
                    ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='LOAD_INJECTION_PLANS_SRC_RSE_FK'),
                    ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='LOAD_INJECTION_PLANS_DEST_RSE_FK'),
-                   Index('LOAD_INJECTION_PLANS_PLAN_IDX', 'plan_id'))
+                   UniqueConstraint('plan_id', name='LOAD_INJECTION_PLANS_PLAN_UC'))
 
 
 class LoadInjectionPlansHistory(BASE, ModelBase):
