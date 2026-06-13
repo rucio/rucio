@@ -559,9 +559,11 @@ def run(once: bool = False, sleep_time: int = 60) -> None:
     try:
         setup_logging(process_name=DAEMON_NAME)
     except Exception:
+        pass
+    if not logging.getLogger().handlers:
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s\t%(name)s\t%(process)d\t%(levelname)s\t%(message)s',
+            format='%(asctime)s %(name)s %(levelname)s %(message)s',
         )
 
     if rucio.db.sqla.util.is_old_db():
