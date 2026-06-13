@@ -79,6 +79,10 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
             continue
         if (db_ds["bytes"] != scanned_ds["bytes"]
                 or db_ds["length"] != scanned_ds["length"]):
+            # Stamp the previously observed values so the core
+            # refresh can use a compare-and-swap WHERE clause.
+            scanned_ds["old_bytes"] = db_ds["bytes"]
+            scanned_ds["old_length"] = db_ds["length"]
             datasets_to_update.append(scanned_ds)
 
     if datasets_to_remove:

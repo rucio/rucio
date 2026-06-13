@@ -378,23 +378,15 @@ def plan_submitter(
             f"Plan completed with {len(rule_ids)} rules created.",
         )
     else:
-        # Zero rules — normal completion with no output.  KILLED is
-        # reserved for explicit operator action, not no-op execution.
-        # Conditional so a concurrent operator kill is preserved.
-        heartbeat_injecting_plan(src_rse_id, dest_rse_id)  # returns False if KILLED
-        if (
-            get_injection_plan_state(src_rse_id, dest_rse_id)
-            == LoadInjectionState.INJECTING
-        ):
-            update_injection_plan_state(
-                src_rse_id=src_rse_id,
-                dest_rse_id=dest_rse_id,
-                new_state=LoadInjectionState.FINISHED,
-            )
+        # Zero rules — normal completion with no output.
+        # finish_injecting_plan is conditional (INJECTING→FINISHED);
+        # if the plan was concurrently killed the transition is a no-op.
+        finished = finish_injecting_plan(src_rse_id, dest_rse_id)
         logger(
             logging.WARNING,
             f"Sub: {src_rse_name} -> {dest_rse_name} :: "
-            f"Plan ended with ZERO rules created. State set to FINISHED.",
+            f"Plan ended with ZERO rules created. "
+            f"State={'FINISHED' if finished else 'KILLED (concurrent)'}.",
         )
 
 

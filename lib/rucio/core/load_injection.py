@@ -275,13 +275,14 @@ def refresh_unique_rse_pair_dataset_metadata(
     datasets: "Sequence[Mapping[str, Any]]", *, session: "Session"
 ) -> None:
     """
-    Atomically update bytes and length for existing cache rows.
+    Atomically update bytes and length for existing cache rows using a
+    compare-and-swap predicate on the previously observed values.
 
-    Unlike delete-then-add, this uses a single UPDATE so concurrent
-    scanner workers cannot regress the cache to stale values.
+    If another scanner worker already wrote newer metadata, this
+    UPDATE affects zero rows and the stale write is safely discarded.
 
     :param datasets: Sequence of dicts with scope, name, src_rse_id,
-        dest_rse_id, bytes, and length.
+        dest_rse_id, old_bytes, old_length, bytes, and length.
     :param session: The database session in use.
     """
     for ds in datasets:
@@ -293,6 +294,8 @@ def refresh_unique_rse_pair_dataset_metadata(
                     models.LoadInjectionDatasets.name == ds["name"],
                     models.LoadInjectionDatasets.src_rse_id == ds["src_rse_id"],
                     models.LoadInjectionDatasets.dest_rse_id == ds["dest_rse_id"],
+                    models.LoadInjectionDatasets.bytes == ds["old_bytes"],
+                    models.LoadInjectionDatasets.length == ds["old_length"],
                 )
             )
             .values(bytes=ds["bytes"], length=ds["length"])
@@ -912,7 +915,23 @@ def kill_injection_plan(
         .values(state=constants.LoadInjectionState.KILLED)
     )
     result = session.execute(stmt)
-    return result.rowcount == 1
+    if result.rowcount == 0:
+        # Distinguish "plan doesn't exist" from "plan isn't INJECTING".
+        exists = session.execute(
+            select(models.LoadInjectionPlans).where(
+                and_(
+                    models.LoadInjectionPlans.src_rse_id == src_rse_id,
+                    models.LoadInjectionPlans.dest_rse_id == dest_rse_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if exists is None:
+            raise exception.NoLoadInjectionPlanFound(
+                "No load injection plan found for src_rse_id=%s dest_rse_id=%s"
+                % (src_rse_id, dest_rse_id)
+            )
+        return False
+    return True
 
 
 @transactional_session
