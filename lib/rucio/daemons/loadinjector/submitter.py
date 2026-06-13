@@ -556,15 +556,15 @@ def run(once: bool = False, sleep_time: int = 60) -> None:
     """
     Start up the loadinjector submitter threads.
     """
-    try:
-        setup_logging(process_name=DAEMON_NAME)
-    except Exception:
-        pass
     if not logging.getLogger().handlers:
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(name)s %(levelname)s %(message)s',
         )
+    try:
+        setup_logging(process_name=DAEMON_NAME)
+    except Exception:
+        pass
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException(
