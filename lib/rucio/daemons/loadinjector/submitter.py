@@ -565,6 +565,8 @@ def run(once: bool = False, sleep_time: int = 60) -> None:
         setup_logging(process_name=DAEMON_NAME)
     except Exception:
         pass
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger(DAEMON_NAME).setLevel(logging.INFO)
 
     if rucio.db.sqla.util.is_old_db():
         raise exception.DatabaseException(
