@@ -393,9 +393,15 @@ def kill_load_injection_plan(
     src_rse_id = get_rse_id(src_rse, vo=vo, session=session)
     dest_rse_id = get_rse_id(dest_rse, vo=vo, session=session)
     try:
-        load_injection.update_injection_plan_state(
-            src_rse_id, dest_rse_id, LoadInjectionState.KILLED
-        )
+        # Conditional transition — only INJECTING → KILLED.
+        # Prevents overwriting terminal states (FINISHED, KILLED)
+        # or requeueing WAITING plans.
+        if not load_injection.kill_injection_plan(
+            src_rse_id, dest_rse_id, session=session
+        ):
+            raise InvalidObject(
+                "Plan is not in INJECTING state and cannot be killed."
+            )
     except NoLoadInjectionPlanFound:
         raise
 
@@ -411,37 +417,37 @@ def _validate_plan_params(plan: dict[str, Any]) -> None:
     :raises InvalidObject: If any parameter is out of range.
     """
     inject_rate = plan.get("inject_rate", 0)
-    if not isinstance(inject_rate, int) or inject_rate <= 0:
+    if isinstance(inject_rate, bool) or not isinstance(inject_rate, int) or inject_rate <= 0:
         raise InvalidObject("inject_rate must be a positive integer, got %s." % inject_rate)
     if inject_rate > 1000000:
         raise InvalidObject("inject_rate must be <= 1,000,000 Mbps, got %s." % inject_rate)
 
     interval = plan.get("interval", 0)
-    if not isinstance(interval, int) or interval < 1:
+    if isinstance(interval, bool) or not isinstance(interval, int) or interval < 1:
         raise InvalidObject("interval must be a positive integer (>= 1 second), got %s." % interval)
     if interval > 86400:
         raise InvalidObject("interval must be <= 86400 seconds (24h), got %s." % interval)
 
     rule_lifetime = plan.get("rule_lifetime", 0)
-    if not isinstance(rule_lifetime, int) or rule_lifetime < 1:
+    if isinstance(rule_lifetime, bool) or not isinstance(rule_lifetime, int) or rule_lifetime < 1:
         raise InvalidObject("rule_lifetime must be a positive integer (>= 1 second), got %s." % rule_lifetime)
     if rule_lifetime > 604800:
         raise InvalidObject("rule_lifetime must be <= 604800 seconds (7 days), got %s." % rule_lifetime)
 
     expiration_delay = plan.get("expiration_delay", 0)
-    if not isinstance(expiration_delay, int) or expiration_delay < 0:
+    if isinstance(expiration_delay, bool) or not isinstance(expiration_delay, int) or expiration_delay < 0:
         raise InvalidObject("expiration_delay must be a non-negative integer, got %s." % expiration_delay)
     if expiration_delay > 604800:
         raise InvalidObject("expiration_delay must be <= 604800 seconds (7 days), got %s." % expiration_delay)
 
     fudge = plan.get("fudge", 0)
-    if not isinstance(fudge, (int, float)) or not math.isfinite(fudge):
+    if isinstance(fudge, bool) or not isinstance(fudge, (int, float)) or not math.isfinite(fudge):
         raise InvalidObject("fudge must be a finite number, got %s." % fudge)
     if fudge < 0 or fudge > 1:
         raise InvalidObject("fudge must be between 0 and 1, got %s." % fudge)
 
     max_injection = plan.get("max_injection", 0)
-    if not isinstance(max_injection, (int, float)) or not math.isfinite(max_injection):
+    if isinstance(max_injection, bool) or not isinstance(max_injection, (int, float)) or not math.isfinite(max_injection):
         raise InvalidObject("max_injection must be a finite number, got %s." % max_injection)
     if max_injection < 0 or max_injection > 1:
         raise InvalidObject("max_injection must be between 0 and 1, got %s." % max_injection)

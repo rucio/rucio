@@ -307,6 +307,15 @@ def plan_submitter(
                     )
             rule_ids.extend(new_rule_ids)
 
+        # Fast-path: if the plan was killed (including mid-batch), skip
+        # the sleep loop and restart the main while-loop immediately so
+        # the top-level KILLED handler at line ~130 expires all rules.
+        if (
+            get_injection_plan_state(src_rse_id, dest_rse_id)
+            == LoadInjectionState.KILLED
+        ):
+            continue
+
         # Check if plan has reached its end time.
         if datetime.datetime.utcnow() >= plan["end_time"]:
             logger(
@@ -369,8 +378,9 @@ def plan_submitter(
             f"Plan completed with {len(rule_ids)} rules created.",
         )
     else:
-        # Zero rules — mark KILLED. Conditional via heartbeat check so
-        # a concurrent operator kill is preserved.
+        # Zero rules — normal completion with no output.  KILLED is
+        # reserved for explicit operator action, not no-op execution.
+        # Conditional so a concurrent operator kill is preserved.
         heartbeat_injecting_plan(src_rse_id, dest_rse_id)  # returns False if KILLED
         if (
             get_injection_plan_state(src_rse_id, dest_rse_id)
@@ -379,12 +389,12 @@ def plan_submitter(
             update_injection_plan_state(
                 src_rse_id=src_rse_id,
                 dest_rse_id=dest_rse_id,
-                new_state=LoadInjectionState.KILLED,
+                new_state=LoadInjectionState.FINISHED,
             )
         logger(
             logging.WARNING,
             f"Sub: {src_rse_name} -> {dest_rse_name} :: "
-            f"Plan ended with ZERO rules created. State set to KILLED.",
+            f"Plan ended with ZERO rules created. State set to FINISHED.",
         )
 
 

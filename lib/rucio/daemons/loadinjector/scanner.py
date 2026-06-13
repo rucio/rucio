@@ -25,6 +25,7 @@ from rucio.core.load_injection import (
     add_unique_rse_pair_datasets,
     delete_unique_rse_pair_datasets,
     get_unique_rse_pair_datasets,
+    refresh_unique_rse_pair_dataset_metadata,
     scan_unique_rse_pair_datasets,
 )
 from rucio.core.rse import list_rses
@@ -83,14 +84,10 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
     if datasets_to_remove:
         delete_unique_rse_pair_datasets(datasets_to_remove)
     if datasets_to_update:
-        # Delete-then-add replaces stale metadata in two separate
-        # transactions.  This is acceptable because the scanner runs
-        # every 12 h and a brief cache gap is harmless.
-        delete_unique_rse_pair_datasets(datasets_to_update)
-        try:
-            add_unique_rse_pair_datasets(datasets_to_update)
-        except DuplicateContent:
-            pass
+        # Atomic UPDATE — a concurrent scanner worker with stale
+        # metadata cannot overwrite fresh values because the UPDATE
+        # is a single statement, not a delete+add gap.
+        refresh_unique_rse_pair_dataset_metadata(datasets_to_update)
     if datasets_to_add:
         try:
             add_unique_rse_pair_datasets(datasets_to_add)

@@ -49,20 +49,20 @@ def upgrade():
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
-        create_primary_key('LOAD_INJECTION_DATASETS_PK', 'load_injection_datasets',
+        create_primary_key('LI_DATASETS_PK', 'load_injection_datasets',
                            ['scope', 'name', 'src_rse_id', 'dest_rse_id'])
-        create_foreign_key('LOAD_INJECTION_DATASETS_SCOPE_NAME_FK', 'load_injection_datasets',
+        create_foreign_key('LI_DATASETS_SCOPE_NAME_FK', 'load_injection_datasets',
                            'dids', ['scope', 'name'], ['scope', 'name'])
-        create_foreign_key('LOAD_INJECTION_DATASETS_SRC_RSE_FK', 'load_injection_datasets',
+        create_foreign_key('LI_DATASETS_SRC_RSE_FK', 'load_injection_datasets',
                            'rses', ['src_rse_id'], ['id'])
-        create_foreign_key('LOAD_INJECTION_DATASETS_DEST_RSE_FK', 'load_injection_datasets',
+        create_foreign_key('LI_DATASETS_DEST_RSE_FK', 'load_injection_datasets',
                            'rses', ['dest_rse_id'], ['id'])
-        create_index('LOAD_INJECTION_DATASETS_SCOPE_NAME_IDX', 'load_injection_datasets',
+        create_index('LI_DATASETS_SCOPE_NAME_IDX', 'load_injection_datasets',
                      ['scope', 'name'])
-        create_index('LOAD_INJECTION_DATASETS_SRC_RSE_DEST_RSE_IDX', 'load_injection_datasets',
+        create_index('LI_DATASETS_RSE_IDX', 'load_injection_datasets',
                      ['src_rse_id', 'dest_rse_id'])
-        create_check_constraint('LOAD_INJECTION_DATASETS_CREATED_NN', 'load_injection_datasets', 'created_at IS NOT NULL')
-        create_check_constraint('LOAD_INJECTION_DATASETS_UPDATED_NN', 'load_injection_datasets', 'updated_at IS NOT NULL')
+        create_check_constraint('LI_DATASETS_CREATED_NN', 'load_injection_datasets', 'created_at IS NOT NULL')
+        create_check_constraint('LI_DATASETS_UPDATED_NN', 'load_injection_datasets', 'updated_at IS NOT NULL')
 
         create_table(
             'load_injection_plans',
@@ -81,19 +81,19 @@ def upgrade():
             sa.Column('rule_lifetime', sa.BigInteger),
             sa.Column('comments', sa.String(4000)),
             sa.Column('dry_run', sa.Boolean),
-            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LOAD_INJECTION_PLANS_STATE_CHK', create_constraint=True), nullable=False),
+            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LI_PLANS_STATE_CHK', create_constraint=True), nullable=False),
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
-        create_primary_key('LOAD_INJECTION_PLANS_PK', 'load_injection_plans',
+        create_primary_key('LI_PLANS_PK', 'load_injection_plans',
                            ['src_rse_id', 'dest_rse_id'])
-        create_foreign_key('LOAD_INJECTION_PLANS_SRC_RSE_FK', 'load_injection_plans',
+        create_foreign_key('LI_PLANS_SRC_RSE_FK', 'load_injection_plans',
                            'rses', ['src_rse_id'], ['id'])
-        create_foreign_key('LOAD_INJECTION_PLANS_DEST_RSE_FK', 'load_injection_plans',
+        create_foreign_key('LI_PLANS_DEST_RSE_FK', 'load_injection_plans',
                            'rses', ['dest_rse_id'], ['id'])
-        create_unique_constraint('LOAD_INJECTION_PLANS_PLAN_UC', 'load_injection_plans', ['plan_id'])
-        create_check_constraint('LOAD_INJECTION_PLANS_CREATED_NN', 'load_injection_plans', 'created_at IS NOT NULL')
-        create_check_constraint('LOAD_INJECTION_PLANS_UPDATED_NN', 'load_injection_plans', 'updated_at IS NOT NULL')
+        create_unique_constraint('LI_PLANS_PLAN_UC', 'load_injection_plans', ['plan_id'])
+        create_check_constraint('LI_PLANS_CREATED_NN', 'load_injection_plans', 'created_at IS NOT NULL')
+        create_check_constraint('LI_PLANS_UPDATED_NN', 'load_injection_plans', 'updated_at IS NOT NULL')
 
         create_table(
             'load_injection_plans_history',
@@ -112,21 +112,21 @@ def upgrade():
             sa.Column('rule_lifetime', sa.BigInteger),
             sa.Column('comments', sa.String(4000)),
             sa.Column('dry_run', sa.Boolean),
-            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LOAD_INJECTION_PLANS_HISTORY_STATE_CHK', create_constraint=True), nullable=False),
+            sa.Column('state', sa.Enum('W', 'I', 'F', 'K', name='LI_PLANS_HISTORY_STATE_CHK', create_constraint=True), nullable=False),
             sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
             sa.Column('updated_at', sa.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow),
         )
-        create_primary_key('LOAD_INJECTION_PLANS_HISTORY_PK', 'load_injection_plans_history',
+        create_primary_key('LI_PLANS_HISTORY_PK', 'load_injection_plans_history',
                            ['plan_id', 'src_rse_id', 'dest_rse_id'])
-        create_foreign_key('LOAD_INJECTION_PLANS_HISTORY_SRC_RSE_FK', 'load_injection_plans_history',
+        create_foreign_key('LI_PLANS_HISTORY_SRC_RSE_FK', 'load_injection_plans_history',
                            'rses', ['src_rse_id'], ['id'])
-        create_foreign_key('LOAD_INJECTION_PLANS_HISTORY_DEST_RSE_FK', 'load_injection_plans_history',
+        create_foreign_key('LI_PLANS_HISTORY_DEST_RSE_FK', 'load_injection_plans_history',
                            'rses', ['dest_rse_id'], ['id'])
-        create_index('LOAD_INJECTION_PLANS_HISTORY_PLAN_IDX', 'load_injection_plans_history', ['plan_id'])
-        create_index('LOAD_INJECTION_PLANS_HISTORY_RSE_IDX', 'load_injection_plans_history',
+        create_index('LI_PLANS_HISTORY_PLAN_IDX', 'load_injection_plans_history', ['plan_id'])
+        create_index('LI_PLANS_HISTORY_RSE_IDX', 'load_injection_plans_history',
                      ['src_rse_id', 'dest_rse_id'])
-        create_check_constraint('LOAD_INJECTION_PLANS_HISTORY_CREATED_NN', 'load_injection_plans_history', 'created_at IS NOT NULL')
-        create_check_constraint('LOAD_INJECTION_PLANS_HISTORY_UPDATED_NN', 'load_injection_plans_history', 'updated_at IS NOT NULL')
+        create_check_constraint('LI_PLANS_HISTORY_CREATED_NN', 'load_injection_plans_history', 'created_at IS NOT NULL')
+        create_check_constraint('LI_PLANS_HISTORY_UPDATED_NN', 'load_injection_plans_history', 'updated_at IS NOT NULL')
 
 
 def downgrade():
@@ -137,8 +137,8 @@ def downgrade():
         drop_table('load_injection_datasets')
         if context.get_context().dialect.name == 'postgresql':
             context.get_context().execute(
-                'DROP TYPE IF EXISTS "LOAD_INJECTION_PLANS_STATE_CHK"'
+                'DROP TYPE IF EXISTS "LI_PLANS_STATE_CHK"'
             )
             context.get_context().execute(
-                'DROP TYPE IF EXISTS "LOAD_INJECTION_PLANS_HISTORY_STATE_CHK"'
+                'DROP TYPE IF EXISTS "LI_PLANS_HISTORY_STATE_CHK"'
             )

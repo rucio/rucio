@@ -212,7 +212,7 @@ def add_unique_rse_pair_datasets(
             # concurrent scanner workers.  PostgreSQL/Oracle report
             # the named constraint; MySQL reports against 'PRIMARY'.
             err_str = str(error)
-            if 'LOAD_INJECTION_DATASETS_PK' in err_str:
+            if 'LI_DATASETS_PK' in err_str:
                 continue
             if 'PRIMARY' in err_str and 'duplicate' in err_str.lower():
                 continue
@@ -268,6 +268,36 @@ def delete_unique_rse_pair_datasets(
             session.execute(stmt)
     except NoResultFound as error:
         raise exception.NoUniqueDatasetFound(error.args)
+
+
+@transactional_session
+def refresh_unique_rse_pair_dataset_metadata(
+    datasets: "Sequence[Mapping[str, Any]]", *, session: "Session"
+) -> None:
+    """
+    Atomically update bytes and length for existing cache rows.
+
+    Unlike delete-then-add, this uses a single UPDATE so concurrent
+    scanner workers cannot regress the cache to stale values.
+
+    :param datasets: Sequence of dicts with scope, name, src_rse_id,
+        dest_rse_id, bytes, and length.
+    :param session: The database session in use.
+    """
+    for ds in datasets:
+        stmt = (
+            update(models.LoadInjectionDatasets)
+            .where(
+                and_(
+                    models.LoadInjectionDatasets.scope == ds["scope"],
+                    models.LoadInjectionDatasets.name == ds["name"],
+                    models.LoadInjectionDatasets.src_rse_id == ds["src_rse_id"],
+                    models.LoadInjectionDatasets.dest_rse_id == ds["dest_rse_id"],
+                )
+            )
+            .values(bytes=ds["bytes"], length=ds["length"])
+        )
+        session.execute(stmt)
 
 
 @read_session
@@ -853,6 +883,33 @@ def finish_injecting_plan(
             )
         )
         .values(state=constants.LoadInjectionState.FINISHED)
+    )
+    result = session.execute(stmt)
+    return result.rowcount == 1
+
+
+@transactional_session
+def kill_injection_plan(
+    src_rse_id: str, dest_rse_id: str, *, session: "Session"
+) -> bool:
+    """
+    Transition INJECTING → KILLED.  Conditional: only succeeds if the
+    plan is still INJECTING, preventing overwrite of terminal states
+    (FINISHED, KILLED) or requeueing of WAITING plans.
+
+    :returns: True if the plan was killed, False if it was already in
+              a non-INJECTING state (no-op).
+    """
+    stmt = (
+        update(models.LoadInjectionPlans)
+        .where(
+            and_(
+                models.LoadInjectionPlans.src_rse_id == src_rse_id,
+                models.LoadInjectionPlans.dest_rse_id == dest_rse_id,
+                models.LoadInjectionPlans.state == constants.LoadInjectionState.INJECTING,
+            )
+        )
+        .values(state=constants.LoadInjectionState.KILLED)
     )
     result = session.execute(stmt)
     return result.rowcount == 1
