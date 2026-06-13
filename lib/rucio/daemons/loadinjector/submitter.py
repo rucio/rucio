@@ -492,8 +492,8 @@ def run_once(heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
                             started_plans.add(plan["plan_id"])
                     else:
                         logger(
-                            logging.DEBUG,
-                            f"Main: It's not time yet for plan {plan['plan_id']} with comment \"{plan['comments']}\", skip it.",
+                            logging.INFO,
+                            f"Main: Plan {plan['plan_id']} start_time not yet reached, skip.",
                         )
                 elif plan["state"] == LoadInjectionState.FINISHED:
                     logger(
@@ -504,9 +504,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
                     delete_injection_plan(plan["src_rse_id"], plan["dest_rse_id"])
                 elif plan["state"] == LoadInjectionState.INJECTING:
                     # Detect zombie plans: a plan stuck in INJECTING with no
-                    # heartbeat for > 10 * interval is considered dead.
-                    # Uses an atomic conditional UPDATE to avoid TOCTOU races
-                    # with a live plan_submitter that is refreshing its heartbeat.
+                    # heartbeat for > 20 * interval is considered dead.
                     updated_at = plan.get("updated_at")
                     if updated_at is not None:
                         stall_timeout = datetime.timedelta(
@@ -527,12 +525,13 @@ def run_once(heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
                                 continue
                     logger(
                         logging.INFO,
-                        f"Main: Plan {plan['plan_id']} with comment \"{plan['comments']}\" is already running, skip it.",
+                        f"Main: Plan {plan['plan_id']} is already running "
+                        f"(heartbeat {updated_at.strftime('%H:%M:%S') if updated_at else 'unknown'}), skip.",
                     )
                 elif plan["state"] == LoadInjectionState.KILLED:
                     logger(
-                        logging.DEBUG,
-                        f"Main: Plan {plan['plan_id']} with comment \"{plan['comments']}\" need to be killed.",
+                        logging.INFO,
+                        f"Main: Plan {plan['plan_id']} is KILLED, waiting for cleanup.",
                     )
 
         # Remove finished threads.
