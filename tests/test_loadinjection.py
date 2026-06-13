@@ -77,6 +77,22 @@ from rucio.tests.common import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Test isolation: prefix generated names with a session UUID so parallel
+# or serial re-runs never collide on RSE/DID names.
+# ---------------------------------------------------------------------------
+
+_SESSION_SUFFIX = generate_uuid()[:8]
+_ORIG_RSE_GENERATOR = rse_name_generator
+
+
+def _prefixed_rse_name() -> str:
+    return f"{_ORIG_RSE_GENERATOR()}-{_SESSION_SUFFIX}"
+
+
+rse_name_generator = _prefixed_rse_name
+
+
 def generate_random_plans(
     nplan: int = 1,
     src_rse_id: Optional[str] = None,

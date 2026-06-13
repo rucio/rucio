@@ -209,11 +209,14 @@ def add_unique_rse_pair_datasets(
         except IntegrityError as error:
             savepoint.rollback()
             # Only suppress duplicate primary key violations from
-            # concurrent scanner workers.  Any other integrity error
-            # (FK violation, NOT NULL, etc.) signals a real problem
-            # and must propagate.
-            if 'LOAD_INJECTION_DATASETS_PK' not in str(error):
-                raise
+            # concurrent scanner workers.  PostgreSQL/Oracle report
+            # the named constraint; MySQL reports against 'PRIMARY'.
+            err_str = str(error)
+            if 'LOAD_INJECTION_DATASETS_PK' in err_str:
+                continue
+            if 'PRIMARY' in err_str and 'duplicate' in err_str.lower():
+                continue
+            raise
 
 
 @transactional_session

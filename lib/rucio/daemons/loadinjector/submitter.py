@@ -243,33 +243,32 @@ def plan_submitter(
                     )
                     break
 
-                # Guard: check for KILLED every 10 datasets.  The DB
-                # lookup is indexed and cheap; doing it per-dataset
-                # would be wasteful without meaningfully faster
-                # reaction time.
-                if i % 10 == 0:
-                    if (
-                        get_injection_plan_state(src_rse_id, dest_rse_id)
-                        == LoadInjectionState.KILLED
-                    ):
-                        # Expire the rules we just created so they
-                        # don't outlive the kill signal.
-                        for rule_id in new_rule_ids:
-                            try:
-                                update_rule(
-                                    rule_id=rule_id, options={"lifetime": 0}
-                                )
-                            except Exception:
-                                pass
-                        rule_ids.extend(new_rule_ids)
-                        new_rule_ids = []
-                        logger(
-                            logging.INFO,
-                            f"Sub: {src_rse_name} -> {dest_rse_name} :: "
-                            f"KILLED mid-batch, expired "
-                            f"{len(rule_ids)} rules total.",
-                        )
-                        break
+                # Guard: check for KILLED before every add_rule call.
+                # The DB lookup is a simple indexed SELECT — cheap
+                # enough to run per-dataset so no rule is ever created
+                # after an operator kill signal.
+                if (
+                    get_injection_plan_state(src_rse_id, dest_rse_id)
+                    == LoadInjectionState.KILLED
+                ):
+                    # Expire the rules we just created so they
+                    # don't outlive the kill signal.
+                    for rule_id in new_rule_ids:
+                        try:
+                            update_rule(
+                                rule_id=rule_id, options={"lifetime": 0}
+                            )
+                        except Exception:
+                            pass
+                    rule_ids.extend(new_rule_ids)
+                    new_rule_ids = []
+                    logger(
+                        logging.INFO,
+                        f"Sub: {src_rse_name} -> {dest_rse_name} :: "
+                        f"KILLED mid-batch, expired "
+                        f"{len(rule_ids)} rules total.",
+                    )
+                    break
 
                 # Create one rule per dataset for fault isolation —
                 # a single bad dataset won't block the entire batch.
