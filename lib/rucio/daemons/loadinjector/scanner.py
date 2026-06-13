@@ -28,7 +28,7 @@ from rucio.core.load_injection import (
     refresh_unique_rse_pair_dataset_metadata,
     scan_unique_rse_pair_datasets,
 )
-from rucio.core.rse import list_rses
+from rucio.core.rse import get_rse_name, list_rses
 from rucio.daemons.common import HeartbeatHandler, run_daemon
 
 if TYPE_CHECKING:
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 graceful_stop = threading.Event()
 DAEMON_NAME = "loadinjector-scanner"
+_RSE_EXPRESSION: "Optional[str]" = None
 
 
 def _dataset_key(dataset: dict) -> tuple:
@@ -54,8 +55,17 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
     if src_rse_id == dest_rse_id:
         return  # Skip self-pairs
 
+    src_name = get_rse_name(src_rse_id)
+    dest_name = get_rse_name(dest_rse_id)
+    logging.debug("scanner: scanning %s -> %s", src_name, dest_name)
+
     unique_datasets_db = get_unique_rse_pair_datasets(src_rse_id, dest_rse_id)
     unique_datasets_scanned = scan_unique_rse_pair_datasets(src_rse_id, dest_rse_id)
+    logging.debug(
+        "scanner: %s -> %s  scanned=%d  cached=%d",
+        src_name, dest_name,
+        len(unique_datasets_scanned), len(unique_datasets_db),
+    )
 
     # Build lookup maps keyed by (scope, name).
     db_map = {_dataset_key(ds): ds for ds in unique_datasets_db}
@@ -69,9 +79,6 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
     ]
 
     # Detect metadata changes on datasets that remain unique.
-    # The key (scope, name) still matches, but bytes or length may
-    # have changed between scanner cycles.  Replace stale rows so
-    # the submitter always works from fresh metadata.
     datasets_to_update = []
     for key, db_ds in db_map.items():
         scanned_ds = scanned_map.get(key)
@@ -79,8 +86,6 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
             continue
         if (db_ds["bytes"] != scanned_ds["bytes"]
                 or db_ds["length"] != scanned_ds["length"]):
-            # Stamp the previously observed values so the core
-            # refresh can use a compare-and-swap WHERE clause.
             scanned_ds["old_bytes"] = db_ds["bytes"]
             scanned_ds["old_length"] = db_ds["length"]
             datasets_to_update.append(scanned_ds)
@@ -88,36 +93,63 @@ def update_unique_rse_pair_datasets(src_rse_id: str, dest_rse_id: str) -> None:
     if datasets_to_remove:
         delete_unique_rse_pair_datasets(datasets_to_remove)
     if datasets_to_update:
-        # Atomic UPDATE — a concurrent scanner worker with stale
-        # metadata cannot overwrite fresh values because the UPDATE
-        # is a single statement, not a delete+add gap.
         refresh_unique_rse_pair_dataset_metadata(datasets_to_update)
     if datasets_to_add:
         try:
             add_unique_rse_pair_datasets(datasets_to_add)
         except DuplicateContent:
-            # Another scanner worker already inserted the same dataset.
-            # The cache is already correct, so skip without failing.
             pass
 
+    if datasets_to_add or datasets_to_remove or datasets_to_update:
+        logging.info(
+            "scanner: %s -> %s  +%d added  -%d removed  ~%d updated  =%d cached",
+            src_name, dest_name,
+            len(datasets_to_add), len(datasets_to_remove),
+            len(datasets_to_update),
+            len(unique_datasets_scanned) - len(datasets_to_remove) + len(datasets_to_add),
+        )
 
-def update_unique_rse_pair_datasets_bulk() -> None:
+
+def update_unique_rse_pair_datasets_bulk(rse_expression: str = None) -> None:
     """
     Update the cached unique datasets for all RSE pairs within the same VO.
     Groups RSEs by VO so intra-VO pairs are scanned while cross-VO pairs
     (which would always yield empty results) are skipped entirely.
+
+    :param rse_expression: Optional RSE expression to filter which RSEs
+        are scanned.  Useful for testing a subset of RSEs without
+        running the full O(N^2) scan.  When None, all RSEs are scanned.
     """
     from collections import defaultdict
 
     rses = list_rses()
+    if rse_expression:
+        import re
+        pattern = re.compile(rse_expression.replace('*', '.*'))
+        rses = [r for r in rses if pattern.search(r['rse'])]
+        logging.info(
+            "scanner: rse_expression=%s  matched %d/%d RSEs",
+            rse_expression, len(rses), 0,
+        )
+
     vo_rse_ids: dict[str, list[str]] = defaultdict(list)
     for rse in rses:
         vo_rse_ids[rse.get("vo", "def")].append(rse["id"])
 
     for vo, rse_ids in vo_rse_ids.items():
+        n_rses = len(rse_ids)
+        n_pairs = n_rses * n_rses
+        logging.info(
+            "scanner: VO=%s  RSEs=%d  pairs=%d  starting scan",
+            vo, n_rses, n_pairs,
+        )
         for src_rse_id in rse_ids:
             for dest_rse_id in rse_ids:
                 update_unique_rse_pair_datasets(src_rse_id, dest_rse_id)
+        logging.info(
+            "scanner: VO=%s  %d pairs completed",
+            vo, n_pairs,
+        )
 
 
 def loadinjector_scanner(once: bool = False, sleep_time: int = 43200) -> None:
@@ -144,7 +176,7 @@ def run_once(heartbeat_handler: HeartbeatHandler, **_kwargs) -> None:
         return
     start = time.time()
 
-    update_unique_rse_pair_datasets_bulk()
+    update_unique_rse_pair_datasets_bulk(rse_expression=_RSE_EXPRESSION)
     logger(
         logging.DEBUG,
         "update unique rse pair datasets for all rses took %f" % (time.time() - start),
@@ -158,10 +190,15 @@ def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) ->
     graceful_stop.set()
 
 
-def run(once: bool = False, sleep_time: int = 43200) -> None:
+def run(once: bool = False, sleep_time: int = 43200, rse_expression: "Optional[str]" = None) -> None:
     """
     Start up the loadinjector scanner threads.
+
+    :param rse_expression: Optional RSE expression filter (e.g. 'XRD*').
+        When set, only RSEs matching the pattern are scanned.
     """
+    global _RSE_EXPRESSION
+    _RSE_EXPRESSION = rse_expression
     setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
