@@ -160,8 +160,13 @@ class SignURL(ErrorHandlingMethodView):
             description: Not acceptable.
         """
         headers = self.get_headers()
-        vo = extract_vo(request.headers)
-        account = request.headers.get('X-Rucio-Account', default=None)
+
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.', headers=headers)
+
         appid = request.headers.get('X-Rucio-AppID', default='unknown')
         ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
 
@@ -183,10 +188,10 @@ class SignURL(ErrorHandlingMethodView):
         if operation not in ['read', 'write', 'delete']:
             return generate_http_error_flask(400, ValueError.__name__, 'Parameter "op" must be either empty(=read), read, write, or delete.', headers=headers)
 
-        result = get_signed_url(account, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
+        result = get_signed_url(issuer, appid, ip, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
         if not result:
-            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot generate signed URL for account {account}', headers=headers)
+            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot generate signed URL for account {issuer}', headers=headers)
 
         return str(result), 200, headers
 
