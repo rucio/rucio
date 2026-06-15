@@ -127,12 +127,6 @@ class SignURL(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
-                  X-Rucio-Account:
-                    description: "Account identifier."
-                    type: string
-                  X-Rucio-VO:
-                    description: "VO name (Multi-VO only)."
-                    type: string
                   X-Rucio-AppID:
                     description: "Application identifier."
                     type: string
