@@ -161,11 +161,12 @@ class SignURL(ErrorHandlingMethodView):
             description: "Not acceptable."
         """
         headers = self.get_headers()
-        vo = extract_vo(request.headers)
-        account = request.headers.get('X-Rucio-Account', default=None)
 
-        if account is None:
-            return generate_http_error_flask(400, ValueError.__name__, 'Parameter "account" not found.', headers=headers)
+        issuer = request.environ.get('issuer')
+        vo = request.environ.get('vo')
+
+        if not issuer or not vo:
+            return generate_http_error_flask(400, ValueError.__name__, 'Issuer and VO must be set.', headers=headers)
 
         rse = request.args.get('rse')
 
@@ -191,10 +192,10 @@ class SignURL(ErrorHandlingMethodView):
 
         operation = cast("RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS_LITERAL", operation)
 
-        result = get_signed_url(account, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
+        result = get_signed_url(account=issuer, rse=rse, service=service, operation=operation, url=url, lifetime=lifetime, vo=vo)
 
         if not result:
-            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot generate signed URL for account {account}', headers=headers)
+            return generate_http_error_flask(401, CannotAuthenticate.__name__, f'Cannot generate signed URL for account {issuer}', headers=headers)
 
         return str(result), 200, headers
 
