@@ -357,7 +357,7 @@ pyjwkest==1.4.4
     # via
     #   -r requirements.server.txt
     #   oic
-pyjwt==2.10.1
+pyjwt==2.13.0
     # via
     #   -r requirements.server.txt
     #   globus-sdk
@@ -510,6 +510,7 @@ typing-extensions==4.15.0
     #   psycopg-pool
     #   pydantic
     #   pydantic-core
+    #   pyjwt
     #   referencing
     #   sqlalchemy
     #   typeapi
