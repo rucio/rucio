@@ -2021,6 +2021,7 @@ def __cleanup_after_replica_deletion(
     :param session: The database session in use.
     """
     clt_to_update, parents_to_analyze, affected_archives, clt_replicas_to_delete = set(), set(), set(), set()
+    dids_to_delete = set()
     did_condition = []
     incomplete_dids, messages, clt_to_set_not_archive = [], [], []
     for file in files:
@@ -2189,10 +2190,14 @@ def __cleanup_after_replica_deletion(
                     models.DataIdentifier.complete.is_(None)),
             )
             for parent_scope, parent_name, parent_did_type in session.execute(stmt):
-                message = {'scope': parent_scope,
-                           'name': parent_name,
-                           'did_type': parent_did_type,
-                           'event_type': 'INCOMPLETE'}
+                message = {
+                    'payload': {
+                        'scope': parent_scope,
+                        'name': parent_name,
+                        'did_type': parent_did_type,
+                    },
+                    'event_type': 'INCOMPLETE',
+                }
                 if message not in messages:
                     messages.append(message)
                     incomplete_dids.append(ScopeName(scope=parent_scope, name=parent_name))
@@ -2263,7 +2268,6 @@ def __cleanup_after_replica_deletion(
         session.execute(stmt)
 
     # Update incomplete state
-    messages, dids_to_delete = [], set()
     if incomplete_dids:
         stmt = delete(scope_name_temp_table)
         session.execute(stmt)
