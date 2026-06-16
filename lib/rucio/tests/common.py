@@ -49,6 +49,13 @@ skip_non_belleii = pytest.mark.skipif(not ('POLICY' in os.environ and os.environ
 skip_outside_gh_actions = pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") != "true",
                                              reason="Skipping tests outside GitHub Actions")
 
+# Convenience annotation used to have the tests run against both the experimental rich and the tabulate clients.
+# Tests using this annotation must still add `file_config_mock` to the test's parameters
+with_each_cli_renderer = pytest.mark.parametrize("file_config_mock", [
+    pytest.param({"overrides": [('experimental', 'cli', 'tabulate')]}, id="cli=tabulate"),
+    pytest.param({"overrides": [('experimental', 'cli', 'rich')]}, id="cli=rich"),
+], indirect=True)
+
 
 def is_influxdb_available(
         url: str = "http://influxdb:8086",
