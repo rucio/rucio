@@ -42,6 +42,16 @@ finally:
         _mc_client.close()
 
 
+def flush_memcache() -> bool:
+    import pymemcache
+
+    client = pymemcache.Client(CACHE_URL, connect_timeout=3, timeout=3)
+    try:
+        return client.flush_all()
+    finally:
+        client.close()
+
+
 class MemcacheRegion(CacheRegion):
     """
     Subclass of CacheRegion.
