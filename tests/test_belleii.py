@@ -27,6 +27,7 @@ from rucio.tests.common import did_name_generator, skip_non_belleii
 
 @skip_non_belleii
 @pytest.mark.noparallel(reason='changes global configuration value')
+@pytest.mark.clear_cache(reason='requires clean parse_expression result for ANY=true')
 @pytest.mark.parametrize("file_lifetime", [86400.0, None])
 def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client, file_lifetime):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
@@ -99,6 +100,8 @@ def test_dirac_addfile(rse_factory, did_factory, root_account, did_client, dirac
 
 
 @skip_non_belleii
+@pytest.mark.noparallel(reason='changes global configuration value')
+@pytest.mark.clear_cache(reason='requires clean parse_expression result for ANY=true')
 def test_dirac_addfile_with_parents_meta(rse_factory, did_factory, root_account, did_client, dirac_client, rse_client, replica_client):
     """ DIRAC (CLIENT): Test the functionality of the addfile method """
     rse1, rse1_id = rse_factory.make_srm_rse(deterministic=True)
