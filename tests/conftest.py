@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import logging
 import os
 import re
 import traceback
@@ -61,6 +62,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "flaky(reruns, reruns_delay): mark test as flaky and rerun on failure"
     )
+    config.addinivalue_line('markers', 'clear_cache(reason): clears memcache before running the test')
 
     # disable configuration cache globally. Fixes side effects when using, e.g., core_config_mock
     os.environ['RUCIO_CONFIG_DISABLE_CACHE_READ'] = 'true'
@@ -70,10 +72,15 @@ def pytest_configure(config: pytest.Config) -> None:
         config.pluginmanager.register(xdist_noparallel_scheduler)
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]):
+    for item in items:
+        # automatically mark tests as noparallel, when clear_cache is used
+        if item.get_closest_marker('clear_cache'):
+            item.add_marker(pytest.mark.noparallel(reason='clear_cache marker is applied'))
+
+
 def pytest_runtest_setup(item: pytest.Item) -> None:
-    """
-    Skip tests marked with 'needs_iam' if the IAM profile is not available in the dev environment.
-    """
+    # Skip tests marked with 'needs_iam' if the IAM profile is not available in the dev environment.
     if item.get_closest_marker("needs_iam"):
         # Check if we're running in a dev environment with IAM profile available
         dev_profiles = environ.get('DEV_PROFILES', '').split(',')
@@ -81,6 +88,12 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
         if 'iam' not in dev_profiles:
             pytest.skip("Test requires IAM profile - start dev environment with: --profile iam")
+
+    # Flush memcache before test, if clear_cache marker is found
+    if item.get_closest_marker('clear_cache'):
+        from rucio.common.cache import flush_memcache
+        if not flush_memcache():
+            logging.warning("Failed to flush memcache when handling pytest clear_cache marker")
 
 
 def pytest_make_parametrize_id(
