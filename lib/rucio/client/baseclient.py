@@ -731,16 +731,19 @@ class BaseClient:
 
         self.auth_token = result.headers['x-rucio-auth-token']
         if self.auth_oidc_refresh_active:
-            self.logger.debug("Resetting the token expiration epoch file content.")
-            # reset the token expiration epoch file content
-            # at new CLI OIDC authentication
-            self.token_exp_epoch = None
-            file_d, file_n = mkstemp(dir=self.token_path)
-            with fdopen(file_d, "w") as f_exp_epoch:
-                f_exp_epoch.write(str(self.token_exp_epoch))
-            move(file_n, self.token_exp_epoch_file)
-            self.__refresh_token_oidc()
+            self.__initialize_oidc_token_refresh()
         return True
+
+    def __initialize_oidc_token_refresh(self) -> None:
+        """
+        A freshly issued OIDC token carries no expiration, so reset the stored epoch
+        and refresh to get one the auto-refresh mechanism can track.
+        """
+        self.logger.debug("Resetting the token expiration epoch file content.")
+        self.token_exp_epoch = None
+        self.__ensure_token_directory_exists()
+        self.__atomic_write_to_file(self.token_exp_epoch_file, str(self.token_exp_epoch))
+        self.__refresh_token_oidc()
 
     def __get_token_x509(self) -> bool:
         """
@@ -975,32 +978,29 @@ class BaseClient:
         """
         Write the current auth_token to the local token file.
         """
-        # check if rucio temp directory is there. If not create it with permissions only for the current user
-        if not os.path.isdir(self.token_path):
-            try:
-                self.logger.debug('rucio token folder \'%s\' not found. Create it.' % self.token_path)
-                try:
-                    makedirs(self.token_path, 0o700)
-                except FileExistsError:
-                    msg = f'Token directory already exists at {self.token_path} - skipping'
-                    self.logger.debug(msg)
-            except Exception:
-                raise
+        self.__ensure_token_directory_exists()
 
         try:
-            file_d, file_n = mkstemp(dir=self.token_path)
-            with fdopen(file_d, "w") as f_token:
-                f_token.write(self.auth_token)
-            move(file_n, self.token_file)
+            self.__atomic_write_to_file(self.token_file, self.auth_token)
             if self.auth_type == 'oidc' and self.token_exp_epoch and self.auth_oidc_refresh_active:
-                file_d, file_n = mkstemp(dir=self.token_path)
-                with fdopen(file_d, "w") as f_exp_epoch:
-                    f_exp_epoch.write(str(self.token_exp_epoch))
-                move(file_n, self.token_exp_epoch_file)
+                self.__atomic_write_to_file(self.token_exp_epoch_file, str(self.token_exp_epoch))
         except OSError as error:
             print("I/O error({0}): {1}".format(error.errno, error.strerror))
-        except Exception:
-            raise
+
+    def __atomic_write_to_file(self, path: str, data: str) -> None:
+        file_d, file_n = mkstemp(dir=self.token_path)
+        with fdopen(file_d, "w") as temp_file:
+            temp_file.write(data)
+        move(file_n, path)
+
+    def __ensure_token_directory_exists(self) -> None:
+        if not os.path.isdir(self.token_path):
+            self.logger.debug(f'Rucio token directory \'{self.token_path}\' not found. Creating it...')
+            try:
+                # permissions here are only for the current user
+                makedirs(self.token_path, 0o700)
+            except FileExistsError:
+                self.logger.debug(f'Token directory already exists at {self.token_path} - skipping.')
 
     def __authenticate(self) -> None:
         """

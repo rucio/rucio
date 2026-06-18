@@ -23,6 +23,31 @@ from rucio.tests.common import remove_config, skip_outside_gh_actions
 from tests.mocks.mock_http_server import MockServer
 
 
+def _create_oidc_base_client(vo):
+    from rucio.client.baseclient import BaseClient
+
+    class OIDCMockHandler(MockServer.Handler):
+        def do_GET(self):
+            host, port = self.server.server_address
+            poll_url = f'http://{host}:{port}/poll_for_token'
+            if 'oidc_refresh' in self.path:
+                self.send_code_and_message(200, {}, '')
+            elif 'auth/oidc' in self.path:
+                self.send_code_and_message(200, {'X-Rucio-OIDC-Auth-URL': poll_url}, '')
+            else:
+                self.send_code_and_message(200, {'X-Rucio-Auth-Token': 'fake-oidc-token-for-test'}, '')
+
+    with MockServer(OIDCMockHandler) as server:
+        return BaseClient(
+            rucio_host=server.base_url,
+            auth_host=server.base_url,
+            account='root',
+            auth_type='oidc',
+            creds={'oidc_polling': True},
+            vo=vo,
+        )
+
+
 @pytest.fixture
 def client_token_path_override(file_config_mock, function_scope_prefix, tmp_path):
     """
@@ -30,6 +55,21 @@ def client_token_path_override(file_config_mock, function_scope_prefix, tmp_path
     """
     from rucio.common.config import config_set
     config_set('client', 'auth_token_file_path', str(tmp_path / f'{function_scope_prefix}token'))
+
+
+@pytest.fixture
+def setup_oidc_config(tmp_path, monkeypatch):
+    from rucio.common.config import config_set
+
+    def _setup(refresh_active=True):
+        token_dir = tmp_path / 'rucio_tokens'
+        token_file = token_dir / 'token'
+        config_set('client', 'auth_token_file_path', str(token_file))
+        config_set('client', 'auth_oidc_refresh_active', str(refresh_active))
+        monkeypatch.setattr('rucio.client.baseclient.wlcg_token_discovery', lambda: None)
+        return token_dir, token_file
+
+    return _setup
 
 
 @pytest.mark.usefixtures("client_token_path_override")
@@ -156,6 +196,37 @@ class TestBaseClient:
                 creds = {'client_cert': self.usercert,
                          'client_key': self.userkey}
                 BaseClient(rucio_host=server.base_url, auth_host=server.base_url, account='root', ca_cert=self.cacert, auth_type='x509', creds=creds, vo=vo)
+
+    def test_oidc_auth_creates_token_directory_when_no_directory_exists(self, vo, setup_oidc_config):
+        """ CLIENTS (BASECLIENT): OIDC auth creates the token dir when absent """
+        token_dir, token_file = setup_oidc_config()
+
+        _create_oidc_base_client(vo)
+
+        assert token_dir.is_dir()
+        assert (token_dir.stat().st_mode & 0o777) == 0o700
+        assert token_file.read_text() == 'fake-oidc-token-for-test'
+
+    def test_oidc_auth_uses_existing_token_directory_when_directory_exists(self, vo, setup_oidc_config):
+        """ CLIENTS (BASECLIENT): OIDC auth reuses an existing token dir without replacing it """
+        token_dir, token_file = setup_oidc_config()
+
+        token_dir.mkdir(mode=0o700)
+        (token_dir / 'fake').write_text('keep me')
+
+        _create_oidc_base_client(vo)
+
+        assert (token_dir / 'fake').read_text() == 'keep me'
+        assert token_file.read_text() == 'fake-oidc-token-for-test'
+
+    def test_oidc_auth_without_refresh_active(self, vo, setup_oidc_config):
+        """ CLIENTS (BASECLIENT): OIDC auth creates the token dir when absent and refresh inactive"""
+        token_dir, token_file = setup_oidc_config(refresh_active=False)
+
+        _create_oidc_base_client(vo)
+
+        assert token_dir.is_dir()
+        assert token_file.read_text() == 'fake-oidc-token-for-test'
 
     def test_retry_on_502_succeeds_eventually(self, vo):
         """ CLIENTS (BASECLIENT): Ensure client retries on 502 error codes"""
