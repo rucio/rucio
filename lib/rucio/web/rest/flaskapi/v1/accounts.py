@@ -330,10 +330,7 @@ class AccountParameter(ErrorHandlingMethodView):
             description: "Not acceptable"
         """
         if account == 'whoami':
-            # Redirect to the account uri
-            frontend = request.headers.get('X-Requested-Host', default=None)
-            if frontend:
-                return redirect(f'{frontend}/accounts/{request.environ.get("issuer")}', code=302)
+            # Relative redirect to the account uri
             return redirect(request.environ['issuer'], code=303)
 
         try:
