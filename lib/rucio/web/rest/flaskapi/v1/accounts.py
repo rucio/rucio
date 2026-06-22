@@ -322,6 +322,13 @@ class AccountParameter(ErrorHandlingMethodView):
                     deleted_at:
                       description: "Datetime if the account was deleted."
                       type: string
+          303:
+            description: "See other redirect for special account value whoami."
+            headers:
+              Location:
+                description: "Account identifier of the authenticated requestor. Intended for a relative redirect."
+                schema:
+                  type: string
           401:
             description: "Invalid Auth Token"
           404:
