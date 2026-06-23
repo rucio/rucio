@@ -1943,6 +1943,7 @@ def add_qos_policy(
            or match('.*UniqueViolation.*duplicate key value violates unique constraint.*', error.args[0])\
            or match('.*IntegrityError.*columns.*are not unique.*', error.args[0]):
             raise exception.Duplicate('QoS policy %s already exists!' % qos_policy)
+        raise exception.RucioException(error.args)
     except DatabaseError as error:
         raise exception.RucioException(error.args)
 
