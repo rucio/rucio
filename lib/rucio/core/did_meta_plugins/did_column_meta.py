@@ -345,6 +345,12 @@ class DidColumnMeta(DidMetaPlugin):
                 filters_tmp.append(or_group.copy())
         filters = filters_tmp
 
+        additional_filters: list[tuple[Any, Any, Any]] = [
+            (models.DataIdentifier.suppressed, operator.ne, true()),
+        ]
+        if scope is not None:
+            additional_filters.append((models.DataIdentifier.scope, operator.eq, scope))
+
         # instantiate fe and create sqla query
         fe = FilterEngine(filters, model_class=models.DataIdentifier)
         stmt = fe.create_sqla_query(
@@ -354,10 +360,8 @@ class DidColumnMeta(DidMetaPlugin):
                 models.DataIdentifier.did_type,
                 models.DataIdentifier.bytes,
                 models.DataIdentifier.length
-            ], additional_filters=[
-                (models.DataIdentifier.scope, operator.eq, scope),
-                (models.DataIdentifier.suppressed, operator.ne, true())
             ],
+            additional_filters=additional_filters,
             session=session
         )
         stmt = stmt.with_hint(

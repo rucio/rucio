@@ -319,6 +319,19 @@ class TestDIDCore:
         for dataset in non_existing_datasets:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
 
+    @pytest.mark.dirty
+    def test_list_dids_all_scopes(self, did_factory):
+        """ DATA IDENTIFIERS (CORE): List DIDs without filtering scope"""
+
+        did_factory.make_dataset()
+        dids = list(list_dids(scope=None, filters={'name': '*'}, did_type='collection', long=True))
+        scopes = {did["scope"] for did in dids}
+        assert len(scopes) > 1
+
+        # scope=None requires long format as names might be ambiguous otherwise
+        with pytest.raises(ValueError, match="long must be True"):
+            list_dids(scope=None, filters={'name': '*'}, did_type='collection')
+
 
 class TestDIDGateway:
 
