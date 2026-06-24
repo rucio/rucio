@@ -14,7 +14,6 @@
 
 from typing import TYPE_CHECKING, Any
 
-import rucio.core.scope
 from rucio.common.constants import RseAttr
 from rucio.core.account import has_account_attribute, list_account_attributes
 from rucio.core.identity import exist_identity_account
@@ -22,6 +21,7 @@ from rucio.core.lifetime_exception import list_exceptions
 from rucio.core.rse import list_rse_attributes
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_rule
+from rucio.core.scope import is_scope_owner
 from rucio.db.sqla.constants import IdentityType
 
 if TYPE_CHECKING:
@@ -297,7 +297,7 @@ def perm_update_scope(issuer: "InternalAccount", kwargs: dict[str, Any], session
     """
     return _is_root(issuer) \
         or has_account_attribute(account=issuer, key='admin', session=session) \
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
+        or is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
 def perm_get_auth_token_user_pass(issuer, kwargs, session: "Session"):
@@ -412,7 +412,7 @@ def perm_add_did(issuer, kwargs, session: "Session"):
 
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
+        or is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
         or kwargs['scope'].external == 'mock'
 
 
@@ -440,7 +440,7 @@ def perm_attach_dids(issuer, kwargs, session: "Session"):
     """
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
+        or is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
         or kwargs['scope'].external == 'mock'
 
 
@@ -460,7 +460,7 @@ def perm_attach_dids_to_dids(issuer, kwargs, session: "Session"):
         scopes = [did['scope'] for did in attachments]
         scopes = list(set(scopes))
         for scope in scopes:
-            if not rucio.core.scope.is_scope_owner(scope, issuer, session=session):
+            if not is_scope_owner(scope, issuer, session=session):
                 return False
         return True
 
@@ -476,7 +476,7 @@ def perm_create_did_sample(issuer, kwargs, session: "Session"):
     """
     return _is_root(issuer)\
         or has_account_attribute(account=issuer, key='admin', session=session)\
-        or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
+        or is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)\
         or kwargs['scope'].external == 'mock'
 
 
@@ -586,7 +586,7 @@ def perm_set_metadata(issuer, kwargs, session: "Session"):
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
 def perm_set_status(issuer, kwargs, session: "Session"):
@@ -602,7 +602,7 @@ def perm_set_status(issuer, kwargs, session: "Session"):
         if not _is_root(issuer) and not has_account_attribute(account=issuer, key='admin', session=session):
             return False
 
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or rucio.core.scope.is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session) or is_scope_owner(scope=kwargs['scope'], account=issuer, session=session)
 
 
 def perm_add_protocol(issuer, kwargs, session: "Session"):
@@ -669,17 +669,31 @@ def perm_add_replicas(issuer, kwargs, session: "Session"):
     """
     Checks if an account can add replicas.
 
+    If the RSE is not a special one (name terminated by some magic words)
+    or if the account is not an administrator, for each replica scope (passed in kwargs['scopes']
+    for convenience), the ownership is checked: if the account is not owning all of them,
+    permission is denied.
+
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return str(kwargs.get('rse', '')).endswith('SCRATCHDISK')\
-        or str(kwargs.get('rse', '')).endswith('USERDISK')\
-        or str(kwargs.get('rse', '')).endswith('MOCK')\
-        or str(kwargs.get('rse', '')).endswith('LOCALGROUPDISK')\
-        or _is_root(issuer)\
-        or has_account_attribute(account=issuer, key='admin', session=session)
+
+    special_rse_suffixes = ['LOCALGROUPDISK', 'MOCK', 'SCRATCHDISK', 'USERDISK']
+
+    if _is_root(issuer):
+        return True
+    if has_account_attribute(account=issuer, key='admin', session=session):
+        return True
+    if any(str(kwargs.get('rse', '')).endswith(suffix) for suffix in special_rse_suffixes):
+        return True
+
+    # Also allow if user owns all affected scopes
+    if all(is_scope_owner(scope, account=issuer, session=session) for scope in kwargs["scopes"]):
+        return True
+
+    return False
 
 
 def perm_skip_availability_check(issuer, kwargs, session: "Session"):
@@ -708,14 +722,28 @@ def perm_delete_replicas(issuer, kwargs, session: "Session"):
 
 def perm_update_replicas_states(issuer, kwargs, session: "Session"):
     """
-    Checks if an account can delete replicas.
+    Checks if an account can add replicas.
+
+    If the account is not an administrator, for each replica scope (passed in kwargs['scopes']
+    for convenience), the ownership is checked: if the account is not owning all of them,
+    permission is denied.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
     :param session: The DB session to use
     :returns: True if account is allowed, otherwise False
     """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+    if _is_root(issuer):
+        return True
+    if has_account_attribute(account=issuer, key='admin', session=session):
+        return True
+
+    # Also allow if user owns all affected scopes
+    if all(is_scope_owner(scope, account=issuer, session=session) for scope in kwargs["scopes"]):
+        return True
+
+    return False
 
 
 def perm_queue_requests(issuer, kwargs, session: "Session"):
