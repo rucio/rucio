@@ -398,7 +398,7 @@ def __declare_bad_file_replicas_by_lfns(scope: Optional[str], rse: Optional[str]
     Declare a list of bad replicas using RSE name, scope and list of LFNs.
     """
     if not scope or not rse:
-        raise InputValidationError("--lfns requires using --rse and --scope")
+        raise InputValidationError("--lfn requires using --rse and --scope")
     replicas = []
 
     # send requests in chunks
