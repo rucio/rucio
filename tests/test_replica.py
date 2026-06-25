@@ -184,15 +184,32 @@ class TestReplicaCore:
         _, rse2_id = rse_factory.make_mock_rse()
 
         nbfiles = 13
+        nbfiles2 = 11
         files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
         for rse_id in [rse1_id, rse2_id]:
             add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
 
-        replica_cpt = 0
-        for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
-            replica_cpt += 1
+        # new checksum dict:
+        files2 = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1,
+                   'checksum': {'adler32': '0cc737eb', 'md5': 'dc7a81287bcfb69e553262621188faf1'},
+                   'meta': {'events': 10}} for _ in range(nbfiles2)]
+        for rse_id in [rse1_id, rse2_id]:
+            add_replicas(rse_id=rse_id, files=files2, account=root_account, ignore_availability=True)
 
-        assert nbfiles == replica_cpt
+        replica_cpt = 0
+        for file in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+            replica_cpt += 1
+            assert file.get('adler32', {}) == '0cc737eb'
+            assert file.get('checksum', {}).get('adler32', {}) == '0cc737eb'
+
+        # legacy checksums are recreated for backward compatibilty
+        for file in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files2], schemes=['srm']):
+            replica_cpt += 1
+            assert file.get('adler32', {}) == '0cc737eb'
+            assert file.get('md5', {}) == 'dc7a81287bcfb69e553262621188faf1'
+            assert file.get('checksum', {}).get('adler32', {}) == '0cc737eb'
+
+        assert nbfiles + nbfiles2 == replica_cpt
 
     @pytest.mark.parametrize(
         "params",
