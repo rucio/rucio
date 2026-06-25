@@ -97,14 +97,16 @@ def list_(
         ctx.obj.client.get_metadata(scope=scope, name=name)  # Break with Exception before streaming replicas if DID does not exist.
         did_list.append({'scope': scope, 'name': name})
 
-    replicas = ctx.obj.client.list_replicas(did_list, schemes=protocols,
-                                    ignore_availability=True,
-                                    all_states=all_states,
-                                    rse_expression=rses,
-                                    metalink=metalink,
-                                    client_location=detect_client_location(),
-                                    sort=sort, domain=domain,
-                                    resolve_archives=not no_resolve_archives)
+    replicas = ctx.obj.client.list_replicas(
+        did_list, schemes=protocols,
+        ignore_availability=True,
+        all_states=all_states,
+        rse_expression=rses,
+        metalink=metalink,
+        client_location=detect_client_location(),
+        sort=sort, domain=domain,
+        resolve_archives=not no_resolve_archives
+    )
     rses = [rse["rse"] for rse in ctx.obj.client.list_rses(rse_expression=rses)]
 
     if metalink:
