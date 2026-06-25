@@ -42,6 +42,23 @@ class ConfigClient(BaseClient):
             The name of the section.
         option :
             The option within the section.
+
+        Raises
+        ----------
+        ConfigNotFound
+            The section or option are not present in the configuration
+        ValueError
+            Section is not specified when option is
+
+        Returns
+        ----------
+            Dictionary containing configuration details.
+            * When no options are specified, the entire configuration is returned in the format
+            ```{"sectionA": {"option1": "value1", "option2": "value2"}, "sectionb": {"option1": "value1"}}```.
+            * When the section is supplied:
+            ```{"option1": "value1", "option2": "value2"}```
+            * When section and options are supplied:
+            ```"value1"```
         """
 
         if section is None and option is not None:
@@ -134,8 +151,16 @@ class ConfigClient(BaseClient):
 
         Returns
         -------
-
             True if option was removed successfully.
+
+        Raises
+        -------
+        ConfigNotFound
+            The section or option does not exist.
+
+        Note:
+        ------
+        If the last option in a section is deleted, the section is also deleted.
         """
 
         path = '/'.join([self.CONFIG_BASEURL, section, option])
@@ -161,6 +186,12 @@ class ConfigClient(BaseClient):
         Returns
         -------
             True if option was removed successfully.
+
+        Raises
+        -------
+        ConfigNotFound
+            The section or option does not exist.
+
         """
         path = '/'.join([self.CONFIG_BASEURL, section])
         url = build_url(choice(self.list_hosts), path=path)
