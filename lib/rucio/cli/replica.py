@@ -412,15 +412,16 @@ def __declare_bad_file_replicas_by_lfns(scope: Optional[str], rse: Optional[str]
                 msg = f'{rse} : replica cannot be declared: {r}'
                 logger.warning(msg)
 
-    for line in open(lfns, "r"):
-        lfn = line.strip()
-        if lfn:
-            replicas.append({"scope": scope, "rse": rse, "name": lfn})
-            if len(replicas) >= chunk_size:
-                do_declare(client, replicas, reason)
-                replicas = []
-    if replicas:
-        do_declare(client, replicas, reason)
+    with open(lfns, "r") as f:
+        for line in f:
+            lfn = line.strip()
+            if lfn:
+                replicas.append({"scope": scope, "rse": rse, "name": lfn})
+                if len(replicas) >= chunk_size:
+                    do_declare(client, replicas, reason)
+                    replicas = []
+        if replicas:
+            do_declare(client, replicas, reason)
 
 
 @state_update.command("bad")
