@@ -82,10 +82,7 @@ def get_global_account_limit(
         account: str,
         rse_expression: Optional[str] = None,
         vo: str = DEFAULT_VO,
-) -> Union[
-    dict[str, Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]],
-    Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]
-]:
+) -> Union[dict[str, Optional[Union[float, int]]], dict[str, RSEResolvedGlobalAccountLimitDict]]:
     """
     Lists the global account limitation names/values for the specified account.
     If an RSE expression is provided, fetches the limit for that expression.
