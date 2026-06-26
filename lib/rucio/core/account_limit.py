@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, overload
 
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import func, literal, select
@@ -94,9 +94,14 @@ def get_rse_account_usage(rse_id: str, *, session: "Session") -> list["RSEAccoun
     return result
 
 
+@overload
+def get_global_account_limit(account: "InternalAccount", rse_expression: str, *, session: "Session") -> Optional[Union[int, float]]: ...
+
+@overload
+def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_expression: Optional[str] = None, *, session: "Session") ->  dict[str, "RSEResolvedGlobalAccountLimitDict"]: ...
+
 @read_session
-def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_expression: Optional[str] = None, *,
-                             session: "Session") -> Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]:
+def get_global_account_limit(account=None, rse_expression=None, *, session: "Session"):
     """
     Returns the global account limit for the given account and RSE expression.
     If no RSE expression is provided, returns all limits for the given account.
@@ -144,8 +149,14 @@ def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_ex
     return resolved_global_account_limits
 
 
+@overload
+def get_local_account_limit(account: "InternalAccount", rse_ids: str, *, session: "Session") -> Optional[Union[float, int]]: ...
+
+@overload
+def get_local_account_limit(account: "InternalAccount", rse_ids: Optional["Iterable[str]"] = None, *, session: "Session") -> dict[str, int]: ...
+
 @read_session
-def get_local_account_limit(account: "InternalAccount", rse_ids: Optional[Union[str, "Iterable[str]"]] = None, *, session: "Session") -> Optional[Union[int, float, dict[str, int]]]:
+def get_local_account_limit(account: "InternalAccount", rse_ids=None, *, session: "Session"):
     """
     Returns the local account limit for a given RSE or list of RSEs.
 
