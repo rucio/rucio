@@ -54,7 +54,7 @@ def aggregate_events(
         start_time = time.time()
         create_reports(total_workers=heartbeat['nr_threads'] - 1,
                        worker_number=heartbeat['assign_thread'])
-        logging.info('worker[%s/%s] took %s for creating reports' % (heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start_time))
+        logging.info('worker[%s/%s] took %s for creating reports', heartbeat['assign_thread'], heartbeat['nr_threads'] - 1, time.time() - start_time)
 
         if once:
             break

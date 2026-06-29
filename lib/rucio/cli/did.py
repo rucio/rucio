@@ -205,22 +205,22 @@ def remove(ctx: click.Context, dids: tuple[str, ...], undo: bool) -> None:
     """
     for did in dids:
         if '*' in did:
-            ctx.obj.logger.warning("This command doesn't support wildcards! Skipping DID: %s" % did)
+            ctx.obj.logger.warning("This command doesn't support wildcards! Skipping DID: %s", did)
             continue
         try:
             scope, name = get_scope(did, ctx.obj.client)
         except RucioException as error:
-            ctx.obj.logger.warning('DID is in wrong format: %s' % did)
-            ctx.obj.logger.debug('Error: %s' % error)
+            ctx.obj.logger.warning('DID is in wrong format: %s', did)
+            ctx.obj.logger.debug('Error: %s', error)
             continue
 
         if undo:
             try:
                 ctx.obj.client.set_metadata(scope=scope, name=name, key='lifetime', value=None)
-                ctx.obj.logger.info('Erase undo for DID: {0}:{1}'.format(scope, name))
+                ctx.obj.logger.info('Erase undo for DID: %s:%s', scope, name)
             except Exception:
                 ctx.obj.logger.warning('Cannot undo erase operation on DID. DID not existent or grace period of 24 hours already expired.')
-                ctx.obj.logger.warning('    DID: {0}:{1}'.format(scope, name))
+                ctx.obj.logger.warning('    DID: %s:%s', scope, name)
         else:
             try:
                 # set lifetime to expire in 24 hours (value is in seconds).
@@ -228,8 +228,8 @@ def remove(ctx: click.Context, dids: tuple[str, ...], undo: bool) -> None:
                 ctx.obj.logger.info('CAUTION! erase operation is irreversible after 24 hours. To cancel this operation you can run the following command:')
                 print("rucio erase --undo {0}:{1}".format(scope, name))  # TODO: replace with f-strings
             except RucioException as error:
-                ctx.obj.logger.warning('Failed to erase DID: %s' % did)
-                ctx.obj.logger.debug('Error: %s' % error)
+                ctx.obj.logger.warning('Failed to erase DID: %s', did)
+                ctx.obj.logger.debug('Error: %s', error)
 
 
 @did.group()
@@ -280,7 +280,7 @@ def content_add_(ctx: click.Context, to_did: str, from_file: bool, dids: tuple[s
             f = open(dids[0], 'r')
             dids_list = [did.rstrip() for did in f.readlines()]
         except OSError as error:
-            ctx.obj.logger.error("Can't open file '" + dids[0] + "'.")
+            ctx.obj.logger.error("%s'.", "Can't open file '" + dids[0])
             raise OSError from error
     else:
         dids_list = list(dids)
@@ -292,7 +292,7 @@ def content_add_(ctx: click.Context, to_did: str, from_file: bool, dids: tuple[s
         ctx.obj.logger.warning("You are trying to attach too much DIDs. Therefore they will be chunked and attached in multiple commands.")
         missing_dids = []
         for i, chunk in enumerate(chunks(did_objs, limit)):
-            ctx.obj.logger.info("Try to attach chunk {0}/{1}".format(i, int(math.ceil(float(len(did_objs)) / float(limit)))))
+            ctx.obj.logger.info('Try to attach chunk %s/%s', i, int(math.ceil(float(len(did_objs)) / float(limit))))
             try:
                 ctx.obj.client.attach_dids(scope=scope, name=name, dids=chunk)
             except Exception:
