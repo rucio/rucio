@@ -530,6 +530,8 @@ xmlsec==1.3.17
     # via -r requirements.server.txt
 xmltodict==1.0.4
     # via -r requirements.dev.in
+xrootd>=6.1.0
+    # via -r requirements.dev.in
 yapf==0.43.0
     # via pydoc-markdown
 yarl==1.22.0
