@@ -117,7 +117,7 @@ class LazyGroup(click.Group):
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
 @click.option("--account", "--issuer", "issuer", help="Rucio account to use.")
 @click.option("--auth-host", help="The Rucio Authentication host")
-@click.option("-S", "--auth-strategy", help="Authentication strategy", type=click.Choice(['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'saml', 'oidc']))
+@click.option("-S", "--auth-strategy", help="Authentication strategy", type=click.Choice(['userpass', 'x509', 'x509_proxy', 'gss', 'ssh', 'oidc']))
 # x509 and x509 proxy auth
 @click.option("--ca-certificate", help="CA certificate to verify peer against (SSL)")
 @click.option("--certificate", help="Client certificate file")
@@ -162,7 +162,7 @@ class LazyGroup(click.Group):
 @click.option("-R", "--robot", is_flag=True, default=False, help="All size output are in bytes and without the units")
 @click.option("-T", "--timeout", type=float, help="Set all timeout values to seconds")
 @click.option("-U", "--user-agent", default="rucio-clients", help="Rucio User Agent")
-# userpass/gss/saml auth
+# userpass/gss auth
 @click.option("-u", "--user", help="Username for userpass")
 @click.option("--password", help="Password for userpass")
 @click.option("--vo", help="VO to authenticate at. Only used in multi-VO mode")
