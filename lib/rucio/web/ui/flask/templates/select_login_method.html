@@ -69,9 +69,6 @@ function get_link_oidc(elmnt, base_url, issuer) {
     {% if userpass_support %}
     <a href="" class="btn btn-block btn-outline-rucio btn-lg" role="button" onclick="get_link(this, 'login')" height="auto"> <i class="fab fa-2x icon-rucio vertical-align-middle"></i><span class="inline-block padding-bottom-2">   Rucio Userpass</span></a>
     {% endif %}
-    <!-- {% if saml_support %}
-        <a href="" class="btn btn-block btn-outline-cern btn-lg" role="button" onclick="get_link(this, 'saml')" height="auto"> <i class="fab fa-2x icon-cern vertical-align-middle"></i><span class="inline-block padding-bottom-2">   CERN SSO Log-In</span></a>
-    {% endif %} -->
 
     {% for idp in oidc_issuers %}
         <a href="" class="btn btn-block btn-outline-warning btn-lg" role="button" onclick="get_link_oidc(this, 'oidc', '{{idp}}')" height="auto"><i class="fa-2x icon-openid vertical-align-middle"></i><span class="inline-block padding-bottom-2">   {{ idp }} </span></a>

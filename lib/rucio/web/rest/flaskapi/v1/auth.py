@@ -16,20 +16,17 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from flask import Blueprint, Flask, Response, redirect, render_template, request
+from flask import Blueprint, Flask, redirect, render_template, request
 from jinja2.exceptions import TemplateNotFound
 from werkzeug.datastructures import Headers
 
-from rucio.common.config import config_get
 from rucio.common.constants import HTTPMethod
-from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, ConfigurationError, IdentityError, IdentityNotFound
-from rucio.common.extra import import_extras
+from rucio.common.exception import AccessDenied, CannotAuthenticate, CannotAuthorize, IdentityError, IdentityNotFound
 from rucio.common.utils import date_to_str
 from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.gateway.authentication import (
     get_auth_oidc,
     get_auth_token_gss,
-    get_auth_token_saml,
     get_auth_token_ssh,
     get_auth_token_user_pass,
     get_auth_token_x509,
@@ -44,13 +41,6 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 if TYPE_CHECKING:
 
     from flask.typing import ResponseReturnValue
-
-EXTRA_MODULES = import_extras(['onelogin'])
-
-if EXTRA_MODULES['onelogin']:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # pylint: disable=import-error
-
-    from rucio.web.ui.flask.common.utils import prepare_saml_request
 
 
 class UserPass(ErrorHandlingMethodView):
@@ -1244,176 +1234,6 @@ class SSHChallengeToken(ErrorHandlingMethodView):
         return '', 200, headers
 
 
-class SAML(ErrorHandlingMethodView):
-    """
-    Authenticate a Rucio account temporarily via CERN SSO.
-    """
-
-    def get_headers(self) -> Headers:
-        headers = Headers()
-        headers.set('Access-Control-Allow-Origin', request.environ.get('HTTP_ORIGIN'))  # type: ignore (value could be None)
-        headers.set('Access-Control-Allow-Headers', request.environ.get('HTTP_ACCESS_CONTROL_REQUEST_HEADERS'))  # type: ignore (value could be None)
-        headers.set('Access-Control-Allow-Methods', '*')
-        headers.set('Access-Control-Allow-Credentials', 'true')
-        headers.set('Access-Control-Expose-Headers', 'X-Rucio-Auth-Token')
-        return headers
-
-    def options(self) -> 'ResponseReturnValue':
-        """
-        ---
-        summary: SAML Allow cross-site scripting
-        description: "SAML Allow cross-site scripting. Explicit for Authentication."
-        tags:
-          - Auth
-        responses:
-          200:
-            description: "OK"
-            headers:
-              Access-Control-Allow-Origin:
-                schema:
-                  type: string
-              Access-Control-Allow-Headers:
-                schema:
-                  type: string
-              Access-Control-Allow-Methods:
-                schema:
-                  type: string
-                  enum: ['*']
-              Access-Control-Allow-Credentials:
-                schema:
-                  type: string
-                  enum: ['true']
-              Access-Control-Expose-Headers:
-                schema:
-                  type: string
-                  enum: ['X-Rucio-Auth-Token']
-          404:
-            description: "Not found"
-        """
-        return '', 200, self.get_headers()
-
-    @check_accept_header_wrapper_flask(['application/octet-stream'])
-    def get(self) -> 'ResponseReturnValue':
-        """
-        ---
-        summary: SAML
-        description: "Authenticate a Rucio account via SAML."
-        tags:
-          - Auth
-        parameters:
-        - name: X-Rucio-Account
-          in: header
-          schema:
-            type: string
-          required: true
-        - name: X-Rucio-AppID
-          in: header
-          schema:
-            type: string
-        - name: X-Forwarded-For
-          in: header
-          schema:
-            type: string
-        responses:
-          200:
-            description: "OK"
-            headers:
-              X-Rucio-Auth-Token:
-                description: "The authentication token"
-                schema:
-                  type: string
-              X-Rucio-Auth-Token-Expires:
-                description: "The time when the token expires"
-                schema:
-                  type: string
-              X-Rucio-SAML-Auth-URL:
-                description: "The time when the token expires"
-                schema:
-                  type: string
-          401:
-            description: "Cannot authenticate"
-        """
-        headers = self.get_headers()
-
-        headers.set('Content-Type', 'application/octet-stream')
-        headers.set('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
-        headers.add('Cache-Control', 'post-check=0, pre-check=0')
-        headers.set('Pragma', 'no-cache')
-
-        if not EXTRA_MODULES['onelogin']:
-            return generate_http_error_flask(status_code=400, exc=ConfigurationError.__name__, exc_msg="SAML not configured on the server side.", headers=headers)
-
-        saml_nameid = request.cookies.get('saml-nameid', default=None)
-        vo = extract_vo(request.headers)
-        account = request.headers.get('X-Rucio-Account', default=None)
-        appid = request.headers.get('X-Rucio-AppID', default='unknown')
-        ip = request.headers.get('X-Forwarded-For', default=request.remote_addr)
-
-        if not account:
-            return generate_http_error_flask(400, ValueError.__name__, 'Account must be set.')
-
-        if saml_nameid:
-            try:
-                result = get_auth_token_saml(account, saml_nameid, appid, ip, vo=vo)
-            except AccessDenied:
-                return generate_http_error_flask(
-                    status_code=401,
-                    exc=CannotAuthenticate.__name__,
-                    exc_msg=f'Cannot authenticate to account {account} with given credentials',
-                    headers=headers
-                )
-
-            if not result:
-                return generate_http_error_flask(
-                    status_code=401,
-                    exc=CannotAuthenticate.__name__,
-                    exc_msg=f'Cannot authenticate to account {account} with given credentials',
-                    headers=headers
-                )
-
-            headers.set('X-Rucio-Auth-Token', result['token'])
-            headers.set('X-Rucio-Auth-Token-Expires', date_to_str(result['expires_at']))  # type: ignore (value could be None)
-            return '', 200, headers
-
-        # Path to the SAML config folder
-        saml_path = config_get('saml', 'config_path')
-
-        req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
-        auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
-
-        headers.set('X-Rucio-SAML-Auth-URL', auth.login())
-        return '', 200, headers
-
-    def post(self) -> 'ResponseReturnValue':
-        """
-        ---
-        summary: Post a SAML request
-        description: "Post a SAML request"
-        tags:
-          - Auth
-        responses:
-          200:
-            description: "OK"
-          401:
-            description: "Invalid Auth Token"
-        """
-        if not EXTRA_MODULES['onelogin']:
-            return "SAML not configured on the server side.", 200, [('X-Rucio-Auth-Token', '')]
-
-        saml_path = config_get('saml', 'config_path')
-        req = prepare_saml_request(request.environ, dict(request.args.items(multi=False)))
-        auth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
-
-        auth.process_response()
-        errors = auth.get_errors()
-        if not errors:
-            if auth.is_authenticated():
-                response = Response()
-                response.set_cookie('saml-nameid', value=auth.get_nameid(), path='/', httponly=True)
-                return response
-        return '', 200
-
-
 class Validate(ErrorHandlingMethodView):
     """
     Validate a Rucio Auth Token.
@@ -1522,8 +1342,6 @@ def blueprint() -> Blueprint:
     bp.add_url_rule('/ssh', view_func=ssh_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     ssh_challenge_token_view = SSHChallengeToken.as_view('ssh_challenge_token')
     bp.add_url_rule('/ssh_challenge_token', view_func=ssh_challenge_token_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
-    saml_view = SAML.as_view('saml')
-    bp.add_url_rule('/saml', view_func=saml_view, methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.OPTIONS.value])
     validate_view = Validate.as_view('validate')
     bp.add_url_rule('/validate', view_func=validate_view, methods=[HTTPMethod.GET.value, HTTPMethod.OPTIONS.value])
     oidc_view = OIDC.as_view('oidc_view')
