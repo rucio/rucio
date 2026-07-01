@@ -81,7 +81,7 @@ def recover_vo_root_identity(
 
     :param root_vo: The VO whose root needs recovery
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     :param email: The Email address associated with the identity.
     :param issuer: The issuer account.
     :param default: If True, the account should be used by default with the provided identity.
