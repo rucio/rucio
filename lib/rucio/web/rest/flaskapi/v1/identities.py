@@ -287,7 +287,7 @@ class AccountsByIdentity(ErrorHandlingMethodView):
           description: "Identity type."
           schema:
             type: string
-            enum: [X509, GSS, USERPASS, SSH, SAML, OIDC]
+            enum: [X509, GSS, USERPASS, SSH, OIDC]
           required: true
         responses:
           200:
