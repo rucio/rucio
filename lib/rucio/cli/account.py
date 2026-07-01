@@ -284,7 +284,7 @@ def identity_list(ctx: click.Context, account_name: str):
 
 @identity.command("add")
 @click.argument("account-name", required=True)
-@click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"]), help="Authentication type", required=True)
+@click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "OIDC"]), help="Authentication type", required=True)
 @click.option("--id", help="Identity", required=True)
 @click.option("--email", help="Email address associated with the identity", required=True)
 @click.option("--password", help="Password if authtype is USERPASS")
@@ -303,7 +303,7 @@ def identity_add(ctx: click.Context, account_name: str, type_: str, id: str, ema
 
 @identity.command("remove")
 @click.argument("account-name", required=True)
-@click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "SAML", "OIDC"]), help="Authentication type", required=True)
+@click.option("--type", "type_", type=click.Choice(["X509", "GSS", "USERPASS", "SSH", "OIDC"]), help="Authentication type", required=True)
 @click.option("--id", help="Identity", required=True)
 @click.pass_context
 def identity_remove(ctx: click.Context, account_name: str, type_: str, id: str):

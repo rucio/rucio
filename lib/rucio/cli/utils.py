@@ -187,7 +187,7 @@ def get_client(args, logger):
     else:
         auth_type = args.auth_strategy.lower()
 
-    if auth_type in ["userpass", "saml"] and args.username is not None and args.password is not None:
+    if auth_type == "userpass" and args.username is not None and args.password is not None:
         creds = {"username": args.username, "password": args.password}
     elif auth_type == "oidc":
         if args.oidc_issuer:
