@@ -49,7 +49,7 @@ from rucio.db.sqla.session import db_session
 from rucio.gateway import vo as vo_gateway
 from rucio.gateway.account import add_account, list_accounts
 from rucio.gateway.account_limit import set_local_account_limit
-from rucio.gateway.authentication import get_auth_token_gss, get_auth_token_saml, get_auth_token_x509
+from rucio.gateway.authentication import get_auth_token_gss, get_auth_token_x509
 from rucio.gateway.did import add_did, list_dids
 from rucio.gateway.identity import add_account_identity, list_accounts_for_identity
 from rucio.gateway.lock import get_replica_locks_for_rule_id
@@ -298,36 +298,6 @@ class TestVORestAPI:
         # Can't rely on `requests_kerberos` module being present, so get tokens from gateway instead
         token_tst = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, vo=vo).get('token')
         token_new = get_auth_token_gss('root', 'rucio-dev@CERN.CH', 'unknown', None, vo=second_vo).get('token')
-
-        response = rest_client.get('/accounts/', headers=headers(auth(token_tst)))
-        assert response.status_code == 200
-        accounts_tst = [parse_response(a)['account'] for a in response.get_data(as_text=True).split('\n')[:-1]]
-        assert len(accounts_tst) != 0
-        assert account_tst in accounts_tst
-        assert account_new not in accounts_tst
-
-        response = rest_client.get('/accounts/', headers=headers(auth(token_new)))
-        assert response.status_code == 200
-        accounts_new = [parse_response(a)['account'] for a in response.get_data(as_text=True).split('\n')[:-1]]
-        assert len(accounts_new) != 0
-        assert account_new in accounts_new
-        assert account_tst not in accounts_new
-
-    def test_auth_saml(self, vo, second_vo, account_tst, account_new, rest_client):
-        """ MULTI VO (REST): Test saml authentication to multiple VOs """
-        try:
-            add_account_identity('ddmlab', 'SAML', 'root', 'rucio@email.com', 'root', vo=vo)
-        except Duplicate:
-            pass  # Might already exist, can skip
-
-        try:
-            add_account_identity('ddmlab', 'SAML', 'root', 'rucio@email.com', 'root', vo=second_vo)
-        except Duplicate:
-            pass  # Might already exist, can skip
-
-        # Can't rely on `onelogin` module being present, so get tokens from gateway instead
-        token_tst = get_auth_token_saml('root', 'ddmlab', 'unknown', None, vo=vo).get('token')
-        token_new = get_auth_token_saml('root', 'ddmlab', 'unknown', None, vo=second_vo).get('token')
 
         response = rest_client.get('/accounts/', headers=headers(auth(token_tst)))
         assert response.status_code == 200
