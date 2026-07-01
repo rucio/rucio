@@ -42,7 +42,7 @@ def add_identity(
     Creates a user identity.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml)
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh)
     :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     """
@@ -59,7 +59,7 @@ def del_identity(
     """
     Deletes a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     :param issuer: The issuer account.
     :param vo: the VO of the issuer.
     """
@@ -88,7 +88,7 @@ def add_account_identity(
     Adds a membership association between identity and account.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param issuer: The issuer account.
@@ -113,7 +113,7 @@ def verify_identity(identity_key: str, id_type: str, password: Optional[str] = N
     """
     Verifies a user identity.
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml)
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh)
     :param password: If type==userpass, verifies the identity_key, .
     """
     with db_session(DatabaseOperationType.READ) as session:
@@ -131,7 +131,7 @@ def del_account_identity(
     Removes a membership association between identity and account.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     :param account: The account name.
     :param issuer: The issuer account.
     :param vo: the VO to act on.
@@ -166,7 +166,7 @@ def get_default_account(
     Returns the default account for this identity.
 
     :param identity_key: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
     """
     with db_session(DatabaseOperationType.READ) as session:
         account = identity.get_default_account(identity_key, IdentityType[id_type.upper()], session=session)
@@ -181,7 +181,7 @@ def list_accounts_for_identity(
     Returns a list of all accounts for an identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param id_type: The type of the authentication (x509, gss, userpass, ssh, saml).
+    :param id_type: The type of the authentication (x509, gss, userpass, ssh).
 
     returns: A list of all accounts for the identity.
     """
