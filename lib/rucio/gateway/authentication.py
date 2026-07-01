@@ -289,38 +289,6 @@ def get_ssh_challenge_token(
         return authentication.get_ssh_challenge_token(internal_account, appid, ip, session=session)
 
 
-def get_auth_token_saml(
-    account: str,
-    saml_nameid: str,
-    appid: str,
-    ip: Optional[str] = None,
-    vo: str = DEFAULT_VO,
-) -> Optional[TokenDict]:
-    """
-    Authenticate a Rucio account temporarily via SSO.
-
-    The token lifetime is 1 hour.
-
-    :param account: Account identifier as a string.
-    :param saml_nameid: NameId returned in SAML response as a string.
-    :param appid: The application identifier as a string.
-    :param ip: IP address of the client as a string.
-
-    :returns: A dict with token and expires_at entries.
-    """
-
-    kwargs = {'account': account, 'saml_nameid': saml_nameid}
-
-    with db_session(DatabaseOperationType.WRITE) as session:
-        auth_result = permission.has_permission(issuer=account, vo=vo, action='get_auth_token_saml', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied('User with identity %s can not log to account %s. %s' % (saml_nameid, account, auth_result.message))
-
-        internal_account = InternalAccount(account, vo=vo)
-
-        return authentication.get_auth_token_saml(internal_account, saml_nameid, appid, ip, session=session)
-
-
 def validate_auth_token(
     token: str,
 ) -> dict[str, Any]:

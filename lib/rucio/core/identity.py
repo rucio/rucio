@@ -41,7 +41,7 @@ def add_identity(identity: str, type_: IdentityType, email: str, password: Optio
     Creates a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, ssh, saml, oidc)
+    :param type_: The type of the authentication (x509, gss, userpass, ssh, oidc)
     :param email: The Email address associated with the identity.
     :param password: If type==userpass, this sets the password.
     :param session: The database session in use.
@@ -71,13 +71,13 @@ def verify_identity(identity: str, type_: IdentityType, password: Optional[str] 
     """
     Verifies a user identity.
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, ssh, saml, oidc)
+    :param type_: The type of the authentication (x509, gss, userpass, ssh, oidc)
     :param password: If type==userpass, verifies the identity_key, .
     :param session: The database session in use.
     :returns: True if the identity is valid, raises IdentityNotFound otherwise.
     :raises IdentityNotFound: If the identity is not valid.
     :raises IdentityError: If the identity is not valid.
-    :raises NotImplementedError: If the identity type is not implemented. i.e. x509, gss, ssh, saml, oidc
+    :raises NotImplementedError: If the identity type is not implemented. i.e. x509, gss, ssh, oidc
     """
 
     if type_ == IdentityType.USERPASS and password is None:
@@ -110,7 +110,7 @@ def del_identity(identity: str, type_: IdentityType, *, session: "Session") -> N
     Deletes a user identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param type_: The type of the authentication (x509, gss, userpass, oidc).
     :param session: The database session in use.
     """
 
@@ -141,7 +141,7 @@ def add_account_identity(
     Adds a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, ssh, saml, oidc).
+    :param type_: The type of the authentication (x509, gss, userpass, ssh, oidc).
     :param account: The account name.
     :param email: The Email address associated with the identity.
     :param default: If True, the account should be used by default with the provided identity.
@@ -183,7 +183,7 @@ def exist_identity_account(identity: str, type_: IdentityType, account: "Interna
     Check if an identity is mapped to an account.
 
     :param identity: The user identity as string.
-    :param type_: The type of identity as a string, e.g. userpass, x509, gss, saml, oidc ...
+    :param type_: The type of identity as a string, e.g. userpass, x509, gss, oidc ...
     :param account: The account as an InternalAccount.
     :param session: The database session in use.
 
@@ -205,7 +205,7 @@ def get_default_account(identity: str, type_: IdentityType, oldest_if_none: bool
     Retrieves the default account mapped to an identity.
 
     :param identity: The identity key name. For example, x509DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param type_: The type of the authentication (x509, gss, userpass, oidc).
     :param oldest_if_none: If True and no default account it found the oldest known
                            account of that identity will be chosen, if False and
                            no default account is found, exception will be raised.
@@ -246,7 +246,7 @@ def del_account_identity(identity: str, type_: IdentityType, account: "InternalA
     Removes a membership association between identity and account.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param type_: The type of the authentication (x509, gss, userpass, oidc).
     :param account: The account name.
     :param session: The database session in use.
     """
@@ -287,7 +287,7 @@ def list_accounts_for_identity(identity: str, type_: IdentityType, *, session: "
     Returns a list of all accounts for an identity.
 
     :param identity: The identity key name. For example x509 DN, or a username.
-    :param type_: The type of the authentication (x509, gss, userpass, saml, oidc).
+    :param type_: The type of the authentication (x509, gss, userpass, oidc).
     :param session: The database session in use.
 
     returns: A list of all accounts for the identity.
