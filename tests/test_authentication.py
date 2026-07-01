@@ -16,15 +16,14 @@ import datetime
 import time
 
 import pytest
-from requests import session
 
-from rucio.common.exception import AccessDenied, CannotAuthenticate, Duplicate
+from rucio.common.exception import CannotAuthenticate, Duplicate
 from rucio.common.utils import ssh_sign
 from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
-from rucio.gateway.authentication import get_auth_token_saml, get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
+from rucio.gateway.authentication import get_auth_token_ssh, get_auth_token_user_pass, get_ssh_challenge_token
 from rucio.tests.common import hdrdict, headers, loginhdr, vohdr
 
 PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq5LySllrQFpPL"\
@@ -164,30 +163,6 @@ class TestAuthCoreGateway:
 
         del_account_identity(INVALID_PADDED_PUBLIC_KEY, IdentityType.SSH, root_account)
 
-    def test_get_auth_token_saml_success(self, vo, root_account):
-        """AUTHENTICATION (CORE): SAML NameID (correct credentials)."""
-        try:
-            add_account_identity('ddmlab', IdentityType.SAML, root_account, email='ph-adp-ddm-lab@cern.ch')
-        except Duplicate:
-            pass  # might already exist, can skip
-
-        result = get_auth_token_saml(account='root', saml_nameid='ddmlab', appid='test', ip='127.0.0.1', vo=vo)
-        assert result is not None
-
-        del_account_identity('ddmlab', IdentityType.SAML, root_account)
-
-    def test_get_auth_token_saml_fail(self, vo, root_account):
-        """AUTHENTICATION (CORE): SAML NameID (wrong credentials)."""
-        try:
-            add_account_identity('ddmlab', IdentityType.SAML, root_account, email='ph-adp-ddm-lab@cern.ch')
-        except Duplicate:
-            pass  # might already exist, can skip
-
-        with pytest.raises(AccessDenied):
-            get_auth_token_saml(account='root', saml_nameid='not_ddmlab', appid='test', ip='127.0.0.1', vo=vo)
-
-        del_account_identity('ddmlab', IdentityType.SAML, root_account)
-
 
 def test_userpass_fail(vo, rest_client):
     """AUTHENTICATION (REST): Username and password (wrong credentials)."""
@@ -242,38 +217,6 @@ def test_ssh_fail(vo, rest_client, root_account):
     assert response.status_code == 401
 
     del_account_identity(PUBLIC_KEY, IdentityType.SSH, root_account)
-
-
-@pytest.mark.xfail(reason='The WebUI isn\'t linked to CERN SSO yet so this needs to be fixed once it is linked')
-def test_saml_success(vo, rest_client):
-    """AUTHENTICATION (REST): SAML Username and password (correct credentials)."""
-    headers_dict = {'X-Rucio-Account': 'root'}
-    userpass = {'username': 'ddmlab', 'password': 'secret'}
-
-    response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict), vohdr(vo)))
-    if not response.headers.get('X-Rucio-Auth-Token'):
-        saml_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
-        response = session().post(saml_auth_url, data=userpass, verify=False, allow_redirects=True)
-        response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
-
-    assert response.status_code == 200
-    assert 'X-Rucio-Auth-Token' in response.headers
-    assert len(response.headers.get('X-Rucio-Auth-Token')) > 32
-
-
-@pytest.mark.xfail(reason='The WebUI isn\'t linked to CERN SSO yet so this needs to be fixed once it is linked')
-def test_saml_fail(vo, rest_client):
-    """AUTHENTICATION (REST): SAML Username and password (wrong credentials)."""
-    headers_dict = {'X-Rucio-Account': 'root'}
-    userpass = {'username': 'ddmlab', 'password': 'not_secret'}
-
-    response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict), vohdr(vo)))
-    if not response.headers.get('X-Rucio-Auth-Token'):
-        saml_auth_url = response.headers.get('X-Rucio-SAML-Auth-URL')
-        response = session().post(saml_auth_url, data=userpass, verify=False, allow_redirects=True)
-        response = rest_client.get('/auth/saml', headers=headers(hdrdict(headers_dict)))
-
-    assert response.status_code == 401
 
 
 @pytest.mark.noparallel(reason='adds many tokens')
