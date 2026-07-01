@@ -22,7 +22,7 @@ from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.policy import get_policy
 from rucio.gateway.authentication import get_auth_token_x509
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
-from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
+from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, userpass_auth, x509token_auth
 
 if TYPE_CHECKING:
     from flask.typing import ResponseReturnValue, RouteCallable
@@ -45,8 +45,7 @@ def auth() -> 'ResponseReturnValue':
         else:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token')
     else:
-        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT,
-                               userpass_support=USERPASS_SUPPORT)
+        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, userpass_support=USERPASS_SUPPORT)
 
 
 def login() -> 'ResponseReturnValue':  # type: ignore
@@ -76,10 +75,6 @@ def oidc_final() -> 'ResponseReturnValue':
     return finalize_auth(session_token, 'OIDC')
 
 
-def saml() -> 'ResponseReturnValue':
-    return saml_auth(request.method)
-
-
 def x509() -> 'ResponseReturnValue':
     return x509token_auth()
 
@@ -89,7 +84,6 @@ AUTH_URLS = (
     ('/login', 'login', login, [HTTPMethod.GET, HTTPMethod.POST]),
     ('/oidc', 'oidc', oidc, [HTTPMethod.GET]),
     ('/oidc_final', 'oidc_final', oidc_final, [HTTPMethod.GET]),
-    ('/saml', 'saml', saml, [HTTPMethod.GET, HTTPMethod.POST]),
     ('/x509', 'x509', x509, [HTTPMethod.GET])
 )
 
