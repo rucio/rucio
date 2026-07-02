@@ -460,7 +460,14 @@ def update_rse(rse, parameters, issuer, vo=DEFAULT_VO):
         return rse_module.update_rse(rse_id=rse_id, parameters=parameters, session=session)
 
 
-def add_distance(source, destination, issuer, vo=DEFAULT_VO, distance=None):
+def add_distance(
+    source: str,
+    destination: str,
+    issuer: str,
+    distance: int,
+    vo: str = DEFAULT_VO,
+    bidirectional: bool = False
+):
     """
     Add a src-dest distance.
 
@@ -469,6 +476,7 @@ def add_distance(source, destination, issuer, vo=DEFAULT_VO, distance=None):
     :param issuer: The issuer account.
     :param vo: The VO to act on.
     :param distance: Distance as an integer.
+    :param bidirectional: If True, also adds the distance from dest to src.
     """
     kwargs = {'source': source, 'destination': destination}
     with db_session(DatabaseOperationType.WRITE) as session:
@@ -478,13 +486,20 @@ def add_distance(source, destination, issuer, vo=DEFAULT_VO, distance=None):
         try:
             return distance_module.add_distance(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                                 dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                                distance=distance, session=session)
+                                                distance=distance, bidirectional=bidirectional, session=session)
         except exception.Duplicate:
             # use source and destination RSE names
             raise exception.Duplicate('Distance from %s to %s already exists!' % (source, destination))
 
 
-def update_distance(source, destination, distance, issuer, vo=DEFAULT_VO):
+def update_distance(
+    source: str,
+    destination: str,
+    issuer: str,
+    distance: int,
+    vo: str = DEFAULT_VO,
+    bidirectional: bool = False
+):
     """
     Update distances with the given RSE ids.
 
@@ -502,7 +517,7 @@ def update_distance(source, destination, distance, issuer, vo=DEFAULT_VO):
 
         return distance_module.update_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                                 dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                                distance=distance, session=session)
+                                                distance=distance, bidirectional=bidirectional, session=session)
 
 
 def get_distance(source, destination, issuer, vo=DEFAULT_VO):
@@ -524,7 +539,13 @@ def get_distance(source, destination, issuer, vo=DEFAULT_VO):
         return [gateway_update_return_dict(d, session=session) for d in distances]
 
 
-def delete_distance(source, destination, issuer, vo=DEFAULT_VO):
+def delete_distance(
+    source: str,
+    destination: str,
+    issuer: str,
+    vo: str = DEFAULT_VO,
+    bidirectional: bool = False
+):
     """
     Delete distances with the given RSE ids.
 
@@ -542,7 +563,7 @@ def delete_distance(source, destination, issuer, vo=DEFAULT_VO):
 
         return distance_module.delete_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
                                                 dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                                session=session)
+                                                bidirectional=bidirectional, session=session)
 
 
 def add_qos_policy(rse, qos_policy, issuer, vo=DEFAULT_VO):

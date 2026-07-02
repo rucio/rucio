@@ -866,34 +866,48 @@ class RSEClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def add_distance(
-            self,
-            source: str,
-            destination: str,
-            parameters: dict[str, int]
+        self,
+        source: str,
+        destination: str,
+        parameters: dict[str, int],
+        bidirectional: bool = False
     ) -> Literal[True]:
         """
         Add a src-dest distance.
 
-        :param source: The source.
-        :param destination: The destination.
-        :param parameters: A dictionary with property.
+        Parameters
+        ----------
+        source :
+            The source RSE.
+        destination :
+            The destination RSE.
+        parameters :
+            A dictionary with 'distance' key and int value.
+        bidirectional :
+            If True, also updates the distance from dest to src.
+
+        Returns
+        -------
+            True if distance was created successfully else False
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
+        parameters["bidirectional"] = bidirectional
         r = self._send_request(url, method=HTTPMethod.POST, data=dumps(parameters))
         if r.status_code == codes.created:
             return True
         exc_cls, exc_msg = self._get_exception(headers=r.headers,
-                                               status_code=r.status_code,
-                                               data=r.content)
+                                            status_code=r.status_code,
+                                            data=r.content)
         raise exc_cls(exc_msg)
 
     def update_distance(
-            self,
-            source: str,
-            destination: str,
-            parameters: dict[str, int]
+        self,
+        source: str,
+        destination: str,
+        parameters: dict[str, int],
+        bidirectional: bool = False
     ) -> Literal[True]:
         """
         Update distances with the given RSE ids.
@@ -906,10 +920,17 @@ class RSEClient(BaseClient):
             The destination RSE.
         parameters :
             A dictionary with property
+        bidirectional :
+            If True, also updates the distance from dest to src.
+
+        Returns
+        -------
+            True if distance was created successfully else False
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
+        parameters["bidirectional"] = bidirectional
         r = self._send_request(url, method=HTTPMethod.PUT, data=dumps(parameters))
         if r.status_code == codes.ok:
             return True
@@ -948,9 +969,10 @@ class RSEClient(BaseClient):
         raise exc_cls(exc_msg)
 
     def delete_distance(
-            self,
-            source: str,
-            destination: str
+        self,
+        source: str,
+        destination: str,
+        bidirectional: bool = False
     ) -> Literal[True]:
         """
         Delete distances with the given RSE ids.
@@ -961,10 +983,13 @@ class RSEClient(BaseClient):
             The source
         destination :
             The destination
+        bidirectional :
+            If True, also updates the distance from dest to src.
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
-        url = build_url(choice(self.list_hosts), path=path)
+        params = {'bidirectional': bidirectional}
+        url = build_url(choice(self.list_hosts), path=path, params=params)
         r = self._send_request(url, method=HTTPMethod.DELETE)
         if r.status_code == codes.ok:
             return True
