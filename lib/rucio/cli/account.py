@@ -152,22 +152,25 @@ def attribute_list(ctx: click.Context, account_name: str):
         print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['Key', 'Value']))
 
 
-@attribute.command("add")
+@attribute.command("set")
 @click.argument("account-name")
 @click.option('--key', help='Attribute key', required=True)
 @click.option('--value', help='Attribute value', required=True)
 @click.pass_context
-def attribute_add(ctx: click.Context, account_name: str, key: str, value: str):
-    """Add a new attribute [key] to an account"""
+def attribute_set(ctx: click.Context, account_name: str, key: str, value: str):
+    """Add or update an attribute [key] to an account"""
+    if key in [attr['key'] for attr in next(ctx.obj.client.list_account_attributes(account_name))]:
+        ctx.obj.logger.debug("key %s already exists for account %s! Overwriting..." % (key, account_name))
+        ctx.obj.client.delete_account_attribute(account=account_name, key=key)
     ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
 
 
-@attribute.command("remove")
+@attribute.command("unset")
 @click.argument("account-name")
 @click.option("--key", help="Attribute key", required=True)
 @click.pass_context
-def attribute_remove(ctx: click.Context, account_name: str, key: str):
-    """Remove an attribute from an account without reassigning it"""
+def attribute_unset(ctx: click.Context, account_name: str, key: str):
+    """Reset an attribute to its default for an account without reassigning it"""
     ctx.obj.client.delete_account_attribute(account=account_name, key=key)
 
 
@@ -219,7 +222,7 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
         print_output(table1, table2, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
-@limit.command("add")
+@limit.command("set")
 @click.argument(
     "account-name",
 )
@@ -227,8 +230,8 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
 @click.option("--bytes", "bytes_", help='Value of the limit; can be specified in bytes ("10000"), with a storage unit ("10GB"), or "infinity"', required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
-def limit_add(ctx: click.Context, account_name: str, rse: str, bytes_: str, locality: str):
-    """Add a new limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
+def limit_set(ctx: click.Context, account_name: str, rse: str, bytes_: str, locality: str):
+    """Set a limit for an account on an RSE. An account can have both local and global limits on the same RSE."""
     byte_limit = None
     limit_input = bytes_.lower()
 
@@ -249,12 +252,12 @@ def limit_add(ctx: click.Context, account_name: str, rse: str, bytes_: str, loca
     print('Set account limit for account %s on RSE %s: %s' % (account_name, rse, sizefmt(byte_limit, True)))
 
 
-@limit.command("remove")
+@limit.command("unset")
 @click.argument("account-name")
 @click.option("--rse", "--rse-name", help="Full RSE name", required=True)
 @click.option("--locality", type=click.Choice(["local", "global"]), help="Global or local limit scope", default="local")
 @click.pass_context
-def limit_remove(ctx: click.Context, account_name: str, rse: str, locality: str):
+def limit_unset(ctx: click.Context, account_name: str, rse: str, locality: str):
     """Remove existing limits for an account on an RSE"""
     ctx.obj.client.delete_account_limit(account=account_name, rse=rse, locality=locality)
     print('Deleted account limit for account %s and RSE %s' % (account_name, rse))
