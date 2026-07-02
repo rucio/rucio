@@ -140,6 +140,8 @@ brokers = localhost
 voname = atlas
 email_from = Rucio <spamspamspam@cern.ch>
 email_test = spamspamspam@cern.ch
+smtp_host =
+smtp_port = 25
 
 [transmogrifier]
 maxdids = 100000
