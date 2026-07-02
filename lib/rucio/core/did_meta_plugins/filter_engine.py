@@ -144,7 +144,7 @@ class FilterEngine:
         for or_group in filters:
             if 'created_after' in or_group:
                 or_group['created_at.gte'] = or_group.pop('created_after')
-            elif 'created_before' in or_group:
+            if 'created_before' in or_group:
                 or_group['created_at.lte'] = or_group.pop('created_before')
         return filters
 

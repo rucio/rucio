@@ -230,6 +230,11 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
                 continue
             key_nooperator = key.split('.')[0]      # remove operator attribute from key if suffixed
 
+            # `created_at` is filterable but not mutable metadata, so route it to the DID-column plugin.
+            if key_nooperator == 'created_at':
+                required_unique_plugins.add(METADATA_PLUGIN_MODULES[0])
+                continue
+
             # Iterate through the list of metadata plugins, checking which (if any) manages this particular key
             # and appending the corresponding plugin to the set, required_unique_plugins.
             is_this_key_managed = False
