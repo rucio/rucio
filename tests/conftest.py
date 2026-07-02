@@ -27,6 +27,7 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
     from configparser import ConfigParser
+    from pathlib import Path
 
     from dogpile.cache.region import CacheRegion
     from flask.testing import FlaskClient
@@ -693,17 +694,21 @@ def temp_config_file() -> "Iterator[ConfigParser]":
 
 
 @pytest.fixture
-def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]":
+def file_config_mock(request: pytest.FixtureRequest, tmp_path: "Path") -> "Iterator[ConfigParser]":
     """
     Fixture which allows to have an isolated in-memory configuration file instance which
     is not persisted after exiting the fixture.
 
-    This override works only in tests which use config calls directly, not in the ones working
-    via the API, as the server config is not changed.
+    The overridden configuration is also written to a temporary config file that replaces (scoped per-test) the
+    original config file via `RUCIO_CONFIG`.
+
+    This override works only in tests which use config calls directly or spawn subprocesses (like `execute`),
+    not in the ones working via the API, as the server config is not changed. Additionally, modifications made to the
+    parser during the test are visible in-process and not to subprocesses.
     """
     from unittest import mock
 
-    from rucio.common.config import Config, config_add_section, config_has_option, config_has_section, config_remove_option, config_set
+    from rucio.common.config import Config
 
     # Get the fixture parameters
     overrides = []
@@ -715,14 +720,32 @@ def file_config_mock(request: pytest.FixtureRequest) -> "Iterator[ConfigParser]"
 
     parser = Config().parser
     with mock.patch('rucio.common.config.get_config', side_effect=lambda: parser):
-        for section, option, value in (overrides or []):
-            if not config_has_section(section):
-                config_add_section(section)
-            config_set(section, option, value)
-        for section, option in (removes or []):
-            if config_has_section(section) and config_has_option(section, option):
-                config_remove_option(section, option)
+        __overwrite_config_values(overrides, removes)
+        yield from __replace_config_file(parser, tmp_path)
+
+
+def __replace_config_file(parser: "ConfigParser", tmp_path: "Path") -> "Iterator[ConfigParser]":
+    config_path = tmp_path / 'rucio.cfg'
+    with open(config_path, 'w') as f:
+        parser.write(f)
+    # replace the config file inside the pytest.MonkeyPatch.context() so the change is reverted at the end of the test
+    with pytest.MonkeyPatch.context() as monkey_patch:
+        monkey_patch.setenv('RUCIO_CONFIG', str(config_path))
         yield parser
+
+
+# `rucio.common.config.get_config` needs to be mocked for this to work
+def __overwrite_config_values(
+        overrides: Optional[list[tuple[str, str, str]]], removes: Optional[list[tuple[str, str]]]
+) -> None:
+    from rucio.common.config import config_add_section, config_has_option, config_has_section, config_remove_option, config_set
+    for section, option, value in (overrides or []):
+        if not config_has_section(section):
+            config_add_section(section)
+        config_set(section, option, value)
+    for section, option in (removes or []):
+        if config_has_section(section) and config_has_option(section, option):
+            config_remove_option(section, option)
 
 
 @pytest.fixture

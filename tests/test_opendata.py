@@ -27,7 +27,7 @@ from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
-from rucio.tests.common import auth, did_name_generator, headers
+from rucio.tests.common import auth, did_name_generator, headers, with_each_cli_renderer
 
 skip_unsupported_json = pytest.mark.skipif(
     not json_implemented(),
@@ -728,10 +728,7 @@ class TestOpenDataCLI:
             f"Subcommand '{subcommand}': expected options {expected_options}, got {options}"
         )
 
-    @pytest.mark.parametrize("file_config_mock", [
-        {"overrides": [('experimental', 'cli', 'tabulate')]},
-        {"overrides": [('experimental', 'cli', 'rich')]},
-    ], indirect=True)
+    @with_each_cli_renderer
     def test_opendata_cli_add_show_list_remove(self, mock_scope, file_config_mock):
         exitcode, stdout, stderr = execute("rucio opendata did list")
         assert exitcode == 0, f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
