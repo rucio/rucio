@@ -36,8 +36,7 @@ from tabulate import tabulate
 
 # rucio module has the same name as this executable module, so this rule fails. pylint: disable=no-name-in-module
 from rucio import version
-from rucio.cli.utils import exception_handler, get_client, get_scope, scope_exists, setup_gfal2_logger, signal_handler
-from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, generate_table, get_cli_config, get_pager, print_output, setup_rich_logger
+from rucio.cli.utils import RichCLITheme, RichUtils, exception_handler, get_client, get_scope, scope_exists, setup_gfal2_logger, signal_handler
 from rucio.common.client import detect_client_location
 from rucio.common.config import config_get, config_get_float
 from rucio.common.constants import ReplicaState
@@ -69,7 +68,7 @@ DEFAULT_SECURE_PORT = 443
 DEFAULT_PORT = 80
 
 tablefmt = 'psql'
-cli_config = get_cli_config()
+cli_config = RichUtils.get_cli_config()
 
 
 def __resolve_containers_to_datasets(scope, name, client):
@@ -106,10 +105,10 @@ def whoami_account(args, client, logger, console, spinner):
     """
     info = client.whoami()
     if cli_config == 'rich':
-        keyword_styles = {**CLITheme.ACCOUNT_STATUS, **CLITheme.ACCOUNT_TYPE}
+        keyword_styles = {**RichCLITheme.ACCOUNT_STATUS, **RichCLITheme.ACCOUNT_TYPE}
         table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
-        table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
-        print_output(table, console=console, no_pager=args.no_pager)
+        table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for k in info:
             print(k.ljust(10) + ' : ' + str(info[k]))
@@ -183,11 +182,11 @@ def list_dataset_replicas(args, client, logger, console, spinner):
         for i, dsn in enumerate(result):
             if cli_config == 'rich':
                 if i > 0:
-                    output.append(Text(f'\nDATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+                    output.append(Text(f'\nDATASET: {dsn}', style=RichCLITheme.TEXT_HIGHLIGHT))
                 elif len(result) > 1:
-                    output.append(Text(f'DATASET: {dsn}', style=CLITheme.TEXT_HIGHLIGHT))
+                    output.append(Text(f'DATASET: {dsn}', style=RichCLITheme.TEXT_HIGHLIGHT))
 
-                table = generate_table(list(result[dsn].values()), headers=['RSE', 'FOUND', 'TOTAL'], col_alignments=['left', 'right', 'right'])
+                table = RichUtils.generate_table(list(result[dsn].values()), headers=['RSE', 'FOUND', 'TOTAL'], col_alignments=['left', 'right', 'right'])
                 output.append(table)
             else:
                 print(f'\nDATASET: {dsn}')
@@ -195,7 +194,7 @@ def list_dataset_replicas(args, client, logger, console, spinner):
 
         if cli_config == 'rich':
             spinner.stop()
-            print_output(*output, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -247,14 +246,14 @@ def list_file_replicas(args, client, logger, console, spinner):
         for replica, rse in itertools.product(replicas, rses):
             if 'states' in replica and rse in replica['states'] and replica['states'].get(rse) != 'AVAILABLE':
                 if cli_config == 'rich':
-                    replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
+                    replica_state = f"[{RichCLITheme.REPLICA_STATE.get(ReplicaState[replica['states'].get(rse)].value, 'default')}]{ReplicaState[replica['states'].get(rse)].value}[/]"
                     table_data.append([replica['scope'], replica['name'], '({0}) {1}'.format(replica_state, rse)])
                 else:
                     table_data.append([replica['scope'], replica['name'], "({0}) {1}".format(ReplicaState[replica['states'].get(rse)].value, rse)])
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE', 'NAME', '(STATE) RSE'], col_alignments=['left', 'left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE', 'NAME', '(STATE) RSE']))
 
@@ -291,9 +290,9 @@ def list_file_replicas(args, client, logger, console, spinner):
                         else:
                             print(pfn)
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['PFN'], col_alignments=['left'])
+            table = RichUtils.generate_table(table_data, headers=['PFN'], col_alignments=['left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         if args.all_states:
             header = ['SCOPE', 'NAME', 'FILESIZE', 'ADLER32', '(STATE) RSE: REPLICA']
@@ -305,7 +304,7 @@ def list_file_replicas(args, client, logger, console, spinner):
                     rse = replica['pfns'][pfn]['rse']
                     if args.all_states:
                         if cli_config == 'rich':
-                            replica_state = f"[{CLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
+                            replica_state = f"[{RichCLITheme.REPLICA_STATE.get(ReplicaState[replica['states'][rse]].value, 'default')}]{ReplicaState[replica['states'][rse]].value}[/]"
                             # Less does not display hyperlinks well if the table is very wide.
                             if args.no_pager:
                                 rse_string = f'({replica_state}) {rse}: [u bright_blue link={pfn}]{pfn}[/]'
@@ -330,9 +329,9 @@ def list_file_replicas(args, client, logger, console, spinner):
                         table_data.append([replica['scope'], replica['name'], sizefmt(replica['bytes'], args.human), replica['adler32'], rse_string])
 
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=header, col_alignments=['left', 'left', 'right', 'left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=header, disable_numparse=True))
     return SUCCESS
@@ -464,7 +463,7 @@ def list_dids(args, client, logger, console, spinner):
 
     for did in client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=args.recursive):
         if cli_config == 'rich':
-            table_data.append([f"{did['scope']}:{did['name']}", Text(did['did_type'], style=CLITheme.DID_TYPE.get(did['did_type'], 'default'))])
+            table_data.append([f"{did['scope']}:{did['name']}", Text(did['did_type'], style=RichCLITheme.DID_TYPE.get(did['did_type'], 'default'))])
         else:
             table_data.append([f"{did['scope']}:{did['name']}", did['did_type']])
 
@@ -473,9 +472,9 @@ def list_dids(args, client, logger, console, spinner):
             print(did)
     else:
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
 
@@ -515,14 +514,14 @@ def list_scopes(args, client, logger, console, spinner):
             spinner.stop()
         elif not with_owner:
             scopes = [[scope] for scope in sorted(scopes)]
-            table = generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
+            table = RichUtils.generate_table(scopes, headers=['SCOPE'], col_alignments=['left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             scopes = [[s['scope'], s['account']] for s in scopes]
-            table = generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
+            table = RichUtils.generate_table(scopes, headers=['SCOPE', "ACCOUNT"], col_alignments=['left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         if len(scopes) == 0:
             pass
@@ -603,7 +602,7 @@ def list_files(args, client, logger, console, spinner):
 
         if cli_config == 'rich':
             spinner.stop()
-            print_output(full_str + '\n</POOLFILECATALOG>', console=console, no_pager=True)
+            RichUtils.print_output(full_str + '\n</POOLFILECATALOG>', console=console, no_pager=True)
         else:
             print('</POOLFILECATALOG>')
         return SUCCESS
@@ -627,13 +626,13 @@ def list_files(args, client, logger, console, spinner):
                 table_data.append([f"{file['scope']}:{file['name']}", guid, f"ad:{file['adler32']}", sizefmt(file['bytes'], args.human), file['events']])
 
             if cli_config == 'rich':
-                table = generate_table(table_data, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], col_alignments=['left', 'left', 'left', 'right', 'right'])
+                table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], col_alignments=['left', 'left', 'left', 'right', 'right'])
                 summary_data = [['Total files', str(totfiles)], ['Total size', sizefmt(totsize, args.human)]]
                 if totevents:
                     summary_data.append(['Total events', str(totevents)])
-                summary_table = generate_table(summary_data, col_alignments=['left', 'left'], row_styles=['none'])
+                summary_table = RichUtils.generate_table(summary_data, col_alignments=['left', 'left'], row_styles=['none'])
                 spinner.stop()
-                print_output(table, summary_table, console=console, no_pager=args.no_pager)
+                RichUtils.print_output(table, summary_table, console=console, no_pager=args.no_pager)
             else:
                 print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', 'GUID', 'ADLER32', 'FILESIZE', 'EVENTS'], disable_numparse=True))
                 print('Total files : %s' % totfiles)
@@ -660,7 +659,7 @@ def list_content(args, client, logger, console, spinner):
         scope, name = get_scope(did, client)
         for content in client.list_content(scope=scope, name=name):
             if cli_config == 'rich':
-                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
+                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=RichCLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
@@ -669,9 +668,9 @@ def list_content(args, client, logger, console, spinner):
             print(did)
     else:
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
 
@@ -695,14 +694,14 @@ def list_content_history(args, client, logger, console, spinner):
         scope, name = get_scope(did, client)
         for content in client.list_content_history(scope=scope, name=name):
             if cli_config == 'rich':
-                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=CLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
+                table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=RichCLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
             else:
                 table_data.append([f"{content['scope']}:{content['name']}", content['type'].upper()])
 
     if cli_config == 'rich':
-        table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     return SUCCESS
@@ -725,14 +724,14 @@ def list_parent_dids(args, client, logger, console, spinner):
         scope, name = get_scope(args.did, client)
         for dataset in client.list_parent_dids(scope=scope, name=name):
             if cli_config == 'rich':
-                table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=CLITheme.DID_TYPE.get(dataset['type'], 'default'))])
+                table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=RichCLITheme.DID_TYPE.get(dataset['type'], 'default'))])
             else:
                 table_data.append([f"{dataset['scope']}:{dataset['name']}", dataset['type']])
 
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', '[DID TYPE]'], col_alignments=['left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['SCOPE:NAME', '[DID TYPE]']))
     else:
@@ -781,7 +780,7 @@ def stat(args, client, logger, console, spinner):
     if cli_config == 'rich':
         spinner.update(status='Fetching DID stats')
         spinner.start()
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE}
 
     output = []
     for i, did in enumerate(args.dids):
@@ -789,11 +788,11 @@ def stat(args, client, logger, console, spinner):
         info = client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
         if cli_config == 'rich':
             if i > 0:
-                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'\nDID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             elif len(args.dids) > 1:
-                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'DID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
-            table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+            table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
             output.append(table)
         else:
             if i > 0:
@@ -803,7 +802,7 @@ def stat(args, client, logger, console, spinner):
 
     if cli_config == 'rich':
         spinner.stop()
-        print_output(*output, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1143,7 +1142,7 @@ def get_metadata(args, client, logger, console, spinner):
     if cli_config == 'rich':
         spinner.update(status='Fetching metadata')
         spinner.start()
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.AVAILABILITY}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE, **RichCLITheme.AVAILABILITY}
 
     output = []
     for i, did in enumerate(args.dids):
@@ -1151,11 +1150,11 @@ def get_metadata(args, client, logger, console, spinner):
         meta = client.get_metadata(scope=scope, name=name, plugin=plugin)
         if cli_config == 'rich':
             if i > 0:
-                output.append(Text(f'\nDID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'\nDID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             elif len(args.dids) > 1:
-                output.append(Text(f'DID: {did}', style=CLITheme.TEXT_HIGHLIGHT))
+                output.append(Text(f'DID: {did}', style=RichCLITheme.TEXT_HIGHLIGHT))
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(meta.items())]
-            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             output.append(table)
         else:
             if i > 0:
@@ -1165,7 +1164,7 @@ def get_metadata(args, client, logger, console, spinner):
 
     if cli_config == 'rich':
         spinner.stop()
-        print_output(*output, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(*output, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1378,24 +1377,24 @@ def info_rule(args, client, logger, console, spinner):
         output = []
         analysis = client.examine_replication_rule(rule_id=args.rule_id)
         if cli_config == 'rich':
-            keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
+            keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE, **RichCLITheme.RULE_STATE}
             rule_status = " ".join([f'[{keyword_styles.get(word, "default")}]{word}[/]' for word in analysis['rule_error'].split()])
             output.append(f'Status of the replication rule: {rule_status}')
             if analysis['transfers']:
                 output.append('[b]STUCK Requests:[/]')
                 for transfer in analysis['transfers']:
-                    output.append(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
+                    output.append(Padding.indent(Text(f"{transfer['scope']}:{transfer['name']}", style=RichCLITheme.SUBHEADER_HIGHLIGHT), 2))
                     table_data = [['RSE:', str(transfer['rse'])],
                                   ['Attempts:', str(transfer['attempts'])],
                                   ['Last retry:', str(transfer['last_time'])],
                                   ['Last error:', str(transfer['last_source'])],
                                   ['Available sources:', ', '.join([source[0] for source in transfer['sources'] if source[1]])],
                                   ['Blocklisted sources:', ', '.join([source[0] for source in transfer['sources'] if not source[1]])]]
-                    table = generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
+                    table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
                     output.append(Padding.indent(table, 2))
 
             spinner.stop()
-            print_output(*output, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(*output, console=console, no_pager=args.no_pager)
         else:
             analysis = client.examine_replication_rule(rule_id=args.rule_id)
             print('Status of the replication rule: %s' % analysis['rule_error'])
@@ -1413,11 +1412,11 @@ def info_rule(args, client, logger, console, spinner):
     else:
         rule = client.get_replication_rule(rule_id=args.rule_id)
         if cli_config == 'rich':
-            keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.DID_TYPE, **CLITheme.RULE_STATE}
+            keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE, **RichCLITheme.RULE_STATE}
             table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(rule.items())]
-            table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+            table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print("Id:                         %s" % rule['id'])
             print("Account:                    %s" % rule['account'])
@@ -1520,7 +1519,7 @@ def list_rules(args, client, logger, console, spinner):
                 table_data.append([rule['id'],
                                    rule['account'],
                                    f"{rule['scope']}:{rule['name']}",
-                                   f"[{CLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
+                                   f"[{RichCLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
                                    rule['rse_expression'],
                                    rule['copies'],
                                    sizefmt(rule['bytes'], args.human) if rule['bytes'] is not None else 'N/A',
@@ -1538,10 +1537,10 @@ def list_rules(args, client, logger, console, spinner):
                                    rule['created_at']])
 
         if cli_config == 'rich':
-            table = generate_table(table_data, headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
+            table = RichUtils.generate_table(table_data, headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'],
                                    col_alignments=['left', 'left', 'left', 'right', 'left', 'right', 'right', 'left', 'left'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt='simple', headers=['ID', 'ACCOUNT', 'SCOPE:NAME', 'STATE[OK/REPL/STUCK]', 'RSE_EXPRESSION', 'COPIES', 'SIZE', 'EXPIRES (UTC)', 'CREATED (UTC)'], disable_numparse=True))
     return SUCCESS
@@ -1585,9 +1584,9 @@ def list_rules_history(args, client, logger, console, spinner):
 
     if cli_config == 'rich':
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
-        table = generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
+        table = RichUtils.generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1607,9 +1606,9 @@ def list_rses(args, client, logger, console, spinner):
     if args.csv:
         print(*(rse['rse'] for rse in rses), sep='\n')
     elif cli_config == 'rich':
-        table = generate_table([[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
+        table = RichUtils.generate_table([[rse['rse']] for rse in sorted(rses, key=lambda elem: elem['rse'])], headers=['RSE'], col_alignments=['left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         for rse in rses:
             print('%(rse)s' % rse)
@@ -1649,9 +1648,9 @@ def list_suspicious_replicas(args, client, logger, console, spinner):
         table_data.append([rep['rse'], rep['scope'], rep['created_at'], rep['cnt'], rep['name']])
 
     if cli_config == 'rich':
-        table = generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['RSE EXPRESSION', 'SCOPE', 'CREATED AT', 'N-ATTEMPTS', 'FILE NAME'], col_alignments=['left', 'left', 'left', 'right', 'left'])
         spinner.stop()
-        print_output(table, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         print(tabulate(table_data, headers=(['RSE Expression:', 'Scope:', 'Created at:', 'Nattempts:', 'File Name:'])))
     return SUCCESS
@@ -1668,10 +1667,10 @@ def list_rse_attributes(args, client, logger, console, spinner):
 
     attributes = client.list_rse_attributes(rse=args.rse)
     if cli_config == 'rich':
-        keyword_styles = {**CLITheme.BOOLEAN, **CLITheme.RSE_TYPE}
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.RSE_TYPE}
         table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for k, v in sorted(attributes.items())]  # columns have mixed datatypes
-        table = generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
-        print_output(table, console=console, no_pager=args.no_pager)
+        table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     else:
         table = [(k + ':', str(v)) for (k, v) in sorted(attributes.items())]  # columns have mixed datatypes
         print(tabulate(table, tablefmt='plain', disable_numparse=True))  # disabling number parsing
@@ -1746,19 +1745,19 @@ def list_rse_usage(args, client, logger, console, spinner):
             table_data.append(row)
 
     if cli_config == 'rich':
-        table = generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
+        table = RichUtils.generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
         output.append(table)
 
         if args.show_accounts:
             output.append('\n[b]USAGE PER ACCOUNT:')
             for source in account_data:
                 if len(account_data[source]) > 0:
-                    output.append(Padding.indent(Text(f'source: {source}', style=CLITheme.SUBHEADER_HIGHLIGHT), 2))
-                    account_table = generate_table(account_data[source], headers=header_account_data, col_alignments=['left', 'right', 'right'])
+                    output.append(Padding.indent(Text(f'source: {source}', style=RichCLITheme.SUBHEADER_HIGHLIGHT), 2))
+                    account_table = RichUtils.generate_table(account_data[source], headers=header_account_data, col_alignments=['left', 'right', 'right'])
                     output.append(Padding.indent(account_table, 2))
 
         spinner.stop()
-        print_output(*output, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(*output, console=console, no_pager=args.no_pager)
     else:
         print('------')
     return SUCCESS
@@ -1787,7 +1786,7 @@ def list_account_limits(args, client, logger, console, spinner):
     table_data.sort()
 
     if cli_config == 'rich':
-        table1 = generate_table(table_data, headers=['RSE', 'LIMIT'], col_alignments=['left', 'right'])
+        table1 = RichUtils.generate_table(table_data, headers=['RSE', 'LIMIT'], col_alignments=['left', 'right'])
     else:
         print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE', 'LIMIT']))
 
@@ -1799,13 +1798,13 @@ def list_account_limits(args, client, logger, console, spinner):
     table_data.sort()
 
     if cli_config == 'rich':
-        table2 = generate_table(table_data, headers=['RSE EXPRESSION', 'LIMIT'], col_alignments=['left', 'right'])
+        table2 = RichUtils.generate_table(table_data, headers=['RSE EXPRESSION', 'LIMIT'], col_alignments=['left', 'right'])
     else:
         print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'LIMIT']))
 
     if cli_config == 'rich':
         spinner.stop()
-        print_output(table1, table2, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table1, table2, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1829,7 +1828,7 @@ def list_account_usage(args, client, logger, console, spinner):
     table_data.sort()
 
     if cli_config == 'rich':
-        table1 = generate_table(table_data, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+        table1 = RichUtils.generate_table(table_data, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
     else:
         print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
@@ -1842,13 +1841,13 @@ def list_account_usage(args, client, logger, console, spinner):
     table_data.sort()
 
     if cli_config == 'rich':
-        table2 = generate_table(table_data, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
+        table2 = RichUtils.generate_table(table_data, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT'], col_alignments=['left', 'right', 'right', 'right'])
     else:
         print(tabulate(table_data, tablefmt=tablefmt, headers=['RSE EXPRESSION', 'USAGE', 'LIMIT', 'QUOTA LEFT']))
 
     if cli_config == 'rich':
         spinner.stop()
-        print_output(table1, table2, console=console, no_pager=args.no_pager)
+        RichUtils.print_output(table1, table2, console=console, no_pager=args.no_pager)
     return SUCCESS
 
 
@@ -1874,18 +1873,18 @@ def list_datasets_rse(args, client, logger, console, spinner):
 
         if cli_config == 'rich':
             table_data.sort()
-            table = generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print(tabulate(table_data, tablefmt=tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
     else:
         dsns = list(set([f"{dsn['scope']}:{dsn['name']}" for dsn in client.list_datasets_per_rse(args.rse)]))
         dsns.sort()
         if cli_config == 'rich':
-            table = generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
+            table = RichUtils.generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
             spinner.stop()
-            print_output(table, console=console, no_pager=args.no_pager)
+            RichUtils.print_output(table, console=console, no_pager=args.no_pager)
         else:
             print("SCOPE:NAME")
             print('----------')
@@ -2679,10 +2678,10 @@ can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/co
 
 def main():
 
-    pager = get_pager()
-    console = Console(theme=Theme(CLITheme.LOG_THEMES), soft_wrap=True)
-    console.width = max(MIN_CONSOLE_WIDTH, console.width)
-    spinner = Status('Initializing spinner', spinner=CLITheme.SPINNER, spinner_style=CLITheme.SPINNER_STYLE, console=console)
+    pager = RichUtils.get_pager()
+    console = Console(theme=Theme(RichCLITheme.LOG_THEMES), soft_wrap=True)
+    console.width = max(RichUtils.MIN_CONSOLE_WIDTH, console.width)
+    spinner = Status('Initializing spinner', spinner=RichCLITheme.SPINNER, spinner_style=RichCLITheme.SPINNER_STYLE, console=console)
 
     arguments = sys.argv[1:]
     # set the configuration before anything else, if the config parameter is present
@@ -2701,8 +2700,8 @@ def main():
     args = oparser.parse_args(arguments)
 
     if cli_config == 'rich':
-        install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
-        logger = setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
+        install(console=console, word_wrap=True, width=min(console.width, RichUtils.MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
+        logger = RichUtils.setup_rich_logger(module_name=__name__, logger_name='user', verbose=args.verbose, console=console)
     else:
         logger = setup_logger(module_name=__name__, logger_name='user', verbose=args.verbose)
 
