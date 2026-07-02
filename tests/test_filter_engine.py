@@ -109,6 +109,21 @@ class TestFilterEngineDummy:
             filters = FilterEngine(input_datetime_expression, strict_coerce=False).filters
             assert filters == filters_expected
 
+    def test_backwards_compatibility_created_after_and_before(self):
+        filters = FilterEngine(
+            [{
+                'created_after': '1900-01-01T00:00:00',
+                'created_before': '1900-01-02T00:00:00',
+            }],
+            model_class=models.DataIdentifier,
+        ).filters
+
+        translated = {(clause[0].key, clause[1], clause[2]) for clause in filters[0]}
+        assert translated == {
+            ('created_at', operator.ge, datetime(1900, 1, 1, 0, 0)),
+            ('created_at', operator.le, datetime(1900, 1, 2, 0, 0)),
+        }
+
     def test_backwards_compatibility_length(self):
         test_expressions = {
             'length > 0': [[('length', operator.gt, 0)]],

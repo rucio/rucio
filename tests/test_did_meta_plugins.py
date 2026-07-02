@@ -13,8 +13,10 @@
 # limitations under the License.
 
 from copy import deepcopy
+from datetime import datetime
 
 import pytest
+from sqlalchemy import update
 
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import KeyNotFound
@@ -24,6 +26,7 @@ from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
 from rucio.core.did_meta_plugins.elasticsearch_meta import ElasticDidMeta
 from rucio.core.did_meta_plugins.mongo_meta import MongoDidMeta
 from rucio.core.did_meta_plugins.postgres_meta import ExternalPostgresJSONDidMeta
+from rucio.db.sqla import models
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import did_name_generator, skip_rse_tests_with_accounts
 
@@ -105,6 +108,67 @@ class TestDidMetaDidColumn:
 
         # with pytest.raises(KeyNotFound):
         #     list_dids(tmp_scope, {'NotReallyAKey': 'NotReallyAValue'})
+
+    @pytest.mark.dirty
+    def test_list_dids_created_at_filters_use_did_table_timestamps(self, mock_scope, did_factory, db_write_session):
+        """ Check whether created_at filters use DID table timestamps """
+        # Cover one DID before, inside, and at the exclusive upper bound.
+        timestamps = {
+            did_factory.make_dataset(session=db_write_session)['name']: datetime(2025, 1, 1, 0, 0),
+            did_factory.make_dataset(session=db_write_session)['name']: datetime(2025, 1, 15, 0, 0),
+            did_factory.make_dataset(session=db_write_session)['name']: datetime(2025, 2, 1, 0, 0),
+        }
+        expected_names = {
+            name for name, created_at in timestamps.items()
+            if datetime(2025, 1, 10) <= created_at < datetime(2025, 2, 1)
+        }
+
+        # JSON metadata must not make created_at route through the JSON plugin.
+        if json_implemented(session=db_write_session):
+            set_metadata(
+                scope=mock_scope,
+                name=next(iter(timestamps)),
+                key='issue8409_%s' % generate_uuid(),
+                value='x',
+                session=db_write_session,
+            )
+
+        for name, created_at in timestamps.items():
+            db_write_session.execute(
+                update(models.DataIdentifier)
+                .where(models.DataIdentifier.scope == mock_scope)
+                .where(models.DataIdentifier.name == name)
+                .values(created_at=created_at)
+            )
+        # list_dids opens its own session, so commit the fixed timestamps first.
+        db_write_session.commit()
+
+        dids = list(list_dids(
+            mock_scope,
+            [{
+                'name': name,  # Limit results to DIDs created by this test
+                'created_at.gte': '2025-01-10T00:00:00',
+                'created_at.lt': '2025-02-01T00:00:00',
+            } for name in timestamps],
+            did_type='collection',
+            long=True,
+        ))
+
+        assert {did['name'] for did in dids} == expected_names
+        assert {did['did_type'] for did in dids} == {'DATASET'}
+
+        # Legacy bounds must both survive compatibility conversion.
+        legacy_dids = list_dids(
+            mock_scope,
+            [{
+                'name': name,
+                'created_after': '2025-01-10T00:00:00',
+                'created_before': '2025-01-31T23:59:59',
+            } for name in timestamps],
+            did_type='collection',
+        )
+
+        assert set(legacy_dids) == expected_names
 
 
 class TestDidMetaJSON:
