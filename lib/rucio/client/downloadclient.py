@@ -1950,16 +1950,18 @@ class DownloadClient:
             self.logger(logging.INFO, 'No preferred protocol impl in rucio.cfg: %s' % (error))
             return supported_impl
         else:
-            preferred_impls = list(preferred_impls.split(', '))
-            i = 0
-            while i < len(preferred_impls):
-                impl = preferred_impls[i]
-                impl_split = impl.split('.')
-                if len(impl_split) == 1:
-                    preferred_impls[i] = 'rucio.rse.protocols.' + impl + '.Default'
+            configured_impls = preferred_impls
+            preferred_impls = []
+            for impl in configured_impls.split(','):
+                impl = impl.strip()
+                if not impl:
+                    continue
+                if impl.startswith('rucio.'):
+                    preferred_impls.append(impl)
+                elif '.' in impl:
+                    preferred_impls.append('rucio.rse.protocols.' + impl)
                 else:
-                    preferred_impls[i] = 'rucio.rse.protocols.' + impl
-                i += 1
+                    preferred_impls.append('rucio.rse.protocols.' + impl + '.Default')
 
         for source in sources:
             if source['rse'] in checked_rses:
@@ -1971,13 +1973,18 @@ class DownloadClient:
                 self.logger(logging.DEBUG, 'Could not get info of RSE %s: %s' % (source['source'], error))
                 continue
 
-            preferred_protocols = [protocol for protocol in reversed(rse_settings['protocols']) if protocol['impl'] in preferred_impls]
+            preferred_protocols = []
+            for preferred_impl in preferred_impls:
+                preferred_protocols.extend([
+                    protocol for protocol in rse_settings['protocols']
+                    if protocol['impl'] == preferred_impl and protocol not in preferred_protocols
+                ])
 
             if len(preferred_protocols) == 0:
                 continue
 
             for protocol in preferred_protocols:
-                if not protocol['domains']['wan'].get("read"):
+                if protocol['domains']['wan'].get("read") is None:
                     self.logger(logging.WARNING, 'Unsuitable protocol "%s": "WAN Read" operation is not supported' % (protocol['impl']))
                     continue
                 try:
