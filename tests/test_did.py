@@ -1243,7 +1243,7 @@ def test_bulk_get_meta_inheritance(vo, rse_factory, mock_scope, did_factory, ruc
         rucio_client.attach_dids_to_dids([{'scope': scope, 'name': container['name'], 'dids': [{'scope': scope, 'name': datasets[idx]['name']}]}])
         meta_mapping['%s:%s' % (scope, files[idx]['name'])][ckey] = 'cnt_%s' % idx
 
-    list_meta = [meta for meta in rucio_client.get_metadata_bulk(list_dids, inherit=True)]
+    list_meta = [meta for meta in rucio_client.get_metadata_bulk(list_dids, inherit=True, plugin='JSON')]
 
     for meta in list_meta:
         did = '%s:%s' % (meta['scope'], meta['name'])

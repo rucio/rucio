@@ -1752,9 +1752,9 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
                   plugin:
                     description: >
                       Which metadata plug‑in to query
-                      (`"JSON"`, `"DID_COLUMN"`, `"ALL"`, etc.; default: `"JSON"`).
+                      (`"JSON"`, `"DID_COLUMN"`, `"ALL"`, etc.; default: `"DID_COLUMN"`).
                     type: string
-                    default: "JSON"
+                    default: "DID_COLUMN"
               examples:
                 defaultQuery:
                   summary: "Query two DIDs with inheritance"
@@ -1765,7 +1765,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
                       - scope: "user"
                         name: "dataset_002"
                     inherit: true
-                    plugin: "JSON"
+                    plugin: "DID_COLUMN"
 
         responses:
           200:
@@ -1896,7 +1896,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
         params = json_parameters()
         dids = param_get(params, "dids")
         inherit = param_get_bool(params, "inherit", default=False)
-        plugin = param_get(params, "plugin", default="JSON")
+        plugin = param_get(params, "plugin", default="DID_COLUMN")
 
         try:
             def generate(vo):

@@ -2128,7 +2128,7 @@ def list_parent_dids_bulk(
 def get_metadata_bulk(
     dids: list["Mapping[Any, Any]"],
     inherit: bool = False,
-    plugin: str = 'JSON',
+    plugin: str = 'DID_COLUMN',
     *,
     session: "Session"
 ) -> "Iterator[dict[str, Any]]":
@@ -2175,9 +2175,9 @@ def get_metadata_bulk(
         for dids in parent_list:
             result = {'scope': dids[0][0], 'name': dids[0][1]}
             for did in dids:
-                for key in meta_dict[did]:
+                for key, value in meta_dict[did].items():
                     if key not in result:
-                        result[key] = meta_dict[did][key]
+                        result[key] = value
             yield result
     else:
         condition = []
@@ -2196,7 +2196,15 @@ def get_metadata_bulk(
                     or_(*chunk)
                 )
                 for row in session.execute(stmt).scalars():
-                    yield row.to_dict()
+                    if plugin.casefold() == 'did_column':
+                        yield row.to_dict()
+                    else:
+                        meta = get_metadata(row.scope, row.name, plugin=plugin, session=session)
+                        result = {'scope': row.scope, 'name': row.name}
+                        for key, value in meta.items():
+                            if key not in result:
+                                result[key] = value
+                        yield result
         except NoResultFound:
             raise exception.DataIdentifierNotFound('No Data Identifiers found')
 
