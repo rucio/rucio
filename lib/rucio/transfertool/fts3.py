@@ -375,13 +375,6 @@ def build_job_params(
 
     logger(logging.DEBUG, 'RSE attributes are: %s' % (last_hop.dst.rse.attributes))
 
-    # Get dest space token
-    dest_protocol = last_hop.protocol_factory.protocol(last_hop.dst.rse, last_hop.dst.scheme, last_hop.operation_dest)
-    dest_spacetoken = None
-    if dest_protocol.attributes and 'extended_attributes' in dest_protocol.attributes and \
-            dest_protocol.attributes['extended_attributes'] and 'space_token' in dest_protocol.attributes['extended_attributes']:
-        dest_spacetoken = dest_protocol.attributes['extended_attributes']['space_token']
-
     strict_copy = last_hop.dst.rse.attributes.get(RseAttr.STRICT_COPY, False)
     archive_timeout = last_hop.dst.rse.attributes.get(RseAttr.ARCHIVE_TIMEOUT, None)
 
@@ -405,8 +398,7 @@ def build_job_params(
         job_params['job_metadata']['multi_sources'] = True
     if strict_copy:
         job_params['strict_copy'] = strict_copy
-    if dest_spacetoken:
-        job_params['spacetoken'] = dest_spacetoken
+
     if (last_hop.dst.rse.attributes.get(RseAttr.USE_IPV4, False)
             or any(src.rse.attributes.get(RseAttr.USE_IPV4, False) for src in last_hop.sources)):
         job_params['ipv4'] = True

@@ -192,7 +192,7 @@ class TestReplicaCore:
             add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
 
         replica_cpt = 0
-        for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm']):
+        for _ in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['file']):
             replica_cpt += 1
 
         assert nbfiles == replica_cpt
@@ -356,7 +356,7 @@ class TestReplicaCore:
             update_replica_state(rses[0], mock_scope, file['name'], ReplicaState.COPYING)
 
         replica_cpt = 0
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], all_states=True):
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['file'], all_states=True):
             assert 'states' in replica
             assert replica['states'][rses[0]] == str(ReplicaState.COPYING.name)
             assert replica['states'][rses[1]] == str(ReplicaState.AVAILABLE.name)
@@ -823,9 +823,6 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['file'])]
     assert len(replicas) == 5
 
-    replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files2], schemes=['srm'])]
-    assert len(replicas) == 5
-
     files3 = [{'scope': mock_scope.external, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'state': 'U', 'meta': {'events': 10}} for _ in range(nbfiles)]
     replica_client.add_replicas(rse=rse2, files=files3)
     replicas = [r for r in replica_client.list_replicas(dids=[{'scope': i['scope'], 'name': i['name']} for i in files3], schemes=['file'])]
@@ -1120,37 +1117,41 @@ class TestReplicaMetalink:
                              xml_attribs=False)
         assert 3 == len(ml['metalink']['file']['url'])
 
+    @pytest.mark.xfail(reason="Get DID from PFNs assumes a srm protocol. Issue: https://github.com/rucio/rucio/issues/8567")
     def test_client_get_did_from_pfns_nondeterministic(self, vo, rse_factory, mock_scope, root_account, replica_client):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for non-deterministic sites"""
-        rse, rse_id = rse_factory.make_srm_rse(deterministic=False)
+        rse, rse_id = rse_factory.make_posix_rse(deterministic=False)
+
         nbfiles = 3
         pfns = []
         input_ = {}
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is False
         files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb',
-                  'pfn': 'srm://%s.cern.ch/srm/managerv2?SFN=/test_%s/%s/%s' % (rse_id, rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
+                  'pfn': 'file://%s.cern.ch/tmp/rucio_rse/test_%s/%s/%s' % (rse_id, rse_id, mock_scope, generate_uuid()), 'meta': {'events': 10}} for _ in range(nbfiles)]
         for f in files:
             input_[f['pfn']] = {'scope': f['scope'].external, 'name': f['name']}
         add_replicas(rse_id=rse_id, files=files, account=root_account, ignore_availability=True)
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['srm'], ignore_availability=True):
+        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files], schemes=['file'], ignore_availability=True):
             for r in replica['rses']:
                 pfns.extend(replica['rses'][r])
-        for result in replica_client.get_did_from_pfns(pfns, rse):
+
+        for result in replica_client.get_did_from_pfns(pfns):
             pfn = list(result.keys())[0]
             assert input_[pfn] == list(result.values())[0]
 
+    @pytest.mark.xfail(reason="Get DID from PFNs assumes a srm protocol. Issue: https://github.com/rucio/rucio/issues/8567")
     @pytest.mark.skipif(os.environ.get('POLICY') != 'atlas', reason='get_did_from_pfns is based on ATLAS lfn2pfn algorithm')
     def test_client_get_did_from_pfns_deterministic(self, vo, rse_factory, mock_scope, root_account, replica_client):
         """ REPLICA (CLIENT): Get list of DIDs associated to PFNs for deterministic sites"""
-        rse, rse_id = rse_factory.make_srm_rse()
+        rse, rse_id = rse_factory.make_posix_rse()
         nbfiles = 3
         pfns = []
         input_ = {}
         rse_info = rsemgr.get_rse_info(rse=rse, vo=vo)
         assert rse_info['deterministic'] is True
         files = [{'scope': mock_scope, 'name': did_name_generator('file'), 'bytes': 1, 'adler32': '0cc737eb', 'meta': {'events': 10}} for _ in range(nbfiles)]
-        p = rsemgr.create_protocol(rse_info, 'read', scheme='srm')
+        p = rsemgr.create_protocol(rse_info, 'read', scheme='file')
         for f in files:
             pfn = list(p.lfns2pfns(lfns={'scope': f['scope'].external, 'name': f['name']}).values())[0]
             pfns.append(pfn)

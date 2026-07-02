@@ -287,7 +287,7 @@ class RSEClient(BaseClient):
             - read: integer representing the priority of this protocol for read operations (default = -1)
             - write: integer representing the priority of this protocol for write operations (default = -1)
             - delete: integer representing the priority of this protocol for delete operations (default = -1)
-            - extended_attributes: miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
+            - extended_attributes: miscellaneous protocol specific information
 
         Returns
         -------
@@ -399,7 +399,7 @@ class RSEClient(BaseClient):
             The name of the requested operation (read, write, or delete).
             If None, all operations are queried, by default None.
         scheme :
-            The identifier of the requested protocol (gsiftp, https, davs, etc), by default None.
+            The identifier of the requested protocol (https, davs, etc), by default None.
 
         Returns
         -------
@@ -558,7 +558,7 @@ class RSEClient(BaseClient):
         operation :
             The operation for which priorities should be swapped (e.g., 'read', 'write', or 'delete').
         scheme_a :
-            The scheme of one of the two protocols to be swapped (e.g., 'srm').
+            The scheme of one of the two protocols to be swapped (e.g., 'http').
         scheme_b :
             The scheme of the other protocol to be swapped (e.g., 'http').
 
@@ -695,7 +695,7 @@ class RSEClient(BaseClient):
         rse:
             The RSE name.
         source:
-            The information source, e.g. srm.
+            The information source.
         used:
             The used space in bytes.
         free:
