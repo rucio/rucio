@@ -167,10 +167,14 @@ def receiver(
         auth_kwargs['passcode'] = config_get('messaging-fts3', 'password')
         logger(logging.INFO, 'using username/password authentication.')
 
+    client_send = config_get_int('messaging-fts3', 'client_send_heartbeat', default=0)
+    client_recv = config_get_int('messaging-fts3', 'client_recv_heartbeat', default=0)
+
     conns = []
     for broker in brokers_resolved:
         con = stomp.Connection12(host_and_ports=[(broker, port)],
                                  vhost=vhost,
+                                 heartbeats=(client_send, client_recv),
                                  reconnect_attempts_max=999)
         if use_ssl:
             con.set_ssl(key_file=key_file, cert_file=cert_file)
