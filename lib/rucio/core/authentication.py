@@ -375,44 +375,6 @@ def get_ssh_challenge_token(
 
 
 @transactional_session
-def get_auth_token_saml(
-    account: "InternalAccount",
-    saml_nameid: str,
-    appid: str,
-    ip: Optional[str] = None,
-    *,
-    session: "Session"
-) -> Optional["TokenDict"]:
-    """
-    Authenticate a Rucio account temporarily via SAML.
-
-    The token lifetime is 1 hour.
-
-    :param account: Account identifier as a string.
-    :param saml_nameid: SAML NameID of the client.
-    :param appid: The application identifier as a string.
-    :param ip: IP address of the client a a string.
-    :param session: The database session in use.
-
-    :returns: A dict with token and expires_at entries.
-    """
-
-    # Make sure the account exists
-    if not account_exists(account, session=session):
-        return None
-
-    # remove expired tokens
-    __delete_expired_tokens_account(account=account, session=session)
-
-    tuid = generate_uuid()  # NOQA
-    token = f'{account}-{saml_nameid}-{appid}-{tuid}'
-    new_token = models.Token(account=account, identity=saml_nameid, token=token, ip=ip)
-    new_token.save(session=session)
-
-    return token_dictionary(new_token)
-
-
-@transactional_session
 def redirect_auth_oidc(
     auth_code: str,
     fetchtoken: bool = False,

@@ -16,7 +16,6 @@
 import html
 import re
 from json import dumps, load
-from os.path import dirname, join
 from time import time
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote, unquote
@@ -26,7 +25,6 @@ from flask import Response, make_response, redirect, render_template, request
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import CannotAuthenticate
-from rucio.common.extra import import_extras
 from rucio.common.policy import get_policy
 from rucio.core import identity as identity_core
 from rucio.core import vo as vo_core
@@ -38,15 +36,6 @@ from rucio.gateway.account import account_exists, get_account_info, list_account
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-EXTRA_MODULES = import_extras(['onelogin'])
-
-if EXTRA_MODULES['onelogin']:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth  # pylint: disable=import-error
-
-    SAML_SUPPORT = True
-else:
-    SAML_SUPPORT = False
 
 # check if there is preferred server side config for webui authentication
 AUTH_TYPE = config_get('webui', 'auth_type', False, None)
@@ -86,30 +75,6 @@ VARIABLE_VALUE_REGEX = re.compile(r"^[\w\- /=,.+*#()\[\]]*$", re.UNICODE)
 # will allow to remove also lines around each use of select_account_name
 
 
-def prepare_saml_request(environ, data):
-    """
-    TODO: Validate for Flask
-    Prepare a webpy request for SAML
-    :param environ: Flask request.environ object
-    :param data: GET or POST data
-    """
-    if environ.get('mod_wsgi.url_scheme') == 'https':
-        ret = {
-            'https': 'on' if environ.get('modwsgi.url_scheme') == 'https' else 'off',
-            'http_host': environ.get('HTTP_HOST'),
-            'server_port': environ.get('SERVER_PORT'),
-            'script_name': environ.get('SCRIPT_NAME'),
-            # Uncomment if using ADFS as IdP
-            # 'lowercase_urlencoding': True,
-        }
-        if data:
-            ret['get_data'] = data
-            ret['post_data'] = data
-        return ret
-
-    return None
-
-
 def add_cookies(response: Response, cookie: Optional['Iterable[dict[str, Any]]'] = None) -> Response:
     """
     Adds cookies to the response object.
@@ -141,7 +106,7 @@ def select_account_name(identitystr, identity_type, vo=None):
     """
     Looks for account (and VO if not known) corresponding to the provided identity.
     :param identitystr: identity string
-    :param identity_type: identity_type e.g. x509, saml, oidc, userpass
+    :param identity_type: identity_type e.g. x509, oidc, userpass
     :returns: Tuple of None or account string, None or VO string or list of VO strings
     """
     ui_account = None
@@ -250,7 +215,7 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
     Finalises login. Validates provided token, sets cookies
     and redirects to the final page.
     :param token: token string
-    :param identity_type:  identity_type e.g. x509, userpass, oidc, saml
+    :param identity_type:  identity_type e.g. x509, userpass, oidc
     :param cookie_dict_extra: extra cookies to set, dictionary expected
     :returns: redirects to the final page or renders a page with an error message.
     """
@@ -342,10 +307,10 @@ def x509token_auth(data=None):
                 ui_vo = valid_vos[0]
             else:
                 vos_with_desc = get_vo_descriptions(valid_vos)
-                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
+                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
         else:
             vos_with_desc = get_vo_descriptions(ui_vo)
-            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
+            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
     if not ui_account:
         if MULTI_VO:
@@ -422,124 +387,6 @@ def userpass_auth():
     return finalize_auth(token, 'userpass')
 
 
-def saml_auth(method, data=None):
-    """
-    # TODO: Validate for Flask
-    Login with SAML
-    :param method: method type, GET or POST
-    :param data: data object containing account string can be provided
-    :param rendered_tpl: page to be rendered
-    :returns: rendered final page or a page with error message
-    """
-    saml_path = join(dirname(__file__), 'saml/')
-    req = prepare_saml_request(request.environ, data)
-    samlauth = OneLogin_Saml2_Auth(req, custom_base_path=saml_path)
-    saml_user_data = request.cookies.get('saml-user-data')
-    if not MULTI_VO:
-        ui_vo = DEFAULT_VO
-    elif hasattr(data, 'vo') and data.vo:
-        ui_vo = data.vo
-    else:
-        ui_vo = None
-    if hasattr(data, 'account') and data.account:
-        ui_account = data.account
-    else:
-        ui_account = None
-
-    if method == "GET":
-        # If user data is not present, redirect to IdP for authentication
-        if not saml_user_data:
-            return redirect(samlauth.login(), code=303)
-        # If user data is present but token is not valid, create a new one
-        saml_nameid = request.cookies.get('saml-nameid')
-        if ui_account is None and ui_vo is None:
-            ui_account, ui_vo = select_account_name(saml_nameid, 'saml', ui_vo)
-        elif ui_account is None:
-            ui_account, _ = select_account_name(saml_nameid, 'saml', ui_vo)
-        elif ui_vo is None:
-            _, ui_vo = select_account_name(saml_nameid, 'saml', ui_vo)
-
-        # Try to eliminate VOs based on the account name (if we have one), if we still have multiple options let the user select one
-        if type(ui_vo) is list:
-            if ui_account:
-                valid_vos = []
-                for vo in ui_vo:
-                    if account_exists(ui_account, vo):
-                        valid_vos.append(vo)
-                if len(valid_vos) == 0:
-                    return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
-                elif len(valid_vos) == 1:
-                    ui_vo = valid_vos[0]
-                else:
-                    vos_with_desc = get_vo_descriptions(valid_vos)
-                    return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
-            else:
-                vos_with_desc = get_vo_descriptions(ui_vo)
-                return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
-
-        token = None
-        if ui_account:
-            token = get_token(auth.get_auth_token_saml, acc=ui_account, vo=ui_vo, idt=saml_nameid)
-
-        if not token:
-            if MULTI_VO:
-                return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(str(ui_vo) if ui_vo else ""))
-            else:
-                return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
-        return finalize_auth(token, 'saml')
-
-    # If method is POST, check the received SAML response and redirect to home if valid
-    samlauth.process_response()
-    errors = samlauth.get_errors()
-    if not errors:
-        if samlauth.is_authenticated():
-            saml_nameid = samlauth.get_nameid()
-            cookie_extra = {'saml-nameid': saml_nameid}
-            cookie_extra['saml-user-data'] = samlauth.get_attributes()
-            cookie_extra['saml-session-index'] = samlauth.get_session_index()
-            # WHY THIS ATTEMPTS TO GET A NEW TOKEN ?
-            # WE SHOULD HAVE IT/GET IT FROM COOKIE OR DB AND JUST REDIRECT, NO ?
-            if ui_account is None and ui_vo is None:
-                ui_account, ui_vo = select_account_name(saml_nameid, 'saml', ui_vo)
-            elif ui_account is None:
-                ui_account, _ = select_account_name(saml_nameid, 'saml', ui_vo)
-            elif ui_vo is None:
-                _, ui_vo = select_account_name(saml_nameid, 'saml', ui_vo)
-
-            # Try to eliminate VOs based on the account name (if we have one), if we still have multiple options let the user select one
-            if type(ui_vo) is list:
-                if ui_account:
-                    valid_vos = []
-                    for vo in ui_vo:
-                        if account_exists(ui_account, vo):
-                            valid_vos.append(vo)
-                    if len(valid_vos) == 0:
-                        return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
-                    elif len(valid_vos) == 1:
-                        ui_vo = valid_vos[0]
-                    else:
-                        vos_with_desc = get_vo_descriptions(valid_vos)
-                        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
-                else:
-                    vos_with_desc = get_vo_descriptions(ui_vo)
-                    return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
-
-            token = None
-            if ui_account:
-                token = get_token(auth.get_auth_token_saml, acc=ui_account, vo=ui_vo, idt=saml_nameid)
-
-            if not token:
-                if MULTI_VO:
-                    return render_template("problem.html", msg='Authentication failed for VO %s. Please check your credentials and try again.' % html.escape(str(ui_vo) if ui_vo else ""))
-                else:
-                    return render_template("problem.html", msg='Authentication failed. Please check your credentials and try again.')
-            return finalize_auth(token, 'saml', cookie_extra)
-
-        return render_template("problem.html", msg="Not authenticated")
-
-    return render_template("problem.html", msg="Error while processing SAML")
-
-
 def oidc_auth(account, issuer, ui_vo=None):
     """
     # TODO: Validate for Flask
@@ -564,7 +411,7 @@ def oidc_auth(account, issuer, ui_vo=None):
             ui_vo = valid_vos[0]
         else:
             vos_with_desc = get_vo_descriptions(valid_vos)
-            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
+            return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, userpass_support=USERPASS_SUPPORT, possible_vos=vos_with_desc)))
 
     if not issuer:
         return render_template("problem.html", msg="Please provide IdP issuer.")
@@ -589,7 +436,7 @@ def authenticate(template, title):
     :param template: the template name that should be rendered
     :returns: rendered final page or a page with error message
     """
-    global AUTH_ISSUERS, SAML_SUPPORT, AUTH_TYPE
+    global AUTH_ISSUERS, AUTH_TYPE
     cookie = []
     try:
         valid_token_dict = validate_webui_token()
@@ -600,7 +447,7 @@ def authenticate(template, title):
 
     # login without any known server config
     if not AUTH_TYPE:
-        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT, userpass_support=USERPASS_SUPPORT)), cookie)
+        return add_cookies(make_response(render_template("select_login_method.html", oidc_issuers=AUTH_ISSUERS, userpass_support=USERPASS_SUPPORT)), cookie)
     # for AUTH_TYPE predefined by the server continue
     else:
         if AUTH_TYPE == 'userpass':
@@ -613,6 +460,4 @@ def authenticate(template, title):
             return render_template("no_certificate.html")
         elif AUTH_TYPE == 'oidc':
             return oidc_auth(None, AUTH_ISSUER_WEBUI)
-        elif AUTH_TYPE == 'saml':
-            return saml_auth("GET")
         return render_template('problem.html', msg='Invalid auth type')

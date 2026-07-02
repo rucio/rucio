@@ -105,7 +105,6 @@ server_requirements_table = {
             'PyYAML<=6.0.3',
             'globus-sdk<=4.1.0',
         ],
-        'saml': ['python3-saml<=1.16.0'],
         'dev': dev_requirements
     }
 }

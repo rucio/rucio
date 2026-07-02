@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING, cast
+
 from flask import Blueprint, make_response, render_template, request
 
 from rucio.common.config import config_get_bool
@@ -20,14 +22,17 @@ from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.policy import get_policy
 from rucio.gateway.authentication import get_auth_token_x509
 from rucio.web.rest.flaskapi.v1.common import generate_http_error_flask
-from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, SAML_SUPPORT, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, saml_auth, userpass_auth, x509token_auth
+from rucio.web.ui.flask.common.utils import AUTH_ISSUERS, USERPASS_SUPPORT, authenticate, finalize_auth, get_token, oidc_auth, userpass_auth, x509token_auth
+
+if TYPE_CHECKING:
+    from flask.typing import ResponseReturnValue, RouteCallable
 
 MULTI_VO = config_get_bool('common', 'multi_vo', raise_exception=False, default=False)
 POLICY = get_policy()
 ATLAS_URLS = ()
 
 
-def auth():
+def auth() -> 'ResponseReturnValue':
     auth_type = request.cookies.get('x-rucio-auth-type')
     if str(auth_type).lower() == 'x509':
         token = get_token(get_auth_token_x509)
@@ -40,11 +45,10 @@ def auth():
         else:
             return generate_http_error_flask(401, 'CannotAuthenticate', 'Cannot get token')
     else:
-        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, saml_support=SAML_SUPPORT,
-                               userpass_support=USERPASS_SUPPORT)
+        return render_template('select_login_method.html', oidc_issuers=AUTH_ISSUERS, userpass_support=USERPASS_SUPPORT)
 
 
-def login():
+def login() -> 'ResponseReturnValue':  # type: ignore
     if request.method == HTTPMethod.GET.value:
         account = request.args.get('account')
         vo = request.args.get('vo')
@@ -53,7 +57,7 @@ def login():
         return userpass_auth()
 
 
-def oidc():
+def oidc() -> 'ResponseReturnValue':
     account = request.args.get('account')
     issuer = request.args.get('issuer')
     vo = request.args.get('vo')
@@ -66,16 +70,12 @@ def oidc():
     return oidc_auth(account, issuer, vo)
 
 
-def oidc_final():
+def oidc_final() -> 'ResponseReturnValue':
     session_token = request.cookies.get('x-rucio-auth-token')
     return finalize_auth(session_token, 'OIDC')
 
 
-def saml():
-    return saml_auth(request.method)
-
-
-def x509():
+def x509() -> 'ResponseReturnValue':
     return x509token_auth()
 
 
@@ -84,7 +84,6 @@ AUTH_URLS = (
     ('/login', 'login', login, [HTTPMethod.GET, HTTPMethod.POST]),
     ('/oidc', 'oidc', oidc, [HTTPMethod.GET]),
     ('/oidc_final', 'oidc_final', oidc_final, [HTTPMethod.GET]),
-    ('/saml', 'saml', saml, [HTTPMethod.GET, HTTPMethod.POST]),
     ('/x509', 'x509', x509, [HTTPMethod.GET])
 )
 
@@ -147,6 +146,7 @@ def blueprint() -> Blueprint:
         bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_maker(template, title))
 
     for rule, endpoint, view_func, methods in AUTH_URLS:
+        cast('RouteCallable', view_func)
         bp.add_url_rule(rule=rule, endpoint=endpoint, view_func=view_func, methods=methods)
 
     return bp

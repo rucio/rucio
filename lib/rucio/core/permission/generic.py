@@ -73,7 +73,6 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'get_auth_token_user_pass': perm_get_auth_token_user_pass,
             'get_auth_token_gss': perm_get_auth_token_gss,
             'get_auth_token_x509': perm_get_auth_token_x509,
-            'get_auth_token_saml': perm_get_auth_token_saml,
             'add_account_identity': perm_add_account_identity,
             'add_did': perm_add_did,
             'add_dids': perm_add_dids,
@@ -339,20 +338,6 @@ def perm_get_auth_token_x509(issuer: "InternalAccount", kwargs: dict[str, Any], 
     :returns: True if account is allowed, otherwise False
     """
     if exist_identity_account(identity=kwargs['dn'], type_=IdentityType.X509, account=kwargs['account'], session=session):
-        return True
-    return False
-
-
-def perm_get_auth_token_saml(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
-    """
-    Checks if a user can request a token with user_pass for an account.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :param session: The DB session to use
-    :returns: True if account is allowed, otherwise False
-    """
-    if exist_identity_account(identity=kwargs['saml_nameid'], type_=IdentityType.SAML, account=kwargs['account'], session=session):
         return True
     return False
 
