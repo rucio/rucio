@@ -212,6 +212,7 @@ def main(
     ctx.obj.pager = get_pager()
     ctx.obj.human = not robot
     ctx.obj.tablefmt = 'psql'
+    ctx.obj.spacing = ' ' * 2
 
     if use_rich:
         install(console=console, word_wrap=True, width=min(console.width, MAX_TRACEBACK_WIDTH))  # Make rich exception tracebacks the default.
