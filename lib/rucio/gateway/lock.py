@@ -136,6 +136,6 @@ def get_replica_locks_for_rule_id(
 
         for lock_object in locks:
             if lock_object['scope'].vo != vo:  # rule is on a different VO, so don't return any locks
-                LOGGER.debug('rule id %s is not present on VO %s' % (rule_id, vo))
+                LOGGER.debug('rule id %s is not present on VO %s', rule_id, vo)
                 break
             yield gateway_update_return_dict(lock_object, session=session)
