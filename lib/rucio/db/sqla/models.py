@@ -1459,6 +1459,19 @@ class Request(BASE, ModelBase):
                    Index('REQUESTS_TYP_STA_TRA_ACT_IDX', 'request_type', 'state', 'transfertool', 'activity'))
 
 
+class UpdatedRequest(BASE, ModelBase):
+    """Represents requests with pending state updates (e.g., cancellation)"""
+    __tablename__ = 'updated_requests'
+    id: Mapped[str] = mapped_column(GUID(), default=utils.generate_uuid)
+    request_id: Mapped[str] = mapped_column(GUID())
+    state: Mapped[Optional[RequestState]] = mapped_column(Enum(RequestState, name='UPDATED_REQUESTS_STATE_CHK',
+                                                               create_constraint=True,
+                                                               values_callable=lambda obj: [e.value for e in obj]))
+    _table_args = (PrimaryKeyConstraint('id', name='UPDATED_REQUESTS_PK'),
+                   CheckConstraint('REQUEST_ID IS NOT NULL', name='UPDATED_REQUESTS_REQUEST_ID_NN'),
+                   Index('UPDATED_REQUESTS_REQUEST_ID_IDX', 'request_id'))
+
+
 class TransferHop(BASE, ModelBase):
     """Represents source files for transfers"""
     __tablename__ = 'transfer_hops'
