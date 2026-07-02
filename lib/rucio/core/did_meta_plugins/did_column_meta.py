@@ -374,8 +374,16 @@ class DidColumnMeta(DidMetaPlugin):
             from rucio.core.did import list_content
 
             # Get attached DIDs and save in a list because the query has to be finished before starting a new one in the recursion
+            # Cache results locally to avoid executing the same stmt query twice (once here, once at the yield loop below).
+            # NOTE: list() materializes all matching results into memory at once, unlike yield_per() which streams.
+            # This is acceptable here because:
+            #   1. The original code already materializes collections_content as a full list (below).
+            #   2. The `limit` parameter, when provided, bounds the result set size.
+            #   3. The query is scoped + filtered, so unbounded full-scope scans are unlikely in practice.
+            # At extreme scale (thousands of DIDs at one level with no limit), this may increase peak memory usage.
+            current_level_results = list(session.execute(stmt))
             collections_content = []
-            for did in session.execute(stmt).yield_per(100):
+            for did in current_level_results:
                 if did.did_type == DIDType.CONTAINER or did.did_type == DIDType.DATASET:
                     collections_content += [d for d in list_content(scope=did.scope, name=did.name)]
 
@@ -394,8 +402,8 @@ class DidColumnMeta(DidMetaPlugin):
                                              session=session):
                     yield result
 
-        for did in session.execute(stmt).yield_per(
-                5):  # don't unpack this as it makes it dependent on query return order!
+        # When recursive, reuse the cached results instead of re-executing the query
+        for did in (current_level_results if recursive else session.execute(stmt).yield_per(5)):
             if long:
                 did_full = "{}:{}".format(did.scope, did.name)
                 if did_full not in ignore_dids:  # concatenating results of OR clauses may contain duplicate DIDs if the query result sets not mutually exclusive.
