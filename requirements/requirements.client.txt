@@ -7,7 +7,7 @@ jsonschema>=4.25.1                                          # For JSON schema va
 packaging>=26.2                                             # Packaging utilities
 rich>=15.0.0                                                # For Rich terminal display
 typing-extensions>=4.16.0                                   # Type annotations that are not yet supported in the `typing` module
-click>=8.3.0                                                # CLI engine
+click>=8.1.8                                                # CLI engine
 
 # All dependencies needed in extras for rucio client should be defined here
 paramiko>=4.0.0                                             # ssh_extras; SSH2 protocol library (also needed in the server)
