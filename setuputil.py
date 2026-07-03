@@ -67,7 +67,7 @@ server_requirements_table = {
         'tabulate<=0.9.0',
         'jsonschema<=4.25.1',
         'rich<=15.0.0',
-        'typing_extensions<=4.15.0',
+        'typing_extensions<=4.16.0',
         'argcomplete<=3.6.3',
         'boto',  # no upper limit is set in .in or .txt req files
         'python-magic<=0.4.27',
