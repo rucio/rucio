@@ -103,7 +103,7 @@ server_requirements_table = {
         ],
         'globus': [
             'PyYAML<=6.0.3',
-            'globus-sdk<=4.1.0',
+            'globus-sdk<=4.8.1',
         ],
         'saml': ['python3-saml<=1.16.0'],
         'dev': dev_requirements
