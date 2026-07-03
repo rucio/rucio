@@ -40,4 +40,4 @@ pymongo==4.15.3                                             # pymongo (metadata 
 elasticsearch==8.15.1                                        # elasticsearch (metadata plugin); 9+ is blocked by #8169, 9.2.0 requires Python 3.10+
 libtorrent==2.0.11                                          # Support for the bittorrent transfertool
 qbittorrent-api==2025.7.0                                   # qBittorrent plugin for the bittorrent tranfsertool
-rich==14.2.0                                                # For Rich terminal display
+rich==15.0.0                                                # For Rich terminal display
