@@ -30,7 +30,7 @@ from rucio.common.types import InternalAccount
 from rucio.core.account import add_account
 from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.core.identity import add_account_identity
-from rucio.core.oidc import _token_cache_get, _token_cache_set, get_auth_oidc, get_token_oidc, oidc_identity_string
+from rucio.core.oidc import _token_cache_get, _token_cache_set, get_auth_oidc, get_token_oidc, oidc_identity_strings
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, IdentityType
 from rucio.db.sqla.session import get_session
@@ -54,7 +54,7 @@ EXCHANGED_TOKEN_DICT = {'access_token': 'eyJ3bG...',
 
 def encode_access_token(tokenlist):
     # tokenlist = [tokenstr, scope, audience, sub, iss]
-    identity = oidc_identity_string(tokenlist[3], tokenlist[4])
+    identity, alternative_identity = oidc_identity_strings(tokenlist[3], tokenlist[4])
     tokenout = tokenlist[0] + '_||_' + tokenlist[1] + '_||_' + tokenlist[2] + '_||_' + identity
     return tokenout
 
