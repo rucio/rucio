@@ -39,5 +39,5 @@ python3-saml==1.16.0                                        # saml_extras
 pymongo==4.17.0                                             # pymongo (metadata plugin)
 elasticsearch==8.15.1                                        # elasticsearch (metadata plugin); 9+ is blocked by #8169, 9.2.0 requires Python 3.10+
 libtorrent==2.0.13                                          # Support for the bittorrent transfertool
-qbittorrent-api==2025.7.0                                   # qBittorrent plugin for the bittorrent tranfsertool
+qbittorrent-api==2026.5.2                                   # qBittorrent plugin for the bittorrent tranfsertool
 rich==15.0.0                                                # For Rich terminal display
