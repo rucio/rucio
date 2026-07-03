@@ -6,7 +6,7 @@ pytest-xdist==3.5.0, <3.6                                   # Used for parallel 
 pytest-rerunfailures==16.0.1                                # Rerun failed tests; 16.1 requires Python 3.10+
 pyflakes==3.4.0                                             # Passive checker of Python programs
 astroid==3.3.11                                             # Version 4+ requires Python 3.10+
-xmltodict==1.0.2                                            # Makes working with XML feel like you are working with JSON
+xmltodict==1.0.4                                            # Makes working with XML feel like you are working with JSON
 pytz==2025.2                                                # World timezone definitions, modern and historical
 pydoc-markdown==4.8.2                                       # Used for generating Markdown documentation for docusaurus
 sh==2.2.2                                                   # Convenience library for running subprocesses in Python
