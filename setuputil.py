@@ -87,7 +87,7 @@ server_requirements_table = {
         'prometheus_client<=0.25.0',
     ],
     'extras_require': {
-        'oracle': ['oracledb<=3.4.0'],
+        'oracle': ['oracledb<=4.0.1'],
         'mongo': ['pymongo<=4.15.3'],
         'elastic': ['elasticsearch<=8.15.1'],
         'postgresql': [
