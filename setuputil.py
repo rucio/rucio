@@ -68,7 +68,7 @@ server_requirements_table = {
         'jsonschema<=4.25.1',
         'rich<=15.0.0',
         'typing_extensions<=4.16.0',
-        'argcomplete<=3.6.3',
+        'argcomplete<=3.7.0',
         'boto',  # no upper limit is set in .in or .txt req files
         'python-magic<=0.4.27',
         'paramiko<=4.0.0',
