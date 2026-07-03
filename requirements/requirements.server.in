@@ -36,7 +36,7 @@ PyMySQL==1.2.0                                              # mysql_extras
 PyYAML==6.0.3                                               # globus_extras and used for reading test configuration files
 globus-sdk==4.1.0                                           # globus_extras
 python3-saml==1.16.0                                        # saml_extras
-pymongo==4.15.3                                             # pymongo (metadata plugin)
+pymongo==4.17.0                                             # pymongo (metadata plugin)
 elasticsearch==8.15.1                                        # elasticsearch (metadata plugin); 9+ is blocked by #8169, 9.2.0 requires Python 3.10+
 libtorrent==2.0.11                                          # Support for the bittorrent transfertool
 qbittorrent-api==2025.7.0                                   # qBittorrent plugin for the bittorrent tranfsertool
