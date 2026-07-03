@@ -84,7 +84,7 @@ server_requirements_table = {
         'redis<=7.0.1',
         'flask<=3.1.3',
         'oic<=1.7.0',
-        'prometheus_client<=0.23.1',
+        'prometheus_client<=0.25.0',
     ],
     'extras_require': {
         'oracle': ['oracledb<=3.4.0'],
