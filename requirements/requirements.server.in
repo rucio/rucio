@@ -32,7 +32,7 @@ python-magic==0.4.27                                        # dumper_extras; Fil
 oracledb==4.0.1                                             # oracle_extras
 psycopg[pool]==3.2.13                                       # postgresql
 psycopg[binary]==3.2.13; implementation_name=="cpython"     # postgresql binary optimizations
-PyMySQL==1.1.1                                              # mysql_extras
+PyMySQL==1.2.0                                              # mysql_extras
 PyYAML==6.0.3                                               # globus_extras and used for reading test configuration files
 globus-sdk==4.1.0                                           # globus_extras
 python3-saml==1.16.0                                        # saml_extras
