@@ -95,7 +95,7 @@ server_requirements_table = {
             'psycopg-binary<=3.2.13',
             'psycopg-pool<=3.2.8',
         ],
-        'mysql': ['PyMySQL<=1.1.1'],
+        'mysql': ['PyMySQL<=1.2.0'],
         'kerberos': [
             'kerberos<=1.3.1',
             'pykerberos<=1.2.4',
