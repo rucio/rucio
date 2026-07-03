@@ -88,7 +88,7 @@ server_requirements_table = {
     ],
     'extras_require': {
         'oracle': ['oracledb<=4.0.1'],
-        'mongo': ['pymongo<=4.15.3'],
+        'mongo': ['pymongo<=4.17.0'],
         'elastic': ['elasticsearch<=8.15.1'],
         'postgresql': [
             'psycopg<=3.2.13',
