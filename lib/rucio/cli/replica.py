@@ -327,7 +327,7 @@ def list_dataset(
             if ctx.obj.use_rich:
                 table = generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
                 ctx.obj.spinner.stop()
-                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.args.no_pager)
+                print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
             else:
                 print("SCOPE:NAME")
                 print('----------')
