@@ -85,7 +85,6 @@ dev = [
     'pytest-cov',
     'xmltodict',
     'pydoc-markdown',
-    'docspec_python',
     'sh',
     'PyYAML',
 ]
