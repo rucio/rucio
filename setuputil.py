@@ -72,7 +72,6 @@ server_requirements_table = {
         'statsd<=4.0.1',
         'geoip2<=5.1.0',
         'google-auth<=2.50.0',
-        'redis<=7.0.1',
         'flask<=3.1.3',
         'oic<=1.7.0',
         'prometheus_client<=0.25.0',
