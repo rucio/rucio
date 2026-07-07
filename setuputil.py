@@ -47,7 +47,6 @@ dev_requirements = [
     'pytest-cov',
     'xmltodict',
     'pydoc-markdown',
-    'docspec_python',
     'sh',
     'PyYAML',
 ]
