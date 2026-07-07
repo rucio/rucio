@@ -341,8 +341,6 @@ pydantic-settings==2.11.0
     #   oic
 pydoc-markdown==4.8.2
     # via -r requirements.dev.in
-pyflakes==3.4.0
-    # via -r requirements.dev.in
 pygments==2.20.0
     # via
     #   -r requirements.server.txt

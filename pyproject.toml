@@ -83,7 +83,6 @@ dev = [
     'pytest',
     'pytest-xdist',
     'pytest-cov',
-    'pyflakes',
     'pylint',
     'isort',
     'xmltodict',
