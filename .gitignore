@@ -53,7 +53,6 @@ docs/
 *~
 .venv
 lib/rucio/vcsversion.py
-pylint.out
 
 # Mac OS X Finder
 .DS_Store

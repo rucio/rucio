@@ -45,7 +45,6 @@ dev_requirements = [
     'pytest',
     'pytest-xdist',
     'pytest-cov',
-    'pylint',
     'isort',
     'xmltodict',
     'pydoc-markdown',
