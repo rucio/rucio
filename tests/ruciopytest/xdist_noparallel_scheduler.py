@@ -19,6 +19,9 @@ from xdist.scheduler import LoadScheduling
 
 from . import NoParallelGroups, xdist_noparallel_remote
 
+# Stash key for conflict report data (consumed by plugin.py terminal summary)
+noparallel_report_key = pytest.StashKey[dict]()
+
 
 @pytest.hookimpl
 def pytest_xdist_getremotemodule():
@@ -65,12 +68,14 @@ class NoParallelScheduler(LoadScheduling):
         self._noparallel_marks_by_index = None
         self._indexes_by_noparallel_mark = None
         self._blocked_by = None
+        self._conflict_report = {}
         super().__init__(config=config, log=log)
 
     def add_node_collection(self, node, collection):
         if self._noparallel_marks_by_index is None:
             self._noparallel_marks_by_index = {}
             self._indexes_by_noparallel_mark = {}
+
             for i, data in enumerate(collection.values()):
                 noparallel_marks = frozenset(data.get('noparallel', []))
                 # all other noparallel markers don't matter if exclusive is set
@@ -108,6 +113,17 @@ class NoParallelScheduler(LoadScheduling):
                 for m in test_marks:
                     blocked_by[test_index].update(self._indexes_by_noparallel_mark[m])
             self._blocked_by = blocked_by
+
+            # Build conflict report: group name -> list of test nodeids
+            for group_name, test_indexes in self._indexes_by_noparallel_mark.items():
+                self._conflict_report[group_name] = [
+                    self.collection[idx]
+                    for idx in sorted(test_indexes)
+                    if idx < len(self.collection)
+                ]
+
+            # Store conflict report in config stash for terminal summary
+            self.config.stash[noparallel_report_key] = self._conflict_report
 
             # Run in priority the tests which block the most other tests from running
             self.pending.sort(key=lambda x: -len(blocked_by[x]))
