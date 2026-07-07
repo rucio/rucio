@@ -63,15 +63,6 @@ if TYPE_CHECKING:
     from sqlalchemy.sql import Insert, Update
 
 
-# SQLAlchemy defines the corresponding code behind TYPE_CHECKING
-# https://github.com/sqlalchemy/sqlalchemy/blob/d9acd6223299c118464d30abfa483e26a536239d/lib/sqlalchemy/orm/base.py#L814
-# And pylint/astroid don't have an option to evaluate this code
-# https://github.com/pylint-dev/astroid/issues/1332
-# So we get this error all over the place: `E1136: Value 'Mapped' is unsubscriptable (unsubscriptable-object)`
-#
-# pylint: disable=E1136
-
-
 @compiles(Boolean, "oracle")
 def compile_binary_oracle(type_, compiler, **kw) -> str:
     return "NUMBER(1)"
