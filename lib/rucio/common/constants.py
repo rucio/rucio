@@ -112,6 +112,7 @@ class HermesService(str, enum.Enum):
     EMAIL = "EMAIL"
     ACTIVEMQ = "ACTIVEMQ"
     SYSLOG = "SYSLOG"
+    KAFKA = "KAFKA"
 
 
 class RseAttr:

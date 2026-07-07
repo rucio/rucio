@@ -95,6 +95,71 @@ class HermesListener(stomp.ConnectionListener):
         """
         logging.error("[broker] [%s]: %s", self.__broker, frame.body)
 
+def setup_kafka(logger):
+    """
+    Deliver messages to Kafka
+
+    :param logger:             The logger object.
+    """
+    from confluent_kafka import Producer
+    import socket
+
+    logger(logging.INFO, "[broker-kafka] Resolving brokers")
+
+    # the following retrieves all rucio.cfg information
+
+    # get broker name
+    try:
+        brokers = config_get("messaging-hermes-kafka", "brokers")
+    except Exception:
+        raise Exception("Could not load 'brokers' from configuration")
+
+    # check to see if ssl is being used to authenticate
+    logger(logging.INFO, "[broker] Checking authentication method")
+    try:
+        use_ssl = config_get_bool("messaging-hermes-kafka", "use_ssl")
+    except Exception:
+        logger(logging.INFO, "[broker] Could not find use_ssl in configuration -- update your rucio.cfg")
+
+    # if ssl is used, get the reset of the params we'll use to authenticate
+    if use_ssl:
+        ca_cert = config_get_bool("messaging-hermes-kafka", "ca_cert")
+        certfile = config_get_bool("messaging-hermes-kafka", "certfile")
+        keyfile = config_get_bool("messaging-hermes-kafka", "keyfile")
+    # get the username and password, if specified
+    else:
+        username = config_get("messaging-hermes-kafka", "username", raise_exception=False, default=None)
+        password = config_get("messaging-hermes-kafka", "password", raise_exception=False, default=None)
+
+    config = { 'bootstrap.servers': f'{brokers}',
+               'client.id': socket.gethostname(),
+             }
+
+    # configure to use SSL
+    if use_ssl:
+        logger(logging.INFO, "[broker-kafka] use_ssl")
+        producer = Producer(bootstrap_servers=f'{brokers}',
+                                 security_protocol="SSL",
+                                 ssl_cafile=ca_cert,
+                                 ssl_certfile=certfile,
+                                 ssl_keyfile=keyfile)
+    elif username is not None:
+        logger(logging.INFO, "[broker-kafka] username")
+        producer = Producer(bootstrap_servers=f'{brokers}',
+                                 sasl_username=username,
+                                 sasl_password=password)
+    else:
+        logger(logging.INFO, f"[broker-kafka] plain {config}")
+        producer = Producer(config)
+
+    # retrieve the topic
+    try:
+        topic = config_get("messaging-hermes-kafka", "topic", raise_exception=True, default=None)
+    except Exception:
+        raise Exception("Could not load kafka topic from configuration")
+
+    return producer, topic
+
 
 def setup_activemq(
         logger: "LoggerFunction"
@@ -200,6 +265,34 @@ def setup_activemq(
     destination = config_get("messaging-hermes", "destination")
     return conns, destination, username, password, use_ssl
 
+
+def deliver_to_kafka(
+    producer,
+    topic,
+    messages,
+    logger
+) ->list[str]:
+    to_delete = []
+    msg_count = 0
+    for message in messages:
+        try:
+            d = {
+                "event_type": str(message["event_type"]).lower(),
+                "payload": message["payload"],
+                "created_at": str(message["created_at"])
+            }
+
+            value = json.dumps(d)
+            logger(logging.DEBUG, "kafka sending to topic: %s -> %s", topic, value)
+            producer.produce(topic, key="message", value=value)
+            producer.flush()
+            to_delete.append(message["id"])
+            msg_count += 1
+        except Exception as exc:
+            logger(logging.WARN, "error sending: %s: %s", str(message), str(exc))
+    logger(logging.DEBUG, f"sent %d messages to Kafka", msg_count)
+    return to_delete
+ 
 
 def deliver_to_activemq(
     messages: "Iterable[dict[str, Any]]",
@@ -755,7 +848,12 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             logger(logging.ERROR, str(err))
     if "syslog" in services_list:
         logger(logging.INFO, "Syslog service enabled")
-
+    if "kafka" in services_list:
+        try:
+            producer, topic = setup_kafka(logger)
+        except Exception as err:
+            logging.exception(err)
+ 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
     query_by_service = config_get_bool("hermes", "query_by_service", default=False)
@@ -901,6 +999,23 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         to_delete.append(message)
             except Exception as error:
                 logger(logging.ERROR, "Error sending to syslog : %s", str(error))
+        if "kafka" in message_dict:
+            t_time = time.time()
+            try:
+                messages_sent = deliver_to_kafka(
+                    producer=producer, topic=topic, messages=message_dict["kafka"], logger=logger,
+                )
+                logger(
+                    logging.INFO,
+                    "%s messages processed by Kafka filter in %s seconds",
+                    len(message_dict["kafka"]),
+                    time.time() - t_time,
+                )
+                for message in message_dict["kafka"]:
+                    if message["id"] in messages_sent:
+                        to_delete.append(message)
+            except Exception as error:
+                logger(logging.ERROR, "Error sending to Kafka : %s", str(error))
 
         logger(logging.INFO, "Deleting %s messages", len(to_delete))
         to_delete = [
