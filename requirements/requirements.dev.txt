@@ -398,8 +398,6 @@ python-swiftclient==4.10.0
     # via -r requirements.server.txt
 pytokens==0.4.1
     # via black
-pytz==2026.2
-    # via -r requirements.dev.in
 pyyaml==6.0.3
     # via
     #   -r requirements.server.txt
