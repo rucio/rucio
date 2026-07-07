@@ -74,7 +74,6 @@ server_requirements_table = {
         'sqlalchemy<=2.0.51',
         'alembic<=1.16.5',
         'pymemcache<=4.0.0',
-        'python-dateutil<=2.9.0.post0',
         'stomp-py<=8.2.0',
         'statsd<=4.0.1',
         'geoip2<=5.1.0',

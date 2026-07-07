@@ -7,7 +7,6 @@ jsonschema==4.25.1                                          # For JSON schema va
 SQLAlchemy==2.0.51                                          # DB backend
 alembic==1.16.5                                             # Lightweight database migration tool for SQLAlchemy; 1.17.1 requires Python 3.10+
 pymemcache==4.0.0                                           # A comprehensive, fast, pure-Python memcached client (Used by Dogpile)
-python-dateutil==2.9.0.post0                                # Extensions to the standard datetime module
 stomp.py==8.2.0                                             # ActiveMQ Messaging Protocol
 statsd==4.0.1                                               # Needed to log into graphite with more than 1 Hz
 geoip2==5.1.0                                               # GeoIP2 API (for IPv6 support)
