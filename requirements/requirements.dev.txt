@@ -399,8 +399,6 @@ python-dotenv==1.2.1
     #   pydantic-settings
 python-magic==0.4.27
     # via -r requirements.server.txt
-python-swiftclient==4.10.0
-    # via -r requirements.server.txt
 python3-saml==1.16.0
     # via -r requirements.server.txt
 pytokens==0.4.1
@@ -427,7 +425,6 @@ requests==2.32.5
     #   oic
     #   pydoc-markdown
     #   pyjwkest
-    #   python-swiftclient
     #   qbittorrent-api
     #   requests-kerberos
 requests-kerberos==0.15.0
