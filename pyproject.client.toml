@@ -59,8 +59,7 @@ classifiers = [
 [project.optional-dependencies]
 ssh = ['paramiko']
 kerberos = [
-            'pykerberos',
-            'requests-kerberos',
+            'requests-kerberos>=0.15.0',
         ]
 swift = []
 argcomplete = ['argcomplete']
