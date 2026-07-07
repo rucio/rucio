@@ -59,7 +59,6 @@ classifiers = [
 [project.optional-dependencies]
 ssh = ['paramiko']
 kerberos = [
-            'kerberos',
             'pykerberos',
             'requests-kerberos',
         ]
