@@ -19,6 +19,7 @@ Graphite and prometheus metrics
 import atexit
 import logging
 import os
+import socket
 import string
 from abc import abstractmethod
 from datetime import datetime, timedelta
@@ -87,7 +88,10 @@ PORT = config_get_int('monitor', 'carbon_port', raise_exception=False, default=8
 SCOPE = config_get('monitor', 'user_scope', raise_exception=False, default='rucio')
 STATSD_CLIENT = None
 if SERVER is not None:
-    STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
+    try:
+        STATSD_CLIENT = StatsClient(host=SERVER, port=PORT, prefix=SCOPE)
+    except socket.gaierror:
+        STATSD_CLIENT = None
 
 ENABLE_METRICS = config_get_bool('monitor', 'enable_metrics', raise_exception=False, default=False)
 if ENABLE_METRICS:
