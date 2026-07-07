@@ -30,8 +30,6 @@ apispec-webframeworks==1.2.0
     # via -r requirements.dev.in
 argcomplete==3.7.0
     # via -r requirements.server.txt
-astroid==3.3.11
-    # via -r requirements.dev.in
 async-timeout==5.0.1
     # via
     #   -r requirements.server.txt
@@ -477,7 +475,6 @@ typing-extensions==4.16.0
     #   -r requirements.server.txt
     #   aiosignal
     #   alembic
-    #   astroid
     #   black
     #   cryptography
     #   databind
