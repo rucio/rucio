@@ -7,7 +7,6 @@ pytest-rerunfailures==16.0.1                                # Rerun failed tests
 pyflakes==3.4.0                                             # Passive checker of Python programs
 astroid==3.3.11                                             # Version 4+ requires Python 3.10+
 xmltodict==1.0.4                                            # Makes working with XML feel like you are working with JSON
-pytz==2026.2                                                # World timezone definitions, modern and historical
 pydoc-markdown==4.8.2                                       # Used for generating Markdown documentation for docusaurus
 sh==2.3.0                                                   # Convenience library for running subprocesses in Python
 apispec==6.8.4                                              # Generate OpenApi definition out of pydoc comments
