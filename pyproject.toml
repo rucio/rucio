@@ -72,7 +72,6 @@ postgresql = [
         ]
 mysql = ['PyMySQL<=1.2.0']
 kerberos = [
-            'pykerberos<=1.2.4',
             'requests-kerberos<=0.15.0',
         ]
 globus = [

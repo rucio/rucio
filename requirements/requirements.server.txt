@@ -185,8 +185,6 @@ pyjwkest==1.4.4
     # via oic
 pyjwt==2.13.0
     # via globus-sdk
-pykerberos==1.2.4
-    # via -r requirements.server.in
 pymemcache==4.0.0
     # via -r requirements.server.in
 pymongo==4.17.0
