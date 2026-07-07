@@ -59,10 +59,6 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line('markers', 'dirty: marks test as dirty, i.e. tests are leaving structures behind')
     config.addinivalue_line('markers', 'noparallel(reason, groups): marks test being unable to run in parallel to other tests')
     config.addinivalue_line('markers', 'needs_iam: requires the dev iam profile (OIDC/IdP)')
-    config.addinivalue_line(
-        "markers",
-        "flaky(reruns, reruns_delay): mark test as flaky and rerun on failure"
-    )
     config.addinivalue_line('markers', 'clear_cache(reason): clears memcache before running the test')
 
     # disable configuration cache globally. Fixes side effects when using, e.g., core_config_mock
