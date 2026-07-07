@@ -200,9 +200,7 @@ pynacl==1.6.2
 pyspnego==0.12.1
     # via requests-kerberos
 python-dateutil==2.9.0.post0
-    # via
-    #   -r requirements.server.in
-    #   botocore
+    # via botocore
 python-dotenv==1.2.1
     # via pydantic-settings
 python-magic==0.4.27
