@@ -30,7 +30,6 @@ clients_requirements_table = {
     'extras_require': {
         'ssh': ['paramiko'],
         'kerberos': [
-            'kerberos',
             'pykerberos',
             'requests-kerberos',
         ],
@@ -94,7 +93,6 @@ server_requirements_table = {
         ],
         'mysql': ['PyMySQL<=1.2.0'],
         'kerberos': [
-            'kerberos<=1.3.1',
             'pykerberos<=1.2.4',
             'requests-kerberos<=0.15.0',
         ],
