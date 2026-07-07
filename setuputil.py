@@ -34,7 +34,7 @@ clients_requirements_table = {
             'pykerberos',
             'requests-kerberos',
         ],
-        'swift': ['python-swiftclient'],
+        'swift': [],
         'argcomplete': ['argcomplete'],
         'sftp': ['paramiko'],
         'dumper': [

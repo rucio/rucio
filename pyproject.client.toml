@@ -63,7 +63,7 @@ kerberos = [
             'pykerberos',
             'requests-kerberos',
         ]
-swift = ['python-swiftclient']
+swift = []
 argcomplete = ['argcomplete']
 sftp = ['paramiko']
 dumper = ['python-magic']
