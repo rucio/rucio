@@ -35,6 +35,7 @@ from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from sqlalchemy import delete, select, update
 from sqlalchemy.sql.expression import true
 
+from rucio.common import exception
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
@@ -515,14 +516,18 @@ def get_token_oidc(
         account = oauth_req_params.account
         # starting to fill dictionary with parameters for token DB row
         jwt_row_dict, extra_dict = {}, {}
-        jwt_row_dict['identity'] = oidc_identity_string(oidc_tokens['id_token']['sub'],
+        identity_string, shared_identity_string = oidc_identity_strings(oidc_tokens['id_token']['sub'],
                                                         oidc_tokens['id_token']['iss'])
         jwt_row_dict['account'] = oauth_req_params.account
 
         # check if given account has the identity registered
-        if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
+        if exist_identity_account(identity_string, IdentityType.OIDC, jwt_row_dict['account'], session=session):
+            jwt_row_dict['identity'] = identity_string
+        elif exist_identity_account(shared_identity_string, IdentityType.OIDC_ALL, jwt_row_dict['account'], session=session):
+            jwt_row_dict['identity'] = shared_identity_string
+        else:
             raise CannotAuthenticate("OIDC identity '%s' of the '%s' account is unknown to Rucio."
-                                     % (jwt_row_dict['identity'], str(jwt_row_dict['account'])))
+                                     % (identity_string, str(jwt_row_dict['account'])))
         METRICS.counter(name='success').inc()
         # get access token expiry timestamp
         jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
@@ -837,7 +842,7 @@ def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
     try:
         # getting token paylod
         token_payload = __get_keyvalues_from_claims(jwt)
-        identity_string = oidc_identity_string(token_payload['sub'], token_payload['iss'])
+        identity_string, shared_identity_string = oidc_identity_strings(token_payload['sub'], token_payload['iss'])
         expiry_date = datetime.utcfromtimestamp(float(token_payload['exp']))
         if expiry_date < datetime.utcnow():  # check if expired
             logging.debug("Token has already expired since: %s", str(expiry_date))
@@ -851,13 +856,22 @@ def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
         if not account:
             # this assumes token has been previously looked up in DB
             # before to be sure that we do not have the right account already in the DB !
-            account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
+            try:
+                account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
+                used_identity_string = identity_string
+            except exception.IdentityError:
+                account = get_default_account(shared_identity_string, IdentityType.OIDC_ALL, True, session=session)
+                used_identity_string = shared_identity_string
         else:
-            if not exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
+            if exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
+                used_identity_string = identity_string
+            elif exist_identity_account(shared_identity_string, IdentityType.OIDC_ALL, account, session=session):
+                used_identity_string = shared_identity_string
+            else:
                 logging.debug("No OIDC identity exists for account: %s", str(account))
                 return None
         value = {'account': account,
-                 'identity': identity_string,
+                 'identity': used_identity_string,
                  'lifetime': expiry_date,
                  'audience': audience,
                  'authz_scope': scope}
@@ -932,7 +946,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
             raise CannotAuthenticate(traceback.format_exc())
-        issuer = token_dict['identity'].split(", ")[1].split("=")[1]
+        issuer = token_dict['identity'].split(", ")[-1].split("=")[1]
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
         JWS().verify_compact(json_web_token, issuer_keys)
@@ -971,15 +985,15 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         raise CannotAuthenticate(traceback.format_exc())
 
 
-def oidc_identity_string(sub: str, iss: str):
+def oidc_identity_strings(sub: str, iss: str):
     """
     Transform IdP sub claim and issuers url into users identity string.
     :param sub: users SUB claim from the Identity Provider
     :param iss: issuer (IdP) https url
 
-    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
+    :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/" and OIDC_ALL identity string "ISS=https://iam-test.ch/"
     """
-    return 'SUB=' + str(sub) + ', ISS=' + str(iss)
+    return 'SUB=' + str(sub) + ', ISS=' + str(iss), 'ISS=' + str(iss)
 
 
 def token_dictionary(token: models.Token):
