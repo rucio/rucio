@@ -11,7 +11,6 @@ stomp.py==8.2.0                                             # ActiveMQ Messaging
 statsd==4.0.1                                               # Needed to log into graphite with more than 1 Hz
 geoip2==5.1.0                                               # GeoIP2 API (for IPv6 support)
 google-auth==2.50.0                                         # Google authentication library for Python
-redis==7.0.1                                                # Python client for Redis key-value store
 Flask==3.1.3                                                # Python web framework
 werkzeug==3.1.8                                             # WSGI library
 oic==1.7.0                                                  # for authentication via OpenID Connect protocol

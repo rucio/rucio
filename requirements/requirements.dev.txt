@@ -34,7 +34,6 @@ async-timeout==5.0.1
     # via
     #   -r requirements.server.txt
     #   aiohttp
-    #   redis
 atlas-rucio-policy-package==0.8.3
     # via -r requirements.dev.in
 attrs==26.1.0
@@ -397,8 +396,6 @@ pyyaml==6.0.3
     #   apispec
     #   pydoc-markdown
 qbittorrent-api==2026.5.2
-    # via -r requirements.server.txt
-redis==7.0.1
     # via -r requirements.server.txt
 referencing==0.36.2
     # via

@@ -17,9 +17,7 @@ annotated-types==0.7.0
 argcomplete==3.7.0
     # via -r requirements.server.in
 async-timeout==5.0.1
-    # via
-    #   aiohttp
-    #   redis
+    # via aiohttp
 attrs==26.1.0
     # via
     #   aiohttp
@@ -206,8 +204,6 @@ python3-saml==1.16.0
 pyyaml==6.0.3
     # via -r requirements.server.in
 qbittorrent-api==2026.5.2
-    # via -r requirements.server.in
-redis==7.0.1
     # via -r requirements.server.in
 referencing==0.36.2
     # via
