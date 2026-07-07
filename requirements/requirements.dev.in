@@ -3,7 +3,6 @@
 pytest==7.4.3
 pytest-cov==7.1.0                                           # Test coverage
 pytest-xdist==3.5.0, <3.6                                   # Used for parallel testing; config-related issues >= 3.6 (could be fixed in Python 3.10)
-pytest-rerunfailures==16.0.1                                # Rerun failed tests; 16.1 requires Python 3.10+
 xmltodict==1.0.4                                            # Makes working with XML feel like you are working with JSON
 pydoc-markdown==4.8.2                                       # Used for generating Markdown documentation for docusaurus
 sh==2.3.0                                                   # Convenience library for running subprocesses in Python
