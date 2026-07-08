@@ -151,7 +151,7 @@ packaging==26.2
     # via
     #   -r requirements.server.in
     #   qbittorrent-api
-paramiko==4.0.0
+paramiko==5.0.0
     # via -r requirements.server.in
 prometheus-client==0.25.0
     # via -r requirements.server.in
