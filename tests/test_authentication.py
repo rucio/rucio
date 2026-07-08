@@ -14,8 +14,10 @@
 
 import datetime
 import time
+from base64 import b64decode
 
 import pytest
+from paramiko import Message
 from requests import session
 
 from rucio.common.exception import AccessDenied, CannotAuthenticate, Duplicate
@@ -96,6 +98,14 @@ VPEtp2ruk2N7rv0DixwcEQlD/DqsfmR2/QWDeDd1xxoTXPhIXQ==
 def test_strip_x509_proxy_attributes(vo, dn, stripped_dn):
     """ AUTHENTICATION (CORE): Test the stripping of X509-proxy attributes"""
     assert strip_x509_proxy_attributes(dn) == stripped_dn
+
+
+def test_ssh_sign_uses_rsa_sha2_256():
+    """AUTHENTICATION (COMMON): ssh_sign must sign with rsa-sha2-256, not the removed ssh-rsa (SHA-1)."""
+    signature = ssh_sign(PRIVATE_KEY, 'challenge-0123456789abcdef')
+    # the algorithm name is the first field of the signature blob
+    algorithm = Message(b64decode(signature)).get_text()
+    assert algorithm == 'rsa-sha2-256'
 
 
 @pytest.mark.noparallel(reason='changes identities of the same account')
