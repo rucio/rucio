@@ -51,6 +51,8 @@ from rucio.db.sqla.session import read_session, transactional_session
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from rucio.common.types import InternalAccount
+
 # The WLCG Common JWT Profile dictates that the lifetime of access and ID tokens
 # should range from five minutes to six hours.
 TOKEN_MIN_LIFETIME: Final = config_get_int('oidc', 'token_min_lifetime', default=300)
