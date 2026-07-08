@@ -10,7 +10,7 @@ typing-extensions>=4.16.0                                   # Type annotations t
 click>=8.1.8                                                # CLI engine
 
 # All dependencies needed in extras for rucio client should be defined here
-paramiko>=4.0.0                                             # ssh_extras; SSH2 protocol library (also needed in the server)
+paramiko>=5.0.0                                             # ssh_extras; SSH2 protocol library (also needed in the server)
 kerberos>=1.3.1                                             # kerberos_extras for client and server
 pykerberos>=1.2.4                                           # kerberos_extras for client and server
 requests-kerberos>=0.15.0                                   # kerberos_extras for client and server
