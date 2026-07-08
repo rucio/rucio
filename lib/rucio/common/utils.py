@@ -798,6 +798,9 @@ def ssh_sign(private_key: str, message: str) -> str:
     """
     Sign a string message using the private key.
 
+    The message is signed with rsa-sha2-256: paramiko's implicit default,
+    ssh-rsa (SHA-1), was removed in paramiko 5.
+
     :param private_key: The SSH RSA private key as a string.
     :param message: The message to sign as a string.
     :return: Base64 encoded signature as a string.
@@ -808,7 +811,7 @@ def ssh_sign(private_key: str, message: str) -> str:
     sio_private_key = StringIO(private_key)
     priv_k = RSAKey.from_private_key(sio_private_key)
     sio_private_key.close()
-    signature_stream = priv_k.sign_ssh_data(encoded_message)
+    signature_stream = priv_k.sign_ssh_data(encoded_message, algorithm='rsa-sha2-256')
     signature_stream.rewind()
     base64_encoded = base64.b64encode(signature_stream.get_remainder())
     base64_encoded = base64_encoded.decode()
