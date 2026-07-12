@@ -900,7 +900,7 @@ def list_subscriptions(args, client, logger, console, spinner):
                     if k == 'filter':
                         filter_tree = Tree('')
                         for filter, values in json.loads(sub['filter']).items():
-                            values_str = ', '.join(values)
+                            values_str = __format_filter_values(values)
                             filter_tree.add(f'[{CLITheme.JSON_STR}]{filter}[/]: {values_str}')
                         table_data.append(['filter', filter_tree])
                     elif k == 'replication_rules':
@@ -921,7 +921,7 @@ def list_subscriptions(args, client, logger, console, spinner):
                 table_data.append(['comments', sub.get('comments', '')])
                 filter_tree = Tree('')
                 for filter, values in json.loads(sub['filter']).items():
-                    values_str = ', '.join(values)
+                    values_str = __format_filter_values(values)
                     filter_tree.add(f'[green]{filter}[/]: {values_str}')
                 table_data.append(['filter', filter_tree])
                 table_data.append(['name', sub['name']])
@@ -941,6 +941,12 @@ def list_subscriptions(args, client, logger, console, spinner):
             spinner.stop()
             print_output(table, console=console, no_pager=args.no_pager)
     return SUCCESS
+
+
+def __format_filter_values(values: object) -> str:
+    if isinstance(values, (list, tuple)):
+        return ', '.join(map(str, values))
+    return str(values)
 
 
 @exception_handler
