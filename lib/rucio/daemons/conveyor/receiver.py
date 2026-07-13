@@ -164,7 +164,7 @@ def receiver(
         logger(logging.INFO, 'using ssl cert/key authentication.')
     else:
         auth_kwargs['username'] = config_get('messaging-fts3', 'username')
-        auth_kwargs['password'] = config_get('messaging-fts3', 'password')
+        auth_kwargs['passcode'] = config_get('messaging-fts3', 'password')
         logger(logging.INFO, 'using username/password authentication.')
 
     conns = []
