@@ -21,7 +21,7 @@ from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RSE_B
 from rucio.common.exception import CannotAuthenticate
 from rucio.gateway.credential import get_signed_url
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, extract_vo, generate_http_error_flask, response_headers
+from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, generate_http_error_flask, response_headers
 
 if TYPE_CHECKING:
     from typing import Optional
