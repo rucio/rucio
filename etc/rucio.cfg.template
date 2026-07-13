@@ -110,7 +110,7 @@ enable_metrics = False
 metrics_port = 8080
 
 [conveyor]
-scheme = root,http,https
+scheme = root,davs,http,https
 transfertool = fts3
 cacert = /opt/rucio/etc/web/ca.crt
 usercert = /opt/rucio/tools/x509up
@@ -233,4 +233,3 @@ nonssl_port = 9092
 use_ssl = False
 brokers = kafka
 topic = hermeskafka
-

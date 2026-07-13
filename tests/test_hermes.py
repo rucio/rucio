@@ -468,11 +468,11 @@ def test_hermes_kafka(core_config_mock, caches_mock):
     mock_rse = rse_name_generator()
     nb_messages = 3
 
-    with patch("confluent_kafka.Producer") as MockProducer:
+    with patch("confluent_kafka.Producer") as mock_producer:
         # Mock Kafka
         mock_producer_instance = MagicMock()
-        MockProducer.return_value = mock_producer_instance
-    
+        mock_producer.return_value = mock_producer_instance
+
         # Create messages - will be automatically assigned to syslog service
         for i in range(nb_messages):
             message = {
@@ -483,7 +483,7 @@ def test_hermes_kafka(core_config_mock, caches_mock):
                 "created_at": datetime.utcnow().replace(microsecond=0),
             }
             add_message("transfer-done", message)
-    
+
         # Verify messages were added
         messages = retrieve_messages(50, old_mode=False)
         service_dict = {"kafka": 0}
@@ -491,13 +491,13 @@ def test_hermes_kafka(core_config_mock, caches_mock):
             if message["services"] == "kafka":
                 service_dict["kafka"] += 1
         assert service_dict["kafka"] == nb_messages
-    
+
         # Run Hermes
         hermes.hermes(once=True)
-    
-        # Verify MockProducer was created with correct parameters
-        MockProducer.assert_called_once()
-    
+
+        # Verify mock_producer was created with correct parameters
+        mock_producer.assert_called_once()
+
         # Verify messages were delivered and deleted
         messages = retrieve_messages(50, old_mode=False)
         service_dict = {"kafka": 0}
@@ -505,4 +505,3 @@ def test_hermes_kafka(core_config_mock, caches_mock):
             if message["services"] == "kafka":
                 service_dict["kafka"] += 1
         assert service_dict["kafka"] == 0
-

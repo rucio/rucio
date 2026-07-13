@@ -95,14 +95,16 @@ class HermesListener(stomp.ConnectionListener):
         """
         logging.error("[broker] [%s]: %s", self.__broker, frame.body)
 
+
 def setup_kafka(logger):
     """
     Deliver messages to Kafka
 
     :param logger:             The logger object.
     """
-    from confluent_kafka import Producer
     import socket
+
+    from confluent_kafka import Producer
 
     logger(logging.INFO, "[broker-kafka] Resolving brokers")
 
@@ -131,7 +133,7 @@ def setup_kafka(logger):
         username = config_get("messaging-hermes-kafka", "username", raise_exception=False, default=None)
         password = config_get("messaging-hermes-kafka", "password", raise_exception=False, default=None)
 
-    config = { 'bootstrap.servers': f'{brokers}',
+    config = {'bootstrap.servers': f'{brokers}',
                'client.id': socket.gethostname(),
              }
 
@@ -271,7 +273,7 @@ def deliver_to_kafka(
     topic,
     messages,
     logger
-) ->list[str]:
+) -> list[str]:
     to_delete = []
     msg_count = 0
     for message in messages:
@@ -290,9 +292,9 @@ def deliver_to_kafka(
             msg_count += 1
         except Exception as exc:
             logger(logging.WARN, "error sending: %s: %s", str(message), str(exc))
-    logger(logging.DEBUG, f"sent %d messages to Kafka", msg_count)
+    logger(logging.DEBUG, "sent %d messages to Kafka", msg_count)
     return to_delete
- 
+
 
 def deliver_to_activemq(
     messages: "Iterable[dict[str, Any]]",
@@ -853,7 +855,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             producer, topic = setup_kafka(logger)
         except Exception as err:
             logging.exception(err)
- 
+
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
     query_by_service = config_get_bool("hermes", "query_by_service", default=False)
