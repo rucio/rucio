@@ -151,12 +151,13 @@ services:
     container_name: ${RUCIO_ACTIVEMQ_CONTAINER_NAME:-dev-activemq-1}
     image: docker.io/apache/activemq-classic:5.18.7
     platform: linux/amd64
-    volumes:
-      - ./activemq/users.properties:/opt/apache-activemq/conf/users.properties
     environment:
       # web portal access, helpful for debugging
       ACTIVEMQ_WEB_USER: activemq
       ACTIVEMQ_WEB_PASSWORD: supersecret
+      # Broker connection authentication (STOMP/OpenWire clients)
+      ACTIVEMQ_CONNECTION_USER: ruciouser
+      ACTIVEMQ_CONNECTION_PASSWORD: supersecret
 
   postgres14:
     container_name: ${RUCIO_POSTGRES14_CONTAINER_NAME:-dev-postgres14-1}
