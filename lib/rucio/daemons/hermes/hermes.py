@@ -101,9 +101,7 @@ def setup_activemq(
 ) -> tuple[
     Optional[list[stomp.Connection12]],
     Optional[str],
-    Optional[str],
-    Optional[str],
-    Optional[bool]
+    dict[str, str],
 ]:
     """
     Deliver messages to ActiveMQ
@@ -137,49 +135,31 @@ def setup_activemq(
             )
 
     logger(logging.DEBUG, "[broker] Brokers resolved to %s", brokers_resolved)
-
+    auth_kwargs = {}
     if not brokers_resolved:
         logger(logging.FATAL, "[broker] No brokers resolved.")
-        return None, None, None, None, None
+        return None, None, auth_kwargs
 
     broker_timeout = 3
     if not broker_timeout:  # Allow zero in config
         broker_timeout = None
 
     logger(logging.INFO, "[broker] Checking authentication method")
-    use_ssl = True
-    try:
-        use_ssl = config_get_bool("messaging-hermes", "use_ssl")
-    except Exception:
-        logger(
-            logging.INFO,
-            "[broker] Could not find use_ssl in configuration -- please update your rucio.cfg",
-        )
-
-    port = config_get_int("messaging-hermes", "port")
     vhost = config_get("messaging-hermes", "broker_virtual_host", raise_exception=False)
-    username = None
-    password = None
-    if not use_ssl:
-        username = config_get("messaging-hermes", "username")
-        password = config_get("messaging-hermes", "password")
-        port = config_get_int("messaging-hermes", "nonssl_port")
+    use_ssl = config_get_bool("messaging-hermes", 'use_ssl', default=True)
+    port = config_get_int("messaging-hermes", "port")
+    destination = config_get("messaging-hermes", "destination")
+    if use_ssl:
+        cert_file = config_get('messaging-hermes', 'ssl_cert_file')
+        key_file = config_get('messaging-hermes', 'ssl_key_file')
+        logger(logging.INFO, 'using ssl cert/key authentication.')
+    else:
+        auth_kwargs['username'] = config_get('messaging-hermes', 'username')
+        auth_kwargs['passcode'] = config_get('messaging-hermes', 'password')
+        logger(logging.INFO, 'using username/password authentication.')
 
     conns = []
     for broker in brokers_resolved:
-        if not use_ssl:
-            logger(
-                logging.INFO,
-                "[broker] setting up username/password authentication: %s",
-                broker,
-            )
-        else:
-            logger(
-                logging.INFO,
-                "[broker] setting up ssl cert/key authentication: %s",
-                broker,
-            )
-
         con = stomp.Connection12(
             host_and_ports=[(broker, port)],
             vhost=vhost,
@@ -187,27 +167,21 @@ def setup_activemq(
             timeout=broker_timeout,
         )
         if use_ssl:
-            con.set_ssl(
-                key_file=config_get("messaging-hermes", "ssl_key_file"),
-                cert_file=config_get("messaging-hermes", "ssl_cert_file"),
-            )
+            con.set_ssl(key_file=key_file, cert_file=cert_file)
 
         con.set_listener(
             "rucio-hermes", HermesListener(con.transport._Transport__host_and_ports[0])
         )
 
         conns.append(con)
-    destination = config_get("messaging-hermes", "destination")
-    return conns, destination, username, password, use_ssl
+    return conns, destination, auth_kwargs
 
 
 def deliver_to_activemq(
     messages: "Iterable[dict[str, Any]]",
     conns: "Sequence[stomp.Connection12]",
     destination: str,
-    username: str,
-    password: str,
-    use_ssl: bool,
+    auth_kwargs: dict[str, str],
     logger: "LoggerFunction"
 ) -> list[str]:
     """
@@ -216,9 +190,7 @@ def deliver_to_activemq(
     :param messages:           The list of messages.
     :param conns:              A list of connections.
     :param destination:        The destination topic or queue.
-    :param username:           The username if no SSL connection.
-    :param password:           The username if no SSL connection.
-    :param use_ssl:            Boolean to choose if SSL connection is used.
+    :param auth_kwargs:        The activemq auth kwargs argument.
     :param logger:             The logger object.
 
     :returns:                  List of message_id to delete
@@ -230,20 +202,7 @@ def deliver_to_activemq(
             if not conn.is_connected():
                 host_and_ports = conn.transport._Transport__host_and_ports[0][0]
                 RECONNECT_COUNTER.labels(host=host_and_ports.split(".")[0]).inc()
-                if not use_ssl:
-                    logger(
-                        logging.INFO,
-                        "[broker] - connecting with USERPASS to %s",
-                        host_and_ports,
-                    )
-                    conn.connect(username, password, wait=True)
-                else:
-                    logger(
-                        logging.INFO,
-                        "[broker] - connecting with SSL to %s",
-                        host_and_ports,
-                    )
-                    conn.connect(wait=True)
+                conn.connect(wait=True, **auth_kwargs)
 
             conn.send(
                 body=json.dumps(
@@ -745,7 +704,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             logger(logging.ERROR, str(err))
     if "activemq" in services_list:
         try:
-            conns, destination, username, password, use_ssl = setup_activemq(logger)
+            conns, destination, auth_kwargs = setup_activemq(logger)
             if not conns:
                 logger(
                     logging.ERROR,
@@ -866,9 +825,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                     messages=message_dict["activemq"],
                     conns=conns,  # type: ignore (argument could be None)
                     destination=destination,  # type: ignore (argument could be None)
-                    username=username,  # type: ignore (argument could be None)
-                    password=password,  # type: ignore (argument could be None)
-                    use_ssl=use_ssl,  # type: ignore (argument could be None)
+                    auth_kwargs=auth_kwargs,
                     logger=logger,
                 )
                 logger(
