@@ -49,7 +49,7 @@ bcrypt==5.0.0
     # via
     #   -r requirements.server.txt
     #   paramiko
-belleii-rucio-policy-package @ git+https://github.com/rucio/temporary-belle2-policy-package@v0.1.1
+belleii-rucio-policy-package @ git+https://github.com/belle2/Belle-II-Rucio-Policy-Package.git@v0.1.1
     # via -r requirements.dev.in
 black==25.11.0
     # via docspec-python
