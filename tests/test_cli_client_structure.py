@@ -1067,3 +1067,35 @@ def test_rse_distance_bidirectional(rucio_client, rse_factory):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert f"Deleted distances between {rse_name_1} <-> {rse_name_2}" in out
+
+    # Ensure bidirectional updates work when only one RSE is present
+    rse_name_3, _ = rse_factory.make_posix_rse()
+    rse_name_4, _ = rse_factory.make_posix_rse()
+    distance = 1
+
+    cmd = f'rucio rse distance set --distance {distance} {rse_name_3} {rse_name_4}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert rucio_client.get_distance(rse_name_3, rse_name_4)[0]['distance'] == distance
+
+    distance = 10
+    cmd = f'rucio rse distance set --bidirectional --distance {distance} {rse_name_3} {rse_name_4}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert rucio_client.get_distance(rse_name_3, rse_name_4)[0]['distance'] == distance
+    assert rucio_client.get_distance(rse_name_4, rse_name_3)[0]['distance'] == distance
+
+    rse_name_5, _ = rse_factory.make_posix_rse()
+    rse_name_6, _ = rse_factory.make_posix_rse()
+    distance = 1
+
+    cmd = f'rucio rse distance set --distance {distance} {rse_name_5} {rse_name_6}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+
+    distance = 10
+    cmd = f'rucio rse distance set --bidirectional --distance {distance} {rse_name_6} {rse_name_5}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert rucio_client.get_distance(rse_name_6, rse_name_5)[0]['distance'] == distance
+    assert rucio_client.get_distance(rse_name_5, rse_name_6)[0]['distance'] == distance
