@@ -282,16 +282,25 @@ def distance_set(
     """Create a link from SOURCE-RSE to DESTINATION-RSE with a distance"""
     params = {'distance': distance}
 
-    if ctx.obj.client.get_distance(source_rse, destination_rse):
-        ctx.obj.client.update_distance(source_rse, destination_rse, params, bidirectional)
+    src_exists = bool(ctx.obj.client.get_distance(source_rse, destination_rse))
+    dest_exists = bool(ctx.obj.client.get_distance(destination_rse, source_rse))
 
+    if bidirectional:
+        if src_exists and dest_exists:
+            ctx.obj.client.update_distance(source_rse, destination_rse, params, True)
+        elif src_exists:
+            ctx.obj.client.add_distance(destination_rse, source_rse, parameters=params, bidirectional=False)
+            ctx.obj.client.update_distance(source_rse, destination_rse, params, False)
+        elif dest_exists:
+            ctx.obj.client.add_distance(source_rse, destination_rse, parameters=params, bidirectional=False)
+            ctx.obj.client.update_distance(destination_rse, source_rse, params, False)
+        else:
+            ctx.obj.client.add_distance(source_rse, destination_rse, parameters=params, bidirectional=True)
     else:
-        ctx.obj.client.add_distance(
-            source_rse,
-            destination_rse,
-            parameters=params,
-            bidirectional=bidirectional
-        )
+        if src_exists:
+            ctx.obj.client.update_distance(source_rse, destination_rse, params, False)
+        else:
+            ctx.obj.client.add_distance(source_rse, destination_rse, parameters=params, bidirectional=False)
 
     if bidirectional:
         print(f"Set distances between {source_rse} <-> {destination_rse} to {distance}")
