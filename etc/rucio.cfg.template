@@ -227,9 +227,3 @@ admin_issuer = wlcg
 
 [api]
 #endpoints = accountlimits, accounts, config, credentials, dids, export, heartbeats, identities, import, lifetime_exceptions, locks, meta, ping, redirect, replicas, requests, rses, rules, scopes, subscriptions
-
-[messaging-hermes-kafka]
-nonssl_port = 9092
-use_ssl = False
-brokers = kafka
-topic = hermestopic

@@ -561,7 +561,7 @@ class RSEClient(BaseClient):
                 - delete: integer representing the priority of this protocol for delete operations (default = -1)
                 - third_party_copy_read
                 - third_party_copy_write
-            - extended_attributes: miscellaneous protocol specific information e.g. spacetoken for SRM (default = None)
+            - extended_attributes: miscellaneous protocol specific information
 
             Extended attributes required for each protocol can be seen listed in the documentation for each protocol implementation
             (e.g. `rucio.rse.protocols.posix.Default` for the POSIX protocol).
@@ -985,7 +985,7 @@ class RSEClient(BaseClient):
         operation :
             The operation for which priorities should be swapped (e.g., 'read', 'write', or 'delete').
         scheme_a :
-            The scheme of one of the two protocols to be swapped (e.g., 'srm').
+            The scheme of one of the two protocols to be swapped (e.g., 'http').
         scheme_b :
             The scheme of the other protocol to be swapped (e.g., 'http').
 
@@ -1124,7 +1124,7 @@ class RSEClient(BaseClient):
         rse:
             The RSE name.
         source:
-            The information source, any string used for accounting and documenting source of usage inforrmation
+            The information source, any string used for accounting and documenting source of usage inforrmation.
         used:
             The used space in bytes
         free:
