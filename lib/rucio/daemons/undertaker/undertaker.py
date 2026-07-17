@@ -59,7 +59,7 @@ def undertaker(once: bool = False, sleep_time: int = 60, chunk_size: int = 10) -
         once=once,
         graceful_stop=graceful_stop,
         executable=DAEMON_NAME,
-        partition_wait_time=1,
+        partition_wait_time=0 if once else 10,
         sleep_time=sleep_time,
         run_once_fnc=functools.partial(
             run_once,
