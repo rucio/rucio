@@ -135,14 +135,17 @@ services:
     container_name: ${RUCIO_ELASTICSEARCH_CONTAINER_NAME:-dev-elasticsearch-1}
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
     environment:
+      - ELASTIC_PASSWORD=rucio
       - discovery.type=single-node
-      - xpack.security.enabled=false
-      - xpack.security.enrollment.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
       - cluster.routing.allocation.disk.threshold_enabled=false
       - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
     mem_limit: 2g
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow" ]
+      test: [ "CMD", "curl", "-f", "-u", "elastic:rucio", "http://localhost:9200/_cluster/health?wait_for_status=yellow" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -424,21 +427,6 @@ services:
     command: ["-p", "5433"]
     volumes:
       - vol-postgres-data:/var/lib/postgresql/data
-
-  elasticsearch_meta:
-    container_name: dev-elasticsearch_meta-1
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
-    platform: linux/amd64
-    profiles:
-      - externalmetadata
-    environment:
-      - ELASTIC_PASSWORD=rucio
-      - discovery.type=single-node
-      - xpack.security.transport.ssl.enabled=false
-      - xpack.ml.enabled=false
-      - xpack.security.audit.enabled=false
-      - xpack.monitoring.collection.enabled=false
-      - cluster.routing.allocation.disk.threshold_enabled=false
 
   # ------------------------------------------------------------------
   # Monitoring stack
