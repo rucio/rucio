@@ -232,4 +232,4 @@ admin_issuer = wlcg
 nonssl_port = 9092
 use_ssl = False
 brokers = kafka
-topic = hermeskafka
+topic = hermestopic
