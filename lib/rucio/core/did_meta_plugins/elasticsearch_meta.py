@@ -217,9 +217,12 @@ class ElasticDidMeta(DidMetaPlugin):
                 # Use script to remove the field
                 script = {
                     "script": {
-                        "source": f"ctx._source.remove('{key}')",
-                        "lang": "painless"
-                    }
+                        "source": "ctx._source.remove(params['key'])",
+                        "lang": "painless",
+                        "params": {
+                            "key": key,
+                        },
+                    },
                 }
                 self.client.update(index=self.index, id=doc_id, body=script)
         except elastic_exceptions.NotFoundError as err:
