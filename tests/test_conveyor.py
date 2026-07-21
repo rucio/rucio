@@ -24,7 +24,7 @@ from sqlalchemy import and_, delete, select, update
 
 import rucio.daemons.reaper.reaper
 from rucio.common.checksum import adler32
-from rucio.common.constants import RseAttr
+from rucio.common.constants import FTS_COMPLETE_STATE, FTS_STATE, RseAttr
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.common.types import FileToUploadDict, InternalAccount
 from rucio.common.utils import generate_uuid
@@ -104,11 +104,13 @@ def __wait_for_state_transition(dst_rse_id, scope, name, max_wait_seconds=MAX_PO
 
 
 def __wait_for_fts_state(request, expected_state, max_wait_seconds=MAX_POLL_WAIT_SECONDS):
+    # A job in a terminal state can never reach expected_state anymore, so polling further is pointless
+    terminal_states = {FTS_STATE.FAILED, FTS_STATE.FINISHED, FTS_STATE.FINISHEDDIRTY, FTS_STATE.CANCELED}
     job_state = ''
     for _ in range(max_wait_seconds):
         fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
         job_state = fts_response[request['external_id']][request['id']].job_response['job_state']
-        if job_state == expected_state:
+        if job_state == expected_state or job_state in terminal_states:
             break
         time.sleep(1)
     return job_state
@@ -673,6 +675,13 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
                 if i == MAX_POLL_WAIT_SECONDS - 1:
                     assert False  # Waited too long; fail the test
                 time.sleep(1)
+
+            # The completion message must report a successful transfer which entered the archiving phase.
+            # This is the trigger the receiver must not treat as an ordinary transfer success; asserting
+            # it here also distinguishes an environmental transfer failure from a receiver regression.
+            fts_message = received_messages[request['id']]
+            assert str(fts_message['t_final_transfer_state']) == FTS_COMPLETE_STATE.OK
+            assert fts_message.get('is_archiving')
             assert __wait_for_fts_state(request, expected_state='ARCHIVING') == 'ARCHIVING'
 
             # Receiver must not mark "ARCHIVING" requests as "DONE"
