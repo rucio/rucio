@@ -2727,6 +2727,7 @@ def update_replicas_states(
         ).with_for_update(
             nowait=nowait
         )
+        is_first_upload_success = False
 
         if session.execute(stmt).scalar_one_or_none() is None:
             # remember scope, name and rse
@@ -2748,7 +2749,6 @@ def update_replicas_states(
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
 
-            is_first_upload_success = False
             try:
                 current_association = session.execute(
                     select(models.RSEFileAssociation.state,
