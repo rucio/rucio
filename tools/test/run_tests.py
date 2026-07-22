@@ -547,6 +547,7 @@ def run_with_httpd(
         compose_env['RUCIO_ELASTICSEARCH_CONTAINER_NAME'] = f'{project}-elasticsearch-1'
         compose_env['RUCIO_ACTIVEMQ_CONTAINER_NAME'] = f'{project}-activemq-1'
         compose_env['RUCIO_WEB1_CONTAINER_NAME'] = f'{project}-web1-1'
+        compose_env['RUCIO_KAFKA_CONTAINER_NAME'] = f'{project}-kafka-1'
         rdbms_container_env = {
             'postgres14': 'RUCIO_POSTGRES14_CONTAINER_NAME',
             'mysql8': 'RUCIO_MYSQL8_CONTAINER_NAME',
@@ -559,6 +560,7 @@ def run_with_httpd(
             '--file', 'etc/docker/dev/docker-compose.yml',
             '--file', compose_override_file.name,
             '--profile', rdbms,
+            '--profile', 'kafka',
         )
         try:
             # Start docker compose
