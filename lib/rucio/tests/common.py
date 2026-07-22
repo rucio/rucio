@@ -29,6 +29,7 @@ import requests
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.constants import DEFAULT_VO
+from rucio.common.extra import import_extras
 from rucio.common.utils import execute
 from rucio.common.utils import generate_uuid as uuid
 
@@ -122,7 +123,27 @@ def is_elasticsearch_available(
         return False
 
 
+def is_kafka_available() -> bool:
+    """
+    Return True when Kafka is available
+    """
+    extra_modules = import_extras(['confluent_kafka'])
+    if extra_modules['confluent_kafka']:
+        try:
+            from confluent_kafka import KafkaException
+            from confluent_kafka.admin import AdminClient
+            admin = AdminClient({'bootstrap.servers': 'kafka:9092'})
+            admin.list_topics(timeout=5)
+        except (KafkaException, Exception):
+            return False
+        return True
+    else:
+        return False
+
+
 skip_missing_elasticsearch_influxdb_in_env = pytest.mark.skipif(not (is_influxdb_available() and is_elasticsearch_available()), reason='influxdb is not available')
+
+skip_missing_kafka_in_env = pytest.mark.skipif(not is_kafka_available(), reason='kafka is not available')
 
 
 def get_long_vo() -> str:
