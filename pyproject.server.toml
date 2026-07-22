@@ -105,6 +105,8 @@ dev = [
     'PyYAML',
 ]
 
+kafka = ['confluent-kafka<=2.14.2']
+
 [project.urls]
 Homepage = "https://rucio.cern.ch/"
 Documentation = "https://rucio.cern.ch/documentation/"
