@@ -6,21 +6,21 @@
 #
 aiohappyeyeballs==2.6.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
 aiohttp==3.13.5
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   geoip2
 aiosignal==1.4.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
 alembic==1.16.5
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 annotated-types==0.7.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pydantic
 apispec==6.8.4
     # via
@@ -29,25 +29,25 @@ apispec==6.8.4
 apispec-webframeworks==1.2.0
     # via -r requirements.dev.in
 argcomplete==3.7.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 astroid==3.3.11
     # via -r requirements.dev.in
 async-timeout==5.0.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
     #   redis
 atlas-rucio-policy-package==0.8.3
     # via -r requirements.dev.in
 attrs==26.1.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
     #   jsonschema
     #   referencing
 bcrypt==5.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   paramiko
 belleii-rucio-policy-package @ git+https://github.com/belle2/Belle-II-Rucio-Policy-Package.git@v0.1.1
     # via -r requirements.dev.in
@@ -55,43 +55,45 @@ black==25.11.0
     # via docspec-python
 blinker==1.9.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   flask
 boto3==1.42.97
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 botocore==1.42.97
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   boto3
     #   s3transfer
 build==1.4.4
     # via pip-tools
 certifi==2026.6.17
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   elastic-transport
     #   requests
 cffi==2.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   cryptography
     #   pynacl
 charset-normalizer==3.4.7
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   requests
 click==8.1.8
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   black
     #   flask
     #   pip-tools
     #   pydoc-markdown
+confluent-kafka==2.14.2
+    # via -r requirements.dev.in
 coverage==7.10.7
     # via pytest-cov
 cryptography==49.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   globus-sdk
     #   google-auth
     #   oic
@@ -114,12 +116,12 @@ databind-json==4.5.5
     #   pydoc-markdown
 decorator==5.3.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   dogpile-cache
     #   gssapi
 defusedxml==0.7.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   oic
 deprecated==1.3.1
     # via
@@ -128,11 +130,11 @@ deprecated==1.3.1
     #   nr-util
 dnspython==2.7.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pymongo
 docopt==0.6.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   stomp-py
 docspec==2.2.1
     # via
@@ -143,117 +145,117 @@ docspec-python==2.2.2
 docstring-parser==0.11
     # via pydoc-markdown
 dogpile-cache==1.2.2
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 elastic-transport==8.17.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   elasticsearch
 elasticsearch==8.15.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 exceptiongroup==1.3.1
     # via pytest
 execnet==2.1.2
     # via pytest-xdist
 flask==3.1.3
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 frozenlist==1.8.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
     #   aiosignal
 future==1.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pyjwkest
 geoip2==5.1.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 globus-sdk==4.8.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 google-auth==2.50.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 greenlet==3.2.5
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   sqlalchemy
 gssapi==1.11.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pyspnego
 idna==3.18
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   requests
     #   yarl
 importlib-metadata==8.7.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   build
     #   flask
 iniconfig==2.1.0
     # via pytest
 invoke==3.0.3
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   paramiko
 itsdangerous==2.2.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   flask
 jinja2==3.1.6
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   flask
     #   pydoc-markdown
 jmespath==1.1.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   boto3
     #   botocore
 jsonschema==4.25.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 jsonschema-specifications==2025.9.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   jsonschema
 kerberos==1.3.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 krb5==0.9.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pyspnego
 libtorrent==2.0.13
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 lxml==6.1.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   xmlsec
 mako==1.3.12
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   alembic
     #   oic
 markdown-it-py==3.0.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   rich
 markupsafe==3.0.3
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   flask
     #   jinja2
     #   mako
     #   werkzeug
 maxminddb==2.8.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   geoip2
 mdurl==0.1.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   markdown-it-py
 multidict==6.7.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
     #   yarl
 mypy-extensions==1.1.0
@@ -267,12 +269,12 @@ nr-util==0.8.12
     #   docspec-python
     #   pydoc-markdown
 oic==1.7.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 oracledb==4.0.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 packaging==26.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   apispec
     #   black
     #   build
@@ -281,7 +283,7 @@ packaging==26.2
     #   qbittorrent-api
     #   wheel
 paramiko==5.0.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pathspec==1.1.1
     # via black
 pip-tools==7.5.3
@@ -295,46 +297,46 @@ pluggy==1.6.0
     #   pytest
     #   pytest-cov
 prometheus-client==0.25.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 propcache==0.4.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
     #   yarl
 psycopg==3.2.13 ; implementation_name == "cpython"
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 psycopg-binary==3.2.13
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 psycopg-pool==3.2.8
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pyasn1==0.6.3
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pyasn1-modules
 pyasn1-modules==0.4.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   google-auth
 pycparser==2.23
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   cffi
 pycryptodomex==3.23.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   oic
     #   pyjwkest
 pydantic==2.13.4
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pydantic-settings
 pydantic-core==2.46.4
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pydantic
 pydantic-settings==2.11.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   oic
 pydoc-markdown==4.8.2
     # via -r requirements.dev.in
@@ -342,27 +344,27 @@ pyflakes==3.4.0
     # via -r requirements.dev.in
 pygments==2.20.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   rich
 pyjwkest==1.4.4
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   oic
 pyjwt==2.13.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   globus-sdk
 pykerberos==1.2.4
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pymemcache==4.0.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pymongo==4.17.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pymysql==1.2.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pynacl==1.6.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   paramiko
 pyproject-hooks==1.2.0
     # via
@@ -370,7 +372,7 @@ pyproject-hooks==1.2.0
     #   pip-tools
 pyspnego==0.12.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   requests-kerberos
 pytest==7.4.3
     # via
@@ -386,37 +388,37 @@ pytest-xdist==3.5.0
     # via -r requirements.dev.in
 python-dateutil==2.9.0.post0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   botocore
 python-dotenv==1.2.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pydantic-settings
 python-magic==0.4.27
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 python-swiftclient==4.10.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 pytokens==0.4.1
     # via black
 pytz==2026.2
     # via -r requirements.dev.in
 pyyaml==6.0.3
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   apispec
     #   pydoc-markdown
 qbittorrent-api==2026.5.2
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 redis==7.0.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 referencing==0.36.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   jsonschema
     #   jsonschema-specifications
 requests==2.32.5
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   geoip2
     #   globus-sdk
     #   oic
@@ -426,44 +428,46 @@ requests==2.32.5
     #   qbittorrent-api
     #   requests-kerberos
 requests-kerberos==0.15.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
+retrying==1.4.2
+    # via -r requirements.dev.in
 rich==15.0.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 rpds-py==0.27.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   jsonschema
     #   referencing
 ruff==0.15.20
     # via -r requirements.dev.in
 s3transfer==0.16.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   boto3
 sh==2.3.0
     # via -r requirements.dev.in
 six==1.17.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pyjwkest
     #   python-dateutil
 sqlalchemy==2.0.51
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   alembic
 statsd==4.0.1
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 stevedore==5.5.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   dogpile-cache
 stomp-py==8.2.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 tabulate==0.9.0
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 tomli==2.4.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   alembic
     #   black
     #   build
@@ -478,11 +482,12 @@ typeapi==2.3.0
     # via databind
 typing-extensions==4.16.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiosignal
     #   alembic
     #   astroid
     #   black
+    #   confluent-kafka
     #   cryptography
     #   databind
     #   dogpile-cache
@@ -502,12 +507,12 @@ typing-extensions==4.16.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   pydantic
     #   pydantic-settings
 urllib3==1.26.19
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   botocore
     #   elastic-transport
     #   qbittorrent-api
@@ -516,29 +521,29 @@ watchdog==6.0.0
     # via pydoc-markdown
 websocket-client==1.9.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   stomp-py
 werkzeug==3.1.8
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   flask
 wheel==0.47.0
     # via pip-tools
 wrapt==2.2.2
     # via deprecated
 xmlsec==1.3.17
-    # via -r requirements.server.txt
+    # via -r /rucio_source/requirements/requirements.server.txt
 xmltodict==1.0.4
     # via -r requirements.dev.in
 yapf==0.43.0
     # via pydoc-markdown
 yarl==1.22.0
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   aiohttp
 zipp==3.23.1
     # via
-    #   -r requirements.server.txt
+    #   -r /rucio_source/requirements/requirements.server.txt
     #   importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:

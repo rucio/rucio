@@ -47,6 +47,8 @@ charset-normalizer==3.4.7
     # via requests
 click==8.1.8
     # via flask
+confluent-kafka==2.14.2
+    # via -r requirements.server.in
 cryptography==49.0.0
     # via
     #   globus-sdk
@@ -227,6 +229,8 @@ requests==2.32.5
     #   requests-kerberos
 requests-kerberos==0.15.0
     # via -r requirements.server.in
+retrying==1.4.2
+    # via -r requirements.server.in
 rich==15.0.0
     # via -r requirements.server.in
 rpds-py==0.27.1
@@ -257,6 +261,7 @@ typing-extensions==4.16.0
     # via
     #   aiosignal
     #   alembic
+    #   confluent-kafka
     #   cryptography
     #   dogpile-cache
     #   globus-sdk

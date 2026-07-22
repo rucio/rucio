@@ -16,3 +16,5 @@ pip-tools==7.5.3                                            # Generate requireme
 atlas-rucio-policy-package==0.8.3
 belleii-rucio-policy-package @ git+https://github.com/belle2/Belle-II-Rucio-Policy-Package.git@v0.1.1
 ruff==0.15.20                                               # Linter
+confluent_kafka==2.14.2                                     # Confluent Kafka
+retrying==1.4.2                                             # Adds retry behavior - used by Confluent Kafka
