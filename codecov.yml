@@ -1,8 +1,0 @@
-coverage:
-  status:
-    project: off
-    patch:
-      default:
-        paths:
-          - "lib/rucio/version*"
-          - "lib/rucio/common/*"
