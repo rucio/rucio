@@ -307,9 +307,9 @@ def test_config():
     assert exitcode == 0
     assert "ERROR" not in err
 
-    section = str(generate_uuid())
-    option = str(generate_uuid())[:8]
-    value = str(generate_uuid())[:8]
+    section = "mock" + str(generate_uuid())
+    option = "mock" + str(generate_uuid())[:8]
+    value = "mock" + str(generate_uuid())[:8]
 
     cmd = f"rucio config set --section {section} --key {option} --value {value}"
     exitcode, _, err = execute(cmd)
