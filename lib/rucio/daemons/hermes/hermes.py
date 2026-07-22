@@ -45,16 +45,22 @@ from rucio.common.config import (
     config_get_int,
     config_get_list,
 )
-from rucio.common.exception import DatabaseException
+from rucio.common.exception import ConfigurationError, DatabaseException
+from rucio.common.extra import import_extras
 from rucio.common.logging import setup_logging
 from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.monitor import MetricManager
 from rucio.daemons.common import run_daemon
 
+EXTRA_MODULES = import_extras(['confluent_kafka'])
+if EXTRA_MODULES['confluent_kafka']:
+    from confluent_kafka import Producer  # pylint: disable=import-error
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from types import FrameType
 
+    from confluent_kafka import KafkaError, Message
     from stomp.utils import Frame
 
     from rucio.common.types import LoggerFunction
@@ -66,6 +72,7 @@ METRICS = MetricManager(module=__name__)
 graceful_stop = threading.Event()
 DAEMON_NAME = "hermes"
 
+
 RECONNECT_COUNTER = METRICS.counter(
     name="reconnect.{host}",
     documentation="Counts Hermes reconnects to different ActiveMQ brokers",
@@ -76,6 +83,36 @@ RECONNECT_COUNTER = METRICS.counter(
 def default(datetype: Union[datetime.date, datetime.datetime]) -> str:
     if isinstance(datetype, (datetime.date, datetime.datetime)):
         return datetype.isoformat()
+
+
+class _KafkaDelivery:
+    """
+    Tracks Kafka produce/delivery across run_once cycles.
+    """
+    def __init__(self, logger: "LoggerFunction") -> None:
+        self._logger = logger
+        self.in_flight = {}
+        self.delivered = {}
+        self.delivered_count = 0
+        self.failed_count = 0
+
+    def on_delivery(self,
+            err: "Optional[KafkaError]",
+            _kafka_msg: "Message",
+            *,
+            message_id: str,
+        ) -> None:
+        message = self.in_flight.pop(message_id, None)
+        if message is None:
+            return  # unknown/duplicate report
+        if err is None:
+            self.delivered[message_id] = message
+            self.delivered_count += 1
+        else:
+            self.failed_count += 1
+            # Not added to `delivered` -> DB row survives -> retried later.
+            self._logger(logging.WARNING,
+                         "kafka delivery failed for %s: %s", message_id, str(err))
 
 
 class HermesListener(stomp.ConnectionListener):
@@ -94,6 +131,87 @@ class HermesListener(stomp.ConnectionListener):
         Error handler
         """
         logging.error("[broker] [%s]: %s", self.__broker, frame.body)
+
+
+def setup_kafka(
+        logger: "LoggerFunction"
+) -> tuple[
+    Optional["Producer"],
+    Optional[str],
+]:
+    """
+    Deliver messages to Kafka
+
+    :param logger:             The logger object.
+    """
+    if not EXTRA_MODULES['confluent_kafka']:
+        raise ConfigurationError('kafka is configured in services_list but confluent-kafka is not installed')
+
+    import socket
+
+    logger(logging.INFO, "[broker-kafka] Resolving brokers")
+
+    # the following retrieves all rucio.cfg information
+
+    # get broker name
+    try:
+        brokers = config_get("messaging-hermes-kafka", "brokers")
+    except Exception as err:
+        logger(logging.ERROR, "Could not load 'brokers' from configuration")
+        raise ConfigurationError(err)
+
+    message_timeout_ms = config_get_int("messaging-hermes-kafka", "message_timeout_ms", default=300000)
+    logger(logging.INFO, "[broker] message_timeout_ms set to %d", message_timeout_ms)
+
+    # check to see if ssl is being used to authenticate
+    logger(logging.INFO, "[broker] Checking authentication method")
+    use_ssl = config_get_bool("messaging-hermes-kafka", "use_ssl", raise_exception=False, default=False)
+
+    # if ssl is used, get the reset of the params we'll use to authenticate
+    if use_ssl:
+        ca_cert = config_get("messaging-hermes-kafka", "ca_cert")
+        certfile = config_get("messaging-hermes-kafka", "certfile")
+        keyfile = config_get("messaging-hermes-kafka", "keyfile")
+    # get the username and password, if specified
+    else:
+        username = config_get("messaging-hermes-kafka", "username", raise_exception=False, default=None)
+        password = config_get("messaging-hermes-kafka", "password", raise_exception=False, default=None)
+
+    config = {'bootstrap.servers': f'{brokers}',
+               'client.id': socket.gethostname(),
+               'message.timeout.ms': message_timeout_ms,
+             }
+
+    # configure to use SSL
+    if use_ssl:
+        logger(logging.INFO, "[broker-kafka] use_ssl")
+        config.update({
+                  'security.protocol': 'SSL',
+                  'ssl.ca.location': ca_cert,
+                  'ssl.certificate.location': certfile,
+                  'ssl.key.location':  keyfile,
+             })
+    elif username is not None:
+        logger(logging.INFO, "[broker-kafka] username")
+        config.update({
+                  'security.protocol': 'SASL_SSL',
+                  'security.mechanism': 'PLAIN',
+                  'sasl.username': username,
+                  'sasl.password': password,
+             })
+    else:
+        logger(logging.INFO, "[broker-kafka] plain")
+    producer = Producer(config)
+
+    # retrieve the topic
+    try:
+        topic = config_get("messaging-hermes-kafka", "topic", raise_exception=True)
+    except Exception as err:
+        msg = "Could not load kafka topic from configuration"
+        logger(logging.ERROR, msg)
+        raise ConfigurationError(msg) from err
+
+    return producer, topic
 
 
 def setup_activemq(
@@ -199,6 +317,46 @@ def setup_activemq(
         conns.append(con)
     destination = config_get("messaging-hermes", "destination")
     return conns, destination, username, password, use_ssl
+
+
+def deliver_to_kafka(
+    producer: "Producer",
+    topic: str,
+    messages: "Iterable[dict[str, Any]]",
+    delivery: _KafkaDelivery,
+    logger: "LoggerFunction"
+) -> list[str]:
+
+    for message in messages:
+        mid = message["id"]
+        if mid in delivery.in_flight or mid in delivery.delivered:
+            continue
+        try:
+            d = {
+                "event_type": str(message["event_type"]).lower(),
+                "payload": message["payload"],
+                "created_at": str(message["created_at"])
+            }
+
+            value = json.dumps(d)
+        except (TypeError, ValueError) as e:
+            logger(logging.ERROR, "can't serialize %s: %s", mid, str(e))
+
+        delivery.in_flight[mid] = message
+
+        try:
+            logger(logging.DEBUG, "kafka sending to topic: %s -> %s", topic, value)
+            producer.produce(topic, value=value, on_delivery=functools.partial(delivery.on_delivery, message_id=mid))
+        except Exception as exc:
+            delivery.in_flight.pop(mid, None)
+            logger(logging.WARNING, "error sending: %s: %s", str(message), str(exc))
+    remaining = producer.flush()
+    if remaining > 0:
+        logger(logging.WARNING, "flush returned with %d message(s) still queued", remaining)
+    confirmed = list(delivery.delivered.values())
+    delivery.delivered.clear()
+    logger(logging.DEBUG, "sent %d messages to Kafka", len(confirmed))
+    return confirmed
 
 
 def deliver_to_activemq(
@@ -699,6 +857,7 @@ def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
     :param bulk:       The number of requests to process.
     :param sleep_time: Time between two cycles.
     """
+    longterm_state = {}
     run_daemon(
         once=once,
         graceful_stop=graceful_stop,
@@ -708,11 +867,12 @@ def hermes(once: bool = False, bulk: int = 1000, sleep_time: int = 10) -> None:
         run_once_fnc=functools.partial(
             run_once,
             bulk=bulk,
+            longterm_state=longterm_state,
         ),
     )
 
 
-def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> bool:
+def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, longterm_state: dict, **_kwargs) -> bool:
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     try:
@@ -755,6 +915,13 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             logger(logging.ERROR, str(err))
     if "syslog" in services_list:
         logger(logging.INFO, "Syslog service enabled")
+    if "kafka" in services_list and "producer" not in longterm_state:
+        try:
+            producer, topic, = setup_kafka(logger)
+            longterm_state.update(producer=producer, topic=topic, kafka_delivery=_KafkaDelivery(logger))
+            logger(logging.INFO, "kafka configured")
+        except Exception as err:
+            logger(logging.ERROR, str(err))
 
     worker_number, total_workers, logger = heartbeat_handler.live()
     message_dict = {}
@@ -859,7 +1026,7 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
             except Exception as error:
                 logger(logging.ERROR, "Error sending email : %s", str(error))
 
-        if "activemq" in message_dict:
+        if "activemq" in services_list and "activemq" in message_dict:
             t_time = time.time()
             try:
                 messages_sent = deliver_to_activemq(
@@ -901,6 +1068,28 @@ def run_once(heartbeat_handler: "HeartbeatHandler", bulk: int, **_kwargs) -> boo
                         to_delete.append(message)
             except Exception as error:
                 logger(logging.ERROR, "Error sending to syslog : %s", str(error))
+        if "kafka" in services_list and "kafka" in message_dict:
+            t_time = time.time()
+            try:
+                confirmed = deliver_to_kafka(
+                    producer=longterm_state["producer"],
+                    topic=longterm_state["topic"],
+                    messages=message_dict["kafka"],
+                    delivery=longterm_state["kafka_delivery"],
+                    logger=logger,
+                )
+                delivery = longterm_state["kafka_delivery"]
+                logger(
+                    logging.INFO,
+                    "%d messages confirmed (%d delivered/ %d failed)  %s seconds",
+                    len(confirmed),
+                    delivery.delivered_count,
+                    delivery.failed_count,
+                    time.time() - t_time,
+                )
+                to_delete.extend(confirmed)
+            except Exception as error:
+                logger(logging.ERROR, "Error sending to Kafka : %s", str(error))
 
         logger(logging.INFO, "Deleting %s messages", len(to_delete))
         to_delete = [

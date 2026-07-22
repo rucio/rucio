@@ -18,7 +18,9 @@ Hermes Test
 
 import logging
 import logging.handlers
+import socket
 import time
+from configparser import NoOptionError
 from datetime import datetime
 from json import loads
 from unittest.mock import MagicMock, patch
@@ -28,6 +30,7 @@ import requests
 import stomp
 
 from rucio.common.config import config_get, config_get_int, config_get_list
+from rucio.common.exception import ConfigurationError
 from rucio.core.message import add_message, retrieve_messages, truncate_messages
 from rucio.daemons.hermes import hermes
 from rucio.tests.common import rse_name_generator, skip_missing_elasticsearch_influxdb_in_env
@@ -434,3 +437,374 @@ def test_hermes_syslog_tcp(core_config_mock, caches_mock):
         messages = retrieve_messages(50, old_mode=False)
         syslog_messages = [m for m in messages if m["services"] == "syslog"]
         assert len(syslog_messages) == 0
+
+
+# unit tests for Kafka support
+class _FakeKafkaError:
+    """Stand-in for the ``KafkaError`` handed to ``on_delivery``
+    on a failed delivery. Only ``str()`` is used by Hermes."""
+
+    def __init__(self, reason="delivery failed"):
+        self._reason = reason
+
+    def __str__(self):
+        return self._reason
+
+
+class _FakeKafkaMessage:
+    """Stand-in for the ``Message`` handed to ``on_delivery``."""
+
+    def __init__(self, value):
+        self._value = value
+
+    def value(self):
+        return self._value
+
+
+class _FakeKafkaException(Exception):
+    """Stand-in for ``confluent_kafka.KafkaException`` so we don't have to
+    import the optional ``confluent_kafka`` extra just to model the error."""
+
+
+class FakeKafkaProducer:
+    """stand-in for ``confluent_kafka.Producer``.
+
+    * The constructor takes a librdkafka config dict and rejects
+      keyword config such as ``bootstrap_servers=...``. Passing kwargs
+      raises ``TypeError`
+    * ``produce()`` only registers the ``on_delivery`` callback; it does not
+      fire it
+    """
+
+    def __init__(self, config, *, fail_indices=frozenset(), raise_map=None):
+        if not isinstance(config, dict):
+            raise TypeError(
+                "confluent_kafka.Producer expects a single positional config "
+                f"dict, got {type(config)!r}"
+            )
+        self.config = config
+        self._fail_indices = set(fail_indices)
+        self._raise_map = dict(raise_map or {})
+        self._pending = []
+        self.produced_values = []
+        self.produce_calls = 0
+        self.flush_calls = 0
+
+    def produce(self, topic, value=None, key=None, on_delivery=None, **_kwargs):
+        idx = self.produce_calls
+        self.produce_calls += 1
+        exc = self._raise_map.get(idx)
+        if exc is not None:
+            raise exc
+        self.produced_values.append(value)
+        self._pending.append((idx, value, on_delivery))
+
+    def flush(self, timeout=None):
+        self.flush_calls += 1
+        pending, self._pending = self._pending, []
+        for idx, value, on_delivery in pending:
+            if on_delivery is None:
+                continue
+            if idx in self._fail_indices:
+                on_delivery(_FakeKafkaError(), _FakeKafkaMessage(value))
+            else:
+                on_delivery(None, _FakeKafkaMessage(value))
+        return 0  # nothing left queued
+
+
+def _make_producer_mock(*, fail_indices=frozenset(), raise_map=None):
+    """Return a ``MagicMock`` suitable for patching ``hermes.Producer``"""
+    created = {}
+
+    def _factory(config):
+        producer = FakeKafkaProducer(config, fail_indices=fail_indices, raise_map=raise_map)
+        created["producer"] = producer
+        return producer
+
+    producer_mock = MagicMock(side_effect=_factory)
+    producer_mock.created = created
+    return producer_mock
+
+
+def _count_kafka_messages():
+    """Number of undelivered messages still queued for the kafka service"""
+    return sum(
+        1 for message in retrieve_messages(50, old_mode=False)
+        if message["services"] == "kafka"
+    )
+
+
+def _add_kafka_messages(mock_rse, nb_messages):
+    """Add ``nb_messages`` transfer-done messages (routed to kafka via config)"""
+    for i in range(nb_messages):
+        add_message(
+            "transfer-done",
+            {
+                "bytes": 100 + i,
+                "rse": mock_rse,
+                "scope": "test",
+                "name": f"file_{i}",
+                "created_at": datetime.utcnow().replace(microsecond=0),
+            },
+        )
+
+
+# Unit tests for setup_kafka() branches
+def test_setup_kafka_nonssl_config():
+    """HERMES (DAEMON): setup_kafka builds a valid non-SSL librdkafka config"""
+    logger = MagicMock()
+    values = {
+        ("messaging-hermes-kafka", "brokers"): "broker",
+        ("messaging-hermes-kafka", "topic"): "hermeskafka",
+    }
+
+    def fake_config_get(section, option, *args, **kwargs):
+        key = (section, option)
+        if key in values:
+            return values[key]
+        # optional lookups (username/password) fall back to their default
+        if "default" in kwargs:
+            return kwargs["default"]
+        raise NoOptionError(option, section)
+
+    with patch("rucio.daemons.hermes.hermes.Producer") as producer_mock, \
+            patch("rucio.daemons.hermes.hermes.config_get", side_effect=fake_config_get), \
+            patch("rucio.daemons.hermes.hermes.config_get_bool", return_value=False), \
+            patch("rucio.daemons.hermes.hermes.config_get_int", return_value=300000):
+        producer, topic = hermes.setup_kafka(logger)
+
+    assert topic == "hermeskafka"
+
+    # Must be one positional config dict, no keyword config
+    producer_mock.assert_called_once_with(
+        {
+            "bootstrap.servers": "broker",
+            "client.id": socket.gethostname(),
+            "message.timeout.ms": 300000,
+        }
+    )
+    args, kwargs = producer_mock.call_args
+    assert len(args) == 1 and not kwargs
+    config = args[0]
+    # No SSL/SASL keys leaked into the plaintext branch.
+    assert "security.protocol" not in config
+    assert not any(k.startswith("ssl.") for k in config)
+    # None of the invalid kafka-python-style names are present.
+    for bad in ("bootstrap_servers", "client_id", "message_timeout_ms"):
+        assert bad not in config
+
+
+def test_setup_kafka_ssl_config():
+    """HERMES (DAEMON): setup_kafka builds a valid SSL librdkafka config """
+    logger = MagicMock()
+    values = {
+        ("messaging-hermes-kafka", "brokers"): "secure-broker:9093",
+        ("messaging-hermes-kafka", "ca_cert"): "/etc/ssl/ca.pem",
+        ("messaging-hermes-kafka", "certfile"): "/etc/ssl/client.pem",
+        ("messaging-hermes-kafka", "keyfile"): "/etc/ssl/client.key",
+        ("messaging-hermes-kafka", "topic"): "hermeskafka",
+    }
+
+    def fake_config_get(section, option, *args, **kwargs):
+        key = (section, option)
+        if key in values:
+            return values[key]
+        if "default" in kwargs:
+            return kwargs["default"]
+        raise NoOptionError(option, section)
+
+    with patch("rucio.daemons.hermes.hermes.Producer") as producer_mock, \
+            patch("rucio.daemons.hermes.hermes.config_get", side_effect=fake_config_get), \
+            patch("rucio.daemons.hermes.hermes.config_get_bool", return_value=True), \
+            patch("rucio.daemons.hermes.hermes.config_get_int", return_value=300000):
+        producer, topic = hermes.setup_kafka(logger)
+
+    assert topic == "hermeskafka"
+    producer_mock.assert_called_once_with(
+        {
+            "bootstrap.servers": "secure-broker:9093",
+            "client.id": socket.gethostname(),
+            "message.timeout.ms": 300000,
+            "security.protocol": "SSL",
+            "ssl.ca.location": "/etc/ssl/ca.pem",
+            "ssl.certificate.location": "/etc/ssl/client.pem",
+            "ssl.key.location": "/etc/ssl/client.key",
+        }
+    )
+
+
+def test_setup_kafka_missing_brokers():
+    """test for missing brokers"""
+    logger = MagicMock()
+
+    def fake_config_get(section, option, *args, **kwargs):
+        if (section, option) == ("messaging-hermes-kafka", "brokers"):
+            raise NoOptionError(option, section)
+        raise AssertionError(f"unexpected config_get({section}, {option})")
+
+    with patch("rucio.daemons.hermes.hermes.Producer") as producer_mock, \
+            patch("rucio.daemons.hermes.hermes.config_get", side_effect=fake_config_get):
+        with pytest.raises(ConfigurationError):
+            hermes.setup_kafka(logger)
+
+    producer_mock.assert_not_called()
+
+
+def test_setup_kafka_missing_topic():
+    """test for missing topic"""
+    logger = MagicMock()
+
+    def fake_config_get(section, option, *args, **kwargs):
+        if (section, option) == ("messaging-hermes-kafka", "brokers"):
+            return "broker"
+        if (section, option) == ("messaging-hermes-kafka", "topic"):
+            raise NoOptionError(option, section)
+        if "default" in kwargs:  # username / password
+            return kwargs["default"]
+        raise NoOptionError(option, section)
+
+    with patch("rucio.daemons.hermes.hermes.Producer") as producer_mock, \
+            patch("rucio.daemons.hermes.hermes.config_get", side_effect=fake_config_get), \
+            patch("rucio.daemons.hermes.hermes.config_get_bool", return_value=False), \
+            patch("rucio.daemons.hermes.hermes.config_get_int", return_value=300000):
+        with pytest.raises(ConfigurationError):
+            hermes.setup_kafka(logger)
+
+    producer_mock.assert_called_once()
+
+
+_KAFKA_CORE_CONFIG = [
+    {
+        "table_content": [
+            ("hermes", "services_list", "kafka"),
+            ("messaging-hermes-kafka", "use_ssl", False),
+            ("messaging-hermes-kafka", "brokers", "broker"),
+            ("messaging-hermes-kafka", "topic", "hermeskafka"),
+        ]
+    }
+]
+_KAFKA_CACHES = [{"caches_to_mock": ["rucio.core.config.REGION"]}]
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize("core_config_mock", _KAFKA_CORE_CONFIG, indirect=True)
+@pytest.mark.parametrize("caches_mock", _KAFKA_CACHES, indirect=True)
+def test_hermes_kafka(core_config_mock, caches_mock):
+    """test path with no errors"""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+    nb_messages = 3
+
+    producer_mock = _make_producer_mock()
+    with patch("rucio.daemons.hermes.hermes.Producer", producer_mock):
+        _add_kafka_messages(mock_rse, nb_messages)
+        assert _count_kafka_messages() == nb_messages
+
+        hermes.hermes(once=True)
+
+        # Constructor contract: called once, single positional dict, no kwargs.
+        producer_mock.assert_called_once()
+        args, kwargs = producer_mock.call_args
+        assert len(args) == 1 and not kwargs, \
+            "Producer must be built with a single positional librdkafka config dict"
+        config = args[0]
+        assert isinstance(config, dict)
+        assert "bootstrap.servers" in config
+        assert "client.id" in config
+        assert "message.timeout.ms" in config
+        # librdkafka properties are dot-separated; an underscore in any key
+        # means a kafka-python-style name leaked in.
+        assert not any("_" in key for key in config), \
+            f"non-librdkafka (underscore) config keys: {sorted(config)}"
+        # plaintext branch -> no TLS/SASL properties
+        assert "security.protocol" not in config
+        assert not any(k.startswith("ssl.") for k in config)
+
+        fake = producer_mock.created["producer"]
+        assert fake.produce_calls == nb_messages
+        assert fake.flush_calls >= 1
+
+        # All delivered -> all deleted.
+        assert _count_kafka_messages() == 0
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize("core_config_mock", _KAFKA_CORE_CONFIG, indirect=True)
+@pytest.mark.parametrize("caches_mock", _KAFKA_CACHES, indirect=True)
+def test_hermes_kafka_failed_delivery(core_config_mock, caches_mock):
+    """test path with all errors"""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+    nb_messages = 3
+
+    producer_mock = _make_producer_mock(fail_indices={0, 1, 2})
+    with patch("rucio.daemons.hermes.hermes.Producer", producer_mock):
+        _add_kafka_messages(mock_rse, nb_messages)
+        assert _count_kafka_messages() == nb_messages
+
+        hermes.hermes(once=True)
+
+        producer_mock.assert_called_once()
+        fake = producer_mock.created["producer"]
+        assert fake.produce_calls == nb_messages
+        # Nothing confirmed -> nothing deleted.
+        assert _count_kafka_messages() == nb_messages
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize("core_config_mock", _KAFKA_CORE_CONFIG, indirect=True)
+@pytest.mark.parametrize("caches_mock", _KAFKA_CACHES, indirect=True)
+def test_hermes_kafka_partial_failure(core_config_mock, caches_mock):
+    """test path with partial failures"""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+    nb_messages = 3
+
+    producer_mock = _make_producer_mock(fail_indices={2})
+    with patch("rucio.daemons.hermes.hermes.Producer", producer_mock):
+        _add_kafka_messages(mock_rse, nb_messages)
+        assert _count_kafka_messages() == nb_messages
+
+        hermes.hermes(once=True)
+
+        producer_mock.assert_called_once()
+        fake = producer_mock.created["producer"]
+        assert fake.produce_calls == nb_messages
+        # 2 delivered -> deleted, 1 failed -> still queued.
+        assert _count_kafka_messages() == 1
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize(
+    "produce_error",
+    [
+        BufferError("Local: Queue full"),
+        _FakeKafkaException("Broker: Message size too large"),
+        NotImplementedError("unsupported produce feature"),
+    ],
+    ids=["buffererror", "kafkaexception", "notimplemented"],
+)
+@pytest.mark.parametrize("core_config_mock", _KAFKA_CORE_CONFIG, indirect=True)
+@pytest.mark.parametrize("caches_mock", _KAFKA_CACHES, indirect=True)
+def test_hermes_kafka_produce_raises(core_config_mock, caches_mock, produce_error):
+    """testing produce exceptions"""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+    nb_messages = 3
+
+    # The middle message raises on produce(); the other two deliver normally.
+    producer_mock = _make_producer_mock(raise_map={1: produce_error})
+    with patch("rucio.daemons.hermes.hermes.Producer", producer_mock):
+        _add_kafka_messages(mock_rse, nb_messages)
+        assert _count_kafka_messages() == nb_messages
+
+        # Must not propagate out of the daemon.
+        hermes.hermes(once=True)
+
+        producer_mock.assert_called_once()
+        fake = producer_mock.created["producer"]
+        # The loop continues past the raising message.
+        assert fake.produce_calls == nb_messages
+        # The message whose produce() raised is neither delivered nor deleted;
+        # the other two are delivered and deleted.
+        assert _count_kafka_messages() == 1
