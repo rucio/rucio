@@ -1,17 +1,43 @@
 *By submitting this PR, I confirm I have followed the [Contributing Guide](https://rucio.cern.ch/documentation/contributing/).*
 
+## Description
+<!-- Required. Summarise WHAT this PR changes. The WHY should already be
+     covered by the linked issue and its discussion. A sufficiently detailed
+     commit message may be reused here. If a checklist item below does not
+     apply to this PR, briefly say why here. -->
+
+
 ## Checklist
-- [ ] Created issue: #___
-- [ ] Added tests
-- [ ] Updated documentation (Please link PRs in documentation repository)
-- [ ] Added database migrations (if needed)
-- [ ] For backwards compatibility breaking changes, leave additional description, follow conventional commits
-- [ ] Picked a reviewer after submission (Leave empty, if unclear)
-- [ ] I understand that stale (failing tests, author not answering) PRs will be closed promptly
+<!-- Every box should be ticked before merge. Tick a box if the item is done
+     OR does not apply to this PR (briefly say why in the description). -->
 
-## Additional description for reviewer
+- [ ] This PR closes #____
+      <!-- Every PR requires an issue; if none exists yet, please create one
+           first. GitHub links the PR to the issue and closes it on merge.
+           In the rare case the issue should remain open after the merge,
+           write "Related to #____" here instead and briefly say why in the
+           description. -->
+- [ ] Tests cover the change, or no tests are needed (explain why in the description)
+- [ ] Documentation is updated (link the docs PR here), or no documentation change is needed
+- [ ] Database migrations are included, or the change touches no database schema
+- [ ] This PR contains no breaking changes, or the breaking change is described
+      in the description and the commit follows conventional commits
 
-*Note: This OPTIONAL is only relevant for the REVIEWER, please leave it in the PR*
+## Notes for contributors
+
+- **Commit trailers**: Please also link the issue in the commit message (see
+  the Contributing Guide): use `Closes: #____` on the commit that resolves
+  the issue, and `Issue: #____` on intermediate commits or if the issue
+  should remain open.
+- **Reviewer**: After submitting, assign a reviewer if you know who is
+  appropriate for the touched components; otherwise leave it empty and one
+  will be assigned.
+- **Stale PRs**: PRs with failing tests or an unresponsive author will be
+  closed promptly.
+
+## Additional notes for reviewer
+
+*Note: This OPTIONAL section is only relevant for the REVIEWER, please leave it in the PR*
 
 <details>
 <summary>Reviewer template </summary>
