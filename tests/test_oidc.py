@@ -552,6 +552,70 @@ class TestAuthCoreAPIoidc:
 
     @patch('rucio.core.oidc.__get_init_oidc_client')
     @patch('rucio.core.oidc.__get_rucio_oidc_clients')
+    def test_get_access_token_oidc_account_less_polling_success(self, mock_clients, mock_oidc_client):
+        """ OIDC Request for access token without a pre-declared account - success
+
+            Runs the Test:
+
+            - initialising the auth flow with the 'webui' sentinel account,
+              i.e. without specifying a Rucio account up front
+            - filling the right identity into the token (mocking the IdP response)
+            - calling the get_token_oidc core function
+
+            End:
+
+            - checking that the token is in the DB and got assigned
+              to the default account of the identity
+        """
+        mock_oidc_client.side_effect = get_mock_oidc_client
+        sentinel_account = InternalAccount('webui', **self.vo)
+        auth_init_response = self.get_auth_init_and_mock_response(code_response=rndstr(), account=sentinel_account, polling=True, session=self.db_session)
+        oauth_session_row = get_oauth_session_row(sentinel_account, state=auth_init_response['state'], session=self.db_session)
+        assert oauth_session_row
+        # mocking the token response
+        access_token = rndstr()
+        NEW_TOKEN_DICT['access_token'] = access_token
+        NEW_TOKEN_DICT['id_token'] = {'sub': 'knownsub', 'iss': 'https://test_issuer/', 'nonce': auth_init_response['nonce']}
+        token_dict = get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
+        assert token_dict
+        assert token_dict['polling'] is True
+        assert 'token' not in token_dict
+        # the token must have been assigned to the default account
+        # of the identity, not to the sentinel account
+        db_token = get_token_row(access_token, session=self.db_session)
+        assert db_token
+        # not asserting == self.accountstring: 'knownsub' is remapped to a fresh
+        # account each setup_method, so the oldest mapping may be an earlier test's
+        assert db_token.account.external != 'webui'
+
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
+    def test_get_access_token_oidc_account_less_unknown_identity(self, mock_clients, mock_oidc_client):
+        """ OIDC Request for access token without a pre-declared account, identity unknown - failure
+
+            Runs the Test:
+
+            - initialising the auth flow with the 'webui' sentinel account
+            - filling an identity unknown to Rucio into the token (mocking the IdP response)
+            - calling the get_token_oidc core function
+
+            End:
+
+            - checking that no token was issued
+        """
+        mock_oidc_client.side_effect = get_mock_oidc_client
+        sentinel_account = InternalAccount('webui', **self.vo)
+        auth_init_response = self.get_auth_init_and_mock_response(code_response=rndstr(), account=sentinel_account, polling=True, session=self.db_session)
+        access_token = rndstr()
+        NEW_TOKEN_DICT['access_token'] = access_token
+        NEW_TOKEN_DICT['id_token'] = {'sub': 'unknownsub', 'iss': 'https://test_issuer/', 'nonce': auth_init_response['nonce']}
+        token_dict = get_token_oidc(auth_init_response['auth_query_string'], session=self.db_session)
+        assert token_dict is None
+        db_token = get_token_row(access_token, session=self.db_session)
+        assert not db_token
+
+    @patch('rucio.core.oidc.__get_init_oidc_client')
+    @patch('rucio.core.oidc.__get_rucio_oidc_clients')
     def test_get_access_token_oidc_cli_fetchcode_success(self, mock_clients, mock_oidc_client):
         """ OIDC Request for access token, client receives fetchcode - success
 
