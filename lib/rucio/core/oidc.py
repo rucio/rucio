@@ -37,7 +37,7 @@ from sqlalchemy.sql.expression import true
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get, config_get_bool, config_get_int
-from rucio.common.exception import CannotAuthenticate, CannotAuthorize, RucioException
+from rucio.common.exception import CannotAuthenticate, CannotAuthorize, IdentityError, RucioException
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, chunks, val_to_space_sep_str
 from rucio.core.account import account_exists
@@ -367,7 +367,9 @@ def get_auth_oidc(account: "InternalAccount", *, session: "Session", **kwargs) -
     Returns authorization URL as a string or a redirection url to
     be used in user's browser for authentication.
 
-    :param account: Rucio Account identifier as a string.
+    :param account: Rucio Account identifier as a string. The 'webui' sentinel
+                    account defers the account selection to get_token_oidc,
+                    where the default account of the identity is used.
     :param auth_scope: space separated list of scope names. Scope parameter
                        defines which user's info the user allows to provide
                        to the Rucio Client.
@@ -401,10 +403,13 @@ def get_auth_oidc(account: "InternalAccount", *, session: "Session", **kwargs) -
     polling = kwargs.get('polling', False)
     refresh_lifetime = kwargs.get('refresh_lifetime', REFRESH_LIFETIME_H)
     ip = kwargs.get('ip', None)
-    # Make sure the account exists
-    if not account_exists(account, session=session):
-        logging.debug("Account %s does not exist.", account)
-        return None
+    # 'webui' is a sentinel for requests without an account; the default account
+    # of the identity will be assigned during get_token_oidc
+    if account.external != 'webui':
+        # Make sure the account exists
+        if not account_exists(account, session=session):
+            logging.debug("Account %s does not exist.", account)
+            return None
 
     try:
         stopwatch = Stopwatch()
@@ -514,12 +519,21 @@ def get_token_oidc(
         if oidc_tokens['id_token']['nonce'] != nonce:
             raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client"
                                      + " session. This points to possible replay attack !")
-        account = oauth_req_params.account
         # starting to fill dictionary with parameters for token DB row
         jwt_row_dict, extra_dict = {}, {}
         jwt_row_dict['identity'] = oidc_identity_string(oidc_tokens['id_token']['sub'],
                                                         oidc_tokens['id_token']['iss'])
         jwt_row_dict['account'] = oauth_req_params.account
+
+        # the 'webui' sentinel means no account was specified at /auth/oidc;
+        # assign the default account of the now authenticated identity instead
+        if jwt_row_dict['account'].external == 'webui':
+            try:
+                jwt_row_dict['account'] = get_default_account(jwt_row_dict['identity'], IdentityType.OIDC, True, session=session)
+            except IdentityError as error:
+                raise CannotAuthenticate("OIDC identity '%s' is not mapped to any Rucio account."
+                                         % jwt_row_dict['identity']) from error
+        account = jwt_row_dict['account']
 
         # check if given account has the identity registered
         if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
