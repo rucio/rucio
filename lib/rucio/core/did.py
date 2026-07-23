@@ -2051,7 +2051,7 @@ def set_metadata(
             payload=message_payload,
             session=session
         )
-    except Exception as e:
+    except Exception:
         pass
 
 
