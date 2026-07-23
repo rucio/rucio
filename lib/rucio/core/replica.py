@@ -44,7 +44,7 @@ from rucio.common.constants import DEFAULT_VO, RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalAccount, InternalScope, IPDict, LFNDict, is_str_list
 from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
-from rucio.core.message import add_messages
+from rucio.core.message import add_messages, add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
