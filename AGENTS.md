@@ -44,7 +44,7 @@ your first PR — the essentials:
 ```bash
 git clone https://github.com/<your-user>/rucio.git && cd rucio
 git remote add upstream https://github.com/rucio/rucio.git
-tools/configure_git.sh    # adds upstream + installs the prepare-commit-msg hook
+tools/configure_git.sh    # adds the upstream remote
 pre-commit install        # installs the lint hooks (see below)
 ```
 
@@ -94,10 +94,6 @@ Closes: #<issue-number>
 Real examples from history: `fix(Core): handle sign-gcs account attribute`,
 `test(Deletion): Add test for reaper generating DID detachment messages`,
 `feat(Clients)!: Remove lifetime-exception from default endpoints`.
-
-> Note: the local `tools/prepare-commit-msg` hook may template an older message
-> format — the Conventional Commits format above (matching current `master`
-> history) is the one to use.
 
 ### 5. Open the pull request
 
