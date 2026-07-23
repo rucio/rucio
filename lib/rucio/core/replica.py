@@ -2837,7 +2837,7 @@ def update_replicas_states(
                 try:
                     rse_settings = rsemgr.get_rse_info(rse_id=replica['rse_id'], session=session)
                     protocol = rsemgr.create_protocol(rse_settings=rse_settings, operation='read')
-                    lfn = [{
+                    lfn: list[LFNDict] = [{
                         'scope': str(replica['scope']),
                         'name': replica['name']
                     }]
