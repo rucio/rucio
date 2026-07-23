@@ -66,7 +66,7 @@ def redirect_auth_oidc(
 
 
 def get_auth_oidc(
-    account: str,
+    account: Optional[str],
     vo: str = DEFAULT_VO,
     **kwargs
 ) -> str:
@@ -78,7 +78,8 @@ def get_auth_oidc(
     Returns authorization URL as a string or a redirection url to
     be used in user's browser for authentication.
 
-    :param account: Rucio Account identifier as a string.
+    :param account: Rucio Account identifier as a string, or None if the account
+                    should be derived from the identity during get_token_oidc.
     :param vo: The VO to act on.
     :param auth_scope: space separated list of scope names. Scope parameter
                        defines which user's info the user allows to provide
@@ -97,7 +98,9 @@ def get_auth_oidc(
     """
     # no permission layer for the moment !
 
-    internal_account = InternalAccount(account, vo=vo)
+    # 'webui' is a sentinel for requests without an account; the default account
+    # of the identity will be assigned during get_token_oidc
+    internal_account = InternalAccount(account if account else 'webui', vo=vo)
     with db_session(DatabaseOperationType.WRITE) as session:
         return oidc.get_auth_oidc(internal_account, session=session, **kwargs)
 

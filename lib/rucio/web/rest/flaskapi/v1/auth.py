@@ -275,7 +275,8 @@ class OIDC(ErrorHandlingMethodView):
         parameters:
         - name: HTTP_X_RUCIO_ACCOUNT
           in: header
-          description: "Account identifier as a string."
+          description: "Account identifier as a string. If not given, the default
+                        account of the authenticated identity is used."
           schema:
             type: string
         - name: HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE
@@ -321,7 +322,9 @@ class OIDC(ErrorHandlingMethodView):
         headers.set('Pragma', 'no-cache')
 
         vo = extract_vo(request.headers)
-        account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', 'webui')
+        # if no account is given, it will be derived from the identity
+        # once the user has authenticated at the Identity Provider
+        account = request.environ.get('HTTP_X_RUCIO_ACCOUNT', None)
         auth_scope = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_SCOPE', "")
         audience = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_AUDIENCE', "")
         issuer = request.environ.get('HTTP_X_RUCIO_CLIENT_AUTHORIZE_ISSUER', None)
