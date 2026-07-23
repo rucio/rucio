@@ -657,7 +657,7 @@ def __add_files_to_dataset(
                 'child_name': file['child_name']
             }
 
-            rucio.core.message.add_message(
+            add_message(
                 event_type='file_attached_dts',
                 payload=event_payload,
                 session=session
