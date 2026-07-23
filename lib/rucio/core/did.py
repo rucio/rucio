@@ -2055,7 +2055,6 @@ def set_metadata(
         pass
 
 
-
 @transactional_session
 def set_metadata_bulk(
     scope: "InternalScope",
