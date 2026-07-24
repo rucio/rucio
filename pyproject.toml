@@ -105,6 +105,24 @@ pythonpath = [
 testpaths = [
     "tests",
 ]
+# The ruciopytest test-runner plugin ships its own unit tests next to its code.
+# They test the runner, not Rucio, and must not be collected by the Rucio suite
+# (which runs inside the test container under xdist). They are run explicitly by
+# the unit-tests workflow: `pytest tests/rucio tests/ruciopytest`. Naming a path
+# on the command line still collects them; only recursion is suppressed.
+# NOTE: this setting overrides pytest's defaults, so they are repeated here.
+norecursedirs = [
+    "*.egg",
+    ".*",
+    "_darcs",
+    "build",
+    "CVS",
+    "dist",
+    "node_modules",
+    "venv",
+    "{arch}",
+    "ruciopytest",
+]
 filterwarnings = [
     "ignore::BytesWarning",
 ]

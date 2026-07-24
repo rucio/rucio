@@ -73,3 +73,10 @@ tools/test.file.1G
 # Node.js dependencies for commitlint
 node_modules/
 package-lock.json
+
+# Rucio pytest forwarding stream scratch
+/.test-forward/
+# Rucio container log capture
+/.test-logs/
+# Rucio pytest / CI junit output
+/test-results/

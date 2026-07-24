@@ -51,7 +51,15 @@ if TYPE_CHECKING:
 _del_test_prefix = functools.partial(re.compile(r'^[Tt][Ee][Ss][Tt]_?').sub, '')
 # local imports in the fixtures to make this file loadable in e.g. client tests
 
-pytest_plugins = ('tests.ruciopytest.artifacts_plugin', )
+pytest_plugins = (
+    'tests.ruciopytest.artifacts_plugin',
+    'tests.ruciopytest.plugin',
+)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--activate-rses", action="store_true",
+                     help="Activate default RSEs (XRD1, XRD2, XRD3, SSH1)")
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -68,8 +76,13 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ['RUCIO_CONFIG_DISABLE_CACHE_READ'] = 'true'
 
     if config.pluginmanager.hasplugin("xdist"):
-        from .ruciopytest import xdist_noparallel_scheduler
-        config.pluginmanager.register(xdist_noparallel_scheduler)
+        try:
+            from .ruciopytest import xdist_noparallel_scheduler
+            config.pluginmanager.register(xdist_noparallel_scheduler)
+        except ImportError:
+            # xdist API mismatch (host vs container version); the scheduler
+            # will be registered inside the container where versions match.
+            pass
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]):
