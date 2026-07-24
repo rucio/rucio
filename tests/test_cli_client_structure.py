@@ -22,14 +22,15 @@ import pytest
 
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
-from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator
+from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator, with_each_cli_renderer
 
 if TYPE_CHECKING:
     from rucio.common.types import FileToUploadDict
 
 
 @pytest.mark.noparallel(reason='Modifies the configuration file')
-def test_main_args():
+@with_each_cli_renderer
+def test_main_args(file_config_mock):
     specify_account = "rucio --account root --auth-strategy userpass whoami"
     exitcode, out, err = execute(specify_account)
     assert exitcode == 0
@@ -73,7 +74,8 @@ def test_main_args():
     assert "ERROR" in err
 
 
-def test_help_menus():
+@with_each_cli_renderer
+def test_help_menus(file_config_mock):
     """Verify help menus"""
     exitcode, out, err = execute("rucio --help")
     assert exitcode == 0
@@ -109,7 +111,8 @@ def test_help_menus():
 
 @pytest.mark.skipif(os.environ.get('POLICY') == 'atlas', reason='ATLAS config does not allow for CLI modification')
 @pytest.mark.noparallel(reason='Modifies the configuration file')
-def test_setting_command_options(rucio_client):
+@with_each_cli_renderer
+def test_setting_command_options(rucio_client, file_config_mock):
     # Show removing an option does not allow you to use it
     rucio_client.set_config_option("cli", "endpoints_remove", "account")
     try:
@@ -165,7 +168,8 @@ def test_setting_command_options(rucio_client):
         rucio_client.delete_config_section("cli")
 
 
-def test_account(rucio_client):
+@with_each_cli_renderer
+def test_account(rucio_client, file_config_mock):
     new_account = account_name_generator()
     command = f"rucio account add {new_account} USER"
     exitcode, _, err = execute(command)
@@ -213,7 +217,8 @@ def test_account(rucio_client):
     assert "ERROR" not in new_unban_log
 
 
-def test_account_attribute(jdoe_account):
+@with_each_cli_renderer
+def test_account_attribute(jdoe_account, file_config_mock):
     fake_key = generate_uuid()[:15]
     cmd = f"rucio account attribute set {jdoe_account} --key test_{fake_key}_key --value True"
     exitcode, _, log = execute(cmd)
@@ -245,7 +250,8 @@ def test_account_attribute(jdoe_account):
     assert f"test_{fake_key}_key" not in out
 
 
-def test_account_identities(rucio_client):
+@with_each_cli_renderer
+def test_account_identities(rucio_client, file_config_mock):
     tmp_account = account_name_generator()
     execute(f"rucio account add {tmp_account} USER")
 
@@ -275,7 +281,8 @@ def test_account_identities(rucio_client):
     assert exitcode == 1
 
 
-def test_account_limit(jdoe_account, rucio_client):
+@with_each_cli_renderer
+def test_account_limit(jdoe_account, rucio_client, file_config_mock):
     jdoe_account = jdoe_account.external
     mock_rse = "MOCK"
 
@@ -301,7 +308,8 @@ def test_account_limit(jdoe_account, rucio_client):
 
 
 @pytest.mark.noparallel("Changes config settings")
-def test_config():
+@with_each_cli_renderer
+def test_config(file_config_mock):
     cmd = "rucio config list"  # Basic - this command works
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
@@ -347,10 +355,7 @@ def test_config():
     assert option not in out
 
 
-@pytest.mark.parametrize("file_config_mock", [
-    {"overrides": [('experimental', 'cli', 'tabulate')]},
-    {"overrides": [('experimental', 'cli', 'rich')]},
-], indirect=True)
+@with_each_cli_renderer
 def test_did(rucio_client, root_account, file_config_mock):
     scope = scope_name_generator()
     rucio_client.add_scope(account=root_account.external, scope=scope)
@@ -414,7 +419,8 @@ def test_did(rucio_client, root_account, file_config_mock):
     assert dataset in [dataset for dataset in rucio_client.list_dids(scope=scope, filters=[], did_type="dataset")]
 
 
-def test_did_content(root_account, rucio_client):
+@with_each_cli_renderer
+def test_did_content(root_account, rucio_client, file_config_mock):
     scope = scope_name_generator()
     rucio_client.add_scope(account=root_account.external, scope=scope)
     dataset = file_generator().split("/")[-1]
@@ -487,7 +493,8 @@ def test_did_content(root_account, rucio_client):
     assert container not in out  # Only checks for output not err, upstream error with mistaking claim scopes dne
 
 
-def test_did_metadata(rucio_client, root_account):
+@with_each_cli_renderer
+def test_did_metadata(rucio_client, root_account, file_config_mock):
     scope = scope_name_generator()
     rucio_client.add_scope(account=root_account.external, scope=scope)
     dataset = file_generator().split("/")[-1]
@@ -515,7 +522,8 @@ def test_did_metadata(rucio_client, root_account):
     # assert metadata_value not in [value for value in rucio_client.get_metadata(scope=scope, name=dataset).values()]
 
 
-def test_upload_download():
+@with_each_cli_renderer
+def test_upload_download(file_config_mock):
     # DID upload/download not tested for implementation as their tests are identical to the base rucio bin versions
     cmd = "rucio upload there-is-not-a-file-here --rse mock"
     exitcode, _, _ = execute(cmd)
@@ -527,7 +535,8 @@ def test_upload_download():
 
 
 @pytest.mark.noparallel(reason='Modifies the configuration file')
-def test_lifetime_exception(rucio_client, mock_scope):
+@with_each_cli_renderer
+def test_lifetime_exception(rucio_client, mock_scope, file_config_mock):
     from rucio.client.uploadclient import UploadClient
 
     # Add the lifetime-exception endpoint
@@ -560,7 +569,8 @@ def test_lifetime_exception(rucio_client, mock_scope):
 
 
 @pytest.mark.dirty
-def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
+@with_each_cli_renderer
+def test_replica(mock_scope, rucio_client, did_factory, rse_factory, file_config_mock):
     mock_did = tempfile.NamedTemporaryFile()
     mock_rse, _ = rse_factory.make_posix_rse()
 
@@ -603,7 +613,12 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
-    assert dataset_name in out
+    # The rich renderer omits the "DATASET:" header (and thus the dataset name) when listing a
+    # single dataset, unlike tabulate which always shows it. See #8599.
+    if file_config_mock.get('experimental', 'cli') == 'rich':
+        assert mock_rse in out
+    else:
+        assert dataset_name in out
 
     cmd = f"rucio replica list dataset --rse {mock_rse}"
     exitcode, out, err = execute(cmd)
@@ -613,7 +628,8 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory):
 
 
 @pytest.mark.dirty
-def test_replica_state(mock_scope, rucio_client, rse_factory):
+@with_each_cli_renderer
+def test_replica_state(mock_scope, rucio_client, rse_factory, file_config_mock):
     mock_rse, _ = rse_factory.make_posix_rse()
     scope = mock_scope.external
 
@@ -638,7 +654,8 @@ def test_replica_state(mock_scope, rucio_client, rse_factory):
     assert "Cannot quarantine a replica from the CLI" in err
 
 
-def test_rse(rucio_client):
+@with_each_cli_renderer
+def test_rse(rucio_client, file_config_mock):
     rse_name = rse_name_generator()
 
     cmd = f"rucio rse add {rse_name}"
@@ -673,7 +690,8 @@ def test_rse(rucio_client):
     assert rse_name not in [i for i in rucio_client.list_rses(rse_name)]
 
 
-def test_rse_attribute():
+@with_each_cli_renderer
+def test_rse_attribute(file_config_mock):
     rse_name = rse_name_generator()
     attr_name = str(generate_uuid())[:8]
     attr_value = str(generate_uuid())[:8]
@@ -717,7 +735,8 @@ def test_rse_attribute():
     assert attr_name not in out
 
 
-def test_rse_protocol():
+@with_each_cli_renderer
+def test_rse_protocol(file_config_mock):
     rse_name = rse_name_generator()
     _, _, err = execute(f"rucio rse add {rse_name}")
     assert "ERROR" not in err
@@ -736,7 +755,8 @@ def test_rse_protocol():
     assert "ERROR" not in err
 
 
-def test_rse_distance():
+@with_each_cli_renderer
+def test_rse_distance(file_config_mock):
     source_rse = "MOCK"
     dest_rse = "MOCK2"
 
@@ -776,7 +796,8 @@ def test_rse_distance():
     assert "ERROR" not in err
 
 
-def test_rse_limits(rucio_client):
+@with_each_cli_renderer
+def test_rse_limits(rucio_client, file_config_mock):
     mock_rse = 'MOCK'
     limit = "mock_limit"
 
@@ -808,7 +829,8 @@ def test_rse_limits(rucio_client):
     assert f'Limit {non_existent_limit} not defined in RSE {mock_rse}' in err
 
 
-def test_rse_qos_policy(rucio_client):
+@with_each_cli_renderer
+def test_rse_qos_policy(rucio_client, file_config_mock):
     mock_rse = "MOCK"
     policy = "SOMETHING_I_GUESS"
 
@@ -832,7 +854,8 @@ def test_rse_qos_policy(rucio_client):
 
 
 @pytest.mark.dirty
-def test_rule(rucio_client, mock_scope):
+@with_each_cli_renderer
+def test_rule(rucio_client, mock_scope, file_config_mock):
     mock_rse = "MOCK-POSIX"
     rule_rse = "MOCK"
 
@@ -948,7 +971,8 @@ def test_rule(rucio_client, mock_scope):
     assert len(out.split("\n")) == 3  # Creates two rules with independent IDs and one extra line at the end
 
 
-def test_scope(rucio_client, scope_factory, random_account_factory, jdoe_account, vo):
+@with_each_cli_renderer
+def test_scope(rucio_client, scope_factory, random_account_factory, jdoe_account, vo, file_config_mock):
     scope = scope_name_generator()
     account = random_account_factory().external
     cmd = f"rucio scope add {scope} --account {account}"
@@ -984,7 +1008,8 @@ def test_scope(rucio_client, scope_factory, random_account_factory, jdoe_account
     assert new_scope in rucio_client.list_scopes_for_account(new_account)
 
 
-def test_subscription(rucio_client, mock_scope, random_account, did_factory):
+@with_each_cli_renderer
+def test_subscription(rucio_client, mock_scope, random_account, did_factory, file_config_mock):
     subscription_name = generate_uuid()
 
     filter_ = json.dumps({})
@@ -1042,6 +1067,36 @@ def test_subscription(rucio_client, mock_scope, random_account, did_factory):
     assert "ERROR" not in err
     assert subscription_name_2 in out
     assert subscription_name not in out
+
+
+@with_each_cli_renderer
+def test_subscription_list_non_list_filter_values(rucio_client, mock_scope, random_account, file_config_mock):
+    subscription_name = generate_uuid()
+    rucio_client.add_subscription(
+        name=subscription_name,
+        account=random_account.external,
+        filter_={"scope": [mock_scope.external], "split_rule": True, "pattern": "tst.*"},
+        replication_rules=[{
+            "copies": 1, "rse_expression": "JDOE_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"
+        }],
+        comments="test",
+        lifetime=10,
+        retroactive=False,
+        dry_run=False,
+    )
+
+    cmd = f'rucio subscription list --account {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert subscription_name in out
+
+    if file_config_mock.get('experimental', 'cli') == 'rich':
+        assert 'split_rule: True' in out
+        assert 'pattern: tst.*' in out
+    else:
+        assert '"split_rule": true' in out
+        assert '"pattern": "tst.*"' in out
 
 
 def test_rse_distance_bidirectional(rucio_client, rse_factory):
