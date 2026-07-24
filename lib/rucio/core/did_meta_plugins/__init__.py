@@ -223,6 +223,9 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
     if isinstance(filters, dict):
         filters = [filters]
 
+    if scope is None and not long:
+        raise ValueError("long must be True in case of scope=None")
+
     required_unique_plugins = set()                 # keep track of which plugins are required
     for or_group in filters:
         for key in or_group.keys():
