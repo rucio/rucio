@@ -175,7 +175,7 @@ def run(
     if once:
         re_evaluator(once=once, did_limit=did_limit)
     else:
-        logging.info('Evaluator starting %s threads' % str(threads))
+        logging.info('Evaluator starting %s threads', str(threads))
         thread_list = [threading.Thread(target=re_evaluator, kwargs={'once': once,
                                                                      'sleep_time': sleep_time,
                                                                      'did_limit': did_limit}) for i in range(0, threads)]
