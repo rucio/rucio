@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, overload
 
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import func, literal, select
@@ -24,6 +24,7 @@ from rucio.core.account import account_exists, get_all_rse_usages_per_account
 from rucio.core.rse import get_rse_name
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.db.sqla import models
+from rucio.db.sqla.session import read_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -92,11 +93,14 @@ def get_rse_account_usage(rse_id: str, session: "Session") -> list["RSEAccountUs
     return result
 
 
-def get_global_account_limit(
-    session: "Session",
-    account: Optional["InternalAccount"] = None,
-    rse_expression: Optional[str] = None
-) -> Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]:
+@overload
+def get_global_account_limit(account: "InternalAccount", rse_expression: str, *, session: "Session") -> Optional[Union[int, float]]: ...
+
+@overload
+def get_global_account_limit(account: Optional["InternalAccount"] = None, rse_expression: Optional[str] = None, *, session: "Session") ->  dict[str, "RSEResolvedGlobalAccountLimitDict"]: ...
+
+@read_session
+def get_global_account_limit(account=None, rse_expression=None, *, session: "Session"):
     """
     Returns the global account limit for the given account and RSE expression.
     If no RSE expression is provided, returns all limits for the given account.
@@ -144,11 +148,14 @@ def get_global_account_limit(
     return resolved_global_account_limits
 
 
-def get_local_account_limit(
-    account: "InternalAccount",
-    session: "Session",
-    rse_ids: Optional[Union[str, "Iterable[str]"]] = None
-) -> Optional[Union[int, float, dict[str, int]]]:
+@overload
+def get_local_account_limit(account: "InternalAccount", rse_ids: str, *, session: "Session") -> Optional[Union[float, int]]: ...
+
+@overload
+def get_local_account_limit(account: "InternalAccount", rse_ids: Optional["Iterable[str]"] = None, *, session: "Session") -> dict[str, int]: ...
+
+@read_session
+def get_local_account_limit(account: "InternalAccount", rse_ids=None, *, session: "Session"):
     """
     Returns the local account limit for a given RSE or list of RSEs.
 
