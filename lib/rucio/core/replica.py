@@ -44,7 +44,7 @@ from rucio.common.constants import DEFAULT_VO, RseAttr, SuspiciousAvailability
 from rucio.common.types import InternalAccount, InternalScope, IPDict, LFNDict, is_str_list
 from rucio.common.utils import add_url_query, chunks, clean_pfns, str_to_date
 from rucio.core.credential import get_signed_url
-from rucio.core.message import add_messages
+from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name, get_rse_vo, list_rses
 from rucio.core.rse_counter import decrease, increase
@@ -2727,6 +2727,7 @@ def update_replicas_states(
         ).with_for_update(
             nowait=nowait
         )
+        is_first_upload_success = False
 
         if session.execute(stmt).scalar_one_or_none() is None:
             # remember scope, name and rse
@@ -2747,6 +2748,28 @@ def update_replicas_states(
             )
             values['tombstone'] = OBSOLETE
         elif replica['state'] == ReplicaState.AVAILABLE:
+
+            try:
+                current_association = session.execute(
+                    select(models.RSEFileAssociation.state,
+                           models.RSEFileAssociation.bytes,
+                           models.RSEFileAssociation.adler32,
+                           models.RSEFileAssociation.path)
+                    .where(
+                        models.RSEFileAssociation.rse_id == replica['rse_id'],
+                        models.RSEFileAssociation.scope == replica['scope'],
+                        models.RSEFileAssociation.name == replica['name']
+                    )
+                ).one_or_none()
+
+                if current_association and current_association.state == ReplicaState.COPYING:
+                    is_first_upload_success = True
+                    db_bytes = current_association.bytes
+                    db_adler32 = current_association.adler32
+                    db_path = current_association.path
+            except Exception:
+                is_first_upload_success = False
+
             rucio.core.lock.successful_transfer(scope=replica['scope'], name=replica['name'], rse_id=replica['rse_id'], nowait=nowait, session=session)
             stmt_bad_replicas = select(
                 func.count()
@@ -2805,6 +2828,37 @@ def update_replicas_states(
             if 'rse' not in replica:
                 replica['rse'] = get_rse_name(rse_id=replica['rse_id'], session=session)
             raise exception.UnsupportedOperation('State %(state)s for replica %(scope)s:%(name)s on %(rse)s cannot be updated' % replica)
+
+        if is_first_upload_success:
+            rse_name = get_rse_name(rse_id=replica['rse_id'], session=session)
+            pfn = replica.get('path') or db_path or replica.get('pfn')
+
+            if not pfn:
+                try:
+                    rse_settings = rsemgr.get_rse_info(rse_id=replica['rse_id'], session=session)
+                    protocol = rsemgr.create_protocol(rse_settings=rse_settings, operation='read')
+                    lfn: list[LFNDict] = [{
+                        'scope': str(replica['scope']),
+                        'name': replica['name']
+                    }]
+                    computed_pfns = protocol.lfns2pfns(lfn)
+                    pfn_key = f"{lfn[0]['scope']}:{lfn[0]['name']}"
+                    pfn = computed_pfns.get(pfn_key) or list(computed_pfns.values())[0]
+                except Exception as pfn_err:
+                    pfn = f"error_calculating_pfn: {str(pfn_err)}"
+
+            event_type = 'uploading-done'
+            custom_message = {
+                    'rse': rse_name,
+                    'state': 'AVAILABLE',
+                    'scope': str(replica['scope']),
+                    'name': replica['name'],
+                    'path': pfn,
+                    'bytes': db_bytes,
+                    'adler32': db_adler32
+            }
+            add_message(event_type, custom_message, session=session)
+
     return True
 
 
