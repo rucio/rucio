@@ -36,7 +36,7 @@ class SubscriptionClient(BaseClient):
             name: str,
             account: str,
             filter_: dict[str, Any],
-            replication_rules: dict[str, Any],
+            replication_rules: list[dict[str, Any]],
             comments: str,
             lifetime: Union[int, Literal[False]],
             retroactive: bool,
@@ -56,7 +56,7 @@ class SubscriptionClient(BaseClient):
             Dictionary of attributes by which the input data should be filtered
             Example: `{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}`
         replication_rules :
-            Replication rules to be set. Dictionary with keys copies, rse_expression, weight, rse_expression
+            Replication rules to be set. List of dictionaries with keys copies, rse_expression, weight, rse_expression
         comments :
             Comments for the subscription
         lifetime :
@@ -89,7 +89,7 @@ class SubscriptionClient(BaseClient):
     def list_subscriptions(
             self,
             name: Optional[str] = None,
-            account: Optional[dict[str, Any]] = None
+            account: Optional[str] = None
     ) -> Union["Iterator[dict[str, Any]]", list]:
         """
         Returns a dictionary with the subscription information :
@@ -131,10 +131,10 @@ class SubscriptionClient(BaseClient):
 
     def update_subscription(
             self,
-            name,
+            name: str,
             account: Optional[str] = None,
             filter_: Optional[dict[str, Any]] = None,
-            replication_rules: Optional[dict[str, Any]] = None,
+            replication_rules: Optional[list[dict[str, Any]]] = None,
             comments: Optional[str] = None,
             lifetime: Optional[Union[int, Literal[False]]] = None,
             retroactive: Optional[bool] = None,
@@ -150,7 +150,7 @@ class SubscriptionClient(BaseClient):
         account : Account identifier
         filter_ : Dictionary of attributes by which the input data should be filtered
             Example: `{'dsn': 'data11_hi*.express_express.*,data11_hi*physics_MinBiasOverlay*', 'account': 'tzero'}`
-        replication_rules : Replication rules to be set. Dictionary with keys copies, rse_expression, weight, rse_expression
+        replication_rules : Replication rules to be set. List of dictionaries with keys copies, rse_expression, weight, rse_expression
         comments : Comments for the subscription
         lifetime : Subscription's lifetime (days); False if subscription has no lifetime
         retroactive : Flag to know if the subscription should be applied on previous data
