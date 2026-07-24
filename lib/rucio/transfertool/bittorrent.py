@@ -185,7 +185,7 @@ class BittorrentTransfertool(Transfertool):
             for request_id, request in requests.items():
                 driver = self._driver_for_rse(request['dst_rse'])
                 if not driver:
-                    self.logger(f'Cannot instantiate BitTorrent driver for {request["dest_rse"]}')
+                    self.logger(logging.WARNING, f'Cannot instantiate BitTorrent driver for {request["dst_rse"]}')
                     continue
                 response.setdefault(transfer_id, {})[request_id] = driver.get_status(request_id=request_id, torrent_id=transfer_id)
         return response
