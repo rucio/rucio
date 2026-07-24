@@ -1069,6 +1069,36 @@ def test_subscription(rucio_client, mock_scope, random_account, did_factory, fil
     assert subscription_name not in out
 
 
+@with_each_cli_renderer
+def test_subscription_list_non_list_filter_values(rucio_client, mock_scope, random_account, file_config_mock):
+    subscription_name = generate_uuid()
+    rucio_client.add_subscription(
+        name=subscription_name,
+        account=random_account.external,
+        filter_={"scope": [mock_scope.external], "split_rule": True, "pattern": "tst.*"},
+        replication_rules=[{
+            "copies": 1, "rse_expression": "JDOE_DATADISK", "lifetime": 3600, "activity": "User Subscriptions"
+        }],
+        comments="test",
+        lifetime=10,
+        retroactive=False,
+        dry_run=False,
+    )
+
+    cmd = f'rucio subscription list --account {random_account}'
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert subscription_name in out
+
+    if file_config_mock.get('experimental', 'cli') == 'rich':
+        assert 'split_rule: True' in out
+        assert 'pattern: tst.*' in out
+    else:
+        assert '"split_rule": true' in out
+        assert '"pattern": "tst.*"' in out
+
+
 def test_rse_distance_bidirectional(rucio_client, rse_factory):
     rse_name_1, _ = rse_factory.make_posix_rse()
     rse_name_2, _ = rse_factory.make_posix_rse()
