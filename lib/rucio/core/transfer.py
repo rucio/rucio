@@ -157,7 +157,7 @@ class DirectTransferImplementation(DirectTransfer):
         return self.protocol_factory.protocol(source.rse, source.scheme, self.operation_src)
 
     @staticmethod
-    def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme):
+    def __rewrite_source_url(source_url, source_sign_url, dest_sign_url, source_scheme, dest_rse: "RseData"):
         """
         Parametrize source url for some special cases of source and destination schemes
         """
@@ -167,9 +167,11 @@ class DirectTransferImplementation(DirectTransfer):
         elif dest_sign_url == 's3':
             if source_scheme in ['davs', 'https']:
                 source_url += '?copy_mode=push'
-        elif WEBDAV_TRANSFER_MODE:
-            if source_scheme in ['davs', 'https']:
-                source_url += '?copy_mode=%s' % WEBDAV_TRANSFER_MODE
+        elif source_scheme in ['davs', 'https']:
+            # RSE attribute on destination takes precedence over global config
+            transfer_mode = dest_rse.attributes.get(RseAttr.WEBDAV_TRANSFER_MODE) or WEBDAV_TRANSFER_MODE
+            if transfer_mode:
+                source_url += '?copy_mode=%s' % transfer_mode
 
         source_sign_url_map = {'gcs': 'gclouds', 's3': 's3s'}
         if source_sign_url in source_sign_url_map:
@@ -215,7 +217,7 @@ class DirectTransferImplementation(DirectTransfer):
             'path': src.file_path
         }
         source_url = list(protocol.lfns2pfns(lfns=lfn).values())[0]
-        source_url = cls.__rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=src.scheme)
+        source_url = cls.__rewrite_source_url(source_url, source_sign_url=source_sign_url, dest_sign_url=dest_sign_url, source_scheme=src.scheme, dest_rse=dst.rse)
         return source_url
 
     @classmethod

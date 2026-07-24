@@ -393,3 +393,235 @@ def test_no_staging_metadata_if_src_is_not_tape(did_factory, rse_factory, root_a
     job_params = fts3_tool._file_from_transfer(transfer_params, job_params)
 
     assert "staging_metadata" not in job_params
+
+
+class TestWebdavTransferMode:
+    """Tests for the webdav_transfer_mode RSE attribute."""
+
+    def _make_transfer_path_with_scheme(
+            self,
+            did,
+            rse_factory,
+            root_account,
+            src_scheme: str = 'davs',
+            dst_scheme: str = 'davs',
+            dst_rse_attributes: dict = None,
+    ):
+        """Helper to create a transfer path with specific schemes and RSE attributes."""
+        from rucio.core.rse import add_rse_attribute
+
+        src_rse, src_rse_id = rse_factory.make_rse(
+            scheme=src_scheme,
+            protocol_impl='rucio.rse.protocols.gfal.Default'
+        )
+        dst_rse, dst_rse_id = rse_factory.make_rse(
+            scheme=dst_scheme,
+            protocol_impl='rucio.rse.protocols.gfal.Default'
+        )
+
+        if dst_rse_attributes:
+            for key, value in dst_rse_attributes.items():
+                add_rse_attribute(dst_rse_id, key, value)
+
+        all_rses = [src_rse_id, dst_rse_id]
+        distance_core.add_distance(src_rse_id, dst_rse_id, distance=1)
+
+        topology = Topology(rse_ids=all_rses)
+        file = {"scope": did["scope"], "name": did["name"], "bytes": 1}
+        replica_core.add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
+        rule_core.add_rule(
+            dids=[did],
+            account=root_account,
+            copies=1,
+            rse_expression=dst_rse,
+            grouping="ALL",
+            weight=None,
+            lifetime=None,
+            locked=False,
+            subscription_id=None,
+        )
+
+        requests_by_id = list_and_mark_transfer_requests_and_source_replicas(
+            rse_collection=topology, rses=[src_rse_id, dst_rse_id]
+        )
+        requests, *_ = build_transfer_paths(
+            topology=topology,
+            protocol_factory=ProtocolFactory(),
+            requests_with_sources=requests_by_id.values(),
+        )
+        _, [transfer_path] = next(iter(requests.items()))
+
+        return transfer_path
+
+    def test_webdav_transfer_mode_rse_attribute_push(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that webdav_transfer_mode RSE attribute on destination sets copy_mode=push in source URL."""
+        from rucio.common.constants import RseAttr
+        from rucio.core import transfer as transfer_module
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', None)
+
+        mock_did = did_factory.random_file_did()
+        transfer_path = self._make_transfer_path_with_scheme(
+            mock_did,
+            rse_factory,
+            root_account,
+            src_scheme='davs',
+            dst_scheme='davs',
+            dst_rse_attributes={RseAttr.WEBDAV_TRANSFER_MODE: 'push'},
+        )
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert '?copy_mode=push' in source_url
+
+    def test_webdav_transfer_mode_rse_attribute_pull(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that webdav_transfer_mode RSE attribute on destination sets copy_mode=pull in source URL."""
+        from rucio.common.constants import RseAttr
+        from rucio.core import transfer as transfer_module
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', None)
+
+        mock_did = did_factory.random_file_did()
+        transfer_path = self._make_transfer_path_with_scheme(
+            mock_did,
+            rse_factory,
+            root_account,
+            src_scheme='davs',
+            dst_scheme='davs',
+            dst_rse_attributes={RseAttr.WEBDAV_TRANSFER_MODE: 'pull'},
+        )
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert '?copy_mode=pull' in source_url
+
+    def test_webdav_transfer_mode_no_attribute_no_config(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that without RSE attribute or global config, no copy_mode is added."""
+        from rucio.core import transfer as transfer_module
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', None)
+
+        mock_did = did_factory.random_file_did()
+        transfer_path = self._make_transfer_path_with_scheme(
+            mock_did,
+            rse_factory,
+            root_account,
+            src_scheme='davs',
+            dst_scheme='davs',
+            dst_rse_attributes=None,
+        )
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert 'copy_mode' not in source_url
+
+    def test_webdav_transfer_mode_rse_attribute_overrides_config(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that RSE attribute takes precedence over global config."""
+        from rucio.common.constants import RseAttr
+        from rucio.core import transfer as transfer_module
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', 'pull')
+
+        mock_did = did_factory.random_file_did()
+        transfer_path = self._make_transfer_path_with_scheme(
+            mock_did,
+            rse_factory,
+            root_account,
+            src_scheme='davs',
+            dst_scheme='davs',
+            dst_rse_attributes={RseAttr.WEBDAV_TRANSFER_MODE: 'push'},
+        )
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert '?copy_mode=push' in source_url
+
+    def test_webdav_transfer_mode_global_config_used_when_no_attribute(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that global config is used when RSE attribute is not set."""
+        from rucio.core import transfer as transfer_module
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', 'push')
+
+        mock_did = did_factory.random_file_did()
+        transfer_path = self._make_transfer_path_with_scheme(
+            mock_did,
+            rse_factory,
+            root_account,
+            src_scheme='davs',
+            dst_scheme='davs',
+            dst_rse_attributes=None,
+        )
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert '?copy_mode=push' in source_url
+
+    def test_webdav_transfer_mode_https_scheme(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that webdav_transfer_mode also works with https scheme."""
+        from rucio.common.constants import RseAttr
+        from rucio.core import transfer as transfer_module
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', None)
+
+        mock_did = did_factory.random_file_did()
+        transfer_path = self._make_transfer_path_with_scheme(
+            mock_did,
+            rse_factory,
+            root_account,
+            src_scheme='https',
+            dst_scheme='https',
+            dst_rse_attributes={RseAttr.WEBDAV_TRANSFER_MODE: 'push'},
+        )
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert '?copy_mode=push' in source_url
+
+    def test_webdav_transfer_mode_not_applied_to_other_schemes(self, monkeypatch, did_factory, rse_factory, root_account):
+        """Test that webdav_transfer_mode is not applied to non-davs/https schemes."""
+        from rucio.common.constants import RseAttr
+        from rucio.core import transfer as transfer_module
+        from rucio.core.rse import add_rse_attribute
+
+        monkeypatch.setattr(transfer_module, 'WEBDAV_TRANSFER_MODE', None)
+
+        mock_did = did_factory.random_file_did()
+
+        # Use xrootd protocol for this test
+        src_rse, src_rse_id = rse_factory.make_xroot_rse()
+        dst_rse, dst_rse_id = rse_factory.make_xroot_rse()
+
+        add_rse_attribute(dst_rse_id, RseAttr.WEBDAV_TRANSFER_MODE, 'push')
+
+        all_rses = [src_rse_id, dst_rse_id]
+        distance_core.add_distance(src_rse_id, dst_rse_id, distance=1)
+
+        topology = Topology(rse_ids=all_rses)
+        file = {"scope": mock_did["scope"], "name": mock_did["name"], "bytes": 1}
+        replica_core.add_replicas(rse_id=src_rse_id, files=[file], account=root_account)
+        rule_core.add_rule(
+            dids=[mock_did],
+            account=root_account,
+            copies=1,
+            rse_expression=dst_rse,
+            grouping="ALL",
+            weight=None,
+            lifetime=None,
+            locked=False,
+            subscription_id=None,
+        )
+
+        requests_by_id = list_and_mark_transfer_requests_and_source_replicas(
+            rse_collection=topology, rses=[src_rse_id, dst_rse_id]
+        )
+        requests, *_ = build_transfer_paths(
+            topology=topology,
+            protocol_factory=ProtocolFactory(),
+            requests_with_sources=requests_by_id.values(),
+        )
+        _, [transfer_path] = next(iter(requests.items()))
+
+        transfer = transfer_path[0]
+        source_url = transfer.source_url(transfer.src)
+
+        assert 'copy_mode' not in source_url
