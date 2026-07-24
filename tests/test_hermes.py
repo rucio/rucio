@@ -434,3 +434,74 @@ def test_hermes_syslog_tcp(core_config_mock, caches_mock):
         messages = retrieve_messages(50, old_mode=False)
         syslog_messages = [m for m in messages if m["services"] == "syslog"]
         assert len(syslog_messages) == 0
+
+
+@pytest.mark.noparallel(reason="fails when run in parallel")
+@pytest.mark.parametrize(
+    "core_config_mock",
+    [
+        {
+            "table_content": [
+                ("hermes", "services_list", "kafka"),
+                ("messaging-hermes-kafka", "use_ssl", False),
+                ("messaging-hermes-kafka", "brokers", "broker"),
+                ("messaging-hermes-kafka", "topic", "hermeskafka"),
+            ]
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "caches_mock",
+    [
+        {
+            "caches_to_mock": [
+                "rucio.core.config.REGION",
+            ]
+        }
+    ],
+    indirect=True,
+)
+def test_hermes_kafka(core_config_mock, caches_mock):
+    """HERMES (DAEMON): Test syslog message delivery."""
+    truncate_messages()
+    mock_rse = rse_name_generator()
+    nb_messages = 3
+
+    with patch("confluent_kafka.Producer") as mock_producer:
+        # Mock Kafka
+        mock_producer_instance = MagicMock()
+        mock_producer.return_value = mock_producer_instance
+
+        # Create messages - will be automatically assigned to syslog service
+        for i in range(nb_messages):
+            message = {
+                "bytes": 100 + i,
+                "rse": mock_rse,
+                "scope": "test",
+                "name": f"file_{i}",
+                "created_at": datetime.utcnow().replace(microsecond=0),
+            }
+            add_message("transfer-done", message)
+
+        # Verify messages were added
+        messages = retrieve_messages(50, old_mode=False)
+        service_dict = {"kafka": 0}
+        for message in messages:
+            if message["services"] == "kafka":
+                service_dict["kafka"] += 1
+        assert service_dict["kafka"] == nb_messages
+
+        # Run Hermes
+        hermes.hermes(once=True)
+
+        # Verify mock_producer was created with correct parameters
+        mock_producer.assert_called_once()
+
+        # Verify messages were delivered and deleted
+        messages = retrieve_messages(50, old_mode=False)
+        service_dict = {"kafka": 0}
+        for message in messages:
+            if message["services"] == "kafka":
+                service_dict["kafka"] += 1
+        assert service_dict["kafka"] == 0
