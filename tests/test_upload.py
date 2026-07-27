@@ -16,6 +16,9 @@ import json
 import logging
 import os
 import shutil
+import tempfile
+import uuid
+from pathlib import Path
 from random import choice
 from string import ascii_uppercase
 from tempfile import TemporaryDirectory
@@ -749,3 +752,71 @@ def test_upload_recursive(structure, is_valid_container, rse_factory, scope, upl
                 upload_client._collect_files_recursive(items)
         else:
             upload_client._collect_files_recursive(items)
+
+
+@pytest.mark.parametrize(
+    ["file_info", "rucio_error", "uuid_error"],
+    [
+        ({"guid": "NotAGuid"}, False, True),  # Not a real guid
+        ({"guid": "123E4567-E89B-12D3-A456-426614174000"}, False, False),  # Uses this guid
+        ({"basename": "name.file", "path": "/name.file", "no_register": True}, False, False),  # Creates a new guid
+        ({}, True, False),  # Missing properties
+        ({"basename": "no.pool", "path": "/tmp/no.pool"}, False, False),  # Does not use ATHENA
+        ({"basename": "not-a-basename", "path": "/tmp/test.pool.root"}, True, False),  # Properties are conflicting
+        ({"basename": "test.pool.root", "path": "/tmp/test.pool.root"}, False, False),  # Uses ATHENA to get the guid
+        ({"basename": "test.pool.root", "path": "/tmp-test-pool-root /tmp/test.pool.root"}, True, False),  # Path is malformed
+        ({"basename": "test.pool.root", "path": "/tmp-test-pool-root; bin/bash\necho ECHO"}, True, False),  # Additional command on path
+
+    ],
+    ids=[
+        "invalid guid",
+        "existing valid guid",
+        "create new guid",
+        "missing properties",
+        "valid path, no guid extraction",
+        "conflicting properties for guid extraction",
+        "valid path and basename for guid extraction",
+        "malformed path, two files",
+        "malformed path, additional bash command"
+    ]
+)
+@pytest.mark.no_parallel(reason="Changes PATH")
+def test_upload_extract_guid(file_info, rucio_error, uuid_error, rucio_client):
+    # Verify GUIDs can be extracted when possible, and throw errors when not
+
+    def valid_guid(guid):
+        try:
+            uuid.UUID(str(guid), version=4)
+            return True
+        except ValueError:
+            return False
+
+    # Fake Athena utility
+    base = Path(tempfile.mkdtemp(prefix='fake-athena'))
+    bin_dir = base / 'bin'
+    bin_dir.mkdir()
+
+    fake = bin_dir / 'pool_extractFileIdentifier'
+    fake.write_text('#!/bin/sh\necho 11111111-1111-1111-1111-111111111111\n')
+    fake.chmod(0o755)
+    old_path = os.environ.get('PATH', '')
+    os.environ['PATH'] = str(bin_dir) + os.pathsep + old_path
+    try:
+        with TemporaryDirectory() as temp_dir:
+            if file_info.get('path') and not rucio_error:
+                file_name = os.path.join(temp_dir, file_info['path'])
+                open(file_name, 'w')
+                file_info['path'] = file_name
+                upload_client = UploadClient(rucio_client)
+                if rucio_error:
+                    with pytest.raises(Exception):
+                        upload_client._get_file_guid(file_info)
+                else:
+                    guid = upload_client._get_file_guid(file_info)
+                    valid = valid_guid(guid)
+                    if uuid_error:
+                        assert not valid
+                    else:
+                        assert valid
+    finally:
+        os.environ['PATH'] = old_path
