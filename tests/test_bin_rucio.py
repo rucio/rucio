@@ -273,7 +273,7 @@ def test_rse_delete_distance(rse_factory, rucio_client):
     rse_name_2, _ = rse_factory.make_posix_rse()
 
     # add distance between the RSEs
-    rucio_client.add_distance(rse_name_1, rse_name_2, parameters={'distance': 1, 'ranking': 1})
+    rucio_client.add_distance(rse_name_1, rse_name_2, distance=1)
 
     # delete distance OK
     cmd = f'rucio-admin rse delete-distance {rse_name_1} {rse_name_2}'

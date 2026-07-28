@@ -1559,14 +1559,14 @@ class TestRSEClient:
         rucio_client.add_rse(destination)
         rucio_client.add_distance(source=source,
                                   destination=destination,
-                                  parameters={'distance': 1})
+                                  distance=1)
 
         for distance in rucio_client.get_distance(source=source, destination=destination):
             assert distance['distance'] == 1
 
         rucio_client.update_distance(source=source,
                                      destination=destination,
-                                     parameters={'distance': 0})
+                                     distance=0)
 
     @pytest.mark.dirty
     def test_add_distance_bidirectional(self, rucio_client):
@@ -1576,7 +1576,7 @@ class TestRSEClient:
         rucio_client.add_rse(destination)
         rucio_client.add_distance(source=source,
                                   destination=destination,
-                                  parameters={'distance': 1},
+                                  distance=1,
                                   bidirectional=True)
 
         for distance in rucio_client.get_distance(source=source, destination=destination):
@@ -1587,7 +1587,7 @@ class TestRSEClient:
 
         rucio_client.update_distance(source=source,
                                      destination=destination,
-                                     parameters={'distance': 5},
+                                     distance=5,
                                      bidirectional=True)
 
         assert rucio_client.get_distance(source=source, destination=destination)[0]['distance'] == 5
