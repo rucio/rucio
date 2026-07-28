@@ -1388,7 +1388,7 @@ class RSEClient(BaseClient):
         self,
         source: str,
         destination: str,
-        parameters: dict[str, int],
+        distance: int,
         bidirectional: bool = False
     ) -> Literal[True]:
         """
@@ -1432,7 +1432,10 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        parameters["bidirectional"] = bidirectional
+        parameters = {
+            "distance": distance,
+            "bidirectional": bidirectional
+        }
         r = self._send_request(url, method=HTTPMethod.POST, data=dumps(parameters))
         if r.status_code == codes.created:
             return True
@@ -1445,7 +1448,7 @@ class RSEClient(BaseClient):
         self,
         source: str,
         destination: str,
-        parameters: dict[str, int],
+        distance: int,
         bidirectional: bool = False
     ) -> Literal[True]:
         """
@@ -1486,7 +1489,10 @@ class RSEClient(BaseClient):
         path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
-        parameters["bidirectional"] = bidirectional
+        parameters = {
+            "distance": distance,
+            "bidirectional": bidirectional
+        }
         r = self._send_request(url, method=HTTPMethod.PUT, data=dumps(parameters))
         if r.status_code == codes.ok:
             return True
