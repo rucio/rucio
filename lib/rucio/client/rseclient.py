@@ -1403,8 +1403,8 @@ class RSEClient(BaseClient):
             The source RSE name.
         destination :
             The destination RSE name.
-        parameters :
-            Dicionary in the format {"distance": int}.
+        distance :
+            Distance between RSEs.
         bidirectional:
             If True, also adds the distance from dest to src.
 
@@ -1426,7 +1426,7 @@ class RSEClient(BaseClient):
             ```python
             from rucio.client.client import Client
             rse_client = Client()
-            rse_client.add_distance(source="RSE1", destination="RSE2", parameters={"distance": 10})
+            rse_client.add_distance(source="RSE1", destination="RSE2", distance=10)
             ```
         """
         path = [self.RSE_BASEURL, source, 'distances', destination]
@@ -1462,8 +1462,8 @@ class RSEClient(BaseClient):
             The source RSE.
         destination :
             The destination RSE.
-        parameters :
-            Updated distance in the form {"distance": int}.
+        distance :
+            New distance between RSEs.
         bidirectional :
             If True, also updates the distance from dest to src.
 
@@ -1478,8 +1478,8 @@ class RSEClient(BaseClient):
             ```python
             from rucio.client.client import Client
             rse_client = Client()
-            rse_client.add_distance(source="RSE1", destination="RSE2", parameters={"distance": 10})
-            rse_client.update_distance(source="RSE1", destination="RSE2", parameters={"distance": 20})  # Update the distance to 20
+            rse_client.add_distance(source="RSE1", destination="RSE2", distance=10)
+            rse_client.update_distance(source="RSE1", destination="RSE2", distance=20)  # Update the distance to 20
             ```
 
         See Also
