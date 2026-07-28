@@ -548,8 +548,7 @@ def add_distance_rses(args, client, logger, console, spinner):
 
     Set the distance between two RSEs.
     """
-    params = {'distance': args.distance}
-    client.add_distance(args.source, args.destination, params)
+    client.add_distance(args.source, args.destination, args.distance)
     print('Set distance from %s to %s to %d' % (args.source, args.destination, args.distance))
     return SUCCESS
 
@@ -584,15 +583,9 @@ def update_distance_rses(args, client, logger, console, spinner):
 
     Update the existing distance entry between two RSEs.
     """
-    params = {}
-    if args.distance is not None:
-        params['distance'] = args.distance
-    elif args.ranking is not None:
-        params['distance'] = args.ranking
-    client.update_distance(args.source, args.destination, params)
+    client.update_distance(args.source, args.destination, distance=args.distance)
     print('Update distance information from %s to %s:' % (args.source, args.destination))
-    if params.get('distance') is not None:
-        print("- Distance set to %d" % params['distance'])
+    print("- Distance set to %d" % args.distance)
     return SUCCESS
 
 
