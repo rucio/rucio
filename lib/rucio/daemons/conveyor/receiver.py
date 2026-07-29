@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from types import FrameType
 
     from sqlalchemy.orm import Session
+    from stomp import Connection
     from stomp.utils import Frame
 
     from rucio.common.types import LoggerFunction
@@ -58,6 +59,7 @@ class Receiver:
     def __init__(
             self,
             broker: str,
+            conn: "Connection",
             id_: str,
             total_threads: int,
             transfer_stats_manager: request_core.TransferStatsManager,
@@ -67,9 +69,14 @@ class Receiver:
         self.__all_vos = all_vos
         self.__voname = voname
         self.__broker = broker
+        self.__conn = conn
         self.__id = id_
         self.__total_threads = total_threads
         self._transfer_stats_manager = transfer_stats_manager
+
+    @METRICS.count_it
+    def on_heartbeat_timeout(self) -> None:
+        self.__conn.disconnect()
 
     @METRICS.count_it
     def on_error(self, frame: "Frame") -> None:
@@ -202,6 +209,7 @@ def receiver(
                         'rucio-messaging-fts3',
                         Receiver(
                             broker=conn.transport._Transport__host_and_ports[0],
+                            conn=conn,
                             id_=id_,
                             total_threads=total_threads,
                             transfer_stats_manager=transfer_stats_manager,
