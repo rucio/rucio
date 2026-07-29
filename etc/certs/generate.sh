@@ -18,7 +18,7 @@ DAYS=9000
 
 # Rucio Development CA
 openssl genrsa -out rucio_ca.key.pem -passout env:PASSPHRASE 2048
-openssl req -x509 -new -batch -key rucio_ca.key.pem -days $DAYS -out rucio_ca.pem -subj "/CN=Rucio Development CA" -passin env:PASSPHRASE
+openssl req -x509 -new -batch -key rucio_ca.key.pem -days $DAYS -out rucio_ca.pem -subj "/CN=Rucio Development CA" -passin env:PASSPHRASE -addext "basicConstraints = critical, CA:TRUE" -addext "keyUsage = critical, keyCertSign, cRLSign"
 hash=$(openssl x509 -noout -hash -in rucio_ca.pem)
 ln -sf rucio_ca.pem $hash.0
 
