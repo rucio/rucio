@@ -474,6 +474,11 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
     # Be gentle with bash variables, there can be whitespace
     token = token.strip()
 
+    # SSH challenge tokens share this table but are nonces to be signed, not
+    # credentials, so they must never authenticate a request on their own.
+    if token.startswith('challenge-'):
+        raise CannotAuthenticate("Challenge tokens cannot be used for authentication.")
+
     # Hash token for cache key to prevent exposure and handle long JWT tokens
     cache_key = _hash_token_for_cache(token)
 
