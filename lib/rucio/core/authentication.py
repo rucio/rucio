@@ -567,6 +567,11 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
     token = token.strip()
     cache_key = token.replace(' ', '')
 
+    # SSH challenge tokens share this table but are nonces to be signed, not
+    # credentials, so they must never authenticate a request on their own.
+    if token.startswith('challenge-'):
+        raise CannotAuthenticate("Challenge tokens cannot be used for authentication.")
+
     # Check if token can be found in cache region
     value: Union[NoValue, "TokenValidationDict"] = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
