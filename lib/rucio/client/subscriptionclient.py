@@ -36,7 +36,7 @@ class SubscriptionClient(BaseClient):
             name: str,
             account: str,
             filter_: dict[str, Any],
-            replication_rules: dict[str, Any],
+            replication_rules: list[dict[str, Any]],
             comments: str,
             lifetime: Union[int, Literal[False]],
             retroactive: bool,
@@ -89,7 +89,7 @@ class SubscriptionClient(BaseClient):
     def list_subscriptions(
             self,
             name: Optional[str] = None,
-            account: Optional[dict[str, Any]] = None
+            account: Optional[str] = None
     ) -> Union["Iterator[dict[str, Any]]", list]:
         """
         Returns a dictionary with the subscription information :
@@ -131,10 +131,10 @@ class SubscriptionClient(BaseClient):
 
     def update_subscription(
             self,
-            name,
+            name: str,
             account: Optional[str] = None,
             filter_: Optional[dict[str, Any]] = None,
-            replication_rules: Optional[dict[str, Any]] = None,
+            replication_rules: Optional[list[dict[str, Any]]] = None,
             comments: Optional[str] = None,
             lifetime: Optional[Union[int, Literal[False]]] = None,
             retroactive: Optional[bool] = None,
