@@ -26,7 +26,7 @@ def scope():
 @click.argument("scope-name")
 @click.option("-a", "--account", help="Associated account", required=True)
 @click.pass_context
-def add_(ctx, account, scope_name):
+def add_(ctx: click.Context, account: str, scope_name: str) -> None:
     """Add a new scope with name [SCOPE-NAME]"""
     ctx.obj.client.add_scope(account=account, scope=scope_name)
     print(f'Added new scope to {account}: {scope_name}')
@@ -36,7 +36,7 @@ def add_(ctx, account, scope_name):
 @click.option("-a", "--account", help="Filter by associated account", required=False)
 @click.option("--csv", is_flag=True, help="Output in CSV format", default=False)
 @click.pass_context
-def list_(ctx: click.Context, account: str, csv: bool):
+def list_(ctx: click.Context, account: str, csv: bool) -> None:
     """List existing scopes"""
     if (ctx.obj.use_rich) and (not csv):
         ctx.obj.spinner.update(status='Fetching scopes')
