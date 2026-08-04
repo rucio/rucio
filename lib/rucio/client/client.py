@@ -24,6 +24,7 @@ from rucio.client.diracclient import DiracClient
 from rucio.client.exportclient import ExportClient
 from rucio.client.importclient import ImportClient
 from rucio.client.lifetimeclient import LifetimeClient
+from rucio.client.loadinjectionclient import LoadInjectionClient
 from rucio.client.lockclient import LockClient
 from rucio.client.metaconventionsclient import MetaConventionClient
 from rucio.client.opendataclient import OpenDataClient
@@ -38,6 +39,7 @@ from rucio.client.touchclient import TouchClient
 
 
 class Client(AccountClient,
+             LoadInjectionClient,
              MetaConventionClient,
              PingClient,
              ReplicaClient,

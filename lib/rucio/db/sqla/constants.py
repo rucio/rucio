@@ -114,6 +114,13 @@ class LifetimeExceptionsState(Enum):
     WAITING = 'W'
 
 
+class LoadInjectionState(Enum):
+    WAITING = 'W'
+    INJECTING = 'I'
+    FINISHED = 'F'
+    KILLED = 'K'
+
+
 class LockState(Enum):
     REPLICATING = 'R'
     OK = 'O'
