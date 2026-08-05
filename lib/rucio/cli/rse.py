@@ -366,8 +366,8 @@ def attr_list_(ctx: click.Context, rse_name: str) -> None:
         table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
-        for k in attributes:
-            print(f'{k}: {attributes[k]}')
+        table_data = [[k, str(v)] for k, v in sorted(attributes.items())]
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE']))
 
 
 @attribute.command("set")
