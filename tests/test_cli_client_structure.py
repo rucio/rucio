@@ -875,6 +875,19 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     assert "ERROR" not in err
     assert rule_id in out
 
+    cmd = f"rucio rule show {rule_id}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert rule_rse in out
+    assert "1" in out  # One copy
+
+    cmd = f"rucio rule show {rule_id} --examine"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert "Status of the rule is:" in out
+
     cmd = f"rucio rule list --account {rucio_client.account}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
@@ -931,6 +944,14 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     assert exitcode == 0
     assert "ERROR" not in err
     assert rucio_client.get_replication_rule(rule_id)["state"] == "SUSPENDED"
+
+    cmd = f"rucio rule history {rule_id}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    # Needs to have the right headers even if there isn't history in the table
+    for key in ['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME']:
+        assert key in out
 
     # Do one without a child rule so i can delete it
     new_name = generate_uuid()
