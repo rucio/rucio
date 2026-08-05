@@ -146,10 +146,10 @@ def attribute_list(ctx: click.Context, account_name: str):
         table_data.append([attr['key'], attr['value']])
 
     if ctx.obj.use_rich:
-        table = RichUtils.generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['KEY', 'VALUE'], col_alignments=['left', 'left'])
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
-        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['Key', 'Value']))
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE']))
 
 
 @attribute.command("set")
