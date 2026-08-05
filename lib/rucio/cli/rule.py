@@ -259,30 +259,19 @@ def history(ctx: click.Context, did: str) -> None:
     for rule in ctx.obj.client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
             rule_dict.append(rule['rule_id'])
-            if ctx.obj.use_rich:
-                table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
-            else:
-                print('-' * 40)
-                print('Rule insertion')
-                print(f'Account : {rule["account"]}')
-                print(f'RSE expression : {rule["rse_expression"]}')
-                print(f'Time : {rule["created_at"]}')
+            table_data.append(['Insertion', rule['account'], rule['rse_expression'], rule['created_at']])
         else:
             rule_dict.remove(rule['rule_id'])
-            if ctx.obj.use_rich:
-                table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
-            else:
-                print('-' * 40)
-                print('Rule deletion')
-                print(f'Account : {rule["account"]}')
-                print(f'RSE expression : {rule["rse_expression"]}')
-                print(f'Time : {rule["updated_at"]}')
+            table_data.append(['Deletion', rule['account'], rule['rse_expression'], rule['updated_at']])
 
     if ctx.obj.use_rich:
         table_data = sorted(table_data, key=lambda entry: entry[-1], reverse=True)
         table = RichUtils.generate_table(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'])
         ctx.obj.spinner.stop()
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+
+    else:
+        print(tabulate(table_data, headers=['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME'], tablefmt=ctx.obj.tablefmt))
 
 
 @rule.command("move")
