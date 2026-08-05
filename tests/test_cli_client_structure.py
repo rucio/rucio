@@ -886,7 +886,7 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
-    assert "Status of the rule is:" in out
+    assert "Status of the replication rule:" in out
 
     cmd = f"rucio rule list --account {rucio_client.account}"
     exitcode, out, err = execute(cmd)
