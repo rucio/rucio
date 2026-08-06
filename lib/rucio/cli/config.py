@@ -14,6 +14,9 @@
 from typing import Optional
 
 import click
+from rich.tree import Tree
+
+from rucio.cli.utils import RichUtils
 
 
 @click.group()
@@ -28,23 +31,49 @@ def config():
 @click.pass_context
 def list_(ctx: click.Context, section: Optional[str], key: Optional[str]):
     """List the sections or content of sections in the rucio.cfg"""
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.update(status='Fetching Config')
+        ctx.obj.spinner.start()
+
     result = ctx.obj.client.get_config(section=section, option=key)
     if not isinstance(result, dict):
         print(f'[{section}]\n{key}={result}')
+
     else:
-        print_header = True
-        for config_section, option in result.items():
-            if print_header:
-                if section is not None:
-                    print(f'[{section}]')
-                else:
-                    print(f'[{config_section}]')
-            if not isinstance(option, dict):
-                print(f'{config_section}={option}')
-                print_header = False
+        if ctx.obj.use_rich:
+            table_data = []
+            if section is None:
+                for result_section, option in result.items():
+                    tree = Tree(str(result_section))
+                    for k, v in option.items():
+                        branch = tree.add(k)
+                        branch.add(v)
+                    table_data.append(tree)
             else:
-                for config_key, value in option.items():
-                    print(f'{config_key}={value}')
+                tree = Tree(str(section))
+                for option, value in result.items():
+                    branch = tree.add(option)
+                    branch.add(value)
+                table_data.append(tree)
+
+        else:
+            print_header = True
+            for config_section, option in result.items():
+                if print_header:
+                    if section is not None:
+                        print(f'[{section}]')
+                    else:
+                        print(f'[{config_section}]')
+                if not isinstance(option, dict):
+                    print(f'{config_section}={option}')
+                    print_header = False
+                else:
+                    for config_key, value in option.items():
+                        print(f'{config_key}={value}')
+
+        if ctx.obj.use_rich:
+            ctx.obj.spinner.stop()
+            RichUtils.print_output(*table_data, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 
 @config.command("set")
