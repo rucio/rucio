@@ -73,6 +73,7 @@ Individual contributors to the source code
 - Riccardo Di Maio <riccardodimaio11@gmail.com>, 2024-2025
 - Karanjot Singh <karanjot.singh@cern.ch>, 2025-2026
 - Vlad Galuska <vlad.galuska21@gmail.com>, 2026
+- Divyanshu Mishra <23F2001496@ds.study.iitm.ac.in>, 2026
 
 Organisations employing contributors
 ------------------------------------
@@ -92,6 +93,7 @@ Organisations employing contributors
 - University of Edinburgh (UK)
 - Birla Institute of Technology, Mesra (India)
 - Indian Institute of Technology, Kharagpur (India)
+- Indian Institute of Technology Madras (India)
 - Stockholm University, Stockholm (Sweden)
 - Dwarkadas J. Sanghvi College of Engineering (India)
 - Science and Technology Facilities Council (UK)
