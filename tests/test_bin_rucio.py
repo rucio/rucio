@@ -1040,19 +1040,20 @@ def test_upload_with_lifetime(rse_factory, mock_scope, file_factory, rucio_clien
     assert files[0]['name'] == name
 
 
-def test_upload_with_guid(rse_factory, mock_scope):
+def test_upload_with_guid(rse_factory, mock_scope, file_factory):
     rse, _ = rse_factory.make_posix_rse()
     scope = mock_scope.external
 
-    # Upload with GUID
-    with tempfile.NamedTemporaryFile() as tmp_file:
-        cmd = 'rucio upload '\
-            f'--rse {rse} --scope {scope} '\
-            f'--guid {generate_uuid()} {tmp_file.name}'
+    # Upload with GUID, make sure the file is not empty to avoid UploadClient protocol-stat retry backoff
+    tmp_file = file_factory.file_generator()
+    name = os.path.basename(tmp_file)
+    cmd = 'rucio upload '\
+        f'--rse {rse} --scope {scope} '\
+        f'--guid {generate_uuid()} {tmp_file}'
 
-        exitcode, out, err = execute(cmd)
-        assert exitcode == 0
-        assert f"Successfully uploaded file {tmp_file.name.split('/')[-1]}" in err
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert f"Successfully uploaded file {name}" in err
 
 
 def test_upload_with_pfn(rse_factory, mock_scope, file_factory, vo):
