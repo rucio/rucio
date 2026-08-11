@@ -546,12 +546,13 @@ def test_lifetime_exception(rucio_client, mock_scope, file_config_mock):
     rucio_client.set_config_option("cli", "endpoints_add", "lifetime-exception")
 
     input_file = tempfile.NamedTemporaryFile()
-    mock_did = tempfile.NamedTemporaryFile()
+    # Upload file needs to be non-empty to avoid UploadClient treating it as a storage race and retrying
+    mock_did = file_generator()
     mock_rse = "MOCK-POSIX"
     upload_client = UploadClient(rucio_client)
 
     item: FileToUploadDict = {
-        'path': mock_did.name,
+        'path': mock_did,
         'rse': mock_rse,
         'did_scope': mock_scope.external,
     }
@@ -559,7 +560,7 @@ def test_lifetime_exception(rucio_client, mock_scope, file_config_mock):
     upload_client.upload(items=[item])
 
     with open(input_file.name, "w") as f:
-        f.write(f"{mock_scope}:{mock_did.name.split('/')[-1]}")
+        f.write(f"{mock_scope}:{mock_did.split('/')[-1]}")
 
     cmd = f"rucio lifetime-exception add -f {input_file.name} --reason mock_test -x 2100-12-30"
     exitcode, _, err = execute(cmd)
