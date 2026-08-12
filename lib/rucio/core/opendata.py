@@ -468,7 +468,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
 
         if token:
             separator = "&" if "?" in uri else "?"
-            download_urls.append(f"{uri}{separator}token={token}")
+            download_urls.append(f"{uri}{separator}authz={token}")
 
     return download_urls
 
