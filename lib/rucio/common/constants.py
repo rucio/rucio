@@ -132,6 +132,7 @@ class RseAttr:
     DEFAULT_ACCOUNT_LIMIT_BYTES = 'default_account_limit_bytes'
     FTS = 'fts'
     GLOBUS_ENDPOINT_ID = 'globus_endpoint_id'
+    GLOBUS_COLLECTION_ID = 'globus_collection_id'
     GREEDYDELETION = 'greedyDeletion'
     IS_OBJECT_STORE = 'is_object_store'
     LFN2PFN_ALGORITHM = 'lfn2pfn_algorithm'
@@ -185,6 +186,7 @@ RSE_ATTRS_STR = Literal[
     'default_account_limit_bytes',
     'fts',
     'globus_endpoint_id',
+    'globus_collection_id',
     'lfn2pfn_algorithm',
     'maximum_pin_lifetime',
     'multihop_tombstone_delay',
