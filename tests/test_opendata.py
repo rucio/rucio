@@ -629,6 +629,7 @@ class TestOpenDataEOS:
                                                             lifetime_seconds=3600) is None
 
     def test_generate_download_urls(self, monkeypatch):
+        expected_eos_host = f"{self.eos_host}:1094"
         eos_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
         uris = [
             eos_uri,
@@ -639,16 +640,16 @@ class TestOpenDataEOS:
         requested_paths = []
 
         def fake_token_command(*, eos_host, filename, lifetime_seconds):
-            assert eos_host == self.eos_host
+            assert eos_host == f"{self.eos_host}:1094"
             requested_paths.append(filename)
             return self.eos_token
 
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: host == self.eos_host)
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: host == expected_eos_host)
         monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", fake_token_command)
 
         download_urls = opendata._generate_download_urls(uris)
 
-        assert download_urls == [f"{eos_uri}?token={self.eos_token}"]
+        assert download_urls == [f"{eos_uri}?authz={self.eos_token}"]
         # The double slash of the PFN must be collapsed in the path sent to EOS
         assert requested_paths == ["/eos/opendata/experiment/file.root"]
 
@@ -661,7 +662,7 @@ class TestOpenDataEOS:
 
         download_urls = opendata._generate_download_urls([eos_uri])
 
-        assert download_urls == [f"{eos_uri}&token={self.eos_token}"]
+        assert download_urls == [f"{eos_uri}&authz={self.eos_token}"]
 
     def test_generate_download_urls_no_token(self, monkeypatch):
         monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
@@ -680,6 +681,7 @@ class TestOpenDataEOS:
 
         eos_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
         tape_uri = "root://tape.example.org:1094//tape/file.root"
+        expected_eos_host = f"{self.eos_host}:1094"
 
         def fake_list_files(*args, **kwargs):
             yield {"scope": mock_scope, "name": file_name, "bytes": 42, "adler32": "deadbeef"}
@@ -689,7 +691,7 @@ class TestOpenDataEOS:
 
         monkeypatch.setattr(opendata, "list_files", fake_list_files)
         monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: host == self.eos_host)
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: host == expected_eos_host)
         monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", lambda **kwargs: self.eos_token)
 
         result = opendata.get_opendata_did_files(scope=mock_scope, name=name, include_download_urls=True,
@@ -698,7 +700,7 @@ class TestOpenDataEOS:
         assert len(result["files"]) == 1
         file = result["files"][0]
         assert file["uris"] == [eos_uri], "Only DISK replicas should be exposed"
-        assert file["download_urls"] == [f"{eos_uri}?token={self.eos_token}"]
+        assert file["download_urls"] == [f"{eos_uri}?authz={self.eos_token}"]
 
         # Without the flag, no download URLs should be computed
         result = opendata.get_opendata_did_files(scope=mock_scope, name=name, include_download_urls=False,
