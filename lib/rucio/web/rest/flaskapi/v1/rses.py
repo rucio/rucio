@@ -39,21 +39,18 @@ from rucio.gateway.account_limit import get_rse_account_usage
 from rucio.gateway.rse import (
     add_distance,
     add_protocol,
-    add_qos_policy,
     add_rse,
     add_rse_attribute,
     del_protocols,
     del_rse,
     del_rse_attribute,
     delete_distance,
-    delete_qos_policy,
     delete_rse_limits,
     get_distance,
     get_rse,
     get_rse_limits,
     get_rse_protocols,
     get_rse_usage,
-    list_qos_policies,
     list_rse_attributes,
     list_rse_usage_history,
     list_rses,
@@ -161,9 +158,6 @@ class RSEs(ErrorHandlingMethodView):
                       usage:
                         description: "The usage of the rse."
                         type: integer
-                      qos_class:
-                        description: "The quality of service class."
-                        type: string
           400:
             description: "Invalid RSE expression"
           401:
@@ -748,9 +742,6 @@ class ProtocolList(ErrorHandlingMethodView):
                     lfn2pfn_algorithm:
                       description: "The algorithm used to translate the logical file names to the physical ones."
                       type: string
-                    qos_class:
-                      description: "The qos class of the RSE."
-                      type: string
                     rse:
                       description: "The name of the RSE."
                       type: string
@@ -1084,9 +1075,6 @@ class Protocol(ErrorHandlingMethodView):
                     lfn2pfn_algorithm:
                       description: "The algorithm used to translate the logical file names to the physical ones."
                       type: string
-                    qos_class:
-                      description: "The qos class of the RSE."
-                      type: string
                     rse:
                       description: "The name of the RSE."
                       type: string
@@ -1247,9 +1235,6 @@ class Protocol(ErrorHandlingMethodView):
                       type: string
                     lfn2pfn_algorithm:
                       description: "The algorithm used to translate the logical file names to the physical ones."
-                      type: string
-                    qos_class:
-                      description: "The qos class of the RSE."
                       type: string
                     rse:
                       description: "The name of the RSE."
@@ -2093,136 +2078,6 @@ class Distance(ErrorHandlingMethodView):
         return 'Deleted', 200
 
 
-class QoSPolicy(ErrorHandlingMethodView):
-    """ Add/Delete/List QoS policies on an RSE. """
-
-    @check_accept_header_wrapper_flask(['application/json'])
-    def post(self, rse, policy):
-        """
-        ---
-        summary: Add QoS policy
-        description: "Add a QoS Policy to a RSE."
-        tags:
-          - Rucio Storage Elements
-        parameters:
-        - name: rse
-          in: path
-          description: "The name of the Rucio Storage Element name."
-          schema:
-            type: string
-          style: simple
-        - name: policy
-          in: path
-          description: "The QoS policy to add to and rse."
-          schema:
-            type: string
-          style: simple
-        responses:
-          201:
-            description: "OK"
-            content:
-              application/json:
-                schema:
-                  type: string
-                  enum: ["Created"]
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "Rse not found"
-          406:
-            description: "Not acceptable"
-        """
-        try:
-            add_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ['issuer'], vo=request.environ['vo'])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, error)
-
-        return 'Created', 201
-
-    @check_accept_header_wrapper_flask(['application/json'])
-    def delete(self, rse, policy):
-        """
-        ---
-        summary: Delete QoS Policy
-        description: "Delete QoS policy from RSE."
-        tags:
-          - Rucio Storage Elements
-        parameters:
-        - name: rse
-          in: path
-          description: "The name of the Rucio Storage Element name."
-          schema:
-            type: string
-          style: simple
-        - name: policy
-          in: path
-          description: "The QoS policy to add to and rse."
-          schema:
-            type: string
-          style: simple
-        responses:
-          200:
-            description: "OK"
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "Rse not found"
-          406:
-            description: "Not acceptable"
-        """
-        try:
-            delete_qos_policy(rse=rse, qos_policy=policy, issuer=request.environ['issuer'], vo=request.environ['vo'])
-        except RSENotFound as error:
-            return generate_http_error_flask(404, error)
-
-        return '', 200
-
-    @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, rse):
-        """
-        ---
-        summary: Gett QoS Policies
-        description: "List all QoS policies for an Rse."
-        tags:
-          - Rucio Storage Elements
-        parameters:
-        - name: rse
-          in: path
-          description: "The name of the Rucio Storage Element name."
-          schema:
-            type: string
-          style: simple
-        responses:
-          200:
-            description: "OK"
-            content:
-              application/json:
-                schema:
-                  description: "A list with all the QoS policies for an Rse."
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      rse_id:
-                        description: "The rse id."
-                        type: string
-                      qos_policy:
-                        description: "The qos policy."
-                        type: string
-          401:
-            description: "Invalid Auth Token"
-          404:
-            description: "Rse not found"
-          406:
-            description: "Not acceptable"
-        """
-        try:
-            qos_policies = list_qos_policies(rse=rse, issuer=request.environ['issuer'], vo=request.environ['vo'])
-            return Response(dumps(qos_policies, cls=APIEncoder), content_type='application/json')
-        except RSENotFound as error:
-            return generate_http_error_flask(404, error)
-
-
 def blueprint() -> AuthenticatedBlueprint:
     bp = AuthenticatedBlueprint('rses', __name__, url_prefix='/rses')
 
@@ -2251,10 +2106,6 @@ def blueprint() -> AuthenticatedBlueprint:
     bp.add_url_rule('/<rse>/usage/history', view_func=usage_history_view, methods=[HTTPMethod.GET.value])
     limits_view = Limits.as_view('limits')
     bp.add_url_rule('/<rse>/limits', view_func=limits_view, methods=[HTTPMethod.GET.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
-    qos_policy_view = QoSPolicy.as_view('qos_policy')
-    bp.add_url_rule('/<rse>/qos_policy', view_func=qos_policy_view, methods=[HTTPMethod.GET.value])
-    bp.add_url_rule('/<rse>/qos_policy/<policy>', view_func=qos_policy_view,
-                    methods=[HTTPMethod.POST.value, HTTPMethod.DELETE.value])
     rse_view = RSE.as_view('rse')
     bp.add_url_rule('/<rse>', view_func=rse_view,
                     methods=[HTTPMethod.GET.value, HTTPMethod.DELETE.value, HTTPMethod.PUT.value, HTTPMethod.POST.value])
