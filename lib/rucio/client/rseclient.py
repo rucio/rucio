@@ -78,9 +78,6 @@ class RSEClient(BaseClient):
             **`protocols`**:
                 list[dict]: Describing the protocols used by the RSE for storage
 
-            **`qos_class`**:
-                Optional[str]: QoS Policy
-
             **`rse`**:
                 str: Name of the RSE
 
@@ -1019,93 +1016,6 @@ class RSEClient(BaseClient):
         self.update_protocols(rse, protocol_b['scheme'], {'domains': {domain: {operation: priority_a}}},
                               protocol_b['hostname'], protocol_b['port'])
         return True
-
-    # TODO Remove QoS functionality, #8509
-    def add_qos_policy(self, rse: str, qos_policy: str) -> Literal[True]:
-        """
-        Add a QoS policy to an RSE.
-
-        Parameters
-        ----------
-        rse
-            The name of the RSE.
-        qos_policy
-            The QoS policy to add.
-
-        Returns
-        -------
-        True if successful.
-
-        Raises
-        ------
-        Duplicate
-            If the QoS policy already exists.
-        """
-
-        path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
-        path = '/'.join(path)
-        url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.POST)
-        if r.status_code == codes.created:
-            return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
-
-    def delete_qos_policy(self, rse: str, qos_policy: str) -> Literal[True]:
-        """
-        Delete a QoS policy from an RSE.
-
-        Parameters
-        ----------
-        rse
-            The name of the RSE.
-        qos_policy
-            The QoS policy to delete.
-        session:
-            The database session in use.
-
-        Returns
-        -------
-        True if successful.
-
-        Raises
-        ------
-        RSENotFound
-            If the RSE doesn't exist.
-        QoSPolicyNotFound
-            If the QoS policy doesn't exist.
-        """
-
-        path = [self.RSE_BASEURL, rse, 'qos_policy', qos_policy]
-        path = '/'.join(path)
-        url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.DELETE)
-        if r.status_code == codes.ok:
-            return True
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
-
-    def list_qos_policies(self, rse: str) -> list[str]:
-        """
-        List all QoS policies of an RSE.
-
-        :param rse_id: The id of the RSE.
-        :param session: The database session in use.
-
-        :returns: List containing all QoS policies.
-        """
-
-        path = [self.RSE_BASEURL, rse, 'qos_policy']
-        path = '/'.join(path)
-        url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.GET)
-        if r.status_code == codes.ok:
-            return loads(r.text)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
 
     def set_rse_usage(
             self,
