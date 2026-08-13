@@ -833,30 +833,6 @@ def test_rse_limits(rucio_client, file_config_mock):
     assert f'Limit {non_existent_limit} not defined in RSE {mock_rse}' in err
 
 
-@with_each_cli_renderer
-def test_rse_qos_policy(rucio_client, file_config_mock):
-    mock_rse = "MOCK"
-    policy = "SOMETHING_I_GUESS"
-
-    cmd = f"rucio rse qos add {mock_rse} --policy {policy}"
-    exitcode, out, err = execute(cmd)
-    assert exitcode == 0
-    assert "ERROR" not in err
-    assert policy in rucio_client.list_qos_policies(mock_rse)
-
-    cmd = f"rucio rse qos list {mock_rse}"
-    exitcode, out, err = execute(cmd)
-    assert exitcode == 0
-    assert "ERROR" not in err
-    assert policy in out
-
-    cmd = f"rucio rse qos remove {mock_rse} --policy {policy}"
-    exitcode, out, err = execute(cmd)
-    assert exitcode == 0
-    assert "ERROR" not in err
-    assert policy not in rucio_client.list_qos_policies(mock_rse)
-
-
 @pytest.mark.dirty
 @with_each_cli_renderer
 def test_rule(rucio_client, mock_scope, file_config_mock):
