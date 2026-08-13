@@ -340,12 +340,10 @@ def update_rse(args, client, logger, console, spinner):
     %(prog)s update [options] <field1=value1 field2=value2 ...>
 
     Update the settings of the RSE:
-      deterministic, rse_type, staging_are, volatile, qos_class,
+      deterministic, rse_type, staging_are, volatile,
       availability_delete, availability_read, availability_write,
       city, country_name, latitude, longitude, region_code, time_zone
 
-    Use '', 'None' or 'null' to wipe the value of following RSE settings:
-      qos_class
     """
     if args.value in ['true', 'True', 'TRUE', '1']:
         args.value = True
@@ -644,53 +642,6 @@ def del_protocol_rse(args, client, logger, console, spinner):
     if args.hostname:
         kwargs['hostname'] = args.hostname
     client.delete_protocols(args.rse, args.scheme, **kwargs)
-
-
-@exception_handler
-def add_qos_policy(args, client, logger, console, spinner):
-    """
-    %(prog)s add-qos-policy <rse> <qos_policy>
-
-    Add a QoS policy to an RSE.
-    """
-    client.add_qos_policy(args.rse, args.qos_policy)
-    print('Added QoS policy to RSE %s: %s' % (args.rse, args.qos_policy))
-    return SUCCESS
-
-
-@exception_handler
-def delete_qos_policy(args, client, logger, console, spinner):
-    """
-    %(prog)s delete-qos-policy <rse> <qos_policy>
-
-    Delete a QoS policy from an RSE.
-    """
-    client.delete_qos_policy(args.rse, args.qos_policy)
-    print('Deleted QoS policy from RSE %s: %s' % (args.rse, args.qos_policy))
-    return SUCCESS
-
-
-@exception_handler
-def list_qos_policies(args, client, logger, console, spinner):
-    """
-    %(prog)s list-qos-policies <rse>
-
-    List all QoS policies of an RSE.
-    """
-    if cli_config == 'rich':
-        spinner.update(status='Fetching QoS policies')
-        spinner.start()
-
-    qos_policies = client.list_qos_policies(args.rse)
-    if cli_config == 'rich':
-        qos_policies = [[qos_policy] for qos_policy in sorted(qos_policies)]
-        table = RichUtils.generate_table(qos_policies, headers=['QOS POLICY'], col_alignments=['left'])
-        spinner.stop()
-        RichUtils.print_output(table, console=console, no_pager=args.no_pager)
-    else:
-        for qos_policy in sorted(qos_policies):
-            print(qos_policy)
-    return SUCCESS
 
 
 @exception_handler
@@ -1797,7 +1748,7 @@ def get_parser():
                                                         '\n')
     update_rse_parser.set_defaults(which='update_rse')
     update_rse_parser.add_argument('--rse', dest='rse', action='store', help='RSE name', required=True)
-    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of deterministic, rse_type, staging_are, volatile, qos_class, availability_delete, availability_read, availability_write, city, country_name, latitude, longitude, region_code, time_zone", required=True)  # noqa: E501
+    update_rse_parser.add_argument('--setting', dest='param', action='store', help="One of deterministic, rse_type, staging_are, volatile, availability_delete, availability_read, availability_write, city, country_name, latitude, longitude, region_code, time_zone", required=True)  # noqa: E501
     update_rse_parser.add_argument('--value', dest='value', action='store', help='Value for the new setting configuration. Use "", None or null to wipe the value', required=True)
 
     # The info_rse command
@@ -2038,41 +1989,6 @@ def get_parser():
                                                          '\n')
     disable_rse_parser.set_defaults(which='disable_rse')
     disable_rse_parser.add_argument('rse', action='store', help='RSE name')
-
-    # The add_qos_policy command
-    add_qos_policy_parser = rse_subparser.add_parser('add-qos-policy',
-                                                     help='Add a QoS policy to an RSE.',
-                                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                     epilog='Usage example\n'
-                                                            '"""""""""""""\n'
-                                                            '\n'
-                                                            '   $ rucio-admin rse add-qos-policy JDOE_DATADISK SLOW_BUT_CHEAP')
-    add_qos_policy_parser.set_defaults(which='add_qos_policy')
-    add_qos_policy_parser.add_argument('rse', action='store', help='RSE name')
-    add_qos_policy_parser.add_argument('qos_policy', action='store', help='QoS policy')
-
-    # The delete_qos_policy command
-    delete_qos_policy_parser = rse_subparser.add_parser('delete-qos-policy',
-                                                        help='Delete a QoS policy from an RSE.',
-                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='Usage example\n'
-                                                               '"""""""""""""\n'
-                                                               '\n'
-                                                               '   $ rucio-admin rse delete-qos-policy JDOE_DATADISK SLOW_BUT_CHEAP')
-    delete_qos_policy_parser.set_defaults(which='delete_qos_policy')
-    delete_qos_policy_parser.add_argument('rse', action='store', help='RSE name')
-    delete_qos_policy_parser.add_argument('qos_policy', action='store', help='QoS policy')
-
-    # The delete_qos_policy command
-    list_qos_policies_parser = rse_subparser.add_parser('list-qos-policies',
-                                                        help='List all QoS policies of an RSE.',
-                                                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                                                        epilog='Usage example\n'
-                                                               '"""""""""""""\n'
-                                                               '\n'
-                                                               '   $ rucio-admin rse list-qos-policies JDOE_DATADISK')
-    list_qos_policies_parser.set_defaults(which='list_qos_policies')
-    list_qos_policies_parser.add_argument('rse', action='store', help='RSE name')
 
     # The set_limit_rse command
     set_limit_rse_parser = rse_subparser.add_parser('set-limit',
@@ -2436,9 +2352,6 @@ def main():
                     'del_protocol_rse': del_protocol_rse,
                     'list_rses': list_rses,
                     'disable_rse': disable_rse,
-                    'add_qos_policy': add_qos_policy,
-                    'delete_qos_policy': delete_qos_policy,
-                    'list_qos_policies': list_qos_policies,
                     'add_scope': add_scope,
                     'list_scopes': list_scopes,
                     'info_rse': info_rse,
