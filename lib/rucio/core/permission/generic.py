@@ -53,8 +53,6 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'add_protocol': perm_add_protocol,
             'del_protocol': perm_del_protocol,
             'update_protocol': perm_update_protocol,
-            'add_qos_policy': perm_add_qos_policy,
-            'delete_qos_policy': perm_delete_qos_policy,
             'declare_bad_file_replicas': perm_declare_bad_file_replicas,
             'declare_suspicious_file_replicas': perm_declare_suspicious_file_replicas,
             'add_replicas': perm_add_replicas,
@@ -630,30 +628,6 @@ def perm_del_protocol(issuer: "InternalAccount", kwargs: dict[str, Any], session
 def perm_update_protocol(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
     """
     Checks if an account can update protocols of an RSE.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :param session: The DB session to use
-    :returns: True if account is allowed, otherwise False
-    """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
-
-
-def perm_add_qos_policy(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
-    """
-    Checks if an account can add QoS policies to an RSE.
-
-    :param issuer: Account identifier which issues the command.
-    :param kwargs: List of arguments for the action.
-    :param session: The DB session to use
-    :returns: True if account is allowed, otherwise False
-    """
-    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
-
-
-def perm_delete_qos_policy(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
-    """
-    Checks if an account can delete QoS policies from an RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
