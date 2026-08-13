@@ -915,7 +915,7 @@ def test_stager(rse_factory, did_factory, root_account, replica_client):
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.FINISHER])
 def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account, jdoe_account):
     """
-    Test qos: transfer from tape to disk
+    Test transfer from tape to disk
     Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
     Test rule and lock state transitions
     """
@@ -978,7 +978,7 @@ def test_transfer_to_mas_existing_replica(rse_factory, did_factory, root_account
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root_account, jdoe_account):
     """
-    Test qos: transfer from tape to disk
+    Test transfer from tape to disk
     Assert rse maximum_pin_lifetime is passed to transfer tool in the transfer request
     Test rule and lock state transitions
     """
