@@ -452,6 +452,8 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
             continue
 
         host = parsed.hostname
+        if host and parsed.port:
+            host = f"{host}:{parsed.port}"
         if not host or not _is_eos_host(host):
             continue
 
