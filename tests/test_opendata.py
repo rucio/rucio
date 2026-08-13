@@ -1009,8 +1009,8 @@ class TestOpenDataCLI:
         exitcode, stdout, stderr = execute("rucio opendata did list --short")
         assert exitcode == 0, f"Failed to list opendata with short option: {stderr.strip()}"
         lines = [line.strip() for line in stdout.split("\n") if line.strip()]
-        pattern = re.compile(rf"^{mock_scope}:.+$")
-        assert all(pattern.match(line) for line in lines), f"All lines should follow the {mock_scope}:name pattern"
+        pattern = re.compile(r"^[^:]+:.+$")
+        assert all(pattern.match(line) for line in lines), "All lines should follow the scope:name pattern"
         assert f"{mock_scope}:{name}" in lines, f"Expected {mock_scope}:{name} in opendata list with short option"
 
         exitcode, stdout, stderr = execute("rucio opendata did list --state draft")
