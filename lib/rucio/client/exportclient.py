@@ -51,7 +51,7 @@ class ExportClient(BaseClient):
             The top‑level keys are:
 
             **`rses`**:
-                Per‑RSE settings (name, deterministic flag, QoS class, supported protocol, etc.).
+                Per‑RSE settings (name, deterministic flag, supported protocol, etc.).
 
             **`distances`**:
                 Pairwise RSE‑to‑RSE distance values (only present when `distance=True`).
