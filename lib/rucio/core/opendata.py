@@ -454,14 +454,15 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
         host = parsed.hostname
         if host and parsed.port:
             host = f"{host}:{parsed.port}"
-        if not host or not _is_eos_host(host):
-            continue
 
-        if parsed.scheme not in {"http", "https"}:
+        if not (
+            parsed.scheme in {"http", "https"}
+            and host
+            and _is_eos_host(host)
+        ):
             logger.info(
-                "Skipping EOS replica URI '%s': unsupported scheme '%s'.",
+                "Skipping replica URI '%s': only HTTP(S) replicas hosted on EOS are supported.",
                 uri,
-                parsed.scheme,
             )
             continue
 
