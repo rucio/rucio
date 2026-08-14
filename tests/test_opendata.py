@@ -670,6 +670,23 @@ class TestOpenDataEOS:
 
         assert opendata._generate_download_urls([f"root://{self.eos_host}:1094//eos/file.root"]) == []
 
+    def test_generate_download_urls_skips_root_eos_uri(self, monkeypatch):
+        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/file.root"
+
+        requested_paths = []
+
+        def fake_token_command(*, eos_host, filename, lifetime_seconds):
+            requested_paths.append(filename)
+            return self.eos_token
+
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", fake_token_command)
+
+        download_urls = opendata._generate_download_urls([eos_uri])
+
+        assert download_urls == [], "Root EOS URI should not generate a download URL"
+        assert requested_paths == [], "Token command should not be called for root EOS URIs"
+
     def test_get_opendata_did_files_download_urls(self, mock_scope, root_account, monkeypatch, db_write_session):
         name = did_name_generator(did_type="dataset")
         file_name = did_name_generator(did_type="file")
