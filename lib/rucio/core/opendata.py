@@ -431,7 +431,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
 
     Only URIs whose host answers the EOS REST gateway probe are considered;
     for those, a read-only EOS token scoped to the file path is requested and
-    appended to the URI as a ``token`` query parameter. URIs on non-EOS hosts
+    appended to the URI as a ``authz`` query parameter. URIs on non-EOS hosts
     or for which no token could be obtained are skipped.
 
     Args:
