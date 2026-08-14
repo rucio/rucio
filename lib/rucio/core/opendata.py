@@ -435,7 +435,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     or for which no token could be obtained are skipped.
 
     Args:
-        uris: The replica URIs (e.g. 'root://eos.example:1094//eos/path/file.root').
+        uris: The replica URIs (e.g. 'https://eos.example:8444//eos/path/file.root').
 
     Returns:
         The list of download URLs, possibly empty.
@@ -457,8 +457,16 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
         if not host or not _is_eos_host(host):
             continue
 
+        if parsed.scheme not in {"http", "https"}:
+            logger.info(
+                "Skipping EOS replica URI '%s': unsupported scheme '%s'.",
+                uri,
+                parsed.scheme,
+            )
+            continue
+
         path = parsed.path
-        # PFNs such as 'root://host:1094//eos/path' carry a double slash before the path
+        # PFNs such as 'https://host:8444//eos/path' carry a double slash before the path
         if path.startswith("//"):
             path = path[1:]
 

@@ -629,8 +629,8 @@ class TestOpenDataEOS:
                                                             lifetime_seconds=3600) is None
 
     def test_generate_download_urls(self, monkeypatch):
-        expected_eos_host = f"{self.eos_host}:1094"
-        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
+        expected_eos_host = f"{self.eos_host}:8444"
+        eos_uri = f"https://{self.eos_host}:8444//eos/opendata/experiment/file.root"
         uris = [
             eos_uri,
             "https://not-eos.example.org:443/other/path/file.root",
@@ -640,7 +640,7 @@ class TestOpenDataEOS:
         requested_paths = []
 
         def fake_token_command(*, eos_host, filename, lifetime_seconds):
-            assert eos_host == f"{self.eos_host}:1094"
+            assert eos_host == f"{self.eos_host}:8444"
             requested_paths.append(filename)
             return self.eos_token
 
@@ -654,7 +654,7 @@ class TestOpenDataEOS:
         assert requested_paths == ["/eos/opendata/experiment/file.root"]
 
     def test_generate_download_urls_uri_with_query(self, monkeypatch):
-        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/file.root?xrd.wantprot=unix"
+        eos_uri = f"https://{self.eos_host}:8444//eos/opendata/file.root?xrd.wantprot=unix"
 
         monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
         monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command",
@@ -679,9 +679,9 @@ class TestOpenDataEOS:
         opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
         db_write_session.commit()
 
-        eos_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
+        eos_uri = f"https://{self.eos_host}:8444//eos/opendata/experiment/file.root"
         tape_uri = "root://tape.example.org:1094//tape/file.root"
-        expected_eos_host = f"{self.eos_host}:1094"
+        expected_eos_host = f"{self.eos_host}:8444"
 
         def fake_list_files(*args, **kwargs):
             yield {"scope": mock_scope, "name": file_name, "bytes": 42, "adler32": "deadbeef"}
