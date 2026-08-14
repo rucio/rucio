@@ -666,11 +666,7 @@ class TestOpenDataEOS:
 
     def test_generate_download_urls_no_token(self, monkeypatch):
         monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
-        monkeypatch.setattr(
-            opendata,
-            "_eos_grpc_gateway_token_command",
-            lambda **kwargs: None,
-        )
+        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", lambda **kwargs: None)
 
         eos_uri = f"https://{self.eos_host}:8444/eos/file.root"
 
