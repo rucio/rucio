@@ -913,9 +913,7 @@ class TestOpenDataAPI:
                 headers=request_headers,
             )
 
-    @skip_unsupported_dialect("postgresql")
     def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope):
-        # More details why this is skipped: https://github.com/rucio/rucio/pull/7903#issuecomment-3144608087
 
         name = did_name_generator(did_type="dataset")
         opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
