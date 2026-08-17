@@ -19,7 +19,9 @@ import tempfile
 from typing import TYPE_CHECKING
 
 import pytest
+from click.testing import CliRunner
 
+from rucio.cli.command import main as rucio_cli
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator, with_each_cli_renderer
@@ -77,33 +79,34 @@ def test_main_args(file_config_mock):
 @with_each_cli_renderer
 def test_help_menus(file_config_mock):
     """Verify help menus"""
-    exitcode, out, err = execute("rucio --help")
-    assert exitcode == 0
-    assert "ERROR" not in err
-    out = out.split("\n")
+    runner = CliRunner()
+    result = runner.invoke(rucio_cli, ["--help"], catch_exceptions=False)
+    assert result.exit_code == 0
+    assert "ERROR" not in result.output
+    out = result.output.split("\n")
     commands = [cmd.split(" ") for cmd in out[out.index("Commands:") + 1:] if len(cmd) > 3]  # command has two spaces in front of it
     commands = [cmd[2] for cmd in commands]
 
     for command in commands:
-        exitcode, out, err = execute(f"rucio {command} --help")
-        assert exitcode == 0, f"Command {command} --help failed"  # Included for debugging purposes
+        result = runner.invoke(rucio_cli, [command, "--help"], catch_exceptions=False)
+        assert result.exit_code == 0, f"Command {command} --help failed"  # Included for debugging purposes
 
-        exitcode, out, err = execute(f"rucio {command} -h")
-        assert exitcode == 0, f"Command {command} -h failed"
+        result = runner.invoke(rucio_cli, [command, "-h"], catch_exceptions=False)
+        assert result.exit_code == 0, f"Command {command} -h failed"
 
         # test the subcommands/operations as well
-        out = out.split("\n")
+        out = result.output.split("\n")
         try:
             subcommands = [cmd.split(" ") for cmd in out[out.index("Commands:") + 1:] if len(cmd) > 3]
             subcommands = [cmd[2] for cmd in subcommands]
             for subcommand in subcommands:
                 menu = f"rucio {command} {subcommand} --help"
-                exitcode, out, err = execute(menu)
-                assert exitcode == 0, f"Command {menu} failed"  # Included for debugging purposes
+                result = runner.invoke(rucio_cli, [command, subcommand, "--help"], catch_exceptions=False)
+                assert result.exit_code == 0, f"Command {menu} failed"  # Included for debugging purposes
 
                 menu = f"rucio {command} {subcommand} -h"
-                exitcode, out, err = execute(menu)
-                assert exitcode == 0, f"Command {menu} -h failed"
+                result = runner.invoke(rucio_cli, [command, subcommand, "-h"], catch_exceptions=False)
+                assert result.exit_code == 0, f"Command {menu} -h failed"
 
         except ValueError:  # "Commands:" not in list
             continue
