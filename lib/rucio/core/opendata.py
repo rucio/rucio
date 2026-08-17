@@ -429,16 +429,19 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     """
     Build tokenized download URLs for the given replica URIs.
 
-    Only URIs whose host answers the EOS REST gateway probe are considered;
-    for those, a read-only EOS token scoped to the file path is requested and
-    appended to the URI as a ``authz`` query parameter. URIs on non-EOS hosts
-    or for which no token could be obtained are skipped.
+    Only valid HTTP(S) URIs whose host exposes an EOS REST gateway are
+    considered. For each eligible URI, a read-only EOS token scoped to the
+    file path is requested and appended as an ``authz`` query parameter.
+
+    Malformed URIs, unsupported schemes, non-EOS hosts, and URIs for which
+    a token cannot be obtained are skipped.
 
     Args:
-        uris: The replica URIs (e.g. 'https://eos.example:8444//eos/path/file.root').
+        uris: Replica URIs to process.
 
     Returns:
-        The list of download URLs, possibly empty.
+        The successfully generated tokenized download URLs. The list may be
+        empty if none of the provided URIs can be used.
     """
     lifetime = config_get_int("opendata", "eos_token_lifetime", raise_exception=False,
                               default=DEFAULT_EOS_TOKEN_LIFETIME_SECONDS)
@@ -447,23 +450,23 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     for uri in uris:
         try:
             parsed = urlparse(uri)
+            host = parsed.hostname
+            port = parsed.port
         except ValueError:
-            logger.debug("Skipping malformed replica URI '%s'.", uri)
+            logger.warning("Skipping malformed replica URI '%s'.", uri)
             continue
 
-        host = parsed.hostname
-        if host and parsed.port:
-            host = f"{host}:{parsed.port}"
-
-        if not (
-            parsed.scheme in {"http", "https"}
-            and host
-            and _is_eos_host(host)
-        ):
-            logger.info(
-                "Skipping replica URI '%s': only HTTP(S) replicas hosted on EOS are supported.",
+        if parsed.scheme not in {"http", "https"} or not host:
+            logger.debug(
+                "Skipping replica URI '%s': only HTTP(S) replicas are supported.",
                 uri,
             )
+            continue
+
+        if port:
+            host = f"{host}:{port}"
+
+        if not _is_eos_host(host):
             continue
 
         path = parsed.path
@@ -477,11 +480,34 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
             lifetime_seconds=lifetime,
         )
 
-        if token:
-            separator = "&" if "?" in uri else "?"
-            download_urls.append(f"{uri}{separator}authz={token}")
+        if not token:
+            continue
+
+        separator = "&" if "?" in uri else "?"
+        download_urls.append(f"{uri}{separator}authz={token}")
 
     return download_urls
+
+
+def _extract_disk_uris(replicas) -> list[str]:
+    """
+    Extract DISK replica URIs from ``list_replicas`` results.
+
+    Args:
+        replicas: Replica entries returned by ``list_replicas``.
+
+    Returns:
+        The PFN URIs whose replica type is ``DISK``.
+    """
+    uris = []
+
+    for replica in replicas:
+        for uri, data in replica["pfns"].items():
+            if data["type"] != "DISK":
+                continue
+            uris.append(uri)
+
+    return uris
 
 
 def get_opendata_did_files(
@@ -493,17 +519,26 @@ def get_opendata_did_files(
         session: "Session",
 ) -> dict[str, Any]:
     """
-    Retrieve the files and replicas associated with an Opendata DID.
+    Retrieve the files and replicas associated with an OpenData DID.
+
+    When ``include_download_urls`` is enabled, HTTP(S) replicas are retrieved
+    separately and used to generate tokenized EOS download URLs.
 
     Parameters:
-        scope: The scope of the Opendata DID.
-        name: The name of the Opendata DID.
+        scope: The scope of the OpenData DID.
+        name: The name of the OpenData DID.
         use_cache: If True, use caching to store/retrieve the result. Defaults to False.
-        include_download_urls: If True, include download URLs for the files. Defaults to False.
+        include_download_urls: If True, include tokenized download URLs for the files.
         session: SQLAlchemy session to use for the query.
 
     Returns:
-        A dictionary containing the list of files including replicas, cache hit status, and time elapsed in milliseconds.
+        A dictionary containing the files and their replica URIs, together
+        with cache-hit information and elapsed request time.
+
+    Raises:
+        OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
+        OpenDataError: If a required replica URI or requested download URL
+            cannot be obtained.
     """
 
     time_start = time.perf_counter()
@@ -551,24 +586,65 @@ def get_opendata_did_files(
     rse_expression = config_get("opendata", "rse_expression", raise_exception=True)
 
     for i, file in enumerate(file_list):
+        dids = [{"scope": file["scope"], "name": file["name"]}]
+
+        # Retrieve replicas using the standard Rucio protocol selection.
         replicas = list_replicas(
-            dids=[{"scope": file["scope"], "name": file["name"]}],
-            rse_expression=rse_expression, session=session
-        )
-        uris = []
-        for replica in replicas:
-            pfns = replica["pfns"]
-            for uri, data in pfns.items():
-                if data["type"] != "DISK":
-                    continue
-                uris.append(uri)
+        dids=dids,
+        rse_expression=rse_expression,
+        session=session,
+    )
+
+        uris = _extract_disk_uris(replicas)
+
+        if not uris:
+            logger.error(
+                "No DISK replica URI available for OpenData file %s:%s.",
+                file["scope"],
+                file["name"],
+            )
+            raise OpenDataError(
+                f"Failed to retrieve replica URI for OpenData file "
+                f"{file['scope']}:{file['name']}."
+            )
 
         file_list[i]["uris"] = uris
 
-    # Process download URLs before we cache the result
-    if include_download_urls:
-        for file in file_list:
-            file["download_urls"] = _generate_download_urls(file.get("uris", []))
+        if include_download_urls:
+            download_replicas = list_replicas(
+                dids=dids,
+                rse_expression=rse_expression,
+                schemes=["http", "https"],
+                session=session,
+            )
+
+            download_uris = _extract_disk_uris(download_replicas)
+
+            if not download_uris:
+                logger.error(
+                    "No HTTP(S) DISK replica URI available for OpenData file %s:%s.",
+                    file["scope"],
+                    file["name"],
+                )
+                raise OpenDataError(
+                    f"Failed to retrieve HTTP(S) replica URI for OpenData file "
+                    f"{file['scope']}:{file['name']}."
+                )
+
+            download_urls = _generate_download_urls(download_uris)
+
+            if not download_urls:
+                logger.error(
+                    "Failed to generate download URL for OpenData file %s:%s.",
+                    file["scope"],
+                    file["name"],
+                )
+                raise OpenDataError(
+                    f"Failed to generate download URL for OpenData file "
+                    f"{file['scope']}:{file['name']}."
+                )
+
+            file_list[i]["download_urls"] = download_urls
 
     # Now that the file_list is fully built (with or without download URLs), cache it
     if use_cache:
