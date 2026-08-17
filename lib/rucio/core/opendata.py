@@ -39,7 +39,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -489,7 +489,9 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     return download_urls
 
 
-def _extract_disk_uris(replicas) -> list[str]:
+def _extract_disk_uris(
+    replicas: "Iterable[dict[str, Any]]",
+) -> list[str]:
     """
     Extract DISK replica URIs from ``list_replicas`` results.
 
