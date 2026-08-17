@@ -49,7 +49,8 @@ def _fill_rse_counter_history_table() -> None:
 
 def rse_update(
         once: bool = False,
-        sleep_time: int = 10
+        sleep_time: int = 10,
+        partition_wait_time: int = 1,
 ) -> None:
     """
     Main loop to check and update the RSE Counters.
@@ -58,7 +59,7 @@ def rse_update(
         once=once,
         graceful_stop=graceful_stop,
         executable=DAEMON_NAME,
-        partition_wait_time=1,
+        partition_wait_time=partition_wait_time,
         sleep_time=sleep_time,
         run_once_fnc=run_once,
     )
