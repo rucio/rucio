@@ -29,7 +29,7 @@ from werkzeug.datastructures import Headers, MultiDict
 import rucio.core.permission
 from rucio.client.ruleclient import RuleClient
 from rucio.common.constants import RseAttr
-from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
+from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, InvalidObject, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_access_cnt, get_did_atime, list_files, set_status
@@ -837,6 +837,19 @@ def test_client_add_list_replicas(rse_factory, replica_client, mock_scope):
     assert len(replicas) == 5
     for i in range(nbfiles):
         assert rse2 in replicas[i]['rses']
+
+    # A list raises an attribute error
+    with pytest.raises(RucioException) as err:
+        replica_client.update_replicas_states(rse2, files=files1[0])
+        assert "Details: no error information passed" not in err.args[0]
+
+    # A non-real state type raises a value error
+    fake_files = [f for f in files1]
+    for file in fake_files:
+        file['state'] = "FAKE"
+    with pytest.raises(InvalidObject) as err:
+        replica_client.update_replicas_states(rse2, files=fake_files)
+        assert "Details: no error information passed" not in err.args[0]
 
 
 def test_client_add_replica_scope_not_found(rse_factory, replica_client):
