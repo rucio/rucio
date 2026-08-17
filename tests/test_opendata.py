@@ -27,7 +27,7 @@ from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
-from rucio.core.did import add_did, set_status
+from rucio.core.did import add_did, delete_dids, set_status
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
@@ -914,58 +914,76 @@ class TestOpenDataAPI:
             )
 
     def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope):
-
         name = did_name_generator(did_type="dataset")
         opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
         meta_endpoint = f"/dids/{mock_scope}/{name}/meta"
         request_headers = headers(auth(auth_token))
 
-        # Add it as a DID
-        add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET)
-
-        # Check `is_opendata` returns False for a regular DID
-        response = rest_client.get(
-            meta_endpoint,
-            headers=request_headers,
+        add_did(
+            scope=mock_scope,
+            name=name,
+            account=root_account,
+            did_type=DIDType.DATASET,
         )
-        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
-        response_data = json.loads(response.get_data(as_text=True))
-        is_opendata: bool = response_data["is_opendata"]
-        assert not is_opendata, "Expected is_opendata to be False for a regular DID"
 
-        # Register as Opendata
-        response = rest_client.post(
-            opendata_endpoint,
-            headers=request_headers,
-        )
-        assert response.status_code == 201, f"Expected 201 OK, got {response.status_code}"
+        try:
+            # Check `is_opendata` returns False for a regular DID
+            response = rest_client.get(
+                meta_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
 
-        # Check `is_opendata` returns True for an Opendata DID
-        response = rest_client.get(
-            meta_endpoint,
-            headers=request_headers,
-        )
-        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
-        response_data = json.loads(response.get_data(as_text=True))
-        is_opendata: bool = response_data["is_opendata"]
-        assert is_opendata, "Expected is_opendata to be True for an Opendata DID"
+            response_data = json.loads(response.get_data(as_text=True))
+            assert response_data["is_opendata"] is False, \
+                "Expected is_opendata to be False for a regular DID"
 
-        # Remove it from Opendata
-        response = rest_client.delete(
-            opendata_endpoint,
-            headers=request_headers,
-        )
-        assert response.status_code == 204, f"Expected 204 OK, got {response.status_code}"
+            # Register as OpenData
+            response = rest_client.post(
+                opendata_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 201, f"Expected 201 Created, got {response.status_code}"
 
-        # Check `is_opendata` returns False again after removal
-        response = rest_client.get(
-            meta_endpoint,
-            headers=request_headers,
-        )
-        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
-        response_data = json.loads(response.get_data(as_text=True))
-        is_opendata: bool = response_data["is_opendata"]
-        assert not is_opendata, "Expected is_opendata to be False after removal from Opendata"
+            # Check `is_opendata` returns True for an OpenData DID
+            response = rest_client.get(
+                meta_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+
+            response_data = json.loads(response.get_data(as_text=True))
+            assert response_data["is_opendata"] is True, \
+                "Expected is_opendata to be True for an OpenData DID"
+
+            # Remove it from OpenData
+            response = rest_client.delete(
+                opendata_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 204, f"Expected 204 No Content, got {response.status_code}"
+
+            # Check `is_opendata` returns False again after removal
+            response = rest_client.get(
+                meta_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+
+            response_data = json.loads(response.get_data(as_text=True))
+            assert response_data["is_opendata"] is False, \
+                "Expected is_opendata to be False after removal from OpenData"
+
+        finally:
+            delete_dids(
+                dids=[{
+                    "scope": mock_scope,
+                    "name": name,
+                    "did_type": DIDType.DATASET,
+                    "purge_replicas": True,
+                }],
+                account=root_account,
+            )
 
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
