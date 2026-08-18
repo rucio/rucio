@@ -73,13 +73,13 @@ With this container you can upload and download data to/from the storage and sub
 
 This creates a few random files and uploads them, creates a few datasets and containers, and requests a replication rule for the container, which starts in state REPLICATING. To demonstrate the transfer capability, the daemons can be run in single-execution mode in order:::
 
-    rucio rule-info <rule-id>
+    rucio rule show <rule-id>
 
     rucio-conveyor-submitter --run-once
     rucio-conveyor-poller --run-once --older-than 0
     rucio-conveyor-finisher --run-once
 
-    rucio rule-info <rule-id>
+    rucio rule show <rule-id>
 
 
 On the second display of the rule, its state has cleared to OK.
@@ -215,13 +215,13 @@ Daemons are not running in the docker environment, but all daemons support singl
 
 Some files are created. Let's add them to a new dataset::
 
-    rucio add-dataset test:mynewdataset
-    rucio attach test:mynewdataset test:file1 test:file2 test:file3 test:file4
+    rucio did add --type dataset test:mynewdataset
+    rucio did content add --to-did test:mynewdataset test:file1 test:file2 test:file3 test:file4
 
 
 If you run the command below, the files are not in the RSE XRD3, but only in XRD1 and 2.::
 
-    rucio list-file-replicas test:mynewdataset
+    rucio replica list file test:mynewdataset
     > +---------+--------+------------+-----------+------------------------------------------------+
     > | SCOPE   | NAME   | FILESIZE   | ADLER32   | RSE: REPLICA                                   |
     > |---------+--------+------------+-----------+------------------------------------------------|
@@ -234,13 +234,13 @@ If you run the command below, the files are not in the RSE XRD3, but only in XRD
 
 So let's add a new rule on our new dataset to oblige Rucio to create replicas also on XRD3::
 
-    rucio add-rule test:mynewdataset 1 XRD3
+    rucio rule add test:mynewdataset 1 XRD3
     > 1aadd685d891400dba050ad43e71fea9
 
 
 Now we can check the status of the rule. We will see there are 4 files in `Replicating` state::
 
-    rucio rule-info 1aadd685d891400dba050ad43e71fea9|grep Locks
+    rucio rule show 1aadd685d891400dba050ad43e71fea9|grep Locks
     > Locks OK/REPLICATING/STUCK: 0/4/0
 
 
@@ -254,13 +254,13 @@ Now we can run the daemons. First the rule evaluation daemon (judge-evaluator) w
 
 If we see the state of the rule now, we see the locks are OK::
 
-    rucio rule-info 1aadd685d891400dba050ad43e71fea9|grep Locks
+    rucio rule show 1aadd685d891400dba050ad43e71fea9|grep Locks
     > Locks OK/REPLICATING/STUCK: 4/0/0
 
 
 And if we look at the replicas of the dataset, we see the there are replicas of the files also in XRD3::
 
-    rucio list-file-replicas test:mynewdataset
+    rucio replica list file test:mynewdataset
     > +---------+--------+------------+-----------+------------------------------------------------+
     > | SCOPE   | NAME   | FILESIZE   | ADLER32   | RSE: REPLICA                                   |
     > |---------+--------+------------+-----------+------------------------------------------------|
