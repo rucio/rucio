@@ -24,11 +24,19 @@ from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
+    from datetime import datetime
 
 
 class RequestClient(BaseClient):
 
     REQUEST_BASEURL = 'requests'
+
+    def _send_get_request(self, url: str, params: Optional[dict[str, Any]] = None) -> 'Iterator[dict[str, Any]]':
+        r = self._send_request(url, method=HTTPMethod.GET, params=params)
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def list_requests(
             self,
@@ -45,13 +53,7 @@ class RequestClient(BaseClient):
         path = '/'.join([self.REQUEST_BASEURL, 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states)])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.GET)
-
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        return self._send_get_request(url)
 
     def list_requests_history(
             self,
@@ -70,20 +72,14 @@ class RequestClient(BaseClient):
         path = '/'.join([self.REQUEST_BASEURL, 'history', 'list']) + '?' + '&'.join(['src_rse={}'.format(src_rse), 'dst_rse={}'.format(
             dst_rse), 'request_states={}'.format(request_states), 'offset={}'.format(offset), 'limit={}'.format(limit)])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.GET)
-
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        return self._send_get_request(url)
 
     def list_request_by_did(
             self,
             name: str,
             rse: str,
             scope: Optional[str] = None
-    ) -> 'Iterator[dict[str, Any]]':
+    ) -> dict[str, Any]:
         """Return latest request details for a DID
         Parameters
         ----------
@@ -106,20 +102,14 @@ class RequestClient(BaseClient):
         if scope is not None:
             path = '/'.join([self.REQUEST_BASEURL, quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.GET)
-
-        if r.status_code == codes.ok:
-            return next(self._load_json_data(r))
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        return next(self._send_get_request(url))
 
     def list_request_history_by_did(
             self,
             name: str,
             rse: str,
             scope: Optional[str] = None
-    ) -> 'Iterator[dict[str, Any]]':
+    ) -> dict[str, Any]:
         """
         Return latest request details for a DID
 
@@ -144,13 +134,75 @@ class RequestClient(BaseClient):
         if scope is not None:
             path = '/'.join([self.REQUEST_BASEURL, 'history', quote_plus(scope), quote_plus(name), rse])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.GET)
+        return next(self._send_get_request(url))
 
-        if r.status_code == codes.ok:
-            return next(self._load_json_data(r))
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+    def list_requests_history_by_did(
+            self,
+            name: str,
+            rse: str,
+            scope: str,
+            rule_id: Optional[str] = None,
+            request_states: Optional['Sequence[str]'] = None,
+            created_after: Optional['datetime'] = None,
+            created_before: Optional['datetime'] = None,
+            offset: Optional[int] = None,
+            limit: int = 10
+    ) -> 'Iterator[dict[str, Any]]':
+        """
+        Return the latest historical requests for a DID, newest first.
+
+        Unlike `list_request_history_by_did`, which returns a single request, this returns up to `limit` requests, so
+        several transfer attempts of the same DID can be inspected at once. This call can be very slow on large servers,
+        so it is for debugging purposes. Narrowing the window with `created_after` and `created_before` can help if the
+         database partitions by those.
+
+        Parameters
+        ----------
+        name :
+            DID name.
+        rse :
+            Destination RSE name.
+        scope :
+            Scope of the DID.
+        rule_id :
+            Only return requests belonging to this replication rule.
+        request_states :
+            Only return requests in one of these states, given as state *values* such as 'F'
+            rather than the names such as 'FAILED' that appear in the responses. Defaults to all.
+        created_after :
+            Only return requests created at or after this time.
+        created_before :
+            Only return requests created at or before this time.
+        offset :
+            Number of requests to skip.
+        limit :
+            Maximum number of requests to return. Defaults to 10.
+
+        Raises
+        ------
+        exc_cls
+            From BaseClient._get_exception.
+
+        Returns
+        -------
+            An iterator over the matching historical requests.
+        """
+        path = '/'.join([self.REQUEST_BASEURL, 'history', 'list', quote_plus(scope), quote_plus(name), rse])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        params: dict[str, Any] = {'limit': limit}
+        if rule_id:
+            params['rule_id'] = rule_id
+        if request_states:
+            params['request_states'] = ','.join(request_states)
+        if created_after:
+            params['created_after'] = created_after.strftime('%Y-%m-%dT%H:%M:%S')
+        if created_before:
+            params['created_before'] = created_before.strftime('%Y-%m-%dT%H:%M:%S')
+        if offset:
+            params['offset'] = offset
+
+        return self._send_get_request(url, params=params)
 
     def list_transfer_limits(
             self
@@ -161,13 +213,7 @@ class RequestClient(BaseClient):
         """
         path = '/'.join([self.REQUEST_BASEURL, 'transfer_limits'])
         url = build_url(choice(self.list_hosts), path=path)
-        r = self._send_request(url, method=HTTPMethod.GET)
-
-        if r.status_code == codes.ok:
-            return self._load_json_data(r)
-        else:
-            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
-            raise exc_cls(exc_msg)
+        return self._send_get_request(url)
 
     def set_transfer_limit(
             self,

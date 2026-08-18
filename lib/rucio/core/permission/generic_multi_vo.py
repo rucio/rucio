@@ -88,6 +88,7 @@ def has_permission(issuer, action, kwargs, session: "Session"):
             'list_requests_history': perm_list_requests_history,
             'get_request_by_did': perm_get_request_by_did,
             'get_request_history_by_did': perm_get_request_history_by_did,
+            'list_requests_history_by_did': perm_list_requests_history_by_did,
             'cancel_request': perm_cancel_request,
             'get_next': perm_get_next,
             'set_local_account_limit': perm_set_local_account_limit,
@@ -754,6 +755,18 @@ def perm_get_request_by_did(issuer, kwargs, session: "Session"):
 def perm_get_request_history_by_did(issuer, kwargs, session: "Session"):
     """
     Checks if an account can get a historical request by DID.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+
+def perm_list_requests_history_by_did(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can list historical requests by DID.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.
