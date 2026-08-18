@@ -24,6 +24,7 @@ from rucio.common.utils import build_url
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
+    from datetime import datetime
 
 
 class RequestClient(BaseClient):
@@ -151,6 +152,88 @@ class RequestClient(BaseClient):
         else:
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
+
+    def list_requests_history_by_did(
+            self,
+            name: str,
+            rse: str,
+            scope: str,
+            rule_id: Optional[str] = None,
+            request_states: Optional['Sequence[str]'] = None,
+            created_after: Optional['datetime'] = None,
+            created_before: Optional['datetime'] = None,
+            offset: Optional[int] = None,
+            limit: int = 10
+    ) -> 'Iterator[dict[str, Any]]':
+        """
+        Return the latest historical requests for a DID, newest first.
+
+        Unlike `list_request_history_by_did`, which returns a single request, this returns up to `limit` requests, so
+        several transfer attempts of the same DID can be inspected at once. This call can be very slow on large servers,
+        so it is for debugging purposes. Narrowing the window with `created_after` and `created_before` can help if the
+        database partitions by those.
+
+        Parameters
+        ----------
+        name :
+            DID name.
+        rse :
+            Destination RSE name.
+        scope :
+            Scope of the DID.
+        rule_id :
+            Only return requests belonging to this replication rule.
+        request_states :
+            Only return requests in one of these states, given as state *values* such as 'F'
+            rather than the names such as 'FAILED' that appear in the responses. Defaults to all.
+        created_after :
+            Only return requests created at or after this time.
+        created_before :
+            Only return requests created at or before this time.
+        offset :
+            Number of requests to skip.
+        limit :
+            Maximum number of requests to return. Defaults to 10.
+
+        Raises
+        ------
+        InputValidationError
+            A query parameter is malformed (state, date, limit/offset or rule_id).
+        RSENotFound
+            The destination RSE does not exist.
+        AccessDenied
+            The account may not list request history for this DID and RSE.
+
+        Returns
+        -------
+            An iterator of dicts, newest first. Each dict holds the request-history columns plus the resolved
+            RSE names: `id`, `request_type`, `scope`, `name`, `did_type`, `dest_rse_id`, `source_rse_id`,
+            `attributes`, `state`, `external_id`, `external_host`, `retry_count`, `err_msg`, `previous_attempt_id`,
+            `rule_id`, `activity`, `bytes`, `md5`, `adler32`, `dest_url`, `created_at`, `updated_at`,
+            `submitted_at`, `started_at`, `transferred_at`, `estimated_at`, `submitter_id`, `estimated_started_at`,
+            `estimated_transferred_at`, `staging_started_at`, `staging_finished_at`, `account`, `requested_at`,
+            `priority`, `transfertool` and `dest_rse`. `source_rse` is present only when `source_rse_id` is set.
+        """
+        path = '/'.join([self.REQUEST_BASEURL, 'history', 'list', quote_plus(scope), quote_plus(name), rse])
+        url = build_url(choice(self.list_hosts), path=path)
+
+        params: dict[str, Any] = {'limit': limit}
+        if rule_id:
+            params['rule_id'] = rule_id
+        if request_states:
+            params['request_states'] = ','.join(request_states)
+        if created_after:
+            params['created_after'] = created_after.strftime('%Y-%m-%dT%H:%M:%S')
+        if created_before:
+            params['created_before'] = created_before.strftime('%Y-%m-%dT%H:%M:%S')
+        if offset:
+            params['offset'] = offset
+
+        r = self._send_request(url, method=HTTPMethod.GET, params=params)
+        if r.status_code == codes.ok:
+            return self._load_json_data(r)
+        exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+        raise exc_cls(exc_msg)
 
     def list_transfer_limits(
             self
