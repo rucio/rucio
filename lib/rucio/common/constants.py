@@ -75,6 +75,9 @@ FTS_JOB_TYPE = namedtuple('FTS_JOB_TYPE', ['MULTIPLE_REPLICA', 'MULTI_HOP', 'SES
 
 MAX_MESSAGE_LENGTH = 4000
 
+# smallest maximum allowed value across the supported databases
+MAX_BIGINT = 2 ** 63 - 1
+
 
 @enum.unique
 class TransferLimitDirection(enum.Enum):
