@@ -49,8 +49,7 @@ def _fill_account_counter_history_table() -> None:
 
 def account_update(
         once: bool = False,
-        sleep_time: int = 10,
-        partition_wait_time: int = 1,
+        sleep_time: int = 10
 ) -> None:
     """
     Main loop to check and update the Account Counters.
@@ -59,7 +58,7 @@ def account_update(
         once=once,
         graceful_stop=graceful_stop,
         executable=DAEMON_NAME,
-        partition_wait_time=partition_wait_time,
+        partition_wait_time=0 if once else 1,
         sleep_time=sleep_time,
         run_once_fnc=run_once,
     )
