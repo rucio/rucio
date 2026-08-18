@@ -32,7 +32,7 @@ class TestCoreRSECounter:
     def test_inc_dec_get_counter(self, rse_factory):
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
         _, rse_id = rse_factory.make_mock_rse()
-        rse_update(once=True, partition_wait_time=0)
+        rse_update(once=True)
         with db_session_context(DatabaseOperationType.WRITE) as session:
             rse_counter.del_counter(rse_id=rse_id, session=session)
             rse_counter.add_counter(rse_id=rse_id, session=session)
@@ -46,7 +46,7 @@ class TestCoreRSECounter:
         for i in range(10):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
-            rse_update(once=True, partition_wait_time=0)
+            rse_update(once=True)
             count += 1
             sum_ += 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -57,7 +57,7 @@ class TestCoreRSECounter:
         for i in range(4):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
-            rse_update(once=True, partition_wait_time=0)
+            rse_update(once=True)
             count -= 1
             sum_ -= 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -68,7 +68,7 @@ class TestCoreRSECounter:
         for i in range(5):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 rse_counter.increase(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
-            rse_update(once=True, partition_wait_time=0)
+            rse_update(once=True)
             count += 1
             sum_ += 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -79,7 +79,7 @@ class TestCoreRSECounter:
         for i in range(8):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2147000000, session=session)
-            rse_update(once=True, partition_wait_time=0)
+            rse_update(once=True)
             count -= 1
             sum_ -= 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -108,7 +108,7 @@ class TestCoreAccountCounter:
     def test_inc_dec_get_counter(self, jdoe_account, rse_factory, db_session):
         """ACCOUNT COUNTER (CORE): Increase, decrease and get counter """
         db_session.commit()
-        account_update(once=True, partition_wait_time=0)
+        account_update(once=True)
         _, rse_id = rse_factory.make_mock_rse(session=db_session)
         db_session.commit()
         account = jdoe_account
@@ -125,7 +125,7 @@ class TestCoreAccountCounter:
         for i in range(10):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
-            account_update(once=True, partition_wait_time=0)
+            account_update(once=True)
             count += 1
             sum_ += 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -136,7 +136,7 @@ class TestCoreAccountCounter:
         for i in range(4):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
-            account_update(once=True, partition_wait_time=0)
+            account_update(once=True)
             count -= 1
             sum_ -= 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -147,7 +147,7 @@ class TestCoreAccountCounter:
         for i in range(5):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 account_counter.increase(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
-            account_update(once=True, partition_wait_time=0)
+            account_update(once=True)
             count += 1
             sum_ += 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
@@ -158,7 +158,7 @@ class TestCoreAccountCounter:
         for i in range(8):
             with db_session_context(DatabaseOperationType.WRITE) as session:
                 account_counter.decrease(rse_id=rse_id, account=account, files=1, bytes_=2147000000, session=session)
-            account_update(once=True, partition_wait_time=0)
+            account_update(once=True)
             count -= 1
             sum_ -= 2147000000
             with db_session_context(DatabaseOperationType.READ) as session:
