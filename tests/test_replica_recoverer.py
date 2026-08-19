@@ -160,22 +160,25 @@ class TestReplicaRecoverer:
         # tmp_file13   unavailable                              suspicious (available)                    scope_declarebad            testtypedryrun
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-        for replica in replicalist_scope_mock:
-            suspicious_pfns = replica['rses'][self.rse4suspicious_id]
-            # Declare each file as suspicious multiple times, apart from tmp_file12, which
-            # should only be declared suspicious once. tmp_file12 is used to test the
-            # creation of rules by the daemon.
-            if replica['name'] == self.tmp_file12.name:
+        # Each file is declared suspicious 3 times except for tmp_file12. The same file
+        # cannot be declared suspicious more than once in the same second. But all the
+        # files can be declared suspicious in the same second, so one sleep per pass is
+        # enough rather than one per declaration.
+        all_replicas = (replicalist_scope_mock + replicalist_scope_declarebad
+                        + replicalist_scope_nopolicy + replicalist_scope_ignore)
+        for i in range(3):
+            for replica in all_replicas:
+                # tmp_file12 is declared suspicious only once. It is used to test the creation of rules by the daemon.
+                if i > 0 and replica['name'] == self.tmp_file12.name:
+                    continue
+                suspicious_pfns = replica['rses'][self.rse4suspicious_id]
                 print("Declaring suspicious file replica: " + suspicious_pfns[0])
                 # The reason must contain the word "checksum", so that the replica can be declared bad.
                 replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
-                sleep(1)
-            else:
-                for i in range(3):
-                    print("Declaring suspicious file replica: " + suspicious_pfns[0])
-                    # The reason must contain the word "checksum", so that the replica can be declared bad.
-                    replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
-                    sleep(1)
+            sleep(1)
+
+        for replica in replicalist_scope_mock:
+            suspicious_pfns = replica['rses'][self.rse4suspicious_id]
             if replica['name'] == self.tmp_file2.name:
                 print("Declaring bad file replica: " + suspicious_pfns[0])
                 replica_client.declare_bad_file_replicas([suspicious_pfns[0], ], 'checksum')
@@ -196,13 +199,6 @@ class TestReplicaRecoverer:
                 update_replica_state(self.rse4recovery_id, mock_scope, self.tmp_file12.name, ReplicaState.UNAVAILABLE)
 
         for replica in replicalist_scope_declarebad:
-            suspicious_pfns = replica['rses'][self.rse4suspicious_id]
-            #  Declare each file as suspicious multiple times
-            for i in range(3):
-                print("Declaring suspicious file replica: " + suspicious_pfns[0])
-                # The reason must contain the word "checksum", so that the replica can be declared bad.
-                replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
-                sleep(1)
             if replica['name'] == self.tmp_file7.name:
                 print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
                 update_replica_state(self.rse4recovery_id, self.scope_declarebad, self.tmp_file7.name, ReplicaState.UNAVAILABLE)
@@ -217,25 +213,11 @@ class TestReplicaRecoverer:
                 update_replica_state(self.rse4recovery_id, self.scope_declarebad, self.tmp_file13.name, ReplicaState.UNAVAILABLE)
 
         for replica in replicalist_scope_nopolicy:
-            suspicious_pfns = replica['rses'][self.rse4suspicious_id]
-            #  Declare each file as suspicious multiple times
-            for i in range(3):
-                print("Declaring suspicious file replica: " + suspicious_pfns[0])
-                # The reason must contain the word "checksum", so that the replica can be declared bad.
-                replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
-                sleep(1)
             if replica['name'] == self.tmp_file8.name:
                 print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
                 update_replica_state(self.rse4recovery_id, self.scope_nopolicy, self.tmp_file8.name, ReplicaState.UNAVAILABLE)
 
         for replica in replicalist_scope_ignore:
-            suspicious_pfns = replica['rses'][self.rse4suspicious_id]
-            #  Declare each file as suspicious multiple times
-            for i in range(3):
-                print("Declaring suspicious file replica: " + suspicious_pfns[0])
-                # The reason must contain the word "checksum", so that the replica can be declared bad.
-                replica_client.declare_suspicious_file_replicas([suspicious_pfns[0], ], 'checksum')
-                sleep(1)
             if replica['name'] == self.tmp_file10.name:
                 print("Updating replica state as unavailable: " + replica['rses'][self.rse4recovery_id][0])
                 update_replica_state(self.rse4recovery_id, self.scope_ignore, self.tmp_file10.name, ReplicaState.UNAVAILABLE)
