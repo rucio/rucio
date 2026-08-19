@@ -429,7 +429,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     """
     Build tokenized download URLs for the given replica URIs.
 
-    Only valid HTTP(S) URIs whose host exposes an EOS REST gateway are
+    Only valid HTTP(S) or DAV(S) URIs whose host exposes an EOS REST gateway are
     considered. For each eligible URI, a read-only EOS token scoped to the
     file path is requested and appended as an ``authz`` query parameter.
 
@@ -456,9 +456,9 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
             logger.warning("Skipping malformed replica URI '%s'.", uri)
             continue
 
-        if parsed.scheme not in {"http", "https"} or not host:
+        if parsed.scheme not in {"http", "https", "dav", "davs"} or not host:
             logger.debug(
-                "Skipping replica URI '%s': only HTTP(S) replicas are supported.",
+                "Skipping replica URI '%s': only HTTP(S) and DAV(S) replicas are supported.",
                 uri,
             )
             continue
@@ -523,7 +523,7 @@ def get_opendata_did_files(
     """
     Retrieve the files and replicas associated with an OpenData DID.
 
-    When ``include_download_urls`` is enabled, HTTP(S) replicas are retrieved
+    When ``include_download_urls`` is enabled, HTTP(S) and DAV(S) replicas are retrieved
     separately and used to generate tokenized EOS download URLs.
 
     Parameters:
@@ -616,7 +616,7 @@ def get_opendata_did_files(
             download_replicas = list_replicas(
                 dids=dids,
                 rse_expression=rse_expression,
-                schemes=["http", "https"],
+                schemes=["http", "https", "dav", "davs"],
                 session=session,
             )
 
@@ -624,12 +624,12 @@ def get_opendata_did_files(
 
             if not download_uris:
                 logger.error(
-                    "No HTTP(S) DISK replica URI available for OpenData file %s:%s.",
+                    "No HTTP(S) or DAV(S) DISK replica URI available for OpenData file %s:%s.",
                     file["scope"],
                     file["name"],
                 )
                 raise OpenDataError(
-                    f"Failed to retrieve HTTP(S) replica URI for OpenData file "
+                    f"Failed to retrieve HTTP(S) or DAV(S) replica URI for OpenData file "
                     f"{file['scope']}:{file['name']}."
                 )
 
