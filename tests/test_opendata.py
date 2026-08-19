@@ -661,6 +661,26 @@ class TestOpenDataEOS:
         # The double slash of the PFN must be collapsed in the path sent to EOS
         assert requested_paths == ["/eos/opendata/experiment/file.root"]
 
+    @pytest.mark.parametrize("scheme", ["http", "https", "dav", "davs"])
+    def test_generate_download_urls_supported_schemes(self, scheme, monkeypatch):
+        eos_uri = (
+            f"{scheme}://{self.eos_host}:8444"
+            f"//eos/opendata/experiment/file.root"
+        )
+
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            lambda **kwargs: self.eos_token,
+        )
+
+        download_urls = opendata._generate_download_urls([eos_uri])
+
+        assert download_urls == [
+            f"{eos_uri}?authz={self.eos_token}"
+        ]
+
     def test_generate_download_urls_uri_with_query(self, monkeypatch):
         eos_uri = f"https://{self.eos_host}:8444//eos/opendata/file.root?xrd.wantprot=unix"
 
@@ -796,7 +816,7 @@ class TestOpenDataEOS:
             }
 
         def fake_list_replicas(*args, **kwargs):
-            if kwargs.get("schemes") == ["http", "https"]:
+            if kwargs.get("schemes") == ["http", "https", "dav", "davs"]:
                 yield {"pfns": {}}
             else:
                 yield {
@@ -810,7 +830,7 @@ class TestOpenDataEOS:
 
         with pytest.raises(
             OpenDataError,
-            match="Failed to retrieve HTTP\\(S\\) replica URI",
+            match="Failed to retrieve HTTP\\(S\\) or DAV\\(S\\) replica URI",
         ):
             opendata.get_opendata_did_files(
                 scope=mock_scope,
@@ -861,7 +881,7 @@ class TestOpenDataEOS:
             schemes = kwargs.get("schemes")
             requested_schemes.append(schemes)
 
-            if schemes == ["http", "https"]:
+            if schemes == ["http", "https", "dav", "davs"]:
                 yield {
                     "pfns": {
                         https_uri: {"type": "DISK"},
@@ -903,7 +923,7 @@ class TestOpenDataEOS:
             f"{https_uri}?authz={self.eos_token}"
         ]
 
-        assert ["http", "https"] in requested_schemes
+        assert ["http", "https", "dav", "davs"] in requested_schemes
 
     @pytest.mark.parametrize(
         "uri",
