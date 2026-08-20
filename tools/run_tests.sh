@@ -143,11 +143,28 @@ else
 fi
 
 if test ${alembic}; then
-    echo 'Running full alembic migration'
-    ALEMBIC_CONFIG="$RUCIO_HOME/etc/alembic.ini" tools/alembic_migration.sh
-    if [ $? != 0 ]; then
-        echo 'Failed to run alembic migration!'
-        exit 1
+    ALEMBIC_CHANGED=false
+    MERGE_BASE=""
+    if git rev-parse --verify upstream/master >/dev/null 2>&1; then
+        MERGE_BASE=$(git merge-base upstream/master HEAD)
+    elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+        MERGE_BASE=$(git merge-base origin/master HEAD)
+    fi
+    if [ -n "$MERGE_BASE" ]; then
+        CHANGED_FILES=$(git diff --name-only "$MERGE_BASE" -- lib/rucio/db/sqla/models.py lib/rucio/db/sqla/migrate_repo/versions/)
+        if [ -n "$CHANGED_FILES" ]; then
+            ALEMBIC_CHANGED=true
+        fi
+    fi
+    if [ "$ALEMBIC_CHANGED" = true ]; then
+        echo 'Running full alembic migration'
+        ALEMBIC_CONFIG="$RUCIO_HOME/etc/alembic.ini" tools/alembic_migration.sh
+        if [ $? != 0 ]; then
+            echo 'Failed to run alembic migration!'
+            exit 1
+        fi
+    else
+        echo 'Skipping alembic migration (no changes to models or migration scripts)'
     fi
 fi
 
