@@ -691,6 +691,37 @@ class TestOpenDataEOS:
         # The double slash of the PFN must be collapsed in the path sent to EOS.
         assert requested_paths == ["/eos/opendata/experiment/file.root"]
 
+    def test_generate_download_urls_preserves_ipv6_authority(self, monkeypatch):
+        eos_uri = "https://[2001:db8::1]:8444//eos/opendata/file.root"
+
+        probed_hosts = []
+        token_hosts = []
+
+        def fake_is_eos_host(host):
+            probed_hosts.append(host)
+            return True
+
+        def fake_token_command(*, eos_host, filename, lifetime_seconds):
+            token_hosts.append(eos_host)
+            return self.eos_token
+
+        monkeypatch.setattr(opendata, "_is_eos_host", fake_is_eos_host)
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            fake_token_command,
+        )
+
+        download_urls = opendata._generate_download_urls([eos_uri])
+
+        assert probed_hosts == ["[2001:db8::1]:8444"]
+        assert token_hosts == ["[2001:db8::1]:8444"]
+
+        parsed = urlparse(download_urls[0])
+        assert parsed.hostname == "2001:db8::1"
+        assert parsed.port == 8444
+        assert parse_qs(parsed.query)["authz"] == [self.eos_token]
+
     @pytest.mark.parametrize("scheme", ["http", "https", "dav", "davs"])
     def test_generate_download_urls_supported_schemes(self, scheme, monkeypatch):
         eos_uri = (

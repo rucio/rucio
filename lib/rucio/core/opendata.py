@@ -425,6 +425,22 @@ def _eos_grpc_gateway_token_command(
         return None
 
 
+def _format_url_authority(host: str, port: Optional[int]) -> str:
+    """
+    Format a hostname and optional port as a valid URL authority.
+
+    IPv6 hostnames returned by urlparse().hostname do not contain the
+    brackets required when used inside a URL.
+    """
+    if ":" in host:
+        host = f"[{host}]"
+
+    if port is not None:
+        return f"{host}:{port}"
+
+    return host
+
+
 def _generate_download_urls(uris: list[str]) -> list[str]:
     """
     Build tokenized download URLs for the given replica URIs.
@@ -463,10 +479,9 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
             )
             continue
 
-        if port:
-            host = f"{host}:{port}"
+        eos_authority = _format_url_authority(host, port)
 
-        if not _is_eos_host(host):
+        if not _is_eos_host(eos_authority):
             continue
 
         path = parsed.path
@@ -475,7 +490,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
             path = path[1:]
 
         token = _eos_grpc_gateway_token_command(
-            eos_host=host,
+            eos_host=eos_authority,
             filename=path,
             lifetime_seconds=lifetime,
         )
