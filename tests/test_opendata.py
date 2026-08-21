@@ -558,14 +558,20 @@ class TestOpenDataEOS:
         monkeypatch.setattr(opendata, "EOS_PROBE_NEGATIVE_REGION", _FakeCacheRegion())
 
     def test_is_eos_host_positive(self):
-        with patch("rucio.core.opendata.requests.post",
-                   return_value=_mock_eos_response(json_data=self.eos_version_payload)) as mock_post:
-            assert opendata._is_eos_host(self.eos_host) is True
-            # The positive result is cached: a second call must not probe again
-            assert opendata._is_eos_host(self.eos_host) is True
+        eos_host = f"{self.eos_host}:8444"
 
-        assert mock_post.call_count == 1, "Positive probe result should be cached"
-        assert mock_post.call_args[0][0] == f"https://{self.eos_host}/v1/eos/rest/gateway/version_cmd"
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(json_data=self.eos_version_payload),
+        ) as mock_post:
+            assert opendata._is_eos_host(eos_host) is True
+            assert opendata._is_eos_host(eos_host) is True
+
+        assert mock_post.call_count == 1
+        assert mock_post.call_args[0][0] == (
+            f"https://{self.eos_host}:8444"
+            "/v1/eos/rest/gateway/version_cmd"
+        )
 
     def test_is_eos_host_positive_integer_retc(self):
         payload = {"retc": 0, "stdOut": "EOS_SERVER_VERSION=5.2.31", "stdErr": ""}
@@ -608,16 +614,30 @@ class TestOpenDataEOS:
         assert body["permission"] == "r"
         assert time_before + lifetime_seconds <= int(body["expires"]) <= time_after + lifetime_seconds
 
-    def test_eos_token_command_host_with_scheme(self):
-        payload = {"retc": "0", "stdOut": self.eos_token, "stdErr": ""}
-        with patch("rucio.core.opendata.requests.post",
-                   return_value=_mock_eos_response(json_data=payload)) as mock_post:
-            token = opendata._eos_grpc_gateway_token_command(eos_host=f"https://{self.eos_host}/",
-                                                             filename="/eos/opendata/file.root",
-                                                             lifetime_seconds=3600)
+    def test_eos_token_command_host_with_port(self):
+        eos_host = f"{self.eos_host}:8444"
+        payload = {
+            "retc": "0",
+            "stdOut": self.eos_token,
+            "stdErr": "",
+        }
+
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(json_data=payload),
+        ) as mock_post:
+            token = opendata._eos_grpc_gateway_token_command(
+                eos_host=eos_host,
+                filename="/eos/opendata/file.root",
+                lifetime_seconds=3600,
+            )
 
         assert token == self.eos_token
-        assert mock_post.call_args[0][0] == f"https://{self.eos_host}/v1/eos/rest/gateway/token_cmd"
+
+        assert mock_post.call_args[0][0] == (
+            f"https://{self.eos_host}:8444"
+            "/v1/eos/rest/gateway/token_cmd"
+        )
 
     def test_eos_token_command_empty_token(self):
         payload = {"retc": "0", "stdOut": "  \n", "stdErr": ""}
@@ -668,17 +688,42 @@ class TestOpenDataEOS:
             f"//eos/opendata/experiment/file.root"
         )
 
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        probed_hosts = []
+        token_requests = []
+
+        def fake_is_eos_host(host):
+            probed_hosts.append(host)
+            return True
+
+        def fake_token_command(*, eos_host, filename, lifetime_seconds):
+            token_requests.append({
+                "eos_host": eos_host,
+                "filename": filename,
+            })
+            return self.eos_token
+
+        monkeypatch.setattr(opendata, "_is_eos_host", fake_is_eos_host)
         monkeypatch.setattr(
             opendata,
             "_eos_grpc_gateway_token_command",
-            lambda **kwargs: self.eos_token,
+            fake_token_command,
         )
 
         download_urls = opendata._generate_download_urls([eos_uri])
 
         assert download_urls == [
             f"{eos_uri}?authz={self.eos_token}"
+        ]
+
+        assert probed_hosts == [
+            f"{self.eos_host}:8444"
+        ]
+
+        assert token_requests == [
+            {
+                "eos_host": f"{self.eos_host}:8444",
+                "filename": "/eos/opendata/experiment/file.root",
+            }
         ]
 
     def test_generate_download_urls_uri_with_query(self, monkeypatch):

@@ -316,6 +316,7 @@ def _is_eos_host(host: str) -> bool:
 
     ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
     timeout = config_get_int("opendata", "eos_probe_timeout", raise_exception=False, default=3)
+    # The EOS REST gateway is always exposed over HTTPS. This is independent from the replica PFN scheme.
     url = f"https://{host}/v1/eos/rest/gateway/version_cmd"
 
     is_eos = False
@@ -364,7 +365,7 @@ def _eos_grpc_gateway_token_command(
     The following environment configuration may need to be set on the target EOS instance: `EOS_MGM_ENABLE_REST_API=1`
 
     Args:
-        eos_host: The hostname/URL of the EOS instance (e.g., 'https://eospilot.cern.ch' or just 'eospilot.cern.ch').
+        eos_host: EOS REST gateway authority, including the port if present (e.g. 'eospilot.cern.ch:8444').
         filename: The path the token should grant access to.
         lifetime_seconds: How many seconds the token should be valid for.
 
@@ -374,13 +375,11 @@ def _eos_grpc_gateway_token_command(
     # Calculate the exact expiration Unix timestamp
     expires_at = int(time.time()) + lifetime_seconds
 
-    # Ensure the host has a valid HTTP scheme before we construct the URL
-    if not eos_host.startswith("http://") and not eos_host.startswith("https://"):
-        eos_host = f"https://{eos_host}"
-
-    # Construct the endpoint URL
-    eos_host = eos_host.rstrip('/')
-    url = f"{eos_host}/v1/eos/rest/gateway/token_cmd"
+    # The EOS REST gateway is always accessed over HTTPS, independently
+    # of the replica PFN scheme. All supported replica protocols are expected
+    # to use the same configured port.
+    eos_host = eos_host.rstrip("/")
+    url = f"https://{eos_host}/v1/eos/rest/gateway/token_cmd"
 
     payload = {
         "path": filename,
