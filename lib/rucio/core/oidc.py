@@ -952,10 +952,10 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
         JWS().verify_compact(json_web_token, issuer_keys)
-        # if there is no audience and scope information,
+        # if there is no audience information,
         # try to get it from IdP introspection endpoint
-        # TO-BE-REMOVED - once all IdPs support scope and audience in token claims !!!
-        if not token_dict['authz_scope'] or not token_dict['audience']:
+        # TO-BE-REMOVED - once all IdPs support audience in token claims !!!
+        if not token_dict['audience']:
             clprocess = subprocess.Popen(['curl', '-s', '-L', '-u', '%s:%s'  # noqa: S607
                                           % (oidc_client.client_id, oidc_client.client_secret),
                                           '-d', 'token=%s' % (json_web_token),
@@ -968,9 +968,9 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
             except Exception:
                 pass
         METRICS.counter(name='JSONWebToken.valid').inc()
-        # if token is valid and coming from known issuer --> check aud and scope and save it if unknown
-        if token_dict['authz_scope'] and token_dict['audience']:
-            if all_oidc_req_claims_present(token_dict['authz_scope'], token_dict['audience'], EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
+        # if token is valid and coming from known issuer --> check aud
+        if token_dict['audience']:
+            if all_oidc_req_claims_present(None, token_dict['audience'], None, EXPECTED_OIDC_AUDIENCE):
                 # save the token in Rucio DB giving the permission to use it for Rucio operations
                 __save_validated_token(json_web_token, token_dict, session=session)
             else:
