@@ -808,25 +808,24 @@ class TestOpenDataEOS:
     def test_get_opendata_did_files_download_url_generation_failure(
         self,
         mock_scope,
-        root_account,
         monkeypatch,
+        did_factory,
         db_write_session,
-):
-        name = did_name_generator(did_type="dataset")
-        file_name = did_name_generator(did_type="file")
-
-        add_did(
+    ):
+        dataset = did_factory.make_dataset(
             scope=mock_scope,
-            name=name,
-            account=root_account,
-            did_type=DIDType.DATASET,
             session=db_write_session,
         )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
+
         opendata.add_opendata_did(
             scope=mock_scope,
             name=name,
             session=db_write_session,
         )
+
         db_write_session.commit()
 
         https_uri = (
@@ -891,25 +890,24 @@ class TestOpenDataEOS:
     def test_get_opendata_did_files_download_urls_only_root(
         self,
         mock_scope,
-        root_account,
         monkeypatch,
+        did_factory,
         db_write_session,
-):
-        name = did_name_generator(did_type="dataset")
-        file_name = did_name_generator(did_type="file")
-
-        add_did(
+    ):
+        dataset = did_factory.make_dataset(
             scope=mock_scope,
-            name=name,
-            account=root_account,
-            did_type=DIDType.DATASET,
             session=db_write_session,
         )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
+
         opendata.add_opendata_did(
             scope=mock_scope,
             name=name,
             session=db_write_session,
         )
+
         db_write_session.commit()
 
         root_uri = f"root://{self.eos_host}:1094//eos/opendata/file.root"
@@ -955,25 +953,24 @@ class TestOpenDataEOS:
     def test_get_opendata_did_files_download_urls(
         self,
         mock_scope,
-        root_account,
         monkeypatch,
+        did_factory,
         db_write_session,
-):
-        name = did_name_generator(did_type="dataset")
-        file_name = did_name_generator(did_type="file")
-
-        add_did(
+    ):
+        dataset = did_factory.make_dataset(
             scope=mock_scope,
-            name=name,
-            account=root_account,
-            did_type=DIDType.DATASET,
             session=db_write_session,
         )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
+
         opendata.add_opendata_did(
             scope=mock_scope,
             name=name,
             session=db_write_session,
         )
+
         db_write_session.commit()
 
         root_uri = f"root://{self.eos_host}:1094//eos/opendata/experiment/file.root"
@@ -1052,28 +1049,27 @@ class TestOpenDataEOS:
     def test_get_opendata_did_files_batches_replica_resolution(
         self,
         mock_scope,
-        root_account,
         monkeypatch,
+        did_factory,
         db_write_session,
     ):
-        name = did_name_generator(did_type="dataset")
+        dataset = did_factory.make_dataset(
+            scope=mock_scope,
+            session=db_write_session,
+        )
+
+        name = dataset["name"]
         file_names = [
             did_name_generator(did_type="file")
             for _ in range(3)
         ]
 
-        add_did(
-            scope=mock_scope,
-            name=name,
-            account=root_account,
-            did_type=DIDType.DATASET,
-            session=db_write_session,
-        )
         opendata.add_opendata_did(
             scope=mock_scope,
             name=name,
             session=db_write_session,
         )
+
         db_write_session.commit()
 
         def fake_list_files(*args, **kwargs):
@@ -1200,26 +1196,25 @@ class TestOpenDataEOS:
 
     def test_get_opendata_did_files_no_disk_uri(
             self,
-            mock_scope,
-            root_account,
-            monkeypatch,
-            db_write_session,
+        mock_scope,
+        monkeypatch,
+        did_factory,
+        db_write_session,
     ):
-        name = did_name_generator(did_type="dataset")
-        file_name = did_name_generator(did_type="file")
-
-        add_did(
+        dataset = did_factory.make_dataset(
             scope=mock_scope,
-            name=name,
-            account=root_account,
-            did_type=DIDType.DATASET,
             session=db_write_session,
         )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
+
         opendata.add_opendata_did(
             scope=mock_scope,
             name=name,
             session=db_write_session,
         )
+
         db_write_session.commit()
 
         def fake_list_files(*args, **kwargs):
@@ -1253,22 +1248,19 @@ class TestOpenDataEOS:
     def test_get_opendata_did_files_ignores_legacy_cache(
         self,
         mock_scope,
-        root_account,
         monkeypatch,
+        did_factory,
         db_write_session,
     ):
         cache = _FakeCacheRegion()
 
-        name = did_name_generator(did_type="dataset")
-        file_name = did_name_generator(did_type="file")
-
-        add_did(
+        dataset = did_factory.make_dataset(
             scope=mock_scope,
-            name=name,
-            account=root_account,
-            did_type=DIDType.DATASET,
             session=db_write_session,
         )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
 
         opendata.add_opendata_did(
             scope=mock_scope,
