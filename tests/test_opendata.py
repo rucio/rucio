@@ -844,9 +844,11 @@ class TestOpenDataEOS:
 
         def fake_list_replicas(*args, **kwargs):
             yield {
+                "scope": mock_scope,
+                "name": file_name,
                 "pfns": {
                     https_uri: {"type": "DISK"},
-                }
+                },
             }
 
         monkeypatch.setattr(opendata, "list_files", fake_list_files)
@@ -922,12 +924,18 @@ class TestOpenDataEOS:
 
         def fake_list_replicas(*args, **kwargs):
             if kwargs.get("schemes") == ["http", "https", "dav", "davs"]:
-                yield {"pfns": {}}
+                yield {
+                    "scope": mock_scope,
+                    "name": file_name,
+                    "pfns": {},
+                }
             else:
                 yield {
+                    "scope": mock_scope,
+                    "name": file_name,
                     "pfns": {
                         root_uri: {"type": "DISK"},
-                    }
+                    },
                 }
 
         monkeypatch.setattr(opendata, "list_files", fake_list_files)
@@ -988,15 +996,19 @@ class TestOpenDataEOS:
 
             if schemes == ["http", "https", "dav", "davs"]:
                 yield {
+                    "scope": mock_scope,
+                    "name": file_name,
                     "pfns": {
                         https_uri: {"type": "DISK"},
-                    }
+                    },
                 }
             else:
                 yield {
+                    "scope": mock_scope,
+                    "name": file_name,
                     "pfns": {
                         root_uri: {"type": "DISK"},
-                    }
+                    },
                 }
 
         monkeypatch.setattr(opendata, "list_files", fake_list_files)
@@ -1036,6 +1048,129 @@ class TestOpenDataEOS:
         assert parse_qs(parsed.query)["authz"] == [self.eos_token]
 
         assert ["http", "https", "dav", "davs"] in requested_schemes
+
+    def test_get_opendata_did_files_batches_replica_resolution(
+        self,
+        mock_scope,
+        root_account,
+        monkeypatch,
+        db_write_session,
+    ):
+        name = did_name_generator(did_type="dataset")
+        file_names = [
+            did_name_generator(did_type="file")
+            for _ in range(3)
+        ]
+
+        add_did(
+            scope=mock_scope,
+            name=name,
+            account=root_account,
+            did_type=DIDType.DATASET,
+            session=db_write_session,
+        )
+        opendata.add_opendata_did(
+            scope=mock_scope,
+            name=name,
+            session=db_write_session,
+        )
+        db_write_session.commit()
+
+        def fake_list_files(*args, **kwargs):
+            for file_name in file_names:
+                yield {
+                    "scope": mock_scope,
+                    "name": file_name,
+                    "bytes": 42,
+                    "adler32": "deadbeef",
+                }
+
+        list_replicas_calls = []
+
+        def fake_list_replicas(*args, **kwargs):
+            dids = kwargs["dids"]
+            schemes = kwargs.get("schemes")
+
+            list_replicas_calls.append({
+                "dids": list(dids),
+                "schemes": schemes,
+            })
+
+            for did in dids:
+                if schemes == ["http", "https", "dav", "davs"]:
+                    uri = (
+                        f"https://{self.eos_host}:8444"
+                        f"//eos/opendata/{did['name']}"
+                    )
+                else:
+                    uri = (
+                        f"root://{self.eos_host}:1094"
+                        f"//eos/opendata/{did['name']}"
+                    )
+
+                yield {
+                    "scope": did["scope"],
+                    "name": did["name"],
+                    "pfns": {
+                        uri: {"type": "DISK"},
+                    },
+                }
+
+        monkeypatch.setattr(opendata, "list_files", fake_list_files)
+        monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
+        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            lambda **kwargs: self.eos_token,
+        )
+
+        result = opendata.get_opendata_did_files(
+            scope=mock_scope,
+            name=name,
+            include_download_urls=True,
+            session=db_write_session,
+        )
+
+        assert len(result["files"]) == 3
+
+        # Exactly one batch for regular replicas and one for download replicas.
+        assert len(list_replicas_calls) == 2
+
+        regular_call = list_replicas_calls[0]
+        download_call = list_replicas_calls[1]
+
+        assert regular_call["schemes"] is None
+        assert download_call["schemes"] == [
+            "http",
+            "https",
+            "dav",
+            "davs",
+        ]
+
+        assert len(regular_call["dids"]) == 3
+        assert len(download_call["dids"]) == 3
+
+        assert {
+            did["name"] for did in regular_call["dids"]
+        } == set(file_names)
+
+        assert {
+            did["name"] for did in download_call["dids"]
+        } == set(file_names)
+
+        for file in result["files"]:
+            assert file["uris"] == [
+                f"root://{self.eos_host}:1094"
+                f"//eos/opendata/{file['name']}"
+            ]
+
+            assert len(file["download_urls"]) == 1
+
+            parsed = urlparse(file["download_urls"][0])
+
+            assert parsed.path == f"//eos/opendata/{file['name']}"
+            assert parse_qs(parsed.query)["authz"] == [self.eos_token]
 
     @pytest.mark.parametrize(
         "uri",
@@ -1096,7 +1231,11 @@ class TestOpenDataEOS:
             }
 
         def fake_list_replicas(*args, **kwargs):
-            yield {"pfns": {}}
+            yield {
+                "scope": mock_scope,
+                "name": file_name,
+                "pfns": {},
+            }
 
         monkeypatch.setattr(opendata, "list_files", fake_list_files)
         monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
@@ -1170,11 +1309,11 @@ class TestOpenDataEOS:
 
         def fake_list_replicas(*args, **kwargs):
             yield {
+                "scope": mock_scope,
+                "name": file_name,
                 "pfns": {
-                    https_uri: {
-                        "type": "DISK",
-                    }
-                }
+                    https_uri: {"type": "DISK"},
+                },
             }
 
         monkeypatch.setattr(opendata, "REGION", cache)

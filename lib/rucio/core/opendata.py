@@ -527,6 +527,23 @@ def _extract_disk_uris(
     return uris
 
 
+def _index_disk_uris_by_did(
+    replicas: "Iterable[dict[str, Any]]",
+) -> dict[tuple["InternalScope", str], list[str]]:
+    """
+    Index DISK PFNs by DID.
+    """
+    result: dict[tuple["InternalScope", str], list[str]] = {}
+
+    for replica in replicas:
+        key = (replica["scope"], replica["name"])
+        result.setdefault(key, []).extend(
+            _extract_disk_uris([replica])
+        )
+
+    return result
+
+
 def get_opendata_did_files(
         *,
         scope: "InternalScope",
@@ -605,17 +622,40 @@ def get_opendata_did_files(
 
     rse_expression = config_get("opendata", "rse_expression", raise_exception=True)
 
-    for i, file in enumerate(file_list):
-        dids = [{"scope": file["scope"], "name": file["name"]}]
+    dids = [
+        {
+            "scope": file["scope"],
+            "name": file["name"],
+        }
+        for file in file_list
+    ]
 
-        # Retrieve replicas using the standard Rucio protocol selection.
-        replicas = list_replicas(
-        dids=dids,
-        rse_expression=rse_expression,
-        session=session,
-    )
+    regular_uris_by_did: dict[tuple["InternalScope", str], list[str]] = {}
+    download_uris_by_did: dict[tuple["InternalScope", str], list[str]] = {}
 
-        uris = _extract_disk_uris(replicas)
+    if dids:
+        regular_uris_by_did = _index_disk_uris_by_did(
+            list_replicas(
+                dids=dids,
+                rse_expression=rse_expression,
+                session=session,
+            )
+        )
+
+        if include_download_urls:
+            download_uris_by_did = _index_disk_uris_by_did(
+                list_replicas(
+                    dids=dids,
+                    rse_expression=rse_expression,
+                    schemes=["http", "https", "dav", "davs"],
+                    session=session,
+                )
+            )
+
+    for file in file_list:
+        did_key = (file["scope"], file["name"])
+
+        uris = regular_uris_by_did.get(did_key, [])
 
         if not uris:
             logger.error(
@@ -628,43 +668,39 @@ def get_opendata_did_files(
                 f"{file['scope']}:{file['name']}."
             )
 
-        file_list[i]["uris"] = uris
+        file["uris"] = uris
 
-        if include_download_urls:
-            download_replicas = list_replicas(
-                dids=dids,
-                rse_expression=rse_expression,
-                schemes=["http", "https", "dav", "davs"],
-                session=session,
+        if not include_download_urls:
+            continue
+
+        download_uris = download_uris_by_did.get(did_key, [])
+
+        if not download_uris:
+            logger.error(
+                "No HTTP(S) or DAV(S) DISK replica URI available "
+                "for OpenData file %s:%s.",
+                file["scope"],
+                file["name"],
+            )
+            raise OpenDataError(
+                f"Failed to retrieve HTTP(S) or DAV(S) replica URI "
+                f"for OpenData file {file['scope']}:{file['name']}."
             )
 
-            download_uris = _extract_disk_uris(download_replicas)
+        download_urls = _generate_download_urls(download_uris)
 
-            if not download_uris:
-                logger.error(
-                    "No HTTP(S) or DAV(S) DISK replica URI available for OpenData file %s:%s.",
-                    file["scope"],
-                    file["name"],
-                )
-                raise OpenDataError(
-                    f"Failed to retrieve HTTP(S) or DAV(S) replica URI for OpenData file "
-                    f"{file['scope']}:{file['name']}."
-                )
+        if not download_urls:
+            logger.error(
+                "Failed to generate download URL for OpenData file %s:%s.",
+                file["scope"],
+                file["name"],
+            )
+            raise OpenDataError(
+                f"Failed to generate download URL for OpenData file "
+                f"{file['scope']}:{file['name']}."
+            )
 
-            download_urls = _generate_download_urls(download_uris)
-
-            if not download_urls:
-                logger.error(
-                    "Failed to generate download URL for OpenData file %s:%s.",
-                    file["scope"],
-                    file["name"],
-                )
-                raise OpenDataError(
-                    f"Failed to generate download URL for OpenData file "
-                    f"{file['scope']}:{file['name']}."
-                )
-
-            file_list[i]["download_urls"] = download_urls
+        file["download_urls"] = download_urls
 
     # Now that the file_list is fully built (with or without download URLs), cache it
     if use_cache:
