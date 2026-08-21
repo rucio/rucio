@@ -31,6 +31,7 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.common.types import InternalAccount
+from rucio.common.utils import add_url_query
 from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_replicas
@@ -482,8 +483,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
         if not token:
             continue
 
-        separator = "&" if "?" in uri else "?"
-        download_urls.append(f"{uri}{separator}authz={token}")
+        download_urls.append(add_url_query(uri, {"authz": token}))
 
     return download_urls
 

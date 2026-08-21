@@ -16,6 +16,7 @@ import re
 import time
 from configparser import NoOptionError
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 import requests
@@ -677,8 +678,17 @@ class TestOpenDataEOS:
 
         download_urls = opendata._generate_download_urls(uris)
 
-        assert download_urls == [f"{eos_uri}?authz={self.eos_token}"]
-        # The double slash of the PFN must be collapsed in the path sent to EOS
+        assert len(download_urls) == 1
+
+        parsed = urlparse(download_urls[0])
+
+        assert parsed.scheme == "https"
+        assert parsed.hostname == self.eos_host
+        assert parsed.port == 8444
+        assert parsed.path == "//eos/opendata/experiment/file.root"
+        assert parse_qs(parsed.query)["authz"] == [self.eos_token]
+
+        # The double slash of the PFN must be collapsed in the path sent to EOS.
         assert requested_paths == ["/eos/opendata/experiment/file.root"]
 
     @pytest.mark.parametrize("scheme", ["http", "https", "dav", "davs"])
@@ -711,9 +721,15 @@ class TestOpenDataEOS:
 
         download_urls = opendata._generate_download_urls([eos_uri])
 
-        assert download_urls == [
-            f"{eos_uri}?authz={self.eos_token}"
-        ]
+        assert len(download_urls) == 1
+
+        parsed = urlparse(download_urls[0])
+
+        assert parsed.scheme == scheme
+        assert parsed.hostname == self.eos_host
+        assert parsed.port == 8444
+        assert parsed.path == "//eos/opendata/experiment/file.root"
+        assert parse_qs(parsed.query)["authz"] == [self.eos_token]
 
         assert probed_hosts == [
             f"{self.eos_host}:8444"
@@ -726,16 +742,29 @@ class TestOpenDataEOS:
             }
         ]
 
-    def test_generate_download_urls_uri_with_query(self, monkeypatch):
-        eos_uri = f"https://{self.eos_host}:8444//eos/opendata/file.root?xrd.wantprot=unix"
+    def test_generate_download_urls_uri_with_query_and_fragment(self, monkeypatch):
+        eos_uri = (
+            f"https://{self.eos_host}:8444"
+            "//eos/opendata/file.root?xrd.wantprot=unix#multirange"
+        )
 
         monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
-        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command",
-                            lambda **kwargs: self.eos_token)
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            lambda **kwargs: self.eos_token,
+        )
 
         download_urls = opendata._generate_download_urls([eos_uri])
 
-        assert download_urls == [f"{eos_uri}&authz={self.eos_token}"]
+        assert len(download_urls) == 1
+
+        parsed = urlparse(download_urls[0])
+        query = parse_qs(parsed.query)
+
+        assert query["xrd.wantprot"] == ["unix"]
+        assert query["authz"] == [self.eos_token]
+        assert parsed.fragment == "multirange"
 
     def test_generate_download_urls_no_token(self, monkeypatch):
         monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
@@ -964,9 +993,16 @@ class TestOpenDataEOS:
         file = result["files"][0]
 
         assert file["uris"] == [root_uri]
-        assert file["download_urls"] == [
-            f"{https_uri}?authz={self.eos_token}"
-        ]
+
+        assert len(file["download_urls"]) == 1
+
+        parsed = urlparse(file["download_urls"][0])
+
+        assert parsed.scheme == "https"
+        assert parsed.hostname == self.eos_host
+        assert parsed.port == 8444
+        assert parsed.path == "//eos/opendata/experiment/file.root"
+        assert parse_qs(parsed.query)["authz"] == [self.eos_token]
 
         assert ["http", "https", "dav", "davs"] in requested_schemes
 
