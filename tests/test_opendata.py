@@ -1111,6 +1111,110 @@ class TestOpenDataEOS:
                 session=db_write_session,
             )
 
+    def test_get_opendata_did_files_ignores_legacy_cache(
+        self,
+        mock_scope,
+        root_account,
+        monkeypatch,
+        db_write_session,
+    ):
+        cache = _FakeCacheRegion()
+
+        name = did_name_generator(did_type="dataset")
+        file_name = did_name_generator(did_type="file")
+
+        add_did(
+            scope=mock_scope,
+            name=name,
+            account=root_account,
+            did_type=DIDType.DATASET,
+            session=db_write_session,
+        )
+
+        opendata.add_opendata_did(
+            scope=mock_scope,
+            name=name,
+            session=db_write_session,
+        )
+
+        db_write_session.commit()
+
+        legacy_key = f"opendata_did_files_{mock_scope}_{name}_dl_True"
+
+        cache.set(
+            legacy_key,
+            [
+                {
+                    "scope": mock_scope,
+                    "name": file_name,
+                    "uris": [],
+                    "download_urls": [
+                        "https://old.example/file?token=legacy"
+                    ],
+                }
+            ],
+        )
+
+        https_uri = (
+            f"https://{self.eos_host}:8444"
+            "//eos/opendata/file.root"
+        )
+
+        def fake_list_files(*args, **kwargs):
+            yield {
+                "scope": mock_scope,
+                "name": file_name,
+                "bytes": 42,
+                "adler32": "deadbeef",
+            }
+
+        def fake_list_replicas(*args, **kwargs):
+            yield {
+                "pfns": {
+                    https_uri: {
+                        "type": "DISK",
+                    }
+                }
+            }
+
+        monkeypatch.setattr(opendata, "REGION", cache)
+        monkeypatch.setattr(opendata, "list_files", fake_list_files)
+        monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            lambda **kwargs: self.eos_token,
+        )
+
+        result = opendata.get_opendata_did_files(
+            scope=mock_scope,
+            name=name,
+            use_cache=True,
+            include_download_urls=True,
+            session=db_write_session,
+        )
+
+        assert result["cache_hit"] is False
+
+        assert len(result["files"]) == 1
+
+        file = result["files"][0]
+
+        assert file["uris"] == [https_uri]
+
+        assert len(file["download_urls"]) == 1
+
+        parsed = urlparse(file["download_urls"][0])
+        query = parse_qs(parsed.query)
+
+        assert query["authz"] == [self.eos_token]
+        assert "token" not in query
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:

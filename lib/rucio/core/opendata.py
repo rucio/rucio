@@ -58,6 +58,7 @@ EOS_PROBE_NEGATIVE_REGION = MemcacheRegion(expiration_time=300)
 # expiration time of the file listing cache (REGION above) so that download
 # URLs served from the cache always carry a still-valid token.
 DEFAULT_EOS_TOKEN_LIFETIME_SECONDS = 4 * 3600
+OPENDATA_DID_FILES_CACHE_VERSION = 2
 
 
 def is_valid_opendata_did_state(state: str) -> bool:
@@ -560,7 +561,10 @@ def get_opendata_did_files(
     time_start = time.perf_counter()
 
     # Append the include_download_urls flag to the cache key so we don't mix up responses
-    cache_key = f"opendata_did_files_{scope}_{name}_dl_{include_download_urls}"
+    cache_key = (
+        f"opendata_did_files_v{OPENDATA_DID_FILES_CACHE_VERSION}_"
+        f"{scope}_{name}_dl_{include_download_urls}"
+    )
 
     if use_cache:
         file_list = REGION.get(cache_key)
