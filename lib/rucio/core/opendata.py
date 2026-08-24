@@ -17,7 +17,7 @@ import logging
 import time
 from re import match, search
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 from dogpile.cache.api import NoValue
@@ -31,7 +31,6 @@ from rucio.common.config import config_get, config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import OpenDataError, OpenDataInvalidStateUpdate
 from rucio.common.types import InternalAccount
-from rucio.common.utils import add_url_query
 from rucio.core.did import list_files
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import list_replicas
@@ -442,6 +441,24 @@ def _format_url_authority(host: str, port: Optional[int]) -> str:
     return host
 
 
+def _append_authz_query_parameter(uri: str, token: str) -> str:
+    """
+    Append an authz parameter without reparsing or rebuilding the existing query.
+
+    The original query string is preserved verbatim so repeated parameters,
+    valueless flags, ordering, and existing percent-encoding are not changed.
+    """
+    parsed = urlparse(uri)
+    authz_query = urlencode({"authz": token})
+
+    if parsed.query:
+        query = f"{parsed.query}&{authz_query}"
+    else:
+        query = authz_query
+
+    return parsed._replace(query=query).geturl()
+
+
 def _generate_download_urls(uris: list[str]) -> list[str]:
     """
     Build tokenized download URLs for the given replica URIs.
@@ -499,7 +516,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
         if not token:
             continue
 
-        download_urls.append(add_url_query(uri, {"authz": token}))
+        download_urls.append(_append_authz_query_parameter(uri, token))
 
     return download_urls
 

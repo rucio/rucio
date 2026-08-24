@@ -16,7 +16,7 @@ import re
 import time
 from configparser import NoOptionError
 from unittest.mock import MagicMock, patch
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlparse
 
 import pytest
 import requests
@@ -773,17 +773,26 @@ class TestOpenDataEOS:
             }
         ]
 
-    def test_generate_download_urls_uri_with_query_and_fragment(self, monkeypatch):
+    def test_generate_download_urls_preserves_query_and_fragment(
+        self,
+        monkeypatch,
+    ):
+        token = "token+value"
         eos_uri = (
             f"https://{self.eos_host}:8444"
-            "//eos/opendata/file.root?xrd.wantprot=unix#multirange"
+            "/eos/opendata/file.root"
+            "?source=a&source=b&flag#part"
         )
 
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
         monkeypatch.setattr(
             opendata,
             "_eos_grpc_gateway_token_command",
-            lambda **kwargs: self.eos_token,
+            lambda **kwargs: token,
         )
 
         download_urls = opendata._generate_download_urls([eos_uri])
@@ -791,11 +800,24 @@ class TestOpenDataEOS:
         assert len(download_urls) == 1
 
         parsed = urlparse(download_urls[0])
-        query = parse_qs(parsed.query)
 
-        assert query["xrd.wantprot"] == ["unix"]
-        assert query["authz"] == [self.eos_token]
-        assert parsed.fragment == "multirange"
+        # Verify that the existing query is preserved verbatim.
+        assert parsed.query.startswith(
+            "source=a&source=b&flag&authz="
+        )
+
+        # Verify its decoded semantics as well.
+        assert parse_qsl(
+            parsed.query,
+            keep_blank_values=True,
+        ) == [
+            ("source", "a"),
+            ("source", "b"),
+            ("flag", ""),
+            ("authz", token),
+        ]
+
+        assert parsed.fragment == "part"
 
     def test_generate_download_urls_no_token(self, monkeypatch):
         monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
