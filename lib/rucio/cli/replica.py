@@ -21,11 +21,11 @@ import click
 import tabulate
 from rich.text import Text
 
-from rucio.cli.utils import RichCLITheme, RichUtils, get_scope
+from rucio.cli.utils import RichCLITheme, RichUtils
 from rucio.common.client import detect_client_location
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import InputValidationError, InvalidObject
-from rucio.common.utils import chunks, clean_pfns, sizefmt
+from rucio.common.utils import chunks, clean_pfns, extract_scope, sizefmt
 
 if TYPE_CHECKING:
 
@@ -99,7 +99,7 @@ def list_(
         ctx.obj.spinner.start()
 
     for did in dids:
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         ctx.obj.client.get_metadata(scope=scope, name=name)  # Break with Exception before streaming replicas if DID does not exist.
         did_list.append({'scope': scope, 'name': name})
 
@@ -257,11 +257,11 @@ def list_dataset(
             ctx.obj.spinner.start()
 
         if len(dids) == 1:
-            scope, name = get_scope(dids[0], ctx.obj.client)
+            scope, name = extract_scope(dids[0])
             dmeta = ctx.obj.client.get_metadata(scope, name)
             _fetch_datasets_for_meta(meta=dmeta)
         else:
-            extractdids = (get_scope(did, ctx.obj.client) for did in dids)
+            extractdids = (extract_scope(did) for did in dids)
             splitdids = [{'scope': scope, 'name': name} for scope, name in extractdids]
             for dmeta in ctx.obj.client.get_metadata_bulk(dids=splitdids):
                 _fetch_datasets_for_meta(meta=dmeta)
@@ -342,7 +342,7 @@ def remove(ctx: click.Context, dids: tuple[str, ...], rse: str) -> None:
     "Set a replica for removal by adding a tombstone which will mark the replica as ready for deletion by a reaper daemon"
     replicas = []
     for did in dids:
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         replicas.append({'scope': scope, 'name': name, 'rse': rse})
     ctx.obj.client.set_tombstone(replicas)
     msg = f'Set tombstone successfully on: {dids}'
@@ -453,7 +453,7 @@ def update_bad(ctx: click.Context, replicas: tuple[str, ...], reason: str, as_fi
     bad_files_pfns = []
     for bad_file in bad_files:
         if bad_file.find('://') == -1:
-            scope, name = get_scope(bad_file, ctx.obj.client)
+            scope, name = extract_scope(bad_file)
             did_info = ctx.obj.client.get_did(scope, name)
             if did_info['type'].upper() != 'FILE' and not collection:
                 msg = f'DID {scope}:{name} is a collection and --allow-collection was not specified.'

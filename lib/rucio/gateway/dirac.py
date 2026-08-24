@@ -16,11 +16,9 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.exception import AccessDenied
-from rucio.common.types import InternalScope
 from rucio.common.utils import extract_scope
 from rucio.core import dirac
 from rucio.core.rse import get_rse_id
-from rucio.core.scope import list_scopes
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
 from rucio.gateway.permission import has_permission
@@ -51,12 +49,10 @@ def add_files(
     """
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        filter_ = {'scope': InternalScope(scope='*', vo=vo)}
-        scopes = [scope.external for scope in list_scopes(filter_=filter_, session=session)]
         dids = []
         rses = {}
         for lfn in lfns:
-            scope, name = extract_scope(lfn['lfn'], scopes, vo=vo)  # type: ignore (https://github.com/rucio/rucio/issues/8188)
+            scope, name = extract_scope(lfn['lfn'], vo=vo)  # type: ignore (https://github.com/rucio/rucio/issues/8188)
             dids.append({'scope': scope, 'name': name})
             rse = lfn['rse']
             if rse not in rses:

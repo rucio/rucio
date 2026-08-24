@@ -18,10 +18,10 @@ import click
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.cli.utils import RichCLITheme, RichUtils, get_scope, scope_exists
+from rucio.cli.utils import RichCLITheme, RichUtils, scope_exists
 from rucio.common.config import config_get
 from rucio.common.exception import InputValidationError, InvalidObject, RucioException
-from rucio.common.utils import chunks, parse_did_filter_from_string_fe
+from rucio.common.utils import chunks, extract_scope, parse_did_filter_from_string_fe
 
 
 @click.group()
@@ -57,7 +57,7 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
             ctx.obj.spinner.start()
 
         table_data = []
-        scope, name = get_scope(did_pattern, ctx.obj.client)
+        scope, name = extract_scope(did_pattern)
         for dataset in ctx.obj.client.list_parent_dids(scope=scope, name=name):
             if ctx.obj.use_rich:
                 table_data.append([f"{dataset['scope']}:{dataset['name']}", Text(dataset['type'], style=RichCLITheme.DID_TYPE.get(dataset['type'], 'default'))])
@@ -75,7 +75,7 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
         table_data = []
 
         try:
-            scope, name = get_scope(did_pattern, ctx.obj.client)
+            scope, name = extract_scope(did_pattern)
             if name == '':
                 name = '*'
         except InvalidObject:
@@ -126,7 +126,7 @@ def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
 
     output = []
     for i, did in enumerate(dids):
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         info = ctx.obj.client.get_did(scope=scope, name=name, dynamic_depth='DATASET')
         if ctx.obj.use_rich:
             if i > 0:
@@ -155,7 +155,7 @@ def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
 @click.pass_context
 def add_(ctx: click.Context, did_name: str, dtype: Literal['container', 'dataset'], monotonic: bool, lifetime: Optional[int]) -> None:
     """Create a new collection-type DID"""
-    scope, name = get_scope(did_name, ctx.obj.client)
+    scope, name = extract_scope(did_name)
     if dtype == "container":
         ctx.obj.client.add_container(scope=scope, name=name, statuses={'monotonic': monotonic}, lifetime=lifetime)
     else:
@@ -176,16 +176,16 @@ def update(ctx: click.Context, dids: tuple[str, ...], rse: Optional[str], operat
     if operation == "touch":
         for did in dids:
             # TODO check that RSE is present
-            scope, name = get_scope(did, ctx.obj.client)
+            scope, name = extract_scope(did)
             ctx.obj.client.touch(scope, name, rse)
     elif operation == "open":
         for did in dids:
-            scope, name = get_scope(did, ctx.obj.client)
+            scope, name = extract_scope(did)
             ctx.obj.client.set_status(scope=scope, name=name, open=True)
             print(f'{scope}:{name} has been reopened.')
     elif operation == "close":
         for did in dids:
-            scope, name = get_scope(did, ctx.obj.client)
+            scope, name = extract_scope(did)
             ctx.obj.client.set_status(scope=scope, name=name, open=False)
             print(f'{scope}:{name} has been closed.')
     else:
@@ -207,7 +207,7 @@ def remove(ctx: click.Context, dids: tuple[str, ...], undo: bool) -> None:
             ctx.obj.logger.warning("This command doesn't support wildcards! Skipping DID: %s" % did)
             continue
         try:
-            scope, name = get_scope(did, ctx.obj.client)
+            scope, name = extract_scope(did)
         except RucioException as error:
             ctx.obj.logger.warning('DID is in wrong format: %s' % did)
             ctx.obj.logger.debug('Error: %s' % error)
@@ -247,7 +247,7 @@ def content_history(ctx: click.Context, dids: tuple[str, ...]) -> None:
         ctx.obj.spinner.start()
 
     for did in dids:
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         for content in ctx.obj.client.list_content_history(scope=scope, name=name):
             if ctx.obj.use_rich:
                 table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=RichCLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
@@ -269,7 +269,7 @@ def content_history(ctx: click.Context, dids: tuple[str, ...]) -> None:
 @click.pass_context
 def content_add_(ctx: click.Context, to_did: str, from_file: bool, dids: tuple[str, ...]) -> None:
     """Attach a list [dids] of data identifiers (file or collection-type) to another data identifier (collection-type)"""
-    scope, name = get_scope(to_did, ctx.obj.client)
+    scope, name = extract_scope(to_did)
     limit = 499
 
     if from_file:
@@ -284,7 +284,7 @@ def content_add_(ctx: click.Context, to_did: str, from_file: bool, dids: tuple[s
     else:
         dids_list = list(dids)
 
-    did_objs = [{'scope': get_scope(did, ctx.obj.client)[0], 'name': get_scope(did, ctx.obj.client)[1]} for did in dids_list]
+    did_objs = [{'scope': extract_scope(did)[0], 'name': extract_scope(did)[1]} for did in dids_list]
     if len(did_objs) <= limit:
         ctx.obj.client.attach_dids(scope=scope, name=name, dids=did_objs)
     else:
@@ -311,10 +311,10 @@ def content_add_(ctx: click.Context, to_did: str, from_file: bool, dids: tuple[s
 @click.pass_context
 def content_remove(ctx: click.Context, dids: tuple[str, ...], from_did: str) -> None:
     """Detach [dids], a list of DIDs (file or collection-type) from another Data Identifier (collection type)"""
-    scope, name = get_scope(from_did, ctx.obj.client)
+    scope, name = extract_scope(from_did)
     did_objs = []
     for did in dids:
-        cscope, cname = get_scope(did, ctx.obj.client)
+        cscope, cname = extract_scope(did)
         did_objs.append({'scope': cscope, 'name': cname})
     ctx.obj.client.detach_dids(scope=scope, name=name, dids=did_objs)
     print(f'DIDs successfully detached from {scope}:{name}')
@@ -332,7 +332,7 @@ def content_list_(ctx: click.Context, dids: list[str], short: bool) -> None:
         ctx.obj.spinner.start()
 
     for did in dids:
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         for content in ctx.obj.client.list_content(scope=scope, name=name):
             if ctx.obj.use_rich:
                 table_data.append([f"{content['scope']}:{content['name']}", Text(content['type'].upper(), style=RichCLITheme.DID_TYPE.get(content['type'].upper(), 'default'))])
@@ -365,7 +365,7 @@ def metadata_set(ctx: click.Context, did: str, key: str, value: Union[str, float
     """Define metadata for a DID"""
     if key == 'lifetime':
         value = None if value.lower() == 'none' else float(value)  # type: ignore
-    scope, name = get_scope(did, ctx.obj.client)
+    scope, name = extract_scope(did)
     ctx.obj.client.set_metadata(scope=scope, name=name, key=key, value=value)
 
 
@@ -375,7 +375,7 @@ def metadata_set(ctx: click.Context, did: str, key: str, value: Union[str, float
 @click.pass_context
 def metadata_unset(ctx: click.Context, did: str, key: str) -> None:
     """Remove metadata from a DID"""
-    scope, name = get_scope(did, ctx.obj.client)
+    scope, name = extract_scope(did)
     ctx.obj.client.delete_metadata(scope=scope, name=name, key=key)
 
 
@@ -395,7 +395,7 @@ def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[s
 
     output = []
     for i, did in enumerate(dids):
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         meta = ctx.obj.client.get_metadata(scope=scope, name=name, plugin=plugin)
         if ctx.obj.use_rich:
             if i > 0:

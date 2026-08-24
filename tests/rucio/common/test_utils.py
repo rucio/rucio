@@ -65,4 +65,4 @@ class TestUtils:
         ]
     )
     def test_default_scope_extraction_algorithm(self, did, scope, name):
-        assert ScopeExtractionAlgorithms.extract_scope_default(did=did, scopes=None) == (scope, name)
+        assert ScopeExtractionAlgorithms.extract_scope_default(did=did) == (scope, name)
