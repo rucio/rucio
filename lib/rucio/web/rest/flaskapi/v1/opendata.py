@@ -15,7 +15,7 @@
 from flask import Blueprint, Flask, Response, request
 
 from rucio.common.constants import DEFAULT_VO, HTTPMethod
-from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
+from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, ResourceTemporaryUnavailable
 from rucio.common.utils import render_json
 from rucio.core.opendata import validate_opendata_did_state
 from rucio.gateway import opendata
@@ -123,6 +123,8 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             return generate_http_error_flask(401, error)
         except OpenDataDataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
+        except ResourceTemporaryUnavailable as error:
+            return generate_http_error_flask(503, error)
         except Exception as error:
             return generate_http_error_flask(400, error)
 

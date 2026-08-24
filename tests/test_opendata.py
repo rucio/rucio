@@ -32,6 +32,7 @@ from rucio.common.exception import (
     OpenDataDuplicateRecordID,
     OpenDataError,
     OpenDataInvalidStateUpdate,
+    ResourceTemporaryUnavailable,
 )
 from rucio.common.utils import execute
 from rucio.core import opendata
@@ -591,10 +592,13 @@ class TestOpenDataEOS:
         with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(json_data=payload)):
             assert opendata._is_eos_host(self.eos_host) is False
 
-    def test_is_eos_host_negative_unreachable(self):
-        with patch("rucio.core.opendata.requests.post",
-                   side_effect=requests.exceptions.ConnectionError("connection refused")):
-            assert opendata._is_eos_host(self.eos_host) is False
+    def test_is_eos_host_unreachable(self):
+        with patch(
+            "rucio.core.opendata.requests.post",
+            side_effect=requests.exceptions.ConnectionError("connection refused"),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._is_eos_host(self.eos_host)
 
     def test_eos_token_command(self):
         lifetime_seconds = 3600
@@ -641,21 +645,92 @@ class TestOpenDataEOS:
         )
 
     def test_eos_token_command_empty_token(self):
-        payload = {"retc": "0", "stdOut": "  \n", "stdErr": ""}
-        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(json_data=payload)):
-            assert opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host, filename="/eos/file.root",
-                                                            lifetime_seconds=3600) is None
+        payload = {
+            "retc": "0",
+            "stdOut": "  \n",
+            "stdErr": "",
+        }
+
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(json_data=payload),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._eos_grpc_gateway_token_command(
+                    eos_host=self.eos_host,
+                    filename="/eos/file.root",
+                    lifetime_seconds=3600,
+                )
 
     def test_eos_token_command_http_error(self):
-        with patch("rucio.core.opendata.requests.post", return_value=_mock_eos_response(status_code=500)):
-            assert opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host, filename="/eos/file.root",
-                                                            lifetime_seconds=3600) is None
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(status_code=500),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._eos_grpc_gateway_token_command(
+                    eos_host=self.eos_host,
+                    filename="/eos/file.root",
+                    lifetime_seconds=3600,
+                )
 
     def test_eos_token_command_unreachable(self):
-        with patch("rucio.core.opendata.requests.post",
-                   side_effect=requests.exceptions.ConnectionError("connection refused")):
-            assert opendata._eos_grpc_gateway_token_command(eos_host=self.eos_host, filename="/eos/file.root",
-                                                            lifetime_seconds=3600) is None
+        with patch(
+            "rucio.core.opendata.requests.post",
+            side_effect=requests.exceptions.ConnectionError("connection refused"),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._eos_grpc_gateway_token_command(
+                    eos_host=self.eos_host,
+                    filename="/eos/file.root",
+                    lifetime_seconds=3600,
+                )
+
+    def test_eos_token_command_nonzero_retc(self):
+        payload = {
+            "retc": -5,
+            "stdOut": "zteos64:invalid-after-command-failure",
+            "stdErr": "error: could not store token",
+        }
+
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(json_data=payload),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._eos_grpc_gateway_token_command(
+                    eos_host=self.eos_host,
+                    filename="/eos/file.root",
+                    lifetime_seconds=3600,
+                )
+
+    def test_is_eos_host_temporary_http_error(self):
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(status_code=503),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._is_eos_host(self.eos_host)
+
+    def test_eos_token_command_non_temporary_http_error(self):
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(status_code=404),
+        ):
+            with pytest.raises(OpenDataError):
+                opendata._eos_grpc_gateway_token_command(
+                    eos_host=self.eos_host,
+                    filename="/eos/file.root",
+                    lifetime_seconds=3600,
+                )
+
+    def test_is_eos_host_invalid_json(self):
+        with patch(
+            "rucio.core.opendata.requests.post",
+            return_value=_mock_eos_response(status_code=200),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._is_eos_host(self.eos_host)
 
     def test_generate_download_urls(self, monkeypatch):
         expected_eos_host = f"{self.eos_host}:8444"
@@ -690,6 +765,47 @@ class TestOpenDataEOS:
 
         # The double slash of the PFN must be collapsed in the path sent to EOS.
         assert requested_paths == ["/eos/opendata/experiment/file.root"]
+
+    def test_generate_download_urls_uses_other_replica_after_temporary_failure(
+        self,
+        monkeypatch,
+    ):
+        first_uri = (
+            f"https://first.{self.eos_host}:8444"
+            "/eos/opendata/file.root"
+        )
+        second_uri = (
+            f"https://second.{self.eos_host}:8444"
+            "/eos/opendata/file.root"
+        )
+
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
+
+        def fake_token_command(*, eos_host, filename, lifetime_seconds):
+            if eos_host == f"first.{self.eos_host}:8444":
+                raise ResourceTemporaryUnavailable(
+                    "temporary EOS failure"
+                )
+            return self.eos_token
+
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            fake_token_command,
+        )
+
+        download_urls = opendata._generate_download_urls(
+            [first_uri, second_uri]
+        )
+
+        assert len(download_urls) == 1
+        assert urlparse(download_urls[0]).hostname == (
+            f"second.{self.eos_host}"
+        )
 
     def test_generate_download_urls_preserves_ipv6_authority(self, monkeypatch):
         eos_uri = "https://[2001:db8::1]:8444//eos/opendata/file.root"
@@ -819,13 +935,26 @@ class TestOpenDataEOS:
 
         assert parsed.fragment == "part"
 
-    def test_generate_download_urls_no_token(self, monkeypatch):
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
-        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", lambda **kwargs: None)
+    def test_generate_download_urls_temporary_token_failure(self, monkeypatch):
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
+
+        def fail_token_command(**kwargs):
+            raise ResourceTemporaryUnavailable("temporary EOS failure")
+
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            fail_token_command,
+        )
 
         eos_uri = f"https://{self.eos_host}:8444/eos/file.root"
 
-        assert opendata._generate_download_urls([eos_uri]) == []
+        with pytest.raises(ResourceTemporaryUnavailable):
+            opendata._generate_download_urls([eos_uri])
 
     def test_generate_download_urls_reuses_equivalent_eos_token(
         self,
@@ -948,7 +1077,7 @@ class TestOpenDataEOS:
 
         https_uri = (
             f"https://{self.eos_host}:8444"
-            f"//eos/opendata/experiment/file.root"
+            "//eos/opendata/experiment/file.root"
         )
 
         def fake_list_files(*args, **kwargs):
@@ -968,19 +1097,33 @@ class TestOpenDataEOS:
                 },
             }
 
-        monkeypatch.setattr(opendata, "list_files", fake_list_files)
-        monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
+        def fail_token_command(**kwargs):
+            raise ResourceTemporaryUnavailable(
+                "temporary EOS token failure"
+            )
+
+        monkeypatch.setattr(
+            opendata,
+            "list_files",
+            fake_list_files,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "list_replicas",
+            fake_list_replicas,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
         monkeypatch.setattr(
             opendata,
             "_eos_grpc_gateway_token_command",
-            lambda **kwargs: None,
+            fail_token_command,
         )
 
-        with pytest.raises(
-            OpenDataError,
-            match="Failed to generate download URL",
-        ):
+        with pytest.raises(ResourceTemporaryUnavailable):
             opendata.get_opendata_did_files(
                 scope=mock_scope,
                 name=name,

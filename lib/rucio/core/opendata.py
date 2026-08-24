@@ -293,92 +293,198 @@ def get_opendata_record_id(
         return int(result["record_id"])
 
 
+def _raise_on_temporary_http_error(
+    response: requests.Response,
+    *,
+    operation: str,
+    host: str,
+) -> None:
+    """
+    Raise an exception when an HTTP response represents a temporary failure.
+
+    HTTP 408 (Request Timeout), 429 (Too Many Requests), and all 5xx responses
+    are considered temporary failures and are reported as
+    ``ResourceTemporaryUnavailable``.
+
+    Args:
+        response: HTTP response to inspect.
+        operation: Description of the operation being performed.
+        host: Host against which the operation was performed.
+
+    Raises:
+        ResourceTemporaryUnavailable: If the response status code indicates
+            a temporary HTTP failure.
+    """
+    if response.status_code in {408, 429} or response.status_code >= 500:
+        raise exception.ResourceTemporaryUnavailable(
+            f"{operation} is temporarily unavailable for {host}."
+        )
+
+
 def _is_eos_host(host: str) -> bool:
     """
     Probe ``host`` to determine whether it exposes the EOS REST gateway.
 
-    Calls the documented ``version_cmd`` endpoint of the EOS REST gateway
-    (defined in ``proto/eos_rest_gateway/eos_rest_gateway_service.proto`` in
-    the cern-eos/eos repository). A genuine EOS instance returns its
-    standard command envelope ``{"retc": "0", "stdOut": "...", "stdErr": ""}``
-    where ``stdOut`` carries an ``EOS_SERVER_VERSION=`` line. The probe is
-    read-only and does not require client-cert auth.
+    Calls the documented ``version_cmd`` endpoint of the EOS REST gateway.
+    A genuine EOS instance returns its standard command envelope
+    ``{"retc": "0", "stdOut": "...", "stdErr": ""}``, where ``stdOut``
+    contains an ``EOS_SERVER_VERSION=`` line.
 
-    Positive results are cached for a long time; negative results for a short
-    window so transient probe failures (network blips, gateway restarts) do
-    not lock a host out indefinitely.
+    Positive and confirmed negative results are cached. Transient transport,
+    server, or response-decoding failures are propagated as
+    ``ResourceTemporaryUnavailable`` and are not negative-cached.
+
+    Args:
+        host: Host authority to probe, including the port if present
+            (e.g. ``eospilot.cern.ch:8444``).
+
+    Returns:
+        True if the host is confirmed to expose an EOS REST gateway,
+        False if it is confirmed not to expose one.
+
+    Raises:
+        ResourceTemporaryUnavailable: If the probe cannot be completed due
+            to a temporary transport or server failure, an invalid response,
+            or a failed EOS probe command.
     """
     cached = EOS_PROBE_REGION.get(host)
     if not isinstance(cached, NoValue):
         return bool(cached)
+
     cached_neg = EOS_PROBE_NEGATIVE_REGION.get(host)
     if not isinstance(cached_neg, NoValue):
         return bool(cached_neg)
 
-    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
-    timeout = config_get_int("opendata", "eos_probe_timeout", raise_exception=False, default=3)
-    # The EOS REST gateway is always exposed over HTTPS. This is independent from the replica PFN scheme.
+    ca_bundle = config_get(
+        "opendata",
+        "eos_ca_bundle",
+        raise_exception=False,
+        default="/etc/grid-security/ca.pem",
+    )
+    timeout = config_get_int(
+        "opendata",
+        "eos_probe_timeout",
+        raise_exception=False,
+        default=3,
+    )
+
+    # The EOS REST gateway is always exposed over HTTPS. This is independent
+    # from the replica PFN scheme.
     url = f"https://{host}/v1/eos/rest/gateway/version_cmd"
 
-    is_eos = False
     try:
         response = requests.post(
             url,
             json={},
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
             verify=ca_bundle,
             timeout=timeout,
             allow_redirects=False,
         )
-        if response.status_code == 200:
-            try:
-                payload = response.json()
-            except ValueError:
-                payload = None
-            if (
-                isinstance(payload, dict)
-                and str(payload.get("retc")) == "0"
-                and "EOS_SERVER_VERSION=" in payload.get("stdOut", "")
-            ):
-                is_eos = True
-        if not is_eos:
-            logger.info(
-                "Host %s did not respond as an EOS REST gateway (status=%s).",
-                host, response.status_code,
-            )
-    except Exception as e:
-        logger.warning("EOS probe failed for %s: %s", host, e)
+    except requests.exceptions.RequestException as error:
+        logger.warning(
+            "Failed to probe host %s for EOS REST gateway support: %s",
+            host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"Unable to probe {host} for EOS REST gateway support."
+        ) from error
+
+    _raise_on_temporary_http_error(
+        response,
+        operation="REST gateway probe",
+        host=host,
+    )
+
+    if response.status_code != 200:
+        logger.info(
+            "Host %s did not respond as an EOS REST gateway "
+            "(status=%s).",
+            host,
+            response.status_code,
+        )
+        EOS_PROBE_NEGATIVE_REGION.set(host, False)
+        return False
+
+    try:
+        payload = response.json()
+    except ValueError as error:
+        logger.warning(
+            "Failed to decode REST gateway probe response from %s: %s",
+            host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"REST gateway probe returned an invalid response for {host}."
+        ) from error
+
+    if not isinstance(payload, dict):
+        logger.warning(
+            "REST gateway probe for %s returned an unexpected response type.",
+            host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"REST gateway probe returned an invalid response for {host}."
+        )
+
+    if "retc" in payload and str(payload["retc"]) != "0":
+        logger.warning(
+            "EOS probe command failed for %s: retc=%s, stderr=%s",
+            host,
+            payload.get("retc"),
+            payload.get("stdErr", ""),
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"REST gateway probe command failed for {host}."
+        )
+
+    std_out = payload.get("stdOut", "")
+
+    is_eos = (
+        str(payload.get("retc")) == "0"
+        and isinstance(std_out, str)
+        and "EOS_SERVER_VERSION=" in std_out
+    )
 
     if is_eos:
         EOS_PROBE_REGION.set(host, True)
     else:
         EOS_PROBE_NEGATIVE_REGION.set(host, False)
+
     return is_eos
 
 
 def _eos_grpc_gateway_token_command(
-        eos_host: str,
-        filename: str,
-        lifetime_seconds: int,
-) -> Optional[str]:
+    eos_host: str,
+    filename: str,
+    lifetime_seconds: int,
+) -> str:
     """
-    Sends a POST request to the EOS GRPC REST Gateway to generate an access token.
-    The following environment configuration may need to be set on the target EOS instance: `EOS_MGM_ENABLE_REST_API=1`
+    Send a POST request to the EOS GRPC REST gateway to generate an access token.
+
+    The EOS REST gateway is always contacted over HTTPS, independently of the
+    replica PFN scheme.
 
     Args:
-        eos_host: EOS REST gateway authority, including the port if present (e.g. 'eospilot.cern.ch:8444').
-        filename: The path the token should grant access to.
-        lifetime_seconds: How many seconds the token should be valid for.
+        eos_host: EOS REST gateway authority, including the port if present
+            (e.g. ``eospilot.cern.ch:8444``).
+        filename: Path the token should grant read access to.
+        lifetime_seconds: Number of seconds the token should remain valid.
 
     Returns:
-        Optional[str]: The raw token string if successful, or None if the token could not be fetched.
+        The raw token string when token generation succeeds.
+
+    Raises:
+        ResourceTemporaryUnavailable: If the EOS token service cannot be
+            contacted, returns a temporary HTTP failure, an invalid response,
+            or reports a failed token-generation command.
     """
-    # Calculate the exact expiration Unix timestamp
     expires_at = int(time.time()) + lifetime_seconds
 
-    # The EOS REST gateway is always accessed over HTTPS, independently
-    # of the replica PFN scheme. All supported replica protocols are expected
-    # to use the same configured port.
     eos_host = eos_host.rstrip("/")
     url = f"https://{eos_host}/v1/eos/rest/gateway/token_cmd"
 
@@ -390,16 +496,29 @@ def _eos_grpc_gateway_token_command(
 
     headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Accept": "application/json",
     }
 
-    # This is the default location the FTS renewal daemon uses to store the proxy.
-    cert = key = config_get("opendata", "eos_proxy_path", raise_exception=False, default="/opt/proxy/x509up")
+    cert = key = config_get(
+        "opendata",
+        "eos_proxy_path",
+        raise_exception=False,
+        default="/opt/proxy/x509up",
+    )
 
-    # Grid CA bundle for SSL verification
-    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
+    ca_bundle = config_get(
+        "opendata",
+        "eos_ca_bundle",
+        raise_exception=False,
+        default="/etc/grid-security/ca.pem",
+    )
 
-    timeout = config_get_int("opendata", "eos_token_request_timeout", raise_exception=False, default=5)
+    timeout = config_get_int(
+        "opendata",
+        "eos_token_request_timeout",
+        raise_exception=False,
+        default=5,
+    )
 
     try:
         response = requests.post(
@@ -410,19 +529,84 @@ def _eos_grpc_gateway_token_command(
             verify=ca_bundle,
             timeout=timeout,
         )
-        response.raise_for_status()
+    except requests.exceptions.RequestException as error:
+        logger.warning(
+            "Failed to request EOS token for '%s' on %s: %s",
+            filename,
+            eos_host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token request could not be completed for {eos_host}."
+        ) from error
+
+    _raise_on_temporary_http_error(
+        response,
+        operation="EOS token service",
+        host=eos_host,
+    )
+
+    if response.status_code != 200:
+        logger.warning(
+            "EOS token service returned HTTP %s for '%s' on %s.",
+            response.status_code,
+            filename,
+            eos_host,
+        )
+        raise exception.OpenDataError(
+            f"EOS token generation failed for {eos_host}: "
+            f"HTTP {response.status_code}."
+        )
+
+    try:
         response_data = response.json()
+    except ValueError as error:
+        logger.warning(
+            "Failed to decode EOS token response for '%s' on %s: %s",
+            filename,
+            eos_host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token service returned an invalid response for {eos_host}."
+        ) from error
 
-        token = response_data.get("stdOut", "").strip()
+    if not isinstance(response_data, dict):
+        logger.warning(
+            "EOS token service returned an unexpected response type "
+            "for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token service returned an invalid response for {eos_host}."
+        )
 
-        if not token:
-            logger.warning("EOS GRPC Gateway returned an empty token for '%s' on %s.", filename, eos_host)
-            return None
+    if str(response_data.get("retc")) != "0":
+        logger.warning(
+            "EOS token command failed for '%s' on %s: retc=%s, stderr=%s",
+            filename,
+            eos_host,
+            response_data.get("retc"),
+            response_data.get("stdErr", ""),
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token generation failed for {eos_host}."
+        )
 
-        return token
-    except Exception as e:
-        logger.warning("Error fetching EOS GRPC token for '%s' on %s: %s", filename, eos_host, e)
-        return None
+    token = response_data.get("stdOut", "")
+
+    if not isinstance(token, str) or not token.strip():
+        logger.warning(
+            "EOS token service returned an empty token for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token generation failed for {eos_host}."
+        )
+
+    return token.strip()
 
 
 def _format_url_authority(host: str, port: Optional[int]) -> str:
@@ -467,8 +651,9 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     considered. For each eligible URI, a read-only EOS token scoped to the
     file path is requested and appended as an ``authz`` query parameter.
 
-    Malformed URIs, unsupported schemes, non-EOS hosts, and URIs for which
-    a token cannot be obtained are skipped.
+    Malformed URIs, unsupported schemes, and confirmed non-EOS hosts are
+    skipped. Temporary EOS failures are tolerated while other independent
+    replicas are tried and are propagated if no download URL can be generated.
 
     Args:
         uris: Replica URIs to process.
@@ -476,6 +661,10 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     Returns:
         The successfully generated tokenized download URLs. The list may be
         empty if none of the provided URIs can be used.
+
+    Raises:
+        ResourceTemporaryUnavailable: If no download URL can be generated
+        and at least one EOS backend operation failed temporarily.
     """
     lifetime = config_get_int("opendata", "eos_token_lifetime", raise_exception=False,
                               default=DEFAULT_EOS_TOKEN_LIFETIME_SECONDS)
