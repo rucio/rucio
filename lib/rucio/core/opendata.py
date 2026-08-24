@@ -481,6 +481,15 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
                               default=DEFAULT_EOS_TOKEN_LIFETIME_SECONDS)
 
     download_urls = []
+
+    # The token lifetime and permission are constant within this invocation.
+    # Therefore, authority and normalized path identify the authorization scope.
+    token_cache: dict[tuple[str, str], Optional[str]] = {}
+
+    temporary_error: Optional[
+        exception.ResourceTemporaryUnavailable
+    ] = None
+
     for uri in uris:
         try:
             parsed = urlparse(uri)
@@ -499,24 +508,49 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
 
         eos_authority = _format_url_authority(host, port)
 
-        if not _is_eos_host(eos_authority):
-            continue
-
         path = parsed.path
-        # PFNs such as 'https://host:8444//eos/path' carry a double slash before the path
+
+        # PFNs such as https://host:8444//eos/path contain a double
+        # slash between the authority and EOS path.
         if path.startswith("//"):
             path = path[1:]
 
-        token = _eos_grpc_gateway_token_command(
-            eos_host=eos_authority,
-            filename=path,
-            lifetime_seconds=lifetime,
-        )
+        token_scope = (eos_authority, path)
+
+        try:
+            if token_scope not in token_cache:
+                if not _is_eos_host(eos_authority):
+                    token_cache[token_scope] = None
+                else:
+                    token_cache[token_scope] = (
+                        _eos_grpc_gateway_token_command(
+                            eos_host=eos_authority,
+                            filename=path,
+                            lifetime_seconds=lifetime,
+                        )
+                    )
+        except exception.ResourceTemporaryUnavailable as error:
+            # Do not immediately fail: another independent replica may work.
+            token_cache[token_scope] = None
+
+            if temporary_error is None:
+                temporary_error = error
+
+            continue
+
+        token = token_cache[token_scope]
 
         if not token:
             continue
 
-        download_urls.append(_append_authz_query_parameter(uri, token))
+        download_urls.append(
+            _append_authz_query_parameter(uri, token)
+        )
+
+    # If at least one independent replica worked, return it. Otherwise,
+    # preserve the temporary nature of any EOS backend outage.
+    if not download_urls and temporary_error is not None:
+        raise temporary_error
 
     return download_urls
 

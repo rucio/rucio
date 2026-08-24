@@ -827,6 +827,70 @@ class TestOpenDataEOS:
 
         assert opendata._generate_download_urls([eos_uri]) == []
 
+    def test_generate_download_urls_reuses_equivalent_eos_token(
+        self,
+        monkeypatch,
+    ):
+        uris = [
+            (
+                f"{scheme}://{self.eos_host}:8444"
+                "//eos/opendata/file.root"
+            )
+            for scheme in ["http", "https", "dav", "davs"]
+        ]
+
+        probed_hosts = []
+        token_requests = []
+
+        def fake_is_eos_host(host):
+            probed_hosts.append(host)
+            return True
+
+        def fake_token_command(
+            *,
+            eos_host,
+            filename,
+            lifetime_seconds,
+        ):
+            token_requests.append((eos_host, filename))
+            return self.eos_token
+
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            fake_is_eos_host,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            fake_token_command,
+        )
+
+        download_urls = opendata._generate_download_urls(uris)
+
+        # Preserve all supported protocol alternatives.
+        assert len(download_urls) == 4
+        assert {
+            urlparse(url).scheme
+            for url in download_urls
+        } == {"http", "https", "dav", "davs"}
+
+        # Probe and token generation happen once for the common scope.
+        assert probed_hosts == [
+            f"{self.eos_host}:8444"
+        ]
+        assert token_requests == [
+            (
+                f"{self.eos_host}:8444",
+                "/eos/opendata/file.root",
+            )
+        ]
+
+        for url in download_urls:
+            assert parse_qs(urlparse(url).query)["authz"] == [
+                self.eos_token
+            ]
+
     def test_get_opendata_did_files_download_url_generation_failure(
         self,
         mock_scope,
