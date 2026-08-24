@@ -35,6 +35,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, DatabaseOperationType, IdentityType
 from rucio.db.sqla.session import db_session, get_session
 from rucio.tests.common_server import get_vo
+from rucio.web.ui.flask.common.utils import finalize_auth
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',
                   'expires_in': 3599,
@@ -802,6 +803,18 @@ def test_oidc_all_identity_mapping(random_account, db_session):
                 models.Identity.identity_type == IdentityType.OIDC_ALL,
             )
         )
+
+
+@patch('rucio.web.ui.flask.common.utils.redirect_to_last_known_url', return_value='response')
+@patch('rucio.web.ui.flask.common.utils.identity.list_accounts_for_identity', return_value=['account'])
+@patch('rucio.web.ui.flask.common.utils.list_account_attributes', return_value={})
+@patch('rucio.web.ui.flask.common.utils.validate_webui_token')
+def test_oidc_all_webui_finalization(mock_validate_token, mock_list_attributes, mock_list_accounts, mock_redirect):
+    mock_validate_token.return_value = {'account': 'account', 'identity': 'ISS=https://issuer.example', 'vo': 'def'}
+
+    assert finalize_auth('token', 'OIDC') == 'response'
+    mock_list_accounts.assert_called_once_with('ISS=https://issuer.example', 'OIDC_ALL')
+    assert {'key': 'x-rucio-auth-type', 'value': 'OIDC_ALL'} in mock_redirect.call_args.args[0]
 
 
 def test_token_cache() -> None:
