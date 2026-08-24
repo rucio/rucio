@@ -891,6 +891,38 @@ class TestOpenDataEOS:
                 self.eos_token
             ]
 
+    def test_extract_disk_uris_filters_non_disk_replicas(self):
+        disk_uri = (
+            "https://disk.example.org:8444"
+            "//eos/file.root"
+        )
+        tape_uri = (
+            "https://tape.example.org:8444"
+            "//eos/file.root"
+        )
+
+        replicas = [
+            {
+                "pfns": {
+                    disk_uri: {"type": "DISK"},
+                    tape_uri: {"type": "TAPE"},
+                }
+            }
+        ]
+
+        assert opendata._extract_disk_uris(replicas) == [
+            disk_uri
+        ]
+        assert opendata._extract_disk_uris(
+            [
+                {
+                    "pfns": {
+                        tape_uri: {"type": "TAPE"},
+                    }
+                }
+            ]
+        ) == []
+
     def test_get_opendata_did_files_download_url_generation_failure(
         self,
         mock_scope,
@@ -1131,6 +1163,101 @@ class TestOpenDataEOS:
         assert parse_qs(parsed.query)["authz"] == [self.eos_token]
 
         assert ["http", "https", "dav", "davs"] in requested_schemes
+
+    def test_get_opendata_did_files_without_download_urls(
+        self,
+        mock_scope,
+        monkeypatch,
+        did_factory,
+        db_write_session,
+    ):
+        dataset = did_factory.make_dataset(
+            scope=mock_scope,
+            session=db_write_session,
+        )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
+
+        opendata.add_opendata_did(
+            scope=mock_scope,
+            name=name,
+            session=db_write_session,
+        )
+        db_write_session.commit()
+
+        root_uri = (
+            f"root://{self.eos_host}:1094"
+            f"//eos/opendata/{file_name}"
+        )
+
+        list_replicas_calls = []
+
+        def fake_list_files(*args, **kwargs):
+            yield {
+                "scope": mock_scope,
+                "name": file_name,
+                "bytes": 42,
+                "adler32": "deadbeef",
+            }
+
+        def fake_list_replicas(*args, **kwargs):
+            list_replicas_calls.append(kwargs)
+
+            for did in kwargs["dids"]:
+                yield {
+                    "scope": did["scope"],
+                    "name": did["name"],
+                    "pfns": {
+                        root_uri: {"type": "DISK"},
+                    },
+                }
+
+        def unexpected_eos_probe(host):
+            pytest.fail(
+                "EOS probing must not run when "
+                "include_download_urls=False"
+            )
+
+        def unexpected_token_request(**kwargs):
+            pytest.fail(
+                "EOS token generation must not run when "
+                "include_download_urls=False"
+            )
+
+        monkeypatch.setattr(
+            opendata,
+            "list_files",
+            fake_list_files,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "list_replicas",
+            fake_list_replicas,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            unexpected_eos_probe,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            unexpected_token_request,
+        )
+
+        result = opendata.get_opendata_did_files(
+            scope=mock_scope,
+            name=name,
+            include_download_urls=False,
+            session=db_write_session,
+        )
+
+        assert len(list_replicas_calls) == 1
+        assert list_replicas_calls[0].get("schemes") is None
+
+        assert result["files"][0]["uris"] == [root_uri]
+        assert "download_urls" not in result["files"][0]
 
     def test_get_opendata_did_files_batches_replica_resolution(
         self,
