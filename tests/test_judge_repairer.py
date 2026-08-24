@@ -13,21 +13,24 @@
 # limitations under the License.
 
 import itertools
+from datetime import datetime
 from hashlib import sha256
 
 import pytest
 from dogpile.cache import make_region
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 
 from rucio.common.config import config_get, config_get_bool
+from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetRSEs, RSEOverQuota
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import failed_transfer, get_replica_locks, successful_transfer
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
-from rucio.core.rse import add_rse, add_rse_attribute, update_rse
-from rucio.core.rule import add_rule, get_rule
+from rucio.core.rse import add_rse, add_rse_attribute, set_rse_limits, update_rse
+from rucio.core.rse_selector import RSESelector
+from rucio.core.rule import add_rule, get_rule, repair_rule
 from rucio.core.transfer import cancel_transfers
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
@@ -370,3 +373,201 @@ class TestJudgeRepairer:
                 change_availability(True)
                 rule_repairer(once=True)
                 assert (RuleState.REPLICATING == get_rule(rule_id)['state'])
+
+
+def _make_repair_rses(rse_factory, account):
+    _, source_rse_id = rse_factory.make_mock_rse()
+    target_rse1, target_rse1_id = rse_factory.make_mock_rse()
+    target_rse2, target_rse2_id = rse_factory.make_mock_rse()
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(account, target_rse1_id, -1, session=session)
+        set_local_account_limit(account, target_rse2_id, -1, session=session)
+
+    return source_rse_id, f'{target_rse1}|{target_rse2}', (target_rse1_id, target_rse2_id)
+
+
+def _get_repair_state(rule_id, files):
+    rule = get_rule(rule_id)
+    locks = {
+        (lock.scope, lock.name, lock.rse_id, lock.rule_id, lock.state, lock.repair_cnt)
+        for file in files
+        for lock in get_replica_locks(scope=file['scope'], name=file['name'])
+    }
+    with db_session(DatabaseOperationType.READ) as session:
+        file_names = [file['name'] for file in files]
+        replicas = set(session.execute(
+            select(
+                models.RSEFileAssociation.scope,
+                models.RSEFileAssociation.name,
+                models.RSEFileAssociation.rse_id,
+                models.RSEFileAssociation.state,
+                models.RSEFileAssociation.lock_cnt,
+                models.RSEFileAssociation.tombstone,
+            ).where(
+                models.RSEFileAssociation.scope == files[0]['scope'],
+                models.RSEFileAssociation.name.in_(file_names),
+            )
+        ).all())
+        requests = set(session.execute(
+            select(
+                models.Request.id,
+                models.Request.scope,
+                models.Request.name,
+                models.Request.dest_rse_id,
+                models.Request.state,
+            ).where(models.Request.rule_id == rule_id)
+        ).all())
+
+    return {
+        'rule_counters': (rule['locks_ok_cnt'], rule['locks_replicating_cnt'], rule['locks_stuck_cnt']),
+        'locks': locks,
+        'replicas': replicas,
+        'requests': requests,
+    }
+
+
+@pytest.fixture
+def repair_dataset(did_factory, jdoe_account):
+    dataset = did_factory.make_dataset(account=jdoe_account)
+    yield dataset
+
+    # These work queues intentionally have no foreign keys to the DID.
+    with db_session(DatabaseOperationType.WRITE) as session:
+        for model in (models.UpdatedDID, models.UpdatedCollectionReplica):
+            session.execute(
+                delete(model).where(
+                    model.scope == dataset['scope'],
+                    model.name == dataset['name'],
+                )
+            )
+
+
+@pytest.mark.noparallel(reason='creates updated DIDs for missing-lock repair')
+@pytest.mark.parametrize('missing_locks', [True, False], ids=['missing-locks', 'stuck-locks'])
+def test_repair_rule_handles_rse_over_quota(missing_locks, rse_factory, did_factory, repair_dataset, mock_scope, jdoe_account):
+    source_rse_id, rse_expression, target_rse_ids = _make_repair_rses(rse_factory, jdoe_account)
+    files = create_files(1, mock_scope, source_rse_id, bytes_=100)
+    did_factory.register_dids(files)
+
+    if not missing_locks:
+        attach_dids(dids=files, account=jdoe_account, **repair_dataset)
+
+    rule_id = add_rule(
+        dids=[repair_dataset],
+        account=jdoe_account,
+        copies=1,
+        rse_expression=rse_expression,
+        grouping='DATASET' if missing_locks else 'NONE',
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None,
+    )[0]
+
+    if missing_locks:
+        attach_dids(dids=files, account=jdoe_account, **repair_dataset)
+    else:
+        lock = get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])[0]
+        failed_transfer(scope=files[0]['scope'], name=files[0]['name'], rse_id=lock.rse_id)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        for rse_id in target_rse_ids:
+            set_rse_limits(rse_id, 'MaxSpaceAvailable', 0, session=session)
+        stmt = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == rule_id
+        )
+        rule = session.execute(stmt).scalar_one()
+        rule.updated_at = datetime(2000, 1, 1)
+        if missing_locks:
+            # Simulate a failed evaluation before any missing locks are created.
+            rule.state = RuleState.STUCK
+
+    before = get_rule(rule_id)
+    assert before['state'] == RuleState.STUCK
+    assert before['error'] is None
+
+    repair_rule(rule_id)
+    after = get_rule(rule_id)
+
+    assert after['state'] == RuleState.STUCK
+    assert 'insufficient space' in after['error']
+    assert after['updated_at'] > before['updated_at']
+
+
+@pytest.mark.noparallel(reason='creates updated DIDs for missing-lock repair')
+@pytest.mark.parametrize(
+    'missing_locks,selection_error',
+    [
+        (True, InsufficientAccountLimit),
+        (True, InsufficientTargetRSEs),
+        (True, RSEOverQuota),
+        (False, InsufficientAccountLimit),
+        (False, RSEOverQuota),
+    ],
+    ids=[
+        'missing-locks-account-limit',
+        'missing-locks-target-rses',
+        'missing-locks-rse-over-quota',
+        'stuck-locks-account-limit',
+        'stuck-locks-rse-over-quota',
+    ],
+)
+def test_repair_rule_does_not_commit_partial_changes_after_selection_error(
+        missing_locks, selection_error, monkeypatch, rse_factory, did_factory, repair_dataset, mock_scope, jdoe_account):
+    source_rse_id, rse_expression, _ = _make_repair_rses(rse_factory, jdoe_account)
+    files = create_files(2, mock_scope, source_rse_id, bytes_=100)
+    did_factory.register_dids(files)
+
+    if not missing_locks:
+        attach_dids(dids=files, account=jdoe_account, **repair_dataset)
+
+    rule_id = add_rule(
+        dids=[repair_dataset],
+        account=jdoe_account,
+        copies=1,
+        rse_expression=rse_expression,
+        grouping='NONE',
+        weight=None,
+        lifetime=None,
+        locked=False,
+        subscription_id=None,
+    )[0]
+
+    if missing_locks:
+        attach_dids(dids=files, account=jdoe_account, **repair_dataset)
+    else:
+        for file in files:
+            lock = get_replica_locks(scope=file['scope'], name=file['name'])[0]
+            failed_transfer(scope=file['scope'], name=file['name'], rse_id=lock.rse_id)
+
+    with db_session(DatabaseOperationType.WRITE) as session:
+        stmt = select(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == rule_id
+        )
+        rule = session.execute(stmt).scalar_one()
+        rule.updated_at = datetime(2000, 1, 1)
+        if missing_locks:
+            rule.state = RuleState.STUCK
+
+    repair_state_before = _get_repair_state(rule_id, files)
+    original_select_rse = RSESelector.select_rse
+    selection_count = 0
+
+    def fail_second_selection(self, *args, **kwargs):
+        nonlocal selection_count
+        selection_count += 1
+        if selection_count == 2:
+            raise selection_error()
+        return original_select_rse(self, *args, **kwargs)
+
+    monkeypatch.setattr(RSESelector, 'select_rse', fail_second_selection)
+
+    repair_rule(rule_id)
+
+    assert selection_count == 2
+    assert _get_repair_state(rule_id, files) == repair_state_before
