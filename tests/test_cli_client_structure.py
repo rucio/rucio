@@ -539,7 +539,7 @@ def test_upload_download(file_config_mock):
 
 @pytest.mark.noparallel(reason='Modifies the configuration file')
 @with_each_cli_renderer
-def test_lifetime_exception(rucio_client, mock_scope, file_config_mock):
+def test_lifetime_exception(rucio_client, mock_scope, file_config_mock, file_factory):
     from rucio.client.uploadclient import UploadClient
 
     # Add the lifetime-exception endpoint
@@ -547,7 +547,7 @@ def test_lifetime_exception(rucio_client, mock_scope, file_config_mock):
 
     input_file = tempfile.NamedTemporaryFile()
     # Upload file needs to be non-empty to avoid UploadClient treating it as a storage race and retrying
-    mock_did = file_generator()
+    mock_did = file_factory.file_generator()
     mock_rse = "MOCK-POSIX"
     upload_client = UploadClient(rucio_client)
 
@@ -560,7 +560,7 @@ def test_lifetime_exception(rucio_client, mock_scope, file_config_mock):
     upload_client.upload(items=[item])
 
     with open(input_file.name, "w") as f:
-        f.write(f"{mock_scope}:{mock_did.split('/')[-1]}")
+        f.write(f"{mock_scope}:{mock_did.name}")
 
     cmd = f"rucio lifetime-exception add -f {input_file.name} --reason mock_test -x 2100-12-30"
     exitcode, _, err = execute(cmd)
