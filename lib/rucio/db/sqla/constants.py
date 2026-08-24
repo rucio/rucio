@@ -97,6 +97,7 @@ class IdentityType(Enum):
     SSH = 'SSH'
     SAML = 'SAML'
     OIDC = 'OIDC'
+    OIDC_ALL = 'OIDC_ALL'
 
 
 class KeyType(Enum):
