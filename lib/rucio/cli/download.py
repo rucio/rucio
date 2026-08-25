@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 from typing import Optional
 
 import click
@@ -60,14 +59,13 @@ def _get_rse_for_pfn(replicas, pfn) -> Optional[str]:
 )  # NOQA: E501
 @click.option("--transfer-speed-timeout", type=float, default=None, help="Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.")  # NOQA: E501
 @click.option("--aria", default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
-# TODO replace with click functionality to automatically pull env vars
-@click.option("--trace-appid", default=os.environ.get("RUCIO_TRACE_APPID", None), hidden=True)
-@click.option("--trace-dataset", default=os.environ.get("RUCIO_TRACE_DATASET", None), hidden=True)
-@click.option("--trace-datasetscope", default=os.environ.get("RUCIO_TRACE_DATASETSCOPE", None), hidden=True)
-@click.option("--trace-eventtype", default=os.environ.get("RUCIO_TRACE_EVENTTYPE", None), hidden=True)
-@click.option("--trace-pq", default=os.environ.get("RUCIO_TRACE_PQ", None), hidden=True)
-@click.option("--trace-taskid", default=os.environ.get("RUCIO_TRACE_TASKID", None), hidden=True)
-@click.option("--trace-usrdn", default=os.environ.get("RUCIO_TRACE_USRDN", None), hidden=True)
+@click.option("--trace-appid", envvar="RUCIO_TRACE_APPID", hidden=True)
+@click.option("--trace-dataset", envvar="RUCIO_TRACE_DATASET", hidden=True)
+@click.option("--trace-datasetscope", envvar="RUCIO_TRACE_DATASETSCOPE", hidden=True)
+@click.option("--trace-eventtype", envvar="RUCIO_TRACE_EVENTTYPE", hidden=True)
+@click.option("--trace-pq", envvar="RUCIO_TRACE_PQ", hidden=True)
+@click.option("--trace-taskid", envvar="RUCIO_TRACE_TASKID", hidden=True)
+@click.option("--trace-usrdn", envvar="RUCIO_TRACE_USRDN", hidden=True)
 @click.option("--filter", help="Filter files by key-value pairs like guid=2e2232aafac8324db452070304f8d745.")
 @click.option("--scope", help="Scope to use as a filter or to use with DID names.")
 @click.option("--metalink", help="Path to a metalink file.")
