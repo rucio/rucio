@@ -1077,8 +1077,7 @@ def test_upload_with_impl(rse_factory, mock_scope, file_factory, rucio_client):
     pfn = generate_uuid()
     cmd = f'rucio upload --rse {rse} --scope {scope} --pfn {pfn} --impl {impl} {tmp_file}'
     exitcode, out, err = execute(cmd)
-    # assert exitcode != 0
-    # TODO Handle error passing
+    assert exitcode != 0
     assert "Ignoring --impl option because --pfn option given" in err
     assert "RSE does not support requested protocol" in err
 
