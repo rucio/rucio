@@ -37,6 +37,7 @@ from rucio.common.exception import (
     RSENotFound,
     ScopeNotFound,
     SortingAlgorithmNotSupported,
+    UnsupportedOperation,
 )
 from rucio.common.utils import APIEncoder, parse_response, render_json
 from rucio.core.replica_sorter import sort_replicas
@@ -367,7 +368,7 @@ class Replicas(ErrorHandlingMethodView):
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
-        except (Duplicate, DataIdentifierAlreadyExists) as error:
+        except (Duplicate, DataIdentifierAlreadyExists, UnsupportedOperation) as error:
             return generate_http_error_flask(409, error)
         except (RSENotFound, ScopeNotFound) as error:
             return generate_http_error_flask(404, error)

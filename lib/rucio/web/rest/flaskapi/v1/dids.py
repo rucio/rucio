@@ -1511,6 +1511,8 @@ class Meta(ErrorHandlingMethodView):
                 )
             except DataIdentifierNotFound as error:
                 return generate_http_error_flask(404, error)
+            except UnsupportedOperation as error:
+                return generate_http_error_flask(409, error)
             except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
                 return generate_http_error_flask(400, error)
             return 'Created', 201
@@ -1528,6 +1530,8 @@ class Meta(ErrorHandlingMethodView):
                 )
             except DataIdentifierNotFound as error:
                 return generate_http_error_flask(404, error)
+            except UnsupportedOperation as error:
+                return generate_http_error_flask(409, error)
             except (KeyNotFound, InvalidMetadata, InvalidValueForKey) as error:
                 return generate_http_error_flask(400, error)
             return "Created", 201
