@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import json
 import logging
 import time
@@ -790,6 +791,31 @@ def _index_disk_uris_by_did(
     return result
 
 
+def _make_opendata_did_files_cache_key(
+    scope: "InternalScope",
+    name: str,
+    include_download_urls: bool,
+) -> str:
+    """
+    Build a bounded cache key for Open Data DID file listings.
+
+    The variable part of the key is hashed to avoid exceeding Memcached's
+    250-byte key limit while still keeping cache entries distinct by scope,
+    name, download URL inclusion, and cache version.
+    """
+    cache_identity = (
+        f"{scope}_{name}_dl_{include_download_urls}"
+    )
+    digest = hashlib.sha256(
+        cache_identity.encode("utf-8")
+    ).hexdigest()
+
+    return (
+        f"opendata_did_files_v"
+        f"{OPENDATA_DID_FILES_CACHE_VERSION}_{digest}"
+    )
+
+
 def get_opendata_did_files(
         *,
         scope: "InternalScope",
@@ -826,9 +852,10 @@ def get_opendata_did_files(
     time_start = time.perf_counter()
 
     # Append the include_download_urls flag to the cache key so we don't mix up responses
-    cache_key = (
-        f"opendata_did_files_v{OPENDATA_DID_FILES_CACHE_VERSION}_"
-        f"{scope}_{name}_dl_{include_download_urls}"
+    cache_key = _make_opendata_did_files_cache_key(
+        scope,
+        name,
+        include_download_urls,
     )
 
     if use_cache:

@@ -249,6 +249,25 @@ class TestOpenDataCore:
 
         assert meta == meta_new, "'meta' should be updated"
 
+    def test_opendata_did_files_cache_key_length(self, mock_scope):
+        cache_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "n" * 250,
+            True,
+        )
+
+        assert len(cache_key.encode("utf-8")) <= 250
+
+        without_download_urls = (
+            opendata._make_opendata_did_files_cache_key(
+                mock_scope,
+                "n" * 250,
+                False,
+            )
+        )
+
+        assert cache_key != without_download_urls
+
     def test_opendata_doi_update(self, mock_scope, root_account, doi_factory, db_write_session):
         name = did_name_generator(did_type="dataset")
 
