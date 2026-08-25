@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from datetime import datetime
+from typing import TYPE_CHECKING
+
 import click
 
-from rucio.cli.bin_legacy.rucio import upload
-from rucio.cli.utils import Arguments
+from rucio.client.uploadclient import UploadClient
 from rucio.common.config import config_get_float
+from rucio.common.exception import InputValidationError
+
+if TYPE_CHECKING:
+    from rucio.common.types import FileToUploadDict
 
 
 @click.command("upload")
@@ -39,23 +45,81 @@ from rucio.common.config import config_get_float
 @click.pass_context
 def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, no_register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive):
     """Upload file(s) to a Rucio RSE"""
-    args = Arguments(
-        {
-            "args": file_paths,
-            "rse": rse,
-            "lifetime": lifetime,
-            "expiration_date": expiration_date,
-            "scope": scope,
-            "impl": impl,
-            "no_register": no_register,
-            "register_after_upload": register_after_upload,
-            "protocol": protocol,
-            "summary": summary,
-            "guid": guid,
-            "pfn": pfn,
-            "name": lfn,
-            "transfer_timeout": transfer_timeout,
-            "recursive": recursive,
-        }
-    )
-    upload(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    if lifetime and expiration_date:
+        raise InputValidationError("--lifetime and --expiration-date cannot be specified at the same time.")
+    elif expiration_date:
+        expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d-%H:%M:%S")
+        if expiration_date < datetime.utcnow():
+            raise ValueError("The specified expiration date should be in the future!")
+        lifetime = (expiration_date - datetime.utcnow()).total_seconds()
+
+    dsscope = None
+    dsname = None
+    for arg in file_paths:
+        did = arg.split(':')
+        if not dsscope and len(did) == 2:
+            dsscope = did[0]
+            dsname = did[1]
+        elif len(did) == 2:
+            ctx.obj.logger.warning('Ignoring input {} because dataset DID is already set {}:{}'.format(arg, dsscope, dsname))
+
+    items: list["FileToUploadDict"] = []
+    for arg in file_paths:
+        if arg.count(':') > 0:
+            continue
+        if pfn and impl:
+            ctx.obj.logger.warning('Ignoring --impl option because --pfn option given')
+            impl = None
+
+        item: "FileToUploadDict" = {'path': arg, 'rse': rse}
+
+        if scope:
+            item['did_scope'] = scope
+        if lfn:
+            item['did_name'] = lfn
+        if dsscope:
+            item['dataset_scope'] = dsscope
+        if dsname:
+            item['dataset_name'] = dsname
+        if impl:
+            item['impl'] = impl
+        if protocol:
+            item['force_scheme'] = protocol
+        if pfn:
+            item['pfn'] = pfn
+        if no_register:
+            item['no_register'] = True
+        if register_after_upload:
+            item['register_after_upload'] = True
+        if lifetime is not None:
+            item['lifetime'] = int(lifetime)
+        if transfer_timeout is not None:
+            item['transfer_timeout'] = int(transfer_timeout)
+        if guid:
+            item['guid'] = guid
+        if recursive:
+            item['recursive'] = True
+
+        items.append(item)
+
+    if len(items) < 1:
+        raise InputValidationError('No files could be extracted from the given arguments')
+
+    if len(items) > 1 and guid:
+        ctx.obj.logger.error("A single GUID was specified on the command line, but there are multiple files to upload.")
+        ctx.obj.logger.error("If GUID auto-detection is not used, only one file may be uploaded at a time")
+        raise InputValidationError('Invalid input argument composition')
+
+    if len(items) > 1 and lfn:
+        ctx.obj.logger.error("A single LFN was specified on the command line, but there are multiple files to upload.")
+        ctx.obj.logger.error("If LFN auto-detection is not used, only one file may be uploaded at a time")
+        raise InputValidationError('Invalid input argument composition')
+
+    if recursive and pfn:
+        ctx.obj.logger.error("It is not possible to create the folder structure into collections with a non-deterministic way.")
+        ctx.obj.logger.error("If PFN is specified, you cannot use --recursive")
+        raise InputValidationError('Invalid input argument composition')
+
+    upload_client = UploadClient(ctx.obj.client, logger=ctx.obj.logger)
+    summary_file_path = 'rucio_upload.json' if summary else None
+    upload_client.upload(items=items, summary_file_path=summary_file_path)
