@@ -24,7 +24,8 @@ from rucio.common.config import config_get_float
 @click.option("--lifetime", type=int, help="Lifetime of the rule in seconds")
 @click.option("--expiration-date", help="The date when the rule expires in UTC, format: <year>-<month>-<day>-<hour>:<minute>:<second>. E.g. 2022-10-20-20:00:00")
 @click.option("--scope", help="Scope name.")
-@click.option("--impl", type=click.Choice([]), help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone)")
+# TODO enumerate the allowed impls
+@click.option("--impl", help="Transfer protocol implementation to use (e.g: xrootd, gfal.NoRename, webdav, ssh.Rsync, rclone)")
 # The --no-register option is hidden. This is pilot ONLY. Users should not use this. Will lead to unregistered data on storage!
 @click.option("--no-register", is_flag=True, default=False, hidden=True)
 @click.option("--register-after-upload", is_flag=True, default=False, help="Register the file _only_ after successful upload")
