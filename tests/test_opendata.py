@@ -807,6 +807,51 @@ class TestOpenDataEOS:
             f"second.{self.eos_host}"
         )
 
+    @pytest.mark.parametrize("failing_first", [True, False])
+    def test_generate_download_urls_uses_healthy_replica_after_non_temporary_failure(
+        self,
+        monkeypatch,
+        failing_first,
+    ):
+        failing_uri = (
+            f"https://bad.{self.eos_host}:8444"
+            "/eos/opendata/file.root"
+        )
+        working_uri = (
+            f"https://good.{self.eos_host}:8444"
+            "/eos/opendata/file.root"
+        )
+
+        uris = (
+            [failing_uri, working_uri]
+            if failing_first
+            else [working_uri, failing_uri]
+        )
+
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
+
+        def fake_token_command(*, eos_host, filename, lifetime_seconds):
+            if eos_host == f"bad.{self.eos_host}:8444":
+                raise OpenDataError("non-retryable token failure")
+            return self.eos_token
+
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            fake_token_command,
+        )
+
+        download_urls = opendata._generate_download_urls(uris)
+
+        assert len(download_urls) == 1
+        assert urlparse(download_urls[0]).hostname == (
+            f"good.{self.eos_host}"
+        )
+
     def test_generate_download_urls_preserves_ipv6_authority(self, monkeypatch):
         eos_uri = "https://[2001:db8::1]:8444//eos/opendata/file.root"
 
