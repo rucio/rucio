@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import click
 
@@ -43,15 +43,32 @@ if TYPE_CHECKING:
 @click.option("--transfer-timeout", type=float, default=config_get_float("upload", "transfer_timeout", False, 360), help="Transfer timeout (in seconds)")
 @click.option("-r", "--recursive", is_flag=True, default=False, help="Convert recursively the folder structure into collections")
 @click.pass_context
-def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl, no_register, register_after_upload, summary, guid, protocol, pfn, lfn, transfer_timeout, recursive):
+def upload_command(
+    ctx: click.Context,
+    file_paths: tuple[str, ...],
+    rse: str,
+    lifetime: Optional[int],
+    expiration_date: Optional[str],
+    scope: Optional[str],
+    impl: Optional[str],
+    no_register: bool,
+    register_after_upload: bool,
+    summary: bool,
+    guid: Optional[str],
+    protocol: Optional[str],
+    pfn: Optional[str],
+    lfn: Optional[str],
+    transfer_timeout: Optional[float],
+    recursive: bool
+) -> None:
     """Upload file(s) to a Rucio RSE"""
     if lifetime and expiration_date:
         raise InputValidationError("--lifetime and --expiration-date cannot be specified at the same time.")
     elif expiration_date:
-        expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d-%H:%M:%S")
-        if expiration_date < datetime.utcnow():
+        converted_exp_date = datetime.strptime(expiration_date, "%Y-%m-%d-%H:%M:%S")
+        if converted_exp_date < datetime.utcnow():
             raise ValueError("The specified expiration date should be in the future!")
-        lifetime = (expiration_date - datetime.utcnow()).total_seconds()
+        lifetime = int((converted_exp_date - datetime.utcnow()).total_seconds())
 
     dsscope = None
     dsname = None
