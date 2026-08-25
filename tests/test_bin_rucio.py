@@ -766,8 +766,9 @@ def test_import_data(rse_factory, rucio_client):
             f.write(render_json(**data))
             f.close()
 
-        cmd = f'rucio-admin data import {tmp_file.name}'
+        cmd = f'rucio data import {tmp_file.name}'
         exitcode, out, err = execute(cmd)
+    print(out, err)
     assert exitcode == 0
     assert re.search('Data successfully imported', out) is not None
 
@@ -780,7 +781,7 @@ def test_export_data():
     """ CLIENT(ADMIN): Export data from rucio"""
     with tempfile.NamedTemporaryFile(suffix=".json") as tmp_file:
 
-        cmd = f'rucio-admin data export {tmp_file.name}'
+        cmd = f'rucio data export {tmp_file.name}'
         exitcode, out, err = execute(cmd)
 
         assert exitcode == 0
