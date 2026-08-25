@@ -724,7 +724,11 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
 
             if temporary_error is None:
                 temporary_error = error
-
+            continue
+        except OpenDataError:
+            # A non-retryable failure for one replica must not prevent
+            # trying other independent replicas.
+            token_cache[token_scope] = None
             continue
 
         token = token_cache[token_scope]
