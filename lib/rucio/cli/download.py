@@ -60,7 +60,6 @@ def _get_rse_for_pfn(replicas, pfn) -> Optional[str]:
 )  # NOQA: E501
 @click.option("--transfer-speed-timeout", type=float, default=None, help="Minimum allowed average transfer speed (in KBps). Default: 500. Used to dynamically compute the timeout if --transfer-timeout not set. Is not supported for --pfn.")  # NOQA: E501
 @click.option("--aria", default=False, help="Use aria2c utility if possible. (EXPERIMENTAL)")
-@click.option("--archive-did", hidden=True)  # Download from archive is transparent. This option is obsolete.
 # TODO replace with click functionality to automatically pull env vars
 @click.option("--trace-appid", default=os.environ.get("RUCIO_TRACE_APPID", None), hidden=True)
 @click.option("--trace-dataset", default=os.environ.get("RUCIO_TRACE_DATASET", None), hidden=True)
@@ -93,7 +92,6 @@ def download(
     transfer_timeout,
     transfer_speed_timeout,
     aria,
-    archive_did,
     trace_appid,
     trace_dataset,
     trace_datasetscope,
@@ -153,8 +151,6 @@ def download(
     item_defaults['no_resolve_archives'] = no_resolve_archives
     item_defaults['ignore_checksum'] = ignore_checksum
     item_defaults['check_local_with_filesize_only'] = check_local_with_filesize_only
-    if archive_did:
-        ctx.obj.logger.warning("Archives are treated transparently. --archive-did option is being obsoleted.")  # TODO
 
     # Get filters
     filters = {}
