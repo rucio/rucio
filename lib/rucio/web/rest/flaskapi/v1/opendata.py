@@ -211,6 +211,8 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             description: "Data Identifier not found."
           400:
             description: "Invalid request or input parameters."
+          503:
+            description: "EOS backend temporarily unavailable while generating download URLs."
         """
         return self.get_helper(scope=scope, name=name, public=False)
 

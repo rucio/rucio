@@ -1965,6 +1965,42 @@ class TestOpenDataAPI:
                 headers=request_headers,
             )
 
+    @pytest.mark.parametrize("public", [False, True])
+    def test_opendata_api_temporary_failure_returns_503(
+        self,
+        rest_client,
+        auth_token,
+        mock_scope,
+        public,
+    ):
+        name = did_name_generator(did_type="dataset")
+        base_endpoint = (
+            self.api_endpoint_public
+            if public
+            else self.api_endpoint
+        )
+        endpoint = (
+            f"{base_endpoint}/{mock_scope}/{name}"
+            "?files=1&download_urls=1"
+        )
+
+        request_kwargs = {}
+        if not public:
+            request_kwargs["headers"] = headers(auth(auth_token))
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=ResourceTemporaryUnavailable(
+                "temporary EOS failure"
+            ),
+        ):
+            response = rest_client.get(
+                endpoint,
+                **request_kwargs,
+            )
+
+        assert response.status_code == 503
+
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCLI:
