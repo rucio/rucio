@@ -2195,15 +2195,39 @@ def get_metadata_bulk(
                 ).where(
                     or_(*chunk)
                 )
-                for row in session.execute(stmt).scalars():
-                    if plugin.casefold() == 'did_column':
-                        yield row.to_dict()
-                    else:
+                if plugin.casefold() == 'did_column':
+                    opendata_subquery = select(
+                        models.OpenDataDid.scope,
+                        models.OpenDataDid.name
+                    ).subquery()
+
+                    stmt = stmt.add_columns(
+                        case(
+                            (opendata_subquery.c.scope.isnot(null()), true()),
+                            else_=false()
+                        ).label("is_opendata")
+                    ).outerjoin(
+                        opendata_subquery,
+                        and_(
+                            models.DataIdentifier.scope == opendata_subquery.c.scope,
+                            models.DataIdentifier.name == opendata_subquery.c.name
+                        )
+                    )
+
+                    for row, is_opendata in session.execute(stmt):
+                        result = row.to_dict()
+                        result["is_opendata"] = is_opendata
+                        yield result
+
+                else:
+                    for row in session.execute(stmt).scalars():
                         meta = get_metadata(row.scope, row.name, plugin=plugin, session=session)
+
                         result = {'scope': row.scope, 'name': row.name}
                         for key, value in meta.items():
                             if key not in result:
                                 result[key] = value
+
                         yield result
         except NoResultFound:
             raise exception.DataIdentifierNotFound('No Data Identifiers found')
