@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional
+from typing import Literal, Optional
 
 import click
 
@@ -70,39 +70,42 @@ def _get_rse_for_pfn(replicas, pfn) -> Optional[str]:
 @click.option("--scope", help="Scope to use as a filter or to use with DID names.")
 @click.option("--metalink", help="Path to a metalink file.")
 @click.option("--no-show-download-exceptions", default=False, is_flag=True, help="Does not raise NoFilesDownloaded, NotAllFilesDownloaded or incorrect number of output queue files Exception.")  # NOQA: E501
-@click.option("--replica-selection", help="Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).")
+@click.option(
+    "--replica-selection",
+    help="Select the best replica using a replica sorting algorithm provided by replica sorter (e.g., random, geoip).",
+    type=click.Choice(['random', 'geoip', 'custom_table']))
 @click.pass_context
 def download(
-    ctx,
-    dids,
-    dir,
-    allow_tape,
-    rses,
-    impl,
-    protocol,
-    nrandom,
-    ndownloader,
-    no_subdir,
-    pfn,
-    no_resolve_archives,
-    ignore_checksum,
-    check_local_with_filesize_only,
-    transfer_timeout,
-    transfer_speed_timeout,
-    aria,
-    trace_appid,
-    trace_dataset,
-    trace_datasetscope,
-    trace_eventtype,
-    trace_pq,
-    trace_taskid,
-    trace_usrdn,
-    filter,
-    scope,
-    metalink,
-    no_show_download_exceptions,
-    replica_selection,
-):
+    ctx: click.Context,
+    dids: tuple[str, ...],
+    dir: str,
+    allow_tape: bool,
+    rses: Optional[str],
+    impl: Optional[str],
+    protocol: Optional[str],
+    nrandom: Optional[int],
+    ndownloader: int,
+    no_subdir: bool,
+    pfn: Optional[str],
+    no_resolve_archives: bool,
+    ignore_checksum: bool,
+    check_local_with_filesize_only: bool,
+    transfer_timeout: int,
+    transfer_speed_timeout: Optional[float],
+    aria: Optional[str],
+    trace_appid: Optional[str],
+    trace_dataset: Optional[str],
+    trace_datasetscope: Optional[str],
+    trace_eventtype: Optional[str],
+    trace_pq: Optional[str],
+    trace_taskid: Optional[str],
+    trace_usrdn: Optional[str],
+    filter: Optional[str],
+    scope: Optional[str],
+    metalink: Optional[str],
+    no_show_download_exceptions: bool,
+    replica_selection: Optional[Literal['geoip', 'custom_table', 'random']]
+) -> None:
     """
     Download DID(s) (in the form of scope:name) to a local dir
     """
