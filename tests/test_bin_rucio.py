@@ -1136,31 +1136,30 @@ def test_download_with_filter(did_factory, rse_factory, mock_scope, rucio_client
     scope = mock_scope.external
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # TODO Fix error passing
 
         wrong_guid = generate_uuid()
         cmd = f'download --dir {tmp_dir} --filter guid={wrong_guid} {scope}:*'
         exitcode, out = _run_command(cmd)
-#        assert exitcode != 0
+        assert exitcode != 0
         assert not os.path.exists(f"{tmp_dir}/{scope}/{tmp_file1['name']}")
 
         uuid = rucio_client.get_metadata(scope=scope, name=tmp_file1['name'])['guid']
         cmd = f"download --dir {tmp_dir} --filter guid={uuid} {scope}:*"
         exitcode, out = _run_command(cmd)
-        # assert exitcode == 0
+        assert exitcode == 0
         assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file1['name']}")
 
         # Only use filter option to download file
         wrong_guid = generate_uuid()
         cmd = f'download --dir {tmp_dir} --scope {scope} --filter guid={wrong_guid}'
         exitcode, out = _run_command(cmd)
-        # assert exitcode != 0
+        assert exitcode != 0
         assert not os.path.exists(f"{tmp_dir}/{scope}/{tmp_file2['name']}")
 
         uuid = rucio_client.get_metadata(scope=scope, name=tmp_file2['name'])['guid']
         cmd = f"download --dir {tmp_dir} --scope {scope} --filter guid={uuid}"
         exitcode, out = _run_command(cmd)
-        # assert exitcode == 0
+        assert exitcode == 0
         assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file2['name']}")
 
 
@@ -1177,13 +1176,11 @@ def test_download_timeout_options_accepted(rse_factory, mock_scope, did_factory)
         assert 'successfully downloaded' in err
         assert os.path.exists(f"{tmp_dir}/{scope}/{tmp_file}")
 
-    # TODO Fix error passing
-
     # Check that PFN the transfer-speed-timeout option is not accepted for --pfn
     cmd = f'rucio download --rses {rse} --transfer-speed-timeout 1 --pfn http://a.b.c/ {scope}:{tmp_file}'
     exitcode, out, err = execute(cmd)
     assert "Download with --pfn doesn't support --transfer-speed-timeout" in err
-    # assert exitcode != 0
+    assert exitcode != 0
 
 
 def test_download_metalink(rse_factory, mock_scope, did_factory, rucio_client):
@@ -1192,18 +1189,17 @@ def test_download_metalink(rse_factory, mock_scope, did_factory, rucio_client):
     scope = mock_scope.external
 
     tmp_file = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
-    # TODO Fix error passing
 
     # Use filter and metalink option
     cmd = 'rucio download --scope mock --filter size=1 --metalink=test'
     exitcode, out, err = execute(cmd)
-    # assert exitcode != 0
+    assert exitcode != 0
     assert 'Arguments filter and metalink cannot be used together' in err
 
     # Use did and metalink option
     cmd = 'rucio download --metalink=test mock:test'
     exitcode, out, err = execute(cmd)
-    # assert exitcode != 0
+    assert exitcode != 0
     assert 'Arguments dids and metalink cannot be used together' in err
 
     # Download only with metalink file
@@ -1256,7 +1252,6 @@ def test_download_pfns(rse_factory, mock_scope, did_factory, rucio_client):
     rse, _ = rse_factory.make_posix_rse()
     scope = mock_scope.external
     name = did_factory.upload_test_file(rse_name=rse, scope=scope)['name']
-    # TODO Fix error passing
 
     replica_pfn = list(rucio_client.list_replicas([{'scope': scope, 'name': name}]))[0]['rses'][rse][0]
 
@@ -1282,7 +1277,7 @@ def test_download_pfns(rse_factory, mock_scope, did_factory, rucio_client):
         exitcode, out, err = execute(cmd)
         assert "No RSE was given, selecting one." in err
         assert f"Could not find RSE for pfn {non_existent_pfn}" in err
-        # assert exitcode != 0
+        assert exitcode != 0
         assert not os.path.exists(f"{download_dir.rstrip('/')}/duplicate2/{scope}/{name}")
 
 
