@@ -1218,19 +1218,30 @@ class TestOpenDataEOS:
     def test_generate_download_urls_skips_root_eos_uri(self, monkeypatch):
         eos_uri = f"root://{self.eos_host}:1094//eos/opendata/file.root"
 
-        requested_paths = []
+        def unexpected_eos_probe(host):
+            pytest.fail(
+                "EOS probing must not run for unsupported root:// replicas"
+            )
 
-        def fake_token_command(*, eos_host, filename, lifetime_seconds):
-            requested_paths.append(filename)
-            return self.eos_token
+        def unexpected_token_request(**kwargs):
+            pytest.fail(
+                "EOS token generation must not run for unsupported root:// replicas"
+            )
 
-        monkeypatch.setattr(opendata, "_is_eos_host", lambda host: True)
-        monkeypatch.setattr(opendata, "_eos_grpc_gateway_token_command", fake_token_command)
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            unexpected_eos_probe,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            unexpected_token_request,
+        )
 
         download_urls = opendata._generate_download_urls([eos_uri])
 
-        assert download_urls == [], "Root EOS URI should not generate a download URL"
-        assert requested_paths == [], "Token command should not be called for root EOS URIs"
+        assert download_urls == []
 
     def test_get_opendata_did_files_download_urls_only_root(
         self,
