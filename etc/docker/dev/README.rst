@@ -99,17 +99,17 @@ To create some events and write them to Elasticsearch first run again the tests 
     tools/run_tests.sh -ir
 
 
-Then you will have to run the transfer daemons (conveyor-\*) and messaging daemon (hermes) to send the events to ActiveMQ. There a script for that which repeats these daemons in single execution mode from the section in a loop::
+Then you will have to run the transfer daemons (conveyor-\*) and messaging daemon (hermes) to send the events to ActiveMQ. There's a script for that which repeats these daemons in single execution mode from the section in a loop::
 
     run_daemons
 
 
-When all the daemons ran you will be able to find the events in Kibana. If you run the docker environment on you local machine you can access Kibana at http://localhost:5601. The necessary index pattern will be added automatically. There is also one dashboard available in Kibana. If it is running on remote machine you can SSH forward it::
+When all the daemons ran you will be able to find the events in Kibana. If you run the docker environment on you local machine you can access Kibana at http://localhost:5601. To see the events, create a data view in Kibana with the index pattern "rucio-events-*" and "@timestamp" as the timestamp field. If it is running on a remote machine you can SSH forward it::
 
     ssh -L 5601:127.0.0.1:5601 <hostname>
 
 
-Additionally, there is also a Grafana server running with one simple dashboard. You can access it at http://localhost:3000. The default credentials are "admin/admin". Also ActiveMQ web console can be accessed at http://localhost:8161.
+Additionally, there is also a Grafana server running with one simple dashboard. You can access it at http://localhost:3000. The default credentials are "admin/admin". Also ActiveMQ web console can be accessed at http://localhost:8161 (credentials are also "admin/admin").
 
 If you would like to continuously create some transfers and events there are scripts available for that. Open two different shells and in one run::
 

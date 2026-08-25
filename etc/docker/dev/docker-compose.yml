@@ -147,16 +147,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Web portal credentials are admin/admin
   activemq:
     container_name: ${RUCIO_ACTIVEMQ_CONTAINER_NAME:-dev-activemq-1}
+    # When bumping this image tag, also update ACTIVEMQ_VERSION on the logstash service
     image: docker.io/apache/activemq-classic:5.18.7
     platform: linux/amd64
     volumes:
       - ./activemq/users.properties:/opt/apache-activemq/conf/users.properties
-    environment:
-      # web portal access, helpful for debugging
-      ACTIVEMQ_WEB_USER: activemq
-      ACTIVEMQ_WEB_PASSWORD: supersecret
 
   postgres14:
     container_name: ${RUCIO_POSTGRES14_CONTAINER_NAME:-dev-postgres14-1}
@@ -445,17 +443,22 @@ services:
   # ------------------------------------------------------------------
   logstash:
     container_name: dev-logstash-1
-    image: docker.elastic.co/logstash/logstash-oss:7.3.2
-    platform: linux/amd64
+    image: docker.elastic.co/logstash/logstash:9.0.0
+    entrypoint: ["/docker-entrypoint.sh"]
+    environment:
+      # Must match the activemq service image tag (and stay on 5.x, see logstash/entrypoint.sh)
+      - ACTIVEMQ_VERSION=5.18.7
     profiles:
       - monitoring
-    command: bash -c "logstash-plugin install logstash-input-stomp ; /usr/local/bin/docker-entrypoint"
     volumes:
-      - ./pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:Z
+      - ./logstash/entrypoint.sh:/docker-entrypoint.sh:ro
+      - ./pipeline.conf:/usr/share/logstash/pipeline/logstash.conf:Z
+      # Cache the activemq jar downloaded on startup
+      - vol-logstash-data:/usr/share/logstash/data
 
   kibana:
     container_name: dev-kibana-1
-    image: docker.io/kibana:7.4.0
+    image: docker.elastic.co/kibana/kibana:9.0.0
     profiles:
       - monitoring
 
@@ -584,6 +587,7 @@ volumes:
   vol-iam-db-mysql:
   vol-mysql8-mysql:
   vol-postgres-data:
+  vol-logstash-data:
 
 networks:
   default:
