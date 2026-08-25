@@ -142,11 +142,6 @@ class DidColumnMeta(DidMetaPlugin):
         if did_query.one_or_none() is None:
             raise exception.DataIdentifierNotFound("Data identifier '%s:%s' not found" % (scope, name))
 
-        if 'is_opendata' in metadata:
-            raise exception.UnsupportedOperation(
-                "'is_opendata' is a read-only metadata field"
-    )
-
         remainder: dict[Any, Any] = {}
         for key, value in metadata.items():
             if key == 'eol_at' and isinstance(value, str):
@@ -512,7 +507,6 @@ class DidColumnMeta(DidMetaPlugin):
             'length.gte',
             'length.lte',
             'type',
-            'is_opendata',
         ]
 
         hardcoded_keys = list(set(all_did_table_columns) - set(exclude_did_table_columns)) + additional_keys
