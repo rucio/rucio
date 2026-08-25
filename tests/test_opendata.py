@@ -674,6 +674,26 @@ class TestOpenDataEOS:
                     lifetime_seconds=3600,
                 )
 
+    def test_is_eos_host_tls_file_error(self):
+        with patch(
+            "rucio.core.opendata.requests.post",
+            side_effect=OSError("CA file not found"),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._is_eos_host(self.eos_host)
+
+    def test_eos_token_command_tls_file_error(self):
+        with patch(
+            "rucio.core.opendata.requests.post",
+            side_effect=OSError("certificate file not found"),
+        ):
+            with pytest.raises(ResourceTemporaryUnavailable):
+                opendata._eos_grpc_gateway_token_command(
+                    eos_host=self.eos_host,
+                    filename="/eos/file.root",
+                    lifetime_seconds=3600,
+                )
+
     def test_eos_token_command_unreachable(self):
         with patch(
             "rucio.core.opendata.requests.post",

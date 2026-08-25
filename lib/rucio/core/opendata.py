@@ -384,7 +384,7 @@ def _is_eos_host(host: str) -> bool:
             timeout=timeout,
             allow_redirects=False,
         )
-    except requests.exceptions.RequestException as error:
+    except (requests.exceptions.RequestException, OSError) as error:
         logger.warning(
             "Failed to probe host %s for EOS REST gateway support: %s",
             host,
@@ -529,7 +529,7 @@ def _eos_grpc_gateway_token_command(
             verify=ca_bundle,
             timeout=timeout,
         )
-    except requests.exceptions.RequestException as error:
+    except (requests.exceptions.RequestException, OSError) as error:
         logger.warning(
             "Failed to request EOS token for '%s' on %s: %s",
             filename,
