@@ -71,21 +71,18 @@ def get_local_account_limit(
         if rse:
             # Single RSE lookup
             rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-            return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}  # type: ignore (https://github.com/rucio/rucio/issues/8194)
+            return {rse: account_limit_core.get_local_account_limit(account=internal_account, rse_ids=rse_id, session=session)}
         else:
             # Fetch all RSE limits
             limits = account_limit_core.get_local_account_limit(account=internal_account, rse_ids=None, session=session)
-            return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}  # type: ignore (https://github.com/rucio/rucio/issues/8194)
+            return {get_rse_name(rse_id=rse_id, session=session): limit for rse_id, limit in limits.items()}
 
 
 def get_global_account_limit(
         account: str,
         rse_expression: Optional[str] = None,
         vo: str = DEFAULT_VO,
-) -> Union[
-    dict[str, Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]],
-    Optional[Union[int, float, dict[str, "RSEResolvedGlobalAccountLimitDict"]]]
-]:
+) -> Union[dict[str, Optional[Union[float, int]]], dict[str, RSEResolvedGlobalAccountLimitDict]]:
     """
     Lists the global account limitation names/values for the specified account.
     If an RSE expression is provided, fetches the limit for that expression.
