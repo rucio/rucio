@@ -482,6 +482,8 @@ def _eos_grpc_gateway_token_command(
         ResourceTemporaryUnavailable: If the EOS token service cannot be
             contacted, returns a temporary HTTP failure, an invalid response,
             or reports a failed token-generation command.
+        OpenDataError: If the EOS token service returns a non-temporary HTTP
+            error.
     """
     expires_at = int(time.time()) + lifetime_seconds
 
@@ -817,6 +819,8 @@ def get_opendata_did_files(
         OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
         OpenDataError: If a required replica URI or requested download URL
             cannot be obtained.
+        ResourceTemporaryUnavailable: If download URL generation cannot complete
+            because an EOS backend operation failed temporarily.
     """
 
     time_start = time.perf_counter()
@@ -989,6 +993,9 @@ def get_opendata_did(
 
     Returns:
         A dictionary containing info about the specified DID which include "scope", "name", "state", "meta" (if requested), etc.
+    Raises:
+    ResourceTemporaryUnavailable: If download URLs are requested and an EOS
+        backend failure prevents them from being generated.
     """
 
     query = select(
