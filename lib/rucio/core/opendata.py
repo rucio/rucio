@@ -481,10 +481,11 @@ def _eos_grpc_gateway_token_command(
 
     Raises:
         ResourceTemporaryUnavailable: If the EOS token service cannot be
-            contacted, returns a temporary HTTP failure, an invalid response,
-            or reports a failed token-generation command.
+            contacted, returns a temporary HTTP failure, or returns an invalid
+            response.
         OpenDataError: If the EOS token service returns a non-temporary HTTP
-            error.
+            error, rejects the token-generation command, or returns unexpected
+            token output.
     """
     expires_at = int(time.time()) + lifetime_seconds
 
@@ -585,21 +586,34 @@ def _eos_grpc_gateway_token_command(
             f"EOS token service returned an invalid response for {eos_host}."
         )
 
-    if str(response_data.get("retc")) != "0":
+    try:
+        retc = int(response_data["retc"])
+    except (KeyError, TypeError, ValueError) as error:
+        logger.warning(
+            "EOS token service returned an invalid return code "
+            "for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token service returned an invalid response for {eos_host}."
+        ) from error
+
+    if retc != 0:
         logger.warning(
             "EOS token command failed for '%s' on %s: retc=%s, stderr=%s",
             filename,
             eos_host,
-            response_data.get("retc"),
+            retc,
             response_data.get("stdErr", ""),
         )
-        raise exception.ResourceTemporaryUnavailable(
-            f"EOS token generation failed for {eos_host}."
+        raise OpenDataError(
+            f"EOS token generation failed for {eos_host}: retc={retc}."
         )
 
-    token = response_data.get("stdOut", "")
+    token_output = response_data.get("stdOut", "")
 
-    if not isinstance(token, str) or not token.strip():
+    if not isinstance(token_output, str) or not token_output.strip():
         logger.warning(
             "EOS token service returned an empty token for '%s' on %s.",
             filename,
@@ -609,7 +623,29 @@ def _eos_grpc_gateway_token_command(
             f"EOS token generation failed for {eos_host}."
         )
 
-    return token.strip()
+    token_lines = [
+        line.strip()
+        for line in token_output.splitlines()
+        if line.strip()
+    ]
+
+    token = token_lines[0] if len(token_lines) == 1 else ""
+
+    if (
+        not token.startswith("zteos64:")
+        or len(token) <= len("zteos64:")
+    ):
+        logger.warning(
+            "EOS token service returned unexpected token output "
+            "for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise OpenDataError(
+            f"EOS token generation returned unexpected output for {eos_host}."
+        )
+
+    return token
 
 
 def _format_url_authority(host: str, port: Optional[int]) -> str:
@@ -667,7 +703,9 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
 
     Raises:
         ResourceTemporaryUnavailable: If no download URL can be generated
-        and at least one EOS backend operation failed temporarily.
+            and at least one EOS backend operation failed temporarily.
+        OpenDataError: If no download URL can be generated and at least one
+            EOS backend operation failed permanently.
     """
     lifetime = config_get_int("opendata", "eos_token_lifetime", raise_exception=False,
                               default=DEFAULT_EOS_TOKEN_LIFETIME_SECONDS)
@@ -681,6 +719,7 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
     temporary_error: Optional[
         exception.ResourceTemporaryUnavailable
     ] = None
+    permanent_error: Optional[OpenDataError] = None
 
     for uri in uris:
         try:
@@ -728,10 +767,12 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
             if temporary_error is None:
                 temporary_error = error
             continue
-        except OpenDataError:
+        except OpenDataError as error:
             # A non-retryable failure for one replica must not prevent
             # trying other independent replicas.
             token_cache[token_scope] = None
+            if permanent_error is None:
+                permanent_error = error
             continue
 
         token = token_cache[token_scope]
@@ -745,8 +786,12 @@ def _generate_download_urls(uris: list[str]) -> list[str]:
 
     # If at least one independent replica worked, return it. Otherwise,
     # preserve the temporary nature of any EOS backend outage.
-    if not download_urls and temporary_error is not None:
-        raise temporary_error
+    if not download_urls:
+        if temporary_error is not None:
+            raise temporary_error
+
+        if permanent_error is not None:
+            raise permanent_error
 
     return download_urls
 
@@ -936,6 +981,24 @@ def get_opendata_did_files(
                 )
             )
 
+    if include_download_urls:
+        for file in file_list:
+            did_key = (file["scope"], file["name"])
+            download_uris = download_uris_by_did.get(did_key, [])
+
+            if not download_uris:
+                logger.error(
+                    "No HTTP(S) or DAV(S) DISK replica URI available "
+                    "for OpenData file %s:%s.",
+                    file["scope"],
+                    file["name"],
+                )
+
+                raise OpenDataError(
+                    f"Failed to retrieve HTTP(S) or DAV(S) replica URI "
+                    f"for OpenData file {file['scope']}:{file['name']}."
+                )
+
     for file in file_list:
         did_key = (file["scope"], file["name"])
         uris = regular_uris_by_did.get(did_key, [])
@@ -944,20 +1007,7 @@ def get_opendata_did_files(
         if not include_download_urls:
             continue
 
-        download_uris = download_uris_by_did.get(did_key, [])
-
-        if not download_uris:
-            logger.error(
-                "No HTTP(S) or DAV(S) DISK replica URI available "
-                "for OpenData file %s:%s.",
-                file["scope"],
-                file["name"],
-            )
-            raise OpenDataError(
-                f"Failed to retrieve HTTP(S) or DAV(S) replica URI "
-                f"for OpenData file {file['scope']}:{file['name']}."
-            )
-
+        download_uris = download_uris_by_did[did_key]
         download_urls = _generate_download_urls(download_uris)
 
         if not download_urls:
@@ -966,6 +1016,7 @@ def get_opendata_did_files(
                 file["scope"],
                 file["name"],
             )
+
             raise OpenDataError(
                 f"Failed to generate download URL for OpenData file "
                 f"{file['scope']}:{file['name']}."
