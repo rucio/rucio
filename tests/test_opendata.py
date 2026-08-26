@@ -34,6 +34,7 @@ from rucio.common.exception import (
     OpenDataInvalidStateUpdate,
     ResourceTemporaryUnavailable,
 )
+from rucio.common.types import InternalScope
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
@@ -267,6 +268,37 @@ class TestOpenDataCore:
         )
 
         assert cache_key != without_download_urls
+
+    def test_opendata_did_files_cache_key_is_vo_aware(self):
+        scope_vo1 = InternalScope("shared", vo="vo1")
+        scope_vo2 = InternalScope("shared", vo="vo2")
+
+        key_vo1 = opendata._make_opendata_did_files_cache_key(
+            scope_vo1,
+            "dataset",
+            True,
+        )
+        key_vo2 = opendata._make_opendata_did_files_cache_key(
+            scope_vo2,
+            "dataset",
+            True,
+        )
+
+        assert key_vo1 != key_vo2
+
+    def test_opendata_did_files_cache_key_is_unambiguous(self):
+        key_first = opendata._make_opendata_did_files_cache_key(
+            InternalScope("a_b"),
+            "c",
+            True,
+        )
+        key_second = opendata._make_opendata_did_files_cache_key(
+            InternalScope("a"),
+            "b_c",
+            True,
+        )
+
+        assert key_first != key_second
 
     def test_opendata_doi_update(self, mock_scope, root_account, doi_factory, db_write_session):
         name = did_name_generator(did_type="dataset")
@@ -1541,6 +1573,7 @@ class TestOpenDataEOS:
             list_replicas_calls.append({
                 "dids": list(dids),
                 "schemes": schemes,
+                "resolve_archives": kwargs.get("resolve_archives"),
             })
 
             for did in dids:
@@ -1597,6 +1630,7 @@ class TestOpenDataEOS:
 
         assert len(regular_call["dids"]) == 3
         assert len(download_call["dids"]) == 3
+        assert download_call["resolve_archives"] is False
 
         assert {
             did["name"] for did in regular_call["dids"]
@@ -1646,7 +1680,7 @@ class TestOpenDataEOS:
         assert token_called is False
 
     def test_get_opendata_did_files_no_disk_uri(
-            self,
+        self,
         mock_scope,
         monkeypatch,
         did_factory,
@@ -1683,18 +1717,26 @@ class TestOpenDataEOS:
                 "pfns": {},
             }
 
-        monkeypatch.setattr(opendata, "list_files", fake_list_files)
-        monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
+        monkeypatch.setattr(
+            opendata,
+            "list_files",
+            fake_list_files,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "list_replicas",
+            fake_list_replicas,
+        )
 
-        with pytest.raises(
-            OpenDataError,
-            match="Failed to retrieve replica URI",
-        ):
-            opendata.get_opendata_did_files(
-                scope=mock_scope,
-                name=name,
-                session=db_write_session,
-            )
+        result = opendata.get_opendata_did_files(
+            scope=mock_scope,
+            name=name,
+            session=db_write_session,
+        )
+
+        assert len(result["files"]) == 1
+        assert result["files"][0]["uris"] == []
+        assert "download_urls" not in result["files"][0]
 
     def test_get_opendata_did_files_ignores_legacy_cache(
         self,

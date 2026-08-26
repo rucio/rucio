@@ -797,15 +797,22 @@ def _make_opendata_did_files_cache_key(
     include_download_urls: bool,
 ) -> str:
     """
-    Build a bounded cache key for Open Data DID file listings.
+    Build a bounded and unambiguous cache key for Open Data DID file listings.
 
-    The variable part of the key is hashed to avoid exceeding Memcached's
-    250-byte key limit while still keeping cache entries distinct by scope,
-    name, download URL inclusion, and cache version.
+    The complete internal scope is included so cache entries remain isolated
+    between VOs. The structured identity is hashed to avoid ambiguous field
+    concatenation and Memcached's 250-byte key limit.
     """
-    cache_identity = (
-        f"{scope}_{name}_dl_{include_download_urls}"
+    cache_identity = json.dumps(
+        {
+            "scope": scope.internal,
+            "name": name,
+            "include_download_urls": include_download_urls,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
     )
+
     digest = hashlib.sha256(
         cache_identity.encode("utf-8")
     ).hexdigest()
@@ -843,15 +850,16 @@ def get_opendata_did_files(
 
     Raises:
         OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
-        OpenDataError: If a required replica URI or requested download URL
-            cannot be obtained.
+        OpenDataError: If download URLs are requested but a suitable replica
+            URI or tokenized download URL cannot be obtained.
         ResourceTemporaryUnavailable: If download URL generation cannot complete
             because an EOS backend operation failed temporarily.
     """
 
     time_start = time.perf_counter()
 
-    # Append the include_download_urls flag to the cache key so we don't mix up responses
+    # Build a cache key which uniquely identifies the DID, VO, and
+    # download URL inclusion mode.
     cache_key = _make_opendata_did_files_cache_key(
         scope,
         name,
@@ -923,26 +931,14 @@ def get_opendata_did_files(
                     dids=dids,
                     rse_expression=rse_expression,
                     schemes=["http", "https", "dav", "davs"],
+                    resolve_archives=False,
                     session=session,
                 )
             )
 
     for file in file_list:
         did_key = (file["scope"], file["name"])
-
         uris = regular_uris_by_did.get(did_key, [])
-
-        if not uris:
-            logger.error(
-                "No DISK replica URI available for OpenData file %s:%s.",
-                file["scope"],
-                file["name"],
-            )
-            raise OpenDataError(
-                f"Failed to retrieve replica URI for OpenData file "
-                f"{file['scope']}:{file['name']}."
-            )
-
         file["uris"] = uris
 
         if not include_download_urls:
