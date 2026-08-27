@@ -31,6 +31,7 @@ from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
+from rucio.core.did_meta_plugins.opendata_meta import add_is_opendata_column
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
@@ -2196,23 +2197,7 @@ def get_metadata_bulk(
                     or_(*chunk)
                 )
                 if plugin.casefold() == 'did_column':
-                    opendata_subquery = select(
-                        models.OpenDataDid.scope,
-                        models.OpenDataDid.name
-                    ).subquery()
-
-                    stmt = stmt.add_columns(
-                        case(
-                            (opendata_subquery.c.scope.isnot(null()), true()),
-                            else_=false()
-                        ).label("is_opendata")
-                    ).outerjoin(
-                        opendata_subquery,
-                        and_(
-                            models.DataIdentifier.scope == opendata_subquery.c.scope,
-                            models.DataIdentifier.name == opendata_subquery.c.name
-                        )
-                    )
+                    stmt = add_is_opendata_column(stmt)
 
                     for row, is_opendata in session.execute(stmt):
                         result = row.to_dict()
@@ -2222,12 +2207,10 @@ def get_metadata_bulk(
                 else:
                     for row in session.execute(stmt).scalars():
                         meta = get_metadata(row.scope, row.name, plugin=plugin, session=session)
-
                         result = {'scope': row.scope, 'name': row.name}
                         for key, value in meta.items():
                             if key not in result:
                                 result[key] = value
-
                         yield result
         except NoResultFound:
             raise exception.DataIdentifierNotFound('No Data Identifiers found')
