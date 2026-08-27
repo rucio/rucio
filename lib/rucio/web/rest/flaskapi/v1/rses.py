@@ -1827,7 +1827,7 @@ class Distance(ErrorHandlingMethodView):
     """ Create/Update and read distances between RSEs. """
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, source, destination):
+    def get(self, source, destination=None):
         """
         ---
         summary: Get Rse Distances
@@ -2232,6 +2232,8 @@ def blueprint() -> AuthenticatedBlueprint:
     distance_view = Distance.as_view('distance')
     bp.add_url_rule('/<source>/distances/<destination>', view_func=distance_view,
                     methods=[HTTPMethod.GET.value, HTTPMethod.POST.value, HTTPMethod.PUT.value, HTTPMethod.DELETE.value])
+    bp.add_url_rule('/<source>/distances', view_func=distance_view,
+                    methods=[HTTPMethod.GET.value])
     protocol_view = Protocol.as_view('protocol')
     bp.add_url_rule('/<rse>/protocols/<scheme>/<hostname>/<port>', view_func=protocol_view,
                     methods=[HTTPMethod.DELETE.value, HTTPMethod.PUT.value])
