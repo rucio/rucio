@@ -1600,6 +1600,25 @@ class TestRSEClient:
         assert len(rucio_client.get_distance(source=source, destination=destination)) == 0
         assert len(rucio_client.get_distance(source=destination, destination=source)) == 0
 
+    @pytest.mark.dirty
+    def test_get_distance_without_destination(self, rucio_client, rse_factory):
+        """ RSE (CLIENTS): List RSE distance from source."""
+        source, _ = rse_factory.make_posix_rse()
+        dest1, _ = rse_factory.make_posix_rse()
+        dest2, _ = rse_factory.make_posix_rse()
+        rucio_client.add_distance(source=source, destination=dest1, distance=1)
+        rucio_client.add_distance(source=source, destination=dest2, distance=2)
+
+        distances = rucio_client.get_distance(source=source)
+        assert len(distances) == 2
+        dest_distances = {d['dest_rse']: d['distance'] for d in distances}
+        assert dest_distances[dest1] == 1
+        assert dest_distances[dest2] == 2
+
+        pair = rucio_client.get_distance(source=source, destination=dest1)
+        assert len(pair) == 1
+        assert pair[0]['distance'] == 1
+
     def test_get_rse_protocols_includes_verify_checksum(self, vo):
         """ RSE (CORE): Test validate_checksum in RSEs info"""
         rse = rse_name_generator()
