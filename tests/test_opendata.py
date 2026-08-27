@@ -32,6 +32,7 @@ from rucio.common.exception import (
     OpenDataDuplicateRecordID,
     OpenDataError,
     OpenDataInvalidStateUpdate,
+    ReplicaNotFound,
     ResourceTemporaryUnavailable,
 )
 from rucio.common.types import InternalScope
@@ -1409,8 +1410,8 @@ class TestOpenDataEOS:
         monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
 
         with pytest.raises(
-            OpenDataError,
-            match="Failed to retrieve HTTP\\(S\\) or DAV\\(S\\) replica URI",
+            ReplicaNotFound,
+            match="No HTTP\\(S\\) or DAV\\(S\\) DISK replica URI available",
         ):
             opendata.get_opendata_did_files(
                 scope=mock_scope,
@@ -1991,8 +1992,8 @@ class TestOpenDataEOS:
         )
 
         with pytest.raises(
-            OpenDataError,
-            match="Failed to retrieve HTTP\\(S\\) or DAV\\(S\\) replica URI",
+            ReplicaNotFound,
+            match="No HTTP\\(S\\) or DAV\\(S\\) DISK replica URI available",
         ):
             opendata.get_opendata_did_files(
                 scope=mock_scope,
@@ -2187,12 +2188,12 @@ class TestOpenDataAPI:
             assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
             assert "files" in response.json, "Files should be present in the response"
 
-            # The parameter is also accepted without requesting the files
+            # Download URLs require the file list to be requested.
             response = rest_client.get(
                 f"{endpoint}?download_urls=1",
                 headers=request_headers,
             )
-            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+            assert response.status_code == 400, f"Expected 400 Bad Request, got {response.status_code}"
         finally:
             rest_client.delete(
                 endpoint,
@@ -2234,6 +2235,49 @@ class TestOpenDataAPI:
             )
 
         assert response.status_code == 503
+
+    @pytest.mark.parametrize("public", [False, True])
+    @pytest.mark.parametrize(
+        "error_class, expected_status",
+        [
+            (ReplicaNotFound, 404),
+            (OpenDataError, 500),
+        ],
+    )
+    def test_opendata_api_download_failure_status(
+        self,
+        rest_client,
+        auth_token,
+        mock_scope,
+        public,
+        error_class,
+        expected_status,
+    ):
+        base_endpoint = (
+            self.api_endpoint_public
+            if public
+            else self.api_endpoint
+        )
+
+        endpoint = (
+            f"{base_endpoint}/{mock_scope}/test"
+            "?files=1&download_urls=1"
+        )
+
+        request_kwargs = {}
+        if not public:
+            request_kwargs["headers"] = headers(auth(auth_token))
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=error_class("download failure"),
+        ):
+            response = rest_client.get(
+                endpoint,
+                **request_kwargs,
+            )
+
+        assert response.status_code == expected_status
 
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")

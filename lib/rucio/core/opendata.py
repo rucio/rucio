@@ -895,10 +895,12 @@ def get_opendata_did_files(
 
     Raises:
         OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
-        OpenDataError: If download URLs are requested but a suitable replica
-            URI or tokenized download URL cannot be obtained.
-        ResourceTemporaryUnavailable: If download URL generation cannot complete
-            because an EOS backend operation failed temporarily.
+        ReplicaNotFound: If download URLs are requested but no suitable
+            replica is available.
+        OpenDataError: If download URL generation fails due to a
+            non-temporary EOS backend error.
+        ResourceTemporaryUnavailable: If download URL generation cannot
+            complete because an EOS backend operation failed temporarily.
     """
 
     time_start = time.perf_counter()
@@ -994,8 +996,8 @@ def get_opendata_did_files(
                     file["name"],
                 )
 
-                raise OpenDataError(
-                    f"Failed to retrieve HTTP(S) or DAV(S) replica URI "
+                raise exception.ReplicaNotFound(
+                    f"No HTTP(S) or DAV(S) DISK replica URI available "
                     f"for OpenData file {file['scope']}:{file['name']}."
                 )
 
@@ -1020,9 +1022,9 @@ def get_opendata_did_files(
                 file["name"],
             )
 
-            raise OpenDataError(
-                f"Failed to generate download URL for OpenData file "
-                f"{file['scope']}:{file['name']}."
+            raise exception.ReplicaNotFound(
+                f"No suitable EOS download replica available "
+                f"for OpenData file {file['scope']}:{file['name']}."
             )
 
         file["download_urls"] = download_urls
@@ -1071,9 +1073,19 @@ def get_opendata_did(
     Returns:
         A dictionary containing info about the specified DID which include "scope", "name", "state", "meta" (if requested), etc.
     Raises:
-    ResourceTemporaryUnavailable: If download URLs are requested and an EOS
-        backend failure prevents them from being generated.
+        InvalidRequest: If download URLs are requested without including files.
+        ReplicaNotFound: If download URLs are requested but no suitable
+            replica is available.
+        OpenDataError: If download URL generation fails due to a
+            non-temporary EOS backend error.
+        ResourceTemporaryUnavailable: If download URL generation cannot
+            complete because an EOS backend operation failed temporarily.
     """
+
+    if include_download_urls and not include_files:
+        raise exception.InvalidRequest(
+            "Download URLs require files to be included."
+        )
 
     query = select(
         models.OpenDataDid.scope,

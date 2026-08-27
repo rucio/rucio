@@ -82,6 +82,14 @@ def get_opendata_did(
 
     Returns:
         A dictionary containing the details of the requested DID.
+    Raises:
+        InvalidRequest: If download URLs are requested without including files.
+        ReplicaNotFound: If download URLs are requested but no suitable
+            replica is available.
+        OpenDataError: If download URL generation fails due to a
+            non-temporary EOS backend error.
+        ResourceTemporaryUnavailable: If download URL generation cannot
+            complete because an EOS backend operation failed temporarily.
     """
 
     internal_scope = InternalScope(scope, vo=vo)
