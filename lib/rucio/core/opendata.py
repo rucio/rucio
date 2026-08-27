@@ -1001,6 +1001,9 @@ def get_opendata_did_files(
 
     for file in file_list:
         did_key = (file["scope"], file["name"])
+
+        # Missing regular replicas are represented by an empty URI list.
+        # A suitable replica is required only when download URLs are requested.
         uris = regular_uris_by_did.get(did_key, [])
         file["uris"] = uris
 

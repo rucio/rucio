@@ -1760,7 +1760,7 @@ class TestOpenDataEOS:
         assert download_urls == []
         assert token_called is False
 
-    def test_get_opendata_did_files_no_disk_uri(
+    def test_get_opendata_did_files_no_disk_uri_without_download_urls(
         self,
         mock_scope,
         monkeypatch,
@@ -1816,6 +1816,8 @@ class TestOpenDataEOS:
         )
 
         assert len(result["files"]) == 1
+        # Missing regular replicas must not fail a file listing when
+        # tokenized download URLs were not requested.
         assert result["files"][0]["uris"] == []
         assert "download_urls" not in result["files"][0]
 
