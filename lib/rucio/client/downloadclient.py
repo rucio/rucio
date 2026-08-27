@@ -1092,21 +1092,21 @@ class DownloadClient:
         logger = self.logger
         from xmlrpc.client import ServerProxy as RPCServerProxy
 
-        cmd = 'aria2c '\
-              '--enable-rpc '\
-              '--certificate=$X509_USER_PROXY '\
-              '--private-key=$X509_USER_PROXY '\
-              '--ca-certificate=/etc/pki/tls/certs/CERN-bundle.pem '\
-              '--quiet=true '\
-              '--allow-overwrite=true '\
-              '--auto-file-renaming=false '\
-              '--stop-with-process=%d '\
-              '--rpc-secret=%s '\
-              '--rpc-listen-all=false '\
-              '--rpc-max-request-size=100M '\
-              '--connect-timeout=5 '\
-              '--rpc-listen-port=%d'
-
+        args = [
+            'aria2c',
+            '--enable-rpc',
+            '--certificate=' + os.environ.get('X509_USER_PROXY', ''),
+            '--private-key=' + os.environ.get('X509_USER_PROXY', ''),
+            '--ca-certificate=/etc/pki/tls/certs/CERN-bundle.pem',
+            '--quiet=true',
+            '--allow-overwrite=true',
+            '--auto-file-renaming=false',
+            f'--stop-with-process={os.getpid()}',
+            f'--rpc-secret={rpc_secret}',
+            '--rpc-listen-all=false',
+            '--rpc-max-request-size=100M',
+            '--connect-timeout=5',
+        ]
         logger(logging.INFO, 'Starting aria2c rpc server...')
 
         # trying up to 3 random ports
@@ -1114,11 +1114,11 @@ class DownloadClient:
             port = random.randint(1024, 65534)  # noqa: S311
             logger(logging.DEBUG, 'Trying to start rpc server on port: %d' % port)
             try:
-                to_exec = cmd % (os.getpid(), rpc_secret, port)
+                to_exec = list(args)
+                to_exec.append(f'--rpc-listen-port={port}')
                 logger(logging.DEBUG, to_exec)
                 rpcproc = subprocess.Popen(
-                    cmd,
-                    shell=True,
+                    to_exec,
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
