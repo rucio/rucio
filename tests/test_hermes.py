@@ -61,7 +61,7 @@ class MyListener:
         {
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
-                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/_bulk"),
+                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/_bulk?refresh=wait_for"),
                 ("hermes", "influxdb_endpoint", "http://influxdb:8086/api/v2/write?org=rucio&bucket=rucio"),
                 ("hermes", "influxdb_token", "mytoken"),
                 ("messaging-hermes", "destination", "/queue/events"),
@@ -78,7 +78,7 @@ class MyListener:
         {
             "table_content": [
                 ("hermes", "services_list", "influx,activemq,elastic,email"),
-                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/_bulk"),
+                ("hermes", "elastic_endpoint", "http://elasticsearch:9200/ddm_events/_bulk?refresh=wait_for"),
                 ("hermes", "influxdb_endpoint", "http://influxdb:8086/api/v2/write?org=rucio&bucket=rucio"),
                 ("hermes", "influxdb_token", "mytoken"),
                 ("messaging-hermes", "destination", "/queue/events"),
@@ -234,7 +234,11 @@ def test_hermes(core_config_mock, caches_mock, monkeypatch):
     messages = retrieve_messages(50, old_mode=False)
     for message in messages:
         service_dict[message["services"]] += 1
-    time.sleep(20)  # Waiting that all the messages are consumed to check ActiveMQ
+    # Wait until ActiveMQ has delivered every expected message or the worst case scenario 20s
+    for i in range(20):
+        if len(listener.messages) >= len(list_messages):
+            break
+        time.sleep(1)
 
     # Checking influxDB
     assert service_dict["influx"] == 0
