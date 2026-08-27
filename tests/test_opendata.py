@@ -538,24 +538,27 @@ class TestOpenDataCore:
                 session=db_write_session,
             )
 
-        opendata.add_opendata_did(
-            scope=mock_scope,
-            name=opendata_name,
-            session=db_write_session,
-        )
-
-        db_write_session.commit()
-
-        metadata = {
-            item["name"]: item
-            for item in get_metadata_bulk(
-                dids=dids,
+        try:
+            opendata.add_opendata_did(
+                scope=mock_scope,
+                name=opendata_name,
                 session=db_write_session,
             )
-        }
 
-        assert metadata[regular_name]["is_opendata"] is False
-        assert metadata[opendata_name]["is_opendata"] is True
+            db_write_session.flush()
+
+            metadata = {
+                item["name"]: item
+                for item in get_metadata_bulk(
+                    dids=dids,
+                    session=db_write_session,
+                )
+            }
+
+            assert metadata[regular_name]["is_opendata"] is False
+            assert metadata[opendata_name]["is_opendata"] is True
+        finally:
+            db_write_session.rollback()
 
 
 class _FakeCacheRegion:
