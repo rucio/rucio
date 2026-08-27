@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import and_, false, null
 from sqlalchemy.sql.expression import case, select, true
 
 from rucio.db.sqla import models
 
+if TYPE_CHECKING:
+    from sqlalchemy.sql.selectable import Select
 
-def add_is_opendata_column(stmt):
+
+def add_is_opendata_column(stmt: "Select") -> "Select":
     opendata_subquery = select(
         models.OpenDataDid.scope,
         models.OpenDataDid.name
