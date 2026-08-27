@@ -27,7 +27,7 @@ from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
-from rucio.core.did import add_did, delete_dids, set_status
+from rucio.core.did import add_did, delete_dids, get_metadata_bulk, set_status
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
@@ -514,6 +514,48 @@ class TestOpenDataCore:
 
         finally:
             config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+
+    def test_get_metadata_bulk_includes_is_opendata(
+        self,
+        mock_scope,
+        root_account,
+        db_write_session,
+    ):
+        regular_name = did_name_generator(did_type="dataset")
+        opendata_name = did_name_generator(did_type="dataset")
+
+        dids = [
+            {"scope": mock_scope, "name": regular_name},
+            {"scope": mock_scope, "name": opendata_name},
+        ]
+
+        for did in dids:
+            add_did(
+                scope=did["scope"],
+                name=did["name"],
+                account=root_account,
+                did_type=DIDType.DATASET,
+                session=db_write_session,
+            )
+
+        opendata.add_opendata_did(
+            scope=mock_scope,
+            name=opendata_name,
+            session=db_write_session,
+        )
+
+        db_write_session.commit()
+
+        metadata = {
+            item["name"]: item
+            for item in get_metadata_bulk(
+                dids=dids,
+                session=db_write_session,
+            )
+        }
+
+        assert metadata[regular_name]["is_opendata"] is False
+        assert metadata[opendata_name]["is_opendata"] is True
 
 
 class _FakeCacheRegion:

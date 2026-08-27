@@ -72,10 +72,6 @@ RESTRICTED_CHARACTERS = {
     '.': "Used as a delimiter for key and operator (<key>.<operator>) in filtering engine."
 }
 
-READ_ONLY_METADATA_KEYS = {
-    'is_opendata',
-}
-
 
 @read_session
 def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
@@ -94,21 +90,14 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
     """
     if plugin.lower() == "all":
         all_metadata = {}
-        read_only_metadata = {}
         for metadata_plugin in METADATA_PLUGIN_MODULES:
             metadata = metadata_plugin.get_metadata(scope, name, session=session)
-            all_metadata.update(metadata)
 
             if metadata_plugin is METADATA_PLUGIN_MODULES[0]:
-                read_only_metadata = {
-                    key: metadata[key]
-                    for key in READ_ONLY_METADATA_KEYS
-                    if key in metadata
-                }
+                metadata.pop("is_opendata", None)
 
-        # Read-only metadata derived from Rucio's internal state must take
-        # precedence over values returned by other metadata plugins.
-        all_metadata.update(read_only_metadata)
+            all_metadata.update(metadata)
+
         return all_metadata
 
     for metadata_plugin in METADATA_PLUGIN_MODULES:
@@ -131,13 +120,6 @@ def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"
     :param session: (optional) The database session in use.
     :raises: InvalidMetadata
     """
-    # Prevent explicit updates to metadata fields whose values are derived
-    # from Rucio's internal state rather than stored as user metadata.
-    if key in READ_ONLY_METADATA_KEYS:
-        raise exception.UnsupportedOperation(
-            f"'{key}' is a read-only metadata field"
-        )
-
     # Check for forbidden characters in key.
     for char in RESTRICTED_CHARACTERS:
         if char in key:
@@ -174,15 +156,6 @@ def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session")
     metadata = meta
     if not isinstance(metadata, dict):
         metadata = dict(metadata)
-
-    # Prevent updates to read-only metadata fields whose values are derived
-    # from Rucio's internal state rather than stored as user metadata.
-    read_only_keys = READ_ONLY_METADATA_KEYS.intersection(metadata)
-    if read_only_keys:
-        raise exception.UnsupportedOperation(
-            f"Metadata field(s) {sorted(read_only_keys)} are read-only"
-        )
-
     unmanaged_keys = list()
     metadata_plugin_keys = {metadata_plugin: [] for metadata_plugin in METADATA_PLUGIN_MODULES}
 

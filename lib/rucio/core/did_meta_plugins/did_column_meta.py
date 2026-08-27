@@ -16,15 +16,16 @@ import operator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import and_, false, inspect, null, update
+from sqlalchemy import inspect, update
 from sqlalchemy.exc import CompileError, InvalidRequestError, NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import case, select, true
+from sqlalchemy.sql.expression import select, true
 
 from rucio.common import exception
 from rucio.core import account_counter, rse_counter
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
+from rucio.core.did_meta_plugins.opendata_meta import add_is_opendata_column
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
@@ -66,20 +67,12 @@ class DidColumnMeta(DidMetaPlugin):
         :returns: DID metadata as a dictionary.
         """
         try:
-            opendata_subquery = select(
-                models.OpenDataDid.scope,
-                models.OpenDataDid.name
-            ).subquery()
-
-            stmt = select(
+            stmt = add_is_opendata_column(
+                select(models.DataIdentifier)
+            ).with_hint(
                 models.DataIdentifier,
-                case((opendata_subquery.c.scope.isnot(null()), true()), else_=false()).label("is_opendata")
-            ).outerjoin(
-                opendata_subquery,
-                and_(
-                    models.DataIdentifier.scope == opendata_subquery.c.scope,
-                    models.DataIdentifier.name == opendata_subquery.c.name
-                )
+                'INDEX(DIDS DIDS_PK)',
+                'oracle'
             ).where(
                 models.DataIdentifier.scope == scope,
                 models.DataIdentifier.name == name
