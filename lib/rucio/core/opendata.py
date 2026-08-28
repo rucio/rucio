@@ -1073,6 +1073,7 @@ def get_opendata_did(
     Returns:
         A dictionary containing info about the specified DID which include "scope", "name", "state", "meta" (if requested), etc.
     Raises:
+        OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
         InvalidRequest: If download URLs are requested without including files.
         ReplicaNotFound: If download URLs are requested but no suitable
             replica is available.

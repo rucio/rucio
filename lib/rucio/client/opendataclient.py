@@ -241,6 +241,7 @@ class OpenDataClient(BaseClient):
             A dictionary containing metadata about the specified DID.
             May include file list, extended metadata, and DOI details depending on the parameters.
         Raises:
+            OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
             InvalidRequest: If download URLs are requested without including files.
             ReplicaNotFound: If download URLs are requested but no suitable
                 replica is available.

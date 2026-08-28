@@ -128,6 +128,8 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
                     include_record_id=include_record_id,
                     include_download_urls=include_download_urls,
                 )
+            except OpenDataDataIdentifierNotFound as error:
+                return generate_http_error_flask(404, error)
             except OpenDataError as error:
                 return generate_http_error_flask(500, error)
 
@@ -135,7 +137,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             return Response(result, status=200, mimetype='application/json')
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
-        except (OpenDataDataIdentifierNotFound, ReplicaNotFound) as error:
+        except ReplicaNotFound as error:
             return generate_http_error_flask(404, error)
         except ResourceTemporaryUnavailable as error:
             return generate_http_error_flask(503, error)

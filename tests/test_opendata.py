@@ -2240,6 +2240,7 @@ class TestOpenDataAPI:
     @pytest.mark.parametrize(
         "error_class, expected_status",
         [
+            (OpenDataDataIdentifierNotFound, 404),
             (ReplicaNotFound, 404),
             (OpenDataError, 500),
         ],
