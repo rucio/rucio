@@ -24,10 +24,10 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
+from rucio.common.exception import DataIdentifierNotFound, InvalidMetadata, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
-from rucio.core.did import add_did, delete_dids, get_metadata_bulk, set_status
+from rucio.core.did import add_did, delete_dids, get_metadata, get_metadata_bulk, set_metadata, set_metadata_bulk, set_status
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
@@ -557,6 +557,74 @@ class TestOpenDataCore:
 
             assert metadata[regular_name]["is_opendata"] is False
             assert metadata[opendata_name]["is_opendata"] is True
+
+            single_metadata = get_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                plugin="ALL",
+                session=db_write_session,
+            )
+
+            assert single_metadata["is_opendata"] is True
+
+            regular_single_metadata = get_metadata(
+                scope=mock_scope,
+                name=regular_name,
+                plugin="ALL",
+                session=db_write_session,
+            )
+
+            assert regular_single_metadata["is_opendata"] is False
+
+            all_metadata = {
+                item["name"]: item
+                for item in get_metadata_bulk(
+                    dids=dids,
+                    plugin="ALL",
+                    session=db_write_session,
+                )
+            }
+
+            assert all_metadata[regular_name]["is_opendata"] is False
+            assert all_metadata[opendata_name]["is_opendata"] is True
+        finally:
+            db_write_session.rollback()
+
+    def test_is_opendata_metadata_is_read_only(
+        self,
+        mock_scope,
+        root_account,
+        db_write_session,
+    ):
+        name = did_name_generator(did_type="dataset")
+
+        add_did(
+            scope=mock_scope,
+            name=name,
+            account=root_account,
+            did_type=DIDType.DATASET,
+            session=db_write_session,
+        )
+
+        try:
+            db_write_session.flush()
+
+            with pytest.raises(InvalidMetadata):
+                set_metadata(
+                    scope=mock_scope,
+                    name=name,
+                    key="is_opendata",
+                    value=False,
+                    session=db_write_session,
+                )
+
+            with pytest.raises(InvalidMetadata):
+                set_metadata_bulk(
+                    scope=mock_scope,
+                    name=name,
+                    meta={"is_opendata": False},
+                    session=db_write_session,
+                )
         finally:
             db_write_session.rollback()
 
@@ -958,7 +1026,7 @@ class TestOpenDataAPI:
                 headers=request_headers,
             )
 
-    def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope):
+    def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope, message_mock):
         name = did_name_generator(did_type="dataset")
         opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
         meta_endpoint = f"/dids/{mock_scope}/{name}/meta"
