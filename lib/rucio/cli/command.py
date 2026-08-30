@@ -14,6 +14,7 @@
 import importlib
 import signal
 import sys
+import threading
 import time
 from typing import Final, Optional, Union
 
@@ -242,7 +243,8 @@ def main(
     client = get_client(args, logger)  # TODO Future improvement - use envvar functionality in click to remove conditionals checking env vars
 
     setup_gfal2_logger()
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, logger))
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, logger))
 
     ctx.obj.client = client
     ctx.obj.logger = logger
@@ -264,7 +266,8 @@ def _teardown(ctx):
             if ctx.obj.verbose:
                 command_output += "Completed in %-0.4f sec." % (time_elapsed)
             # Ignore SIGINT during pager execution.
-            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            if threading.current_thread() is threading.main_thread():
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
             ctx.obj.pager(command_output)
     else:
         if ctx.obj.verbose:
