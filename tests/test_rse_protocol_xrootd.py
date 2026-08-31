@@ -112,7 +112,14 @@ def test_xrootd_url_operations_do_not_require_optional_binding(monkeypatch):
     assert root_protocol.lfns2pfns({
         'scope': 'test', 'name': 'file', 'path': 'file',
     }) == {
-        'test:file': 'root://storage.example:1094//rucio/file',
+        'test:file': 'root://storage.example:1094/rucio/file',
+    }
+
+    dav_protocol.attributes['prefix'] = '//rucio/'
+    assert dav_protocol.lfns2pfns({
+        'scope': 'test', 'name': 'file', 'path': 'file',
+    }) == {
+        'test:file': 'davs://storage.example:443//rucio/file',
     }
 
 
