@@ -36,7 +36,7 @@ import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.cache import MemcacheRegion
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import DEFAULT_ACTIVITY, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import (
     DataIdentifierNotFound,
@@ -1250,6 +1250,39 @@ def delete_rule(
             transfer_core.cancel_transfers(transfers_to_cancel)
 
 
+def reset_stuck_state(rule: models.ReplicationRule) -> None:
+    """
+    Reset the STUCK bookkeeping when a rule reaches OK; not on REPLICATING.
+
+    :param rule: The rule object.
+    """
+    rule.stuck_at = None
+    rule.stuck_cnt = 0
+
+
+@read_session
+def _stuck_rule_suspend_reason(
+    rule: models.ReplicationRule,
+    *,
+    session: "Session"
+) -> Optional[str]:
+    """
+    Suspend after two weeks STUCK, or `rules/stuck_cnt_to_suspend` attempts if set.
+
+    :param rule:    The rule object.
+    :param session: The database session in use.
+    :returns:       A short description of the criterion that fired, or None.
+    """
+    if rule.stuck_at is not None and rule.stuck_at < (datetime.utcnow() - timedelta(days=14)):
+        return 'STUCK since %s' % rule.stuck_at
+
+    stuck_cnt_to_suspend = config_get_int('rules', 'stuck_cnt_to_suspend', default=0, session=session)
+    if stuck_cnt_to_suspend > 0 and (rule.stuck_cnt or 0) >= stuck_cnt_to_suspend:
+        return 'STUCK after %d repair attempts' % rule.stuck_cnt
+
+    return None
+
+
 @transactional_session
 def repair_rule(
     rule_id: str,
@@ -1286,13 +1319,14 @@ def repair_rule(
         rule = session.execute(stmt).scalar_one()
         rule.updated_at = datetime.utcnow()
 
-        # Check if rule is longer than 2 weeks in STUCK
+        # STUCK for too long, or too many attempts?
         if rule.stuck_at is None:
             rule.stuck_at = datetime.utcnow()
-        if rule.stuck_at < (datetime.utcnow() - timedelta(days=14)):
+        suspend_reason = _stuck_rule_suspend_reason(rule, session=session)
+        if suspend_reason is not None:
             rule.state = RuleState.SUSPENDED
             insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
-            logger(logging.INFO, 'Replication rule %s has been SUSPENDED', rule_id)
+            logger(logging.INFO, 'Replication rule %s has been SUSPENDED (%s)', rule_id, suspend_reason)
             return
 
         # Evaluate the RSE expression to see if there is an alternative RSE anyway
@@ -1561,10 +1595,9 @@ def repair_rule(
                     models.DatasetLock.state: LockState.STUCK
                 })
                 session.execute(stmt)
-            # TODO: Increase some kind of Stuck Counter here, The rule should at some point be SUSPENDED
+            # Keep stuck_at across the episode, count the attempt
+            rule.stuck_cnt = (rule.stuck_cnt or 0) + 1
             return
-
-        rule.stuck_at = None
 
         if rule.locks_replicating_cnt > 0:
             logger(logging.INFO, 'Rule %s [%d/%d/%d] state=REPLICATING', str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
@@ -1586,6 +1619,7 @@ def repair_rule(
 
         rule.state = RuleState.OK
         rule.error = None
+        reset_stuck_state(rule)
         # Insert rule history
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
         logger(logging.INFO, 'Rule %s [%d/%d/%d] state=OK', str(rule.id), rule.locks_ok_cnt, rule.locks_replicating_cnt, rule.locks_stuck_cnt)
@@ -2517,6 +2551,7 @@ def update_rules_for_lost_replica(
             pass
         elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
             rule.state = RuleState.OK
+            reset_stuck_state(rule)
             if rule.grouping != RuleGrouping.NONE:
                 stmt = update(
                     models.DatasetLock
@@ -3554,6 +3589,7 @@ def __evaluate_did_detach(
                 pass
             elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
                 rule.state = RuleState.OK
+                reset_stuck_state(rule)
                 if rule.grouping != RuleGrouping.NONE:
                     stmt = update(
                         models.DatasetLock
@@ -3839,6 +3875,7 @@ def __evaluate_did_attach(
                                 session.execute(stmt)
                         elif rule.locks_replicating_cnt == 0 and rule.locks_stuck_cnt == 0:
                             rule.state = RuleState.OK
+                            reset_stuck_state(rule)
                             if rule.grouping != RuleGrouping.NONE:
                                 stmt = update(
                                     models.DatasetLock

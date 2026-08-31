@@ -394,6 +394,7 @@ def successful_transfer(scope: InternalScope, name: str, rse_id: str, nowait: bo
             pass
         elif rule.locks_replicating_cnt == 0 and rule.state == RuleState.REPLICATING:
             rule.state = RuleState.OK
+            rucio.core.rule.reset_stuck_state(rule)
             # Try to update the DatasetLocks
             if rule.grouping != RuleGrouping.NONE:
                 stmt = select(

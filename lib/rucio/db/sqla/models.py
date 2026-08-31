@@ -1202,6 +1202,7 @@ class ReplicationRule(BASE, ModelBase):
                                                                 values_callable=lambda obj: [e.value for e in obj]),
                                                            default=RuleNotification.NO)
     stuck_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    stuck_cnt: Mapped[int] = mapped_column(Integer, default=0)
     purge_replicas: Mapped[bool] = mapped_column(Boolean(name='RULES_PURGE_REPLICAS_CHK', create_constraint=True),
                                                  default=False)
     ignore_availability: Mapped[bool] = mapped_column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK', create_constraint=True),
