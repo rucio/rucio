@@ -28,6 +28,7 @@ from rucio.common.exception import DataIdentifierNotFound, InvalidMetadata, Open
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, delete_dids, get_metadata, get_metadata_bulk, set_metadata, set_metadata_bulk, set_status
+from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
@@ -606,15 +607,16 @@ class TestOpenDataCore:
     ):
         regular_name = did_name_generator(did_type="dataset")
         opendata_name = did_name_generator(did_type="dataset")
+
         dids = [
             {"scope": mock_scope, "name": regular_name},
             {"scope": mock_scope, "name": opendata_name},
         ]
 
-        for did in dids:
+        for did_data in dids:
             add_did(
-                scope=did["scope"],
-                name=did["name"],
+                scope=did_data["scope"],
+                name=did_data["name"],
                 account=root_account,
                 did_type=DIDType.DATASET,
                 session=db_write_session,
@@ -626,25 +628,44 @@ class TestOpenDataCore:
                 name=opendata_name,
                 session=db_write_session,
             )
+
+            # Simulate legacy custom metadata created before `is_opendata`
+            # became a read-only derived metadata field.
+            JSONDidMeta().set_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                key="is_opendata",
+                value=False,
+                session=db_write_session,
+            )
+
             db_write_session.flush()
 
-            opendata_metadata = get_metadata(
+            json_metadata = get_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                plugin="JSON",
+                session=db_write_session,
+            )
+            assert json_metadata["is_opendata"] is False
+
+            single_metadata = get_metadata(
                 scope=mock_scope,
                 name=opendata_name,
                 plugin="ALL",
                 session=db_write_session,
             )
-            assert opendata_metadata["is_opendata"] is True
+            assert single_metadata["is_opendata"] is True
 
-            regular_metadata = get_metadata(
+            regular_single_metadata = get_metadata(
                 scope=mock_scope,
                 name=regular_name,
                 plugin="ALL",
                 session=db_write_session,
             )
-            assert regular_metadata["is_opendata"] is False
+            assert regular_single_metadata["is_opendata"] is False
 
-            bulk_metadata = {
+            all_metadata = {
                 item["name"]: item
                 for item in get_metadata_bulk(
                     dids=dids,
@@ -653,8 +674,8 @@ class TestOpenDataCore:
                 )
             }
 
-            assert bulk_metadata[regular_name]["is_opendata"] is False
-            assert bulk_metadata[opendata_name]["is_opendata"] is True
+            assert all_metadata[regular_name]["is_opendata"] is False
+            assert all_metadata[opendata_name]["is_opendata"] is True
 
         finally:
             db_write_session.rollback()
@@ -1057,7 +1078,8 @@ class TestOpenDataAPI:
                 headers=request_headers,
             )
 
-    def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope, message_mock):
+    def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope, monkeypatch):
+        monkeypatch.setattr("rucio.core.did.add_message", lambda *args, **kwargs: None)
         name = did_name_generator(did_type="dataset")
         opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
         meta_endpoint = f"/dids/{mock_scope}/{name}/meta"
