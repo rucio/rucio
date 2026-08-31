@@ -169,30 +169,6 @@ class Default(protocol.RSEProtocol):
             return parsed.path
         return str(pfn)
 
-    def lfns2pfns(self, lfns):
-        """
-        Returns a fully qualified PFN for the file referred by path.
-
-        :param path: The path to the file.
-
-        :returns: Fully qualified PFN.
-        """
-        self.logger(logging.DEBUG, 'xrootd.lfns2pfns: lfns: {}'.format(lfns))
-        pfns = {}
-        prefix = self.attributes['prefix']
-
-        if not prefix.startswith('/'):
-            prefix = ''.join(['/', prefix])
-        if not prefix.endswith('/'):
-            prefix = ''.join([prefix, '/'])
-
-        lfns = [lfns] if isinstance(lfns, dict) else lfns
-        for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
-            path = lfn.get('path') or self._get_path(scope=scope, name=name)
-            pfns['%s:%s' % (scope, name)] = self.path2pfn(prefix + path)
-        return pfns
-
     def connect(self) -> None:
         """Prepare credentials and verify bounded access to the RSE prefix."""
         self.logger(
