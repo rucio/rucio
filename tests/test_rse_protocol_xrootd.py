@@ -21,6 +21,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from rucio.common import exception
+from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.common.utils import execute
 from rucio.rse import rsemanager
 from rucio.rse.protocols import xrootd
@@ -54,16 +55,12 @@ class _Timeout(_XRootDError):
 
 
 def _bindings(storage=None):
-    auth = MagicMock()
-    auth.close = MagicMock()
-    auth_context = MagicMock()
-    auth_context.bearer.return_value = auth
-    auth_context.x509.return_value = auth
-    auth_context.anonymous.return_value = auth
     storage = storage or MagicMock()
+    storage_client = MagicMock()
+    storage_client.from_environment.return_value = storage
     return SimpleNamespace(
-        AuthContext=auth_context,
-        StorageClient=MagicMock(return_value=storage),
+        STORAGE_CLIENT_API_VERSION=2,
+        StorageClient=storage_client,
         XRootDError=_XRootDError,
         XRootDNotFoundError=_NotFound,
         XRootDAuthorizationError=_Authorization,
@@ -89,7 +86,6 @@ def _protocol(scheme='root', auth_token=None, verify_checksum=True):
     instance.rse = {'verify_checksum': verify_checksum}
     instance.logger = lambda *_args, **_kwargs: None
     instance._Default__client = None
-    instance._Default__auth_context = None
     instance._Default__client_lock = threading.Lock()
     return instance
 
@@ -113,12 +109,19 @@ def test_xrootd_url_operations_do_not_require_optional_binding(monkeypatch):
         'davs://storage.example:443/rucio/file'
     assert root_protocol.pfn2path(
         'root://storage.example:1094//rucio/file') == '//rucio/file'
+    assert root_protocol.lfns2pfns({
+        'scope': 'test', 'name': 'file', 'path': 'file',
+    }) == {
+        'test:file': 'root://storage.example:1094//rucio/file',
+    }
 
 
 def test_native_xrootd_bearer_auth_is_object_scoped(monkeypatch):
     storage = MagicMock()
     bindings = _bindings(storage)
     monkeypatch.setattr(xrootd, '_xrootd_client', bindings)
+    monkeypatch.setattr(
+        xrootd.Default, '_configured_x509_proxy', staticmethod(lambda: None))
     before = {
         key: os.environ.get(key)
         for key in ('BEARER_TOKEN', 'BEARER_TOKEN_FILE', 'XrdSecPROTOCOL')
@@ -127,9 +130,13 @@ def test_native_xrootd_bearer_auth_is_object_scoped(monkeypatch):
     protocol = _protocol(auth_token='transfer-token')
     assert protocol._storage_client() is storage
 
-    bindings.AuthContext.bearer.assert_called_once_with(token='transfer-token')
-    bindings.StorageClient.assert_called_once_with(
-        auth=bindings.AuthContext.bearer.return_value, timeout=300)
+    bindings.StorageClient.from_environment.assert_called_once_with(
+        timeout=300,
+        token='transfer-token',
+        proxy=None,
+        fallback='none',
+        use_bearer_environment=False,
+    )
     assert before == {
         key: os.environ.get(key)
         for key in ('BEARER_TOKEN', 'BEARER_TOKEN_FILE', 'XrdSecPROTOCOL')
@@ -145,7 +152,13 @@ def test_native_xrootd_uses_selected_proxy(monkeypatch, tmp_path):
 
     _protocol().prepare_credentials()
 
-    bindings.AuthContext.x509.assert_called_once_with(proxy=str(proxy))
+    bindings.StorageClient.from_environment.assert_called_once_with(
+        timeout=300,
+        token=None,
+        proxy=str(proxy),
+        fallback='none',
+        use_bearer_environment=False,
+    )
 
 
 def test_native_webdav_can_be_explicitly_anonymous(monkeypatch):
@@ -157,13 +170,16 @@ def test_native_webdav_can_be_explicitly_anonymous(monkeypatch):
             'X509_USER_KEY'):
         monkeypatch.delenv(variable, raising=False)
     monkeypatch.setattr(xrootd.Default, '_configured_x509_proxy', staticmethod(lambda: None))
-    monkeypatch.setattr(xrootd.Default, '_default_x509_proxy', staticmethod(lambda: None))
-    monkeypatch.setattr(xrootd.Default, '_default_x509_cert', staticmethod(lambda: '/missing/cert'))
-    monkeypatch.setattr(xrootd.Default, '_default_x509_key', staticmethod(lambda: '/missing/key'))
 
     _protocol(scheme='https').prepare_credentials()
 
-    bindings.AuthContext.anonymous.assert_called_once_with()
+    bindings.StorageClient.from_environment.assert_called_once_with(
+        timeout=300,
+        token=None,
+        proxy=None,
+        fallback='anonymous',
+        use_bearer_environment=False,
+    )
 
 
 def test_native_operations_delegate_to_storage_client(monkeypatch, tmp_path):
@@ -199,29 +215,37 @@ def test_native_operations_delegate_to_storage_client(monkeypatch, tmp_path):
 
 def test_native_stat_uses_supported_checksum_fallback(monkeypatch):
     storage = MagicMock()
-    storage.stat.return_value = {'size': 1234}
-    storage.checksum.side_effect = [
-        ('crc32c', 'not-supported-by-rucio'),
-        ('md5', 'deadbeef'),
-    ]
+    storage.info.return_value = SimpleNamespace(
+        size=1234,
+        checksum=SimpleNamespace(algorithm='md5', value='deadbeef'),
+    )
     monkeypatch.setattr(xrootd, '_xrootd_client', _bindings(storage))
 
     result = _protocol(auth_token='token').stat('/rucio/file')
 
     assert result == {'filesize': '1234', 'md5': 'deadbeef'}
-    assert [call.kwargs['algorithm'] for call in storage.checksum.call_args_list] == [
-        'adler32', 'md5']
+    storage.info.assert_called_once_with(
+        'root://storage.example:1094//rucio/file',
+        checksum_algorithms=[PREFERRED_CHECKSUM] + [
+            algorithm for algorithm in GLOBALLY_SUPPORTED_CHECKSUMS
+            if algorithm != PREFERRED_CHECKSUM],
+        require_checksum=True,
+    )
 
 
 def test_native_stat_can_skip_checksum(monkeypatch):
     storage = MagicMock()
-    storage.stat.return_value = SimpleNamespace(size=1234)
+    storage.info.return_value = SimpleNamespace(size=1234, checksum=None)
     monkeypatch.setattr(xrootd, '_xrootd_client', _bindings(storage))
 
     result = _protocol(auth_token='token', verify_checksum=False).stat('/rucio/file')
 
     assert result == {'filesize': '1234'}
-    storage.checksum.assert_not_called()
+    storage.info.assert_called_once_with(
+        'root://storage.example:1094//rucio/file',
+        checksum_algorithms=(),
+        require_checksum=False,
+    )
 
 
 @pytest.mark.parametrize('native_error,rucio_error,kwargs', [
@@ -249,10 +273,10 @@ def test_native_client_is_initialized_once_across_threads(monkeypatch):
         clients = list(executor.map(lambda _: protocol._storage_client(), range(32)))
 
     assert all(client is storage for client in clients)
-    bindings.StorageClient.assert_called_once()
+    bindings.StorageClient.from_environment.assert_called_once()
 
 
-def test_native_close_releases_auth_context(monkeypatch):
+def test_native_close_releases_storage_client(monkeypatch):
     bindings = _bindings()
     monkeypatch.setattr(xrootd, '_xrootd_client', bindings)
     protocol = _protocol(auth_token='token')
@@ -260,7 +284,17 @@ def test_native_close_releases_auth_context(monkeypatch):
 
     protocol.close()
 
-    bindings.AuthContext.bearer.return_value.close.assert_called_once()
+    bindings.StorageClient.from_environment.return_value.close.assert_called_once()
+
+
+def test_native_connect_performs_bounded_probe(monkeypatch):
+    storage = MagicMock()
+    monkeypatch.setattr(xrootd, '_xrootd_client', _bindings(storage))
+
+    _protocol(auth_token='token').connect()
+
+    storage.probe.assert_called_once_with(
+        'root://storage.example:1094//rucio/', timeout=10)
 
 
 def test_native_space_usage_uses_high_level_query(monkeypatch):
