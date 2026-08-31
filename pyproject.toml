@@ -82,6 +82,7 @@ globus = [
             'PyYAML<=6.0.3',
             'globus-sdk<=4.8.1',
         ]
+xrootd = ['xrootd @ git+https://github.com/lobis/xrootd.git@8322f43a15736a1ff6992f289db89c1b5e7ac0a0']
 dev = [
     'pytest',
     'pytest-xdist',
