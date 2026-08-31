@@ -523,7 +523,6 @@ class TestOpenDataCore:
     ):
         regular_name = did_name_generator(did_type="dataset")
         opendata_name = did_name_generator(did_type="dataset")
-
         dids = [
             {"scope": mock_scope, "name": regular_name},
             {"scope": mock_scope, "name": opendata_name},
@@ -544,7 +543,6 @@ class TestOpenDataCore:
                 name=opendata_name,
                 session=db_write_session,
             )
-
             db_write_session.flush()
 
             metadata = {
@@ -558,35 +556,6 @@ class TestOpenDataCore:
             assert metadata[regular_name]["is_opendata"] is False
             assert metadata[opendata_name]["is_opendata"] is True
 
-            single_metadata = get_metadata(
-                scope=mock_scope,
-                name=opendata_name,
-                plugin="ALL",
-                session=db_write_session,
-            )
-
-            assert single_metadata["is_opendata"] is True
-
-            regular_single_metadata = get_metadata(
-                scope=mock_scope,
-                name=regular_name,
-                plugin="ALL",
-                session=db_write_session,
-            )
-
-            assert regular_single_metadata["is_opendata"] is False
-
-            all_metadata = {
-                item["name"]: item
-                for item in get_metadata_bulk(
-                    dids=dids,
-                    plugin="ALL",
-                    session=db_write_session,
-                )
-            }
-
-            assert all_metadata[regular_name]["is_opendata"] is False
-            assert all_metadata[opendata_name]["is_opendata"] is True
         finally:
             db_write_session.rollback()
 
@@ -625,6 +594,68 @@ class TestOpenDataCore:
                     meta={"is_opendata": False},
                     session=db_write_session,
                 )
+        finally:
+            db_write_session.rollback()
+
+    @skip_unsupported_json
+    def test_get_metadata_all_includes_is_opendata(
+        self,
+        mock_scope,
+        root_account,
+        db_write_session,
+    ):
+        regular_name = did_name_generator(did_type="dataset")
+        opendata_name = did_name_generator(did_type="dataset")
+        dids = [
+            {"scope": mock_scope, "name": regular_name},
+            {"scope": mock_scope, "name": opendata_name},
+        ]
+
+        for did in dids:
+            add_did(
+                scope=did["scope"],
+                name=did["name"],
+                account=root_account,
+                did_type=DIDType.DATASET,
+                session=db_write_session,
+            )
+
+        try:
+            opendata.add_opendata_did(
+                scope=mock_scope,
+                name=opendata_name,
+                session=db_write_session,
+            )
+            db_write_session.flush()
+
+            opendata_metadata = get_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                plugin="ALL",
+                session=db_write_session,
+            )
+            assert opendata_metadata["is_opendata"] is True
+
+            regular_metadata = get_metadata(
+                scope=mock_scope,
+                name=regular_name,
+                plugin="ALL",
+                session=db_write_session,
+            )
+            assert regular_metadata["is_opendata"] is False
+
+            bulk_metadata = {
+                item["name"]: item
+                for item in get_metadata_bulk(
+                    dids=dids,
+                    plugin="ALL",
+                    session=db_write_session,
+                )
+            }
+
+            assert bulk_metadata[regular_name]["is_opendata"] is False
+            assert bulk_metadata[opendata_name]["is_opendata"] is True
+
         finally:
             db_write_session.rollback()
 
