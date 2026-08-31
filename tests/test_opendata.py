@@ -58,13 +58,20 @@ skip_unsupported_dialect = pytest.mark.skipif(
 OPENDATA_RSE_EXPRESSION = 'OpenData=True'
 
 
-@pytest.fixture(scope="module", autouse=True)
-def module_setup():
-    # Set OpenData RSE expression for tests
+def _configure_opendata_rse_expression():
     if not config_has_section('opendata'):
         config_add_section('opendata')
 
-    config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+    config_set(
+        'opendata',
+        'rse_expression',
+        OPENDATA_RSE_EXPRESSION,
+    )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def module_setup():
+    _configure_opendata_rse_expression()
 
 
 class TestOpenDataCommon:
@@ -666,6 +673,7 @@ class TestOpenDataEOS:
         assert token == self.eos_token
 
         assert mock_post.call_args[0][0] == f"https://{self.eos_host}/v1/eos/rest/gateway/token_cmd"
+        assert mock_post.call_args[1]["allow_redirects"] is False
         body = mock_post.call_args[1]["json"]
         assert body["path"] == "/eos/opendata/experiment/file.root"
         assert body["permission"] == "r"
@@ -1257,6 +1265,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1364,6 +1373,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1427,6 +1437,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1523,6 +1534,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1618,6 +1630,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1768,6 +1781,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1830,7 +1844,7 @@ class TestOpenDataEOS:
         db_write_session,
     ):
         cache = _FakeCacheRegion()
-
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -1930,6 +1944,7 @@ class TestOpenDataEOS:
         did_factory,
         db_write_session,
     ):
+        _configure_opendata_rse_expression()
         dataset = did_factory.make_dataset(
             scope=mock_scope,
             session=db_write_session,
@@ -2204,7 +2219,7 @@ class TestOpenDataAPI:
     def test_opendata_api_temporary_failure_returns_503(
         self,
         rest_client,
-        auth_token,
+        request,
         mock_scope,
         public,
     ):
@@ -2221,7 +2236,9 @@ class TestOpenDataAPI:
 
         request_kwargs = {}
         if not public:
-            request_kwargs["headers"] = headers(auth(auth_token))
+            request_kwargs["headers"] = headers(
+                auth(request.getfixturevalue("auth_token"))
+            )
 
         with patch(
             "rucio.gateway.opendata.get_opendata_did",
@@ -2248,7 +2265,7 @@ class TestOpenDataAPI:
     def test_opendata_api_download_failure_status(
         self,
         rest_client,
-        auth_token,
+        request,
         mock_scope,
         public,
         error_class,
@@ -2267,7 +2284,9 @@ class TestOpenDataAPI:
 
         request_kwargs = {}
         if not public:
-            request_kwargs["headers"] = headers(auth(auth_token))
+            request_kwargs["headers"] = headers(
+                auth(request.getfixturevalue("auth_token"))
+            )
 
         with patch(
             "rucio.gateway.opendata.get_opendata_did",

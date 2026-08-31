@@ -532,6 +532,7 @@ def _eos_grpc_gateway_token_command(
             cert=(cert, key),
             verify=ca_bundle,
             timeout=timeout,
+            allow_redirects=False,
         )
     except (requests.exceptions.RequestException, OSError) as error:
         logger.warning(
