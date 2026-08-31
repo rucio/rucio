@@ -41,7 +41,7 @@ except Exception:
 def _client() -> ModuleType:
     """Return bindings which provide the application-level storage API."""
     required_api = (
-        'AuthContext',
+        'STORAGE_CLIENT_API_VERSION',
         'StorageClient',
         'XRootDAlreadyExistsError',
         'XRootDAuthorizationError',
@@ -50,7 +50,11 @@ def _client() -> ModuleType:
         'XRootDNotFoundError',
         'XRootDTimeoutError',
     )
-    if _xrootd_client is None or any(not hasattr(_xrootd_client, name) for name in required_api):
+    if (
+            _xrootd_client is None
+            or any(not hasattr(_xrootd_client, name) for name in required_api)
+            or _xrootd_client.STORAGE_CLIENT_API_VERSION < 2
+    ):
         raise exception.MissingDependency(
             "Missing dependency: a version of xrootd containing the high-level "
             "StorageClient API is required. Install the 'xrootd' extra for your "
@@ -77,7 +81,6 @@ class Default(protocol.RSEProtocol):
         self.hostname = self.attributes['hostname']
         self.port = str(self.attributes['port'])
         self.__client: Any | None = None
-        self.__auth_context: Any | None = None
         self.__client_lock = threading.Lock()
 
     @property
@@ -98,93 +101,20 @@ class Default(protocol.RSEProtocol):
         with self.__client_lock:
             if self.__client is None:
                 xrootd = _client()
-                self.__auth_context = self._make_auth_context(xrootd)
-                self.__client = xrootd.StorageClient(
-                    auth=self.__auth_context,
+                self.__client = xrootd.StorageClient.from_environment(
                     timeout=self._DEFAULT_TIMEOUT,
+                    token=self.auth_token,
+                    proxy=self._auth_proxy_override(),
+                    fallback='anonymous' if self.scheme in self._HTTP_SCHEMES else 'none',
+                    use_bearer_environment=False,
                 )
         return self.__client
 
-    def _make_auth_context(self, xrootd: ModuleType) -> Any:
-        tls_options = self._tls_options()
-        if self.auth_token:
-            return xrootd.AuthContext.bearer(token=self.auth_token, **tls_options)
-
-        proxy = self._valid_x509_proxy()
-        if proxy is not None:
-            return xrootd.AuthContext.x509(proxy=proxy, **tls_options)
-
-        cert, key = self._valid_x509_cert_key()
-        if cert is not None and key is not None:
-            return xrootd.AuthContext.x509(cert=cert, key=key, **tls_options)
-
-        if self.scheme in self._HTTP_SCHEMES:
-            return xrootd.AuthContext.anonymous(**tls_options)
-
-        # Explicitly select an unusable proxy instead of allowing the native
-        # client to fall through to an unrelated ambient identity.
-        return xrootd.AuthContext.x509(proxy=os.devnull, **tls_options)
-
-    @staticmethod
-    def _tls_options() -> dict[str, Any]:
-        options: dict[str, Any] = {}
-        ca_file = os.environ.get('X509_CERT_FILE') or os.environ.get('SSL_CERT_FILE')
-        ca_dir = os.environ.get('X509_CERT_DIR') or os.environ.get('SSL_CERT_DIR')
-        if ca_file:
-            ca_file = os.path.expandvars(os.path.expanduser(ca_file))
-            if os.path.isfile(ca_file):
-                options['ca_file'] = ca_file
-        if ca_dir:
-            ca_dir = os.path.expandvars(os.path.expanduser(ca_dir))
-            if os.path.isdir(ca_dir):
-                options['ca_dir'] = ca_dir
-        return options
-
-    def _valid_x509_proxy(self) -> str | None:
-        # Presence is significant: an explicitly empty or unusable credential
-        # must fail closed instead of selecting a lower-priority identity.
-        if 'RUCIO_CLIENT_PROXY' in os.environ:
-            return self._existing_file(os.environ['RUCIO_CLIENT_PROXY'])
-        if 'XrdSecGSIUSERPROXY' in os.environ:
-            return self._existing_file(os.environ['XrdSecGSIUSERPROXY'])
-
-        configured_proxy = self._configured_x509_proxy()
-        if configured_proxy is not None:
-            return self._existing_file(configured_proxy)
-
-        if 'X509_USER_PROXY' in os.environ:
-            return self._existing_file(os.environ['X509_USER_PROXY'])
-        if any(variable in os.environ for variable in (
-                'X509_USER_CERT', 'X509_USER_KEY',
-                'XrdSecGSIUSERCERT', 'XrdSecGSIUSERKEY')):
-            return None
-        return self._existing_file(self._default_x509_proxy())
-
-    def _valid_x509_cert_key(self) -> tuple[str | None, str | None]:
-        if any(variable in os.environ for variable in (
-                'RUCIO_CLIENT_PROXY', 'X509_USER_PROXY', 'XrdSecGSIUSERPROXY')):
-            return None, None
-        if self._configured_x509_proxy() is not None:
-            return None, None
-        cert_selector = (
-            os.environ.get('XrdSecGSIUSERCERT')
-            if 'XrdSecGSIUSERCERT' in os.environ
-            else os.environ.get('X509_USER_CERT')
-            if 'X509_USER_CERT' in os.environ
-            else self._default_x509_cert()
-        )
-        key_selector = (
-            os.environ.get('XrdSecGSIUSERKEY')
-            if 'XrdSecGSIUSERKEY' in os.environ
-            else os.environ.get('X509_USER_KEY')
-            if 'X509_USER_KEY' in os.environ
-            else self._default_x509_key()
-        )
-        cert = self._existing_file(cert_selector)
-        key = self._existing_file(key_selector)
-        if cert is None or key is None:
-            return None, None
-        return cert, key
+    def _auth_proxy_override(self) -> str | None:
+        for variable in ('RUCIO_CLIENT_PROXY', 'XrdSecGSIUSERPROXY'):
+            if variable in os.environ:
+                return os.environ[variable]
+        return self._configured_x509_proxy()
 
     @staticmethod
     def _configured_x509_proxy() -> str | None:
@@ -196,29 +126,6 @@ class Default(protocol.RSEProtocol):
         if configured_proxy in ('$X509_USER_PROXY', '${X509_USER_PROXY}'):
             return os.environ.get('X509_USER_PROXY')
         return configured_proxy
-
-    @staticmethod
-    def _default_x509_proxy() -> str | None:
-        if hasattr(os, 'geteuid'):
-            return '/tmp/x509up_u%d' % os.geteuid()
-        return None
-
-    @staticmethod
-    def _default_x509_cert() -> str:
-        return os.path.join(os.path.expanduser('~'), '.globus', 'usercert.pem')
-
-    @staticmethod
-    def _default_x509_key() -> str:
-        return os.path.join(os.path.expanduser('~'), '.globus', 'userkey.pem')
-
-    @staticmethod
-    def _existing_file(path: str | None) -> str | None:
-        if not path:
-            return None
-        expanded = os.path.expandvars(os.path.expanduser(path))
-        if '$' in expanded or not os.path.isfile(expanded):
-            return None
-        return expanded
 
     def _as_url(self, path: str) -> str:
         parsed = urlsplit(str(path))
@@ -262,13 +169,38 @@ class Default(protocol.RSEProtocol):
             return parsed.path
         return str(pfn)
 
+    def lfns2pfns(self, lfns):
+        """
+        Returns a fully qualified PFN for the file referred by path.
+
+        :param path: The path to the file.
+
+        :returns: Fully qualified PFN.
+        """
+        self.logger(logging.DEBUG, 'xrootd.lfns2pfns: lfns: {}'.format(lfns))
+        pfns = {}
+        prefix = self.attributes['prefix']
+
+        if not prefix.startswith('/'):
+            prefix = ''.join(['/', prefix])
+        if not prefix.endswith('/'):
+            prefix = ''.join([prefix, '/'])
+
+        lfns = [lfns] if isinstance(lfns, dict) else lfns
+        for lfn in lfns:
+            scope, name = lfn['scope'], lfn['name']
+            path = lfn.get('path') or self._get_path(scope=scope, name=name)
+            pfns['%s:%s' % (scope, name)] = self.path2pfn(prefix + path)
+        return pfns
+
     def connect(self) -> None:
-        """Prepare the native client and its object-scoped credentials."""
+        """Prepare credentials and verify bounded access to the RSE prefix."""
         self.logger(
             logging.DEBUG, 'xrootd.connect: port: %s, hostname %s',
             self.port, self.hostname)
         try:
-            self._storage_client()
+            self._storage_client().probe(
+                self.path2pfn(self.attributes['prefix']), timeout=10)
         except exception.RucioException:
             raise
         except Exception as error:
@@ -277,11 +209,10 @@ class Default(protocol.RSEProtocol):
     def close(self) -> None:
         """Release credentials owned by this protocol instance."""
         with self.__client_lock:
-            auth_context = self.__auth_context
+            client = self.__client
             self.__client = None
-            self.__auth_context = None
-        if auth_context is not None:
-            auth_context.close()
+        if client is not None:
+            client.close()
 
     def exists(self, pfn: str | None) -> bool:
         """Return whether ``pfn`` exists on the RSE."""
@@ -300,41 +231,26 @@ class Default(protocol.RSEProtocol):
         """Return file size and, when enabled, a supported checksum."""
         self.logger(logging.DEBUG, 'xrootd.stat: path: %s', path)
         url = self._as_url(path)
+        verify_checksum = self.rse.get('verify_checksum', True)
+        algorithms = [PREFERRED_CHECKSUM]
+        algorithms.extend(
+            algorithm for algorithm in GLOBALLY_SUPPORTED_CHECKSUMS
+            if algorithm != PREFERRED_CHECKSUM)
         try:
-            info = self._storage_client().stat(url)
+            info = self._storage_client().info(
+                url,
+                checksum_algorithms=algorithms if verify_checksum else (),
+                require_checksum=verify_checksum,
+            )
         except exception.RucioException:
             raise
         except Exception as error:
             self._translate_error(error, source_not_found=True)
 
-        size = info['size'] if isinstance(info, dict) else info.size
-        result = {'filesize': str(size)}
-        if not self.rse.get('verify_checksum', True):
-            return result
-
-        errors = []
-        algorithms = [PREFERRED_CHECKSUM]
-        algorithms.extend(
-            algorithm for algorithm in GLOBALLY_SUPPORTED_CHECKSUMS
-            if algorithm != PREFERRED_CHECKSUM)
-        for algorithm in algorithms:
-            try:
-                returned_algorithm, value = self._storage_client().checksum(
-                    url, algorithm=algorithm)
-            except Exception as error:
-                xrootd = _client()
-                if isinstance(error, xrootd.XRootDNotFoundError):
-                    self._translate_error(error, source_not_found=True)
-                errors.append('{}: {}'.format(algorithm, error))
-                continue
-            returned_algorithm = returned_algorithm.lower()
-            if returned_algorithm in GLOBALLY_SUPPORTED_CHECKSUMS:
-                result[returned_algorithm] = value
-                return result
-            errors.append('{}: endpoint returned {}'.format(
-                algorithm, returned_algorithm))
-
-        raise exception.RSEChecksumUnavailable('\n'.join(errors))
+        result = {'filesize': str(info.size)}
+        if info.checksum is not None:
+            result[info.checksum.algorithm] = info.checksum.value
+        return result
 
     def get(self, pfn: str, dest: str, transfer_timeout: int | str | None = None) -> None:
         """Download ``pfn`` to a local destination."""
