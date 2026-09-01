@@ -72,7 +72,7 @@ class ElasticDidMeta(DidMetaPlugin):
 
         self.es_config = {
             'hosts': hosts,
-            'timeout': request_timeout,
+            'request_timeout': request_timeout,
             'max_retries': max_retries,
             'retry_on_timeout': retry_on_timeout
         }

@@ -402,7 +402,7 @@ class TestDidMetaMongo:
 @pytest.fixture
 def elastic_meta():
     return ElasticDidMeta(
-            hosts=['http://elasticsearch_meta:9200'],
+            hosts=['http://elasticsearch:9200'],
             user="elastic",
             password="rucio",
         )
