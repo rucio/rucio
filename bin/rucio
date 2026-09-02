@@ -12,149 +12,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import argparse
 import os
 import sys
-from typing import TYPE_CHECKING, Optional
 
-from rucio.cli.bin_legacy.rucio import get_parser
-from rucio.cli.bin_legacy.rucio import main as main_legacy
 from rucio.cli.command import main
 from rucio.common.config import clean_cached_config, config_get, config_get_list
-from rucio.common.utils import setup_logger
-
-if TYPE_CHECKING:
-    from logging import Logger
-
-
-def _get_first_command(args: list[str]) -> Optional[str]:
-    return next(
-        (
-            arg for arg in args
-            if arg != 'rucio' and (arg[0] != "-" or arg in ("-h", "--help", "--version"))
-        ),
-        None
-    )
-
-
-def make_warning(logger: "Logger") -> None:
-    base_warning = "This method is being deprecated."
-    new_command = map_legacy_command()
-    if new_command is not None:
-        warning = f"{base_warning} Please replace your command with `rucio {' '.join(new_command)}`"
-    else:
-        warning = base_warning + " Please view rucio -h for an updated help menu."
-
-    logger.warning(warning)
-
-
-def map_legacy_command() -> Optional[list[str]]:
-    command = _get_first_command(sys.argv[1:])
-
-    new_command = None
-    if command not in ("-h", "--version", None):
-        command_map = {
-            "list-file-replicas": ["replica", "list", "file"],
-            "list-dataset-replicas": ["replica", "list", "dataset"],
-            "list-datasets-rse": ["replica", "list", "dataset", "--rse"],
-            "add-dataset": ["did", "add", "--type dataset"],
-            "add-container": ["did", "add", "--type container"],
-            "attach": ["did", "content", "add"],
-            "detach": ["did", "content", "remove"],
-            "ls": ["did", "list"],
-            "list-dids": ["did", "list"],
-            "list-parent-dids": ["did", "list", "--parent"],
-            "list-scopes": ["scope", "list"],
-            "close": ["did", "update", "--close"],
-            "reopen": ["did", "update", "--open"],
-            "stat": ["did", "show"],
-            "erase": ["did", "remove"],
-            "list-content": ["did", "content", "list"],
-            "list-content-history": ["did", "content", "history"],
-            "upload": ["upload"],
-            "get": ["download"],
-            "download": ["download"],
-            "get-metadata": ["did", "metadata", "list"],
-            "set-metadata": ["did", "metadata", "add"],
-            "delete-metadata": ["did", "metadata", "remove"],
-            "list-rse-usage": ["rse", "show"],
-            "list-account-usage": ["account", "limit", "list"],
-            "list-account-limits": ["account", "limit", "list"],
-            "add-rule": ["rule", "add"],
-            "delete-rule": ["rule", "remove"],
-            "rule-info": ["rule", "show"],
-            "list-rules": ["rule", "list"],
-            "list-rules-history": ["rule", "history"],
-            "update-rule": ["rule", "update"],
-            "move-rule": ["rule", "move"],
-            "list-rses": ["rse", "list"],
-            "list-suspicious-replicas": ["replica", "state", "suspicious"],
-            "list-rse-attributes": ["rse", "attribute", "list"],
-            "touch": ["did", "update", "--touch"],
-            "add-lifetime-exception": ["lifetime-exception", "add"],
-        }
-        new_command = command_map.get(command)
-
-    return new_command
-
-
-def run_command(args, use_multi_host_functionality):
-    commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "test-server", "lifetime-exception", "upload", "download", "opendata")
-    if (any(arg in commands for arg in sys.argv)) or args.help or args.version:
-        main(standalone_mode=not use_multi_host_functionality)  # pylint: disable=E1120
-
-    else:
-        try:
-            get_parser().parse_args()
-            make_warning(logger)
-            main_legacy()
-
-        # Make a custom warning - show the new help menu when invalid commands are called.
-        except argparse.ArgumentError:
-            logger.error("Invalid argument(s) - %s " % sys.argv[1:])
-            command = map_legacy_command()
-            if command is not None:
-                sys.argv = ["rucio"] + command + ["-h"]
-            else:
-                sys.argv = ["rucio", "-h"]
-
-            main(standalone_mode=not use_multi_host_functionality)  # pylint: disable=E1120
-
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(add_help=False)
-    # Check for legacy flag
-    parser.add_argument("--legacy", action="store_true")
-    # Check for commands in the new command list
-    parser.add_argument("-h", "--help", action="store_true")
-    parser.add_argument("--version", action="store_true")
+    multi_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
+    use_multi_host = False
+    if "--config" not in sys.argv:
+        for arg in sys.argv:
+            if arg in [x.strip() for x in multi_host_commands.split(',')]:
+                use_multi_host = True
 
-    args, _ = parser.parse_known_args()
+    if use_multi_host:
+        multi_host_servers = config_get_list('client', 'multi_host_servers')
+        for host in multi_host_servers:
+            config = config_get(host, 'config_file')
+            clean_cached_config()
+            os.environ['RUCIO_CONFIG'] = config
+            print('Result from {}.'.format(host))
 
-    logger = setup_logger(module_name=__name__)
-
-    if args.legacy:
-        make_warning(logger)
-        sys.argv.pop(sys.argv.index('--legacy'))
-        main_legacy()
+            main(use_multi_host)
     else:
-        multi_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
-        use_multi_host = False
-        if "--config" not in sys.argv:
-            for arg in sys.argv:
-                if arg in [x.strip() for x in multi_host_commands.split(',')]:
-                    use_multi_host = True
-
-        if use_multi_host:
-            multi_host_servers = config_get_list('client', 'multi_host_servers')
-            for host in multi_host_servers:
-                config = config_get(host, 'config_file')
-                clean_cached_config()
-                os.environ['RUCIO_CONFIG'] = config
-                print('Result from {}.'.format(host))
-
-                run_command(args, use_multi_host)
-        else:
-            run_command(args, use_multi_host)
+        main()

@@ -189,7 +189,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
 def add_(ctx: click.Context, rse_name: str, non_deterministic: bool) -> None:
     """Add a new RSE"""
     ctx.obj.client.add_rse(rse_name, deterministic=not non_deterministic)
-    print(f'Added new {"non-" if non_deterministic else ""}deterministic RSE: {rse}')
+    print(f'Added new {"non-" if non_deterministic else ""}deterministic RSE: {rse_name}')
 
 
 @rse.command("remove")
