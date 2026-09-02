@@ -256,6 +256,25 @@ class Arguments(dict):
     __delattr__ = dict.__delitem__
 
 
+class StrOrBoolType(click.ParamType):
+    name = "text|bool"
+
+    def convert(
+            self,
+            value: Union[str, bool, None],
+            param: "Optional[click.Parameter]",
+            ctx: "Optional[click.Context]",
+    ) -> Optional[Union[str, bool]]:
+        if value is None:
+            return None
+        try:
+            return click.BOOL.convert(value, param, ctx)
+        except click.BadParameter:
+            if isinstance(value, str):
+                return value
+            raise
+
+
 class JSONType(click.ParamType):
     name = "json"
 
