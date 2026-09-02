@@ -109,16 +109,16 @@ class PolicyPackageAlgorithms:
             return default_algorithm
 
         module_name = package + "." + algorithm_type
-        LOGGER.info('Attempting to find algorithm %s in default location %s...' % (algorithm_type, module_name))
+        LOGGER.info('Attempting to find algorithm %s in default location %s...', algorithm_type, module_name)
         try:
             module = importlib.import_module(module_name)
 
             if hasattr(module, algorithm_type):
                 default_algorithm = getattr(module, algorithm_type)
         except ModuleNotFoundError:
-            LOGGER.info('Algorithm %s not found in default location %s' % (algorithm_type, module_name))
+            LOGGER.info('Algorithm %s not found in default location %s', algorithm_type, module_name)
         except ImportError:
-            LOGGER.info('Algorithm %s found in default location %s, but could not be loaded' % (algorithm_type, module_name))
+            LOGGER.info('Algorithm %s found in default location %s, but could not be loaded', algorithm_type, module_name)
         # if the default algorithm is not present, this will store None and we will
         # not attempt to load the same algorithm again
         cls._default_algorithms[type_for_vo] = default_algorithm
