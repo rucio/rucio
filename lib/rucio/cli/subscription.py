@@ -18,7 +18,7 @@ import click
 from rich.text import Text
 from rich.tree import Tree
 
-from rucio.cli.utils import RichCLITheme, RichUtils, get_scope
+from rucio.cli.utils import DSVType, RichCLITheme, RichUtils, get_scope
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -175,11 +175,12 @@ def add_(
 
 
 @subscription.command("touch")
-@click.argument("dids", nargs=-1)
+@click.argument("dids", nargs=-1, type=DSVType())
 @click.pass_context
-def touch(ctx: click.Context, dids: "Iterable[str]") -> None:
+def touch(ctx: click.Context, dids: "Iterable[list]") -> None:
     """Reevaluate list of DIDs against all active subscriptions"""
-    for did in dids:
+    flattened_dids = [did for items in dids for did in items]
+    for did in flattened_dids:
         scope, name = get_scope(did, ctx.obj.client)
         ctx.obj.client.set_metadata(scope, name, 'is_new', True)
 
