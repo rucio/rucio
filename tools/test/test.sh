@@ -74,11 +74,11 @@ elif [ "$SUITE" == "multi_vo" ]; then
     mkdir -p "$VO2_HOME/etc"
 
     python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
-        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_ts2_postgres14.cfg \
+        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_ts2_postgres16.cfg \
         -d "$VO2_HOME"/etc/rucio.cfg
 
     python3 $SOURCE_PATH/tools/merge_rucio_configs.py --use-env \
-        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_tst_postgres14.cfg \
+        -s "$CFG_PATH"/rucio_autotests_common.cfg "$CFG_PATH"/rucio_multi_vo_tst_postgres16.cfg \
         -d "$VO1_HOME"/etc/rucio.cfg
 
     wait_for_database
