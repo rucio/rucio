@@ -69,7 +69,7 @@ services:
       ruciodb:
         condition: service_healthy
         required: false
-      postgres14:
+      postgres16:
         condition: service_healthy
         required: false
       elasticsearch:
@@ -84,14 +84,14 @@ services:
   # ------------------------------------------------------------------
   ruciodb:
     container_name: dev-ruciodb-1
-    image: docker.io/postgres:14
+    image: docker.io/postgres:16
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
     volumes:
-      - vol-ruciodb-data:/var/lib/postgresql/data
+      - vol-ruciodb-data-v16:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1" ]
       interval: 10s
@@ -158,18 +158,18 @@ services:
       ACTIVEMQ_WEB_USER: activemq
       ACTIVEMQ_WEB_PASSWORD: supersecret
 
-  postgres14:
-    container_name: ${RUCIO_POSTGRES14_CONTAINER_NAME:-dev-postgres14-1}
-    image: docker.io/postgres:14
+  postgres16:
+    container_name: ${RUCIO_POSTGRES16_CONTAINER_NAME:-dev-postgres16-1}
+    image: docker.io/postgres:16
     profiles:
-      - postgres14
+      - postgres16
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=rucio
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
     volumes:
-      - vol-postgres14-data:/var/lib/postgresql/data
+      - vol-postgres16-data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1" ]
       interval: 10s
@@ -414,7 +414,7 @@ services:
 
   postgres:
     container_name: dev-postgres-1
-    image: docker.io/postgres:14
+    image: docker.io/postgres:16
     profiles:
       - externalmetadata
     environment:
@@ -423,7 +423,7 @@ services:
       - POSTGRES_PASSWORD=secret
     command: ["-p", "5433"]
     volumes:
-      - vol-postgres-data:/var/lib/postgresql/data
+      - vol-postgres-data-v16:/var/lib/postgresql/data
 
   elasticsearch_meta:
     container_name: dev-elasticsearch_meta-1
@@ -563,7 +563,7 @@ volumes:
   # ------------------------------------------------------------------
   # Named volumes for each container
   # ------------------------------------------------------------------
-  vol-ruciodb-data:
+  vol-ruciodb-data-v16:
   vol-graphite-conf:
   vol-graphite-storage:
   vol-graphite-functions:
@@ -576,14 +576,14 @@ volumes:
   vol-influxdb-var:
   vol-ftsdb-mysql:
   vol-minio-data:
-  vol-postgres14-data:
+  vol-postgres16-data:
   vol-mongo-noauth-configdb:
   vol-mongo-noauth-db:
   vol-mongo-configdb:
   vol-mongo-db:
   vol-iam-db-mysql:
   vol-mysql8-mysql:
-  vol-postgres-data:
+  vol-postgres-data-v16:
 
 networks:
   default:

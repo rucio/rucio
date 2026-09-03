@@ -22,17 +22,17 @@ python:
 
 suites:
   - id: client
-    RDBMS: postgres14
+    RDBMS: postgres16
   - id: remote_dbs
     RDBMS:
       - oracle
       - mysql8
-      - postgres14
+      - postgres16
   - id: sqlite
     RDBMS:
       - sqlite
   - id: multi_vo
-    RDBMS: postgres14
+    RDBMS: postgres16
     RUCIO_HOME: /opt/rucio/etc/multi_vo/tst
 image_identifier:
   - autotest
