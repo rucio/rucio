@@ -183,7 +183,6 @@ ignore = [
     "S108",  # Pending https://github.com/rucio/rucio/issues/6655
     "S110",  # Pending https://github.com/rucio/rucio/issues/6657
     "S112",  # Pending https://github.com/rucio/rucio/issues/6657
-    "S113",  # Pending https://github.com/rucio/rucio/issues/6654
     "S310",  # Pending https://github.com/astral-sh/ruff/issues/7918
     "S324",  # Pending https://github.com/rucio/rucio/issues/6665
     "S501",  # Pending https://github.com/rucio/rucio/issues/6656
