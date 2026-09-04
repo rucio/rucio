@@ -3064,6 +3064,83 @@ def list_requests_history(
         yield request
 
 
+@stream_session
+def list_requests_history_by_did(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    rule_id: Optional[str] = None,
+    states: Optional['Sequence[RequestState]'] = None,
+    created_after: Optional[datetime.datetime] = None,
+    created_before: Optional[datetime.datetime] = None,
+    offset: Optional[int] = None,
+    limit: int = 10,
+    *,
+    session: "Session"
+) -> 'Iterator[models.RequestHistory]':
+    """
+    List the latest historical requests for a DID towards a destination RSE, newest first.
+
+    Unlike `get_request_history_by_did`, which returns a single row, this returns up to
+    `limit` rows so that several transfer attempts of the same DID can be inspected at once.
+
+    Parameters
+    ----------
+    scope :
+        The scope of the data identifier.
+    name :
+        The name of the data identifier.
+    rse_id :
+        The destination RSE ID of the requests.
+    rule_id :
+        Only return requests associated with this replication rule.
+    states :
+        Only return requests in one of these states. Defaults to all.
+    created_after :
+        Only return requests created at or after this time.
+    created_before :
+        Only return requests created at or before this time.
+    offset :
+        Number of rows to skip.
+    limit :
+        Maximum number of requests to return.
+    session :
+        The database session in use.
+
+    Returns
+    -------
+        An iterator over the matching historical requests, ordered by creation time descending.
+    """
+    stmt = select(
+        models.RequestHistory
+    ).where(
+        and_(
+            models.RequestHistory.scope == scope,
+            models.RequestHistory.name == name,
+            models.RequestHistory.dest_rse_id == rse_id
+        )
+    )
+    if rule_id:
+        stmt = stmt.where(models.RequestHistory.rule_id == rule_id)
+    if states:
+        stmt = stmt.where(models.RequestHistory.state.in_(states))
+    if created_after:
+        stmt = stmt.where(models.RequestHistory.created_at >= created_after)
+    if created_before:
+        stmt = stmt.where(models.RequestHistory.created_at <= created_before)
+
+    stmt = stmt.order_by(
+        models.RequestHistory.created_at.desc(),
+        models.RequestHistory.id.desc()
+    )
+    if offset:
+        stmt = stmt.offset(offset)
+    stmt = stmt.limit(limit)
+
+    for request in session.execute(stmt).yield_per(500).scalars():
+        yield request
+
+
 @transactional_session
 def reset_stale_waiting_requests(time_limit: Optional[datetime.timedelta] = datetime.timedelta(days=1), *, session: "Session") -> None:
     """
