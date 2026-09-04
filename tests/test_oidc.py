@@ -16,25 +16,26 @@ import time
 import traceback
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 from urllib.parse import parse_qs, urlparse
 
 import pytest
 from jwkest.jwt import JWT
 from oic import rndstr
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from rucio.common.config import config_get_bool
-from rucio.common.exception import CannotAuthenticate, DatabaseException, Duplicate
+from rucio.common.exception import CannotAuthenticate, DatabaseException, Duplicate, IdentityError
 from rucio.common.types import InternalAccount
 from rucio.core.account import add_account
 from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
-from rucio.core.identity import add_account_identity
-from rucio.core.oidc import _token_cache_get, _token_cache_set, get_auth_oidc, get_token_oidc, oidc_identity_string
+from rucio.core.identity import add_account_identity, del_account_identity
+from rucio.core.oidc import _resolve_oidc_identity_account, _token_cache_get, _token_cache_set, get_auth_oidc, get_token_oidc, oidc_all_identity_string, oidc_identity_string
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, DatabaseOperationType, IdentityType
 from rucio.db.sqla.session import db_session, get_session
 from rucio.tests.common_server import get_vo
+from rucio.web.ui.flask.common.utils import finalize_auth
 
 NEW_TOKEN_DICT = {'access_token': 'eyJ3bG...',
                   'expires_in': 3599,
@@ -756,6 +757,64 @@ class TestAuthCoreAPIoidc:
         # most importantly, check that the token was saved in Rucio DB
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
         assert not db_token
+
+
+@patch('rucio.core.oidc.get_default_account')
+def test_oidc_identity_resolution_prefers_exact_identity(mock_get_default_account):
+    account = InternalAccount('account')
+    identity = oidc_identity_string('subject', 'https://issuer.example')
+    session = MagicMock()
+    mock_get_default_account.return_value = account
+
+    assert _resolve_oidc_identity_account(identity, 'https://issuer.example', None, session=session) == (identity, account)
+    mock_get_default_account.assert_called_once_with(identity, IdentityType.OIDC, True, session=session)
+
+
+@patch('rucio.core.oidc.get_default_account')
+def test_oidc_identity_resolution_falls_back_to_provider(mock_get_default_account):
+    account = InternalAccount('account')
+    issuer = 'https://issuer.example'
+    identity = oidc_identity_string('subject', issuer)
+    provider_identity = oidc_all_identity_string(issuer)
+    session = MagicMock()
+    mock_get_default_account.side_effect = [IdentityError(), account]
+
+    assert _resolve_oidc_identity_account(identity, issuer, None, session=session) == (provider_identity, account)
+    assert mock_get_default_account.call_args_list == [
+        call(identity, IdentityType.OIDC, True, session=session),
+        call(provider_identity, IdentityType.OIDC_ALL, True, session=session),
+    ]
+
+
+def test_oidc_all_identity_mapping(random_account, db_session):
+    issuer = f'https://{random_account.external}.example'
+    provider_identity = oidc_all_identity_string(issuer)
+    add_account_identity(provider_identity, IdentityType.OIDC_ALL, random_account, 'test@example.com', default=True, session=db_session)
+    try:
+        identity = oidc_identity_string('subject', issuer)
+        assert _resolve_oidc_identity_account(identity, issuer, random_account, session=db_session) == (provider_identity, random_account)
+        assert _resolve_oidc_identity_account(identity, issuer, None, session=db_session) == (provider_identity, random_account)
+    finally:
+        del_account_identity(provider_identity, IdentityType.OIDC_ALL, random_account, session=db_session)
+        # Core identity deletion is soft, so remove the isolated test row directly.
+        db_session.execute(
+            delete(models.Identity).where(
+                models.Identity.identity == provider_identity,
+                models.Identity.identity_type == IdentityType.OIDC_ALL,
+            )
+        )
+
+
+@patch('rucio.web.ui.flask.common.utils.redirect_to_last_known_url', return_value='response')
+@patch('rucio.web.ui.flask.common.utils.identity.list_accounts_for_identity', return_value=['account'])
+@patch('rucio.web.ui.flask.common.utils.list_account_attributes', return_value={})
+@patch('rucio.web.ui.flask.common.utils.validate_webui_token')
+def test_oidc_all_webui_finalization(mock_validate_token, mock_list_attributes, mock_list_accounts, mock_redirect):
+    mock_validate_token.return_value = {'account': 'account', 'identity': 'ISS=https://issuer.example', 'vo': 'def'}
+
+    assert finalize_auth('token', 'OIDC') == 'response'
+    mock_list_accounts.assert_called_once_with('ISS=https://issuer.example', 'OIDC_ALL')
+    assert {'key': 'x-rucio-auth-type', 'value': 'OIDC_ALL'} in mock_redirect.call_args.args[0]
 
 
 def test_token_cache() -> None:
