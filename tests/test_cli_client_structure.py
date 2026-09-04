@@ -16,11 +16,14 @@ import json
 import os
 import re
 import tempfile
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner
 
+from rucio.cli.account import identity_add, identity_remove
 from rucio.cli.command import main as rucio_cli
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
@@ -282,6 +285,35 @@ def test_account_identities(rucio_client, file_config_mock):
     cmd = f"rucio account identity add --account {tmp_account} --type NotAType --email {email} --id {email}"
     exitcode, _, _ = execute(cmd)
     assert exitcode == 1
+
+
+def test_account_identity_oidc_all():
+    client = MagicMock()
+    context = SimpleNamespace(client=client)
+    identity = 'ISS=https://issuer.example'
+    runner = CliRunner()
+
+    result = runner.invoke(
+        identity_add,
+        ['account', '--type', 'OIDC_ALL', '--id', identity, '--email', 'test@example.com'],
+        obj=context,
+    )
+    assert result.exit_code == 0
+    client.add_identity.assert_called_once_with(
+        account='account',
+        identity=identity,
+        authtype='OIDC_ALL',
+        email='test@example.com',
+        password=None,
+    )
+
+    result = runner.invoke(
+        identity_remove,
+        ['account', '--type', 'OIDC_ALL', '--id', identity],
+        obj=context,
+    )
+    assert result.exit_code == 0
+    client.del_identity.assert_called_once_with('account', identity, authtype='OIDC_ALL')
 
 
 @with_each_cli_renderer
