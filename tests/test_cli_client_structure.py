@@ -860,6 +860,89 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     assert exitcode == 0
     assert rule_id in out
 
+    stuck_name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=stuck_name, bytes_=4, adler32="deadbeef")
+    ok_name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=ok_name, bytes_=4, adler32="deadbeef")
+    replicating_name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=replicating_name, bytes_=4, adler32="deadbeef")
+    suspended_name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=suspended_name, bytes_=4, adler32="deadbeef")
+    waiting_approval_name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=waiting_approval_name, bytes_=4, adler32="deadbeef")
+    inject_name = generate_uuid()
+    rucio_client.add_replica(rse=mock_rse, scope=scope, name=inject_name, bytes_=4, adler32="deadbeef")
+
+    rule_ids = rucio_client.add_replication_rule(
+        dids=[
+            {"scope": scope, "name": stuck_name},
+            {"scope": scope, "name": replicating_name},
+            {"scope": scope, "name": suspended_name},
+        ],
+        copies=1,
+        rse_expression=rule_rse,
+    )
+    waiting_approval_rule_id = rucio_client.add_replication_rule(
+        dids=[
+            {"scope": scope, "name": waiting_approval_name},
+        ],
+        copies=1,
+        rse_expression=rule_rse,
+        ask_approval=True
+    )[0]
+    inject_rule_id = rucio_client.add_replication_rule(
+        dids=[
+            {"scope": scope, "name": inject_name},
+        ],
+        copies=1,
+        rse_expression=rule_rse,
+        asynchronous=True
+    )[0]
+
+    ok_rule_id = rucio_client.add_replication_rule(
+        dids=[{"scope": scope, "name": ok_name}],
+        copies=1,
+        rse_expression=mock_rse
+    )[0]
+
+    stuck_rule_id = rule_ids[0]
+    replicating_rule_id = rule_ids[1]
+    suspended_rule_id = rule_ids[2]
+    rucio_client.update_replication_rule(stuck_rule_id, options={"state": "STUCK"})
+    rucio_client.update_replication_rule(suspended_rule_id, options={"state": "SUSPENDED"})
+
+    assert rucio_client.get_replication_rule(stuck_rule_id)["state"] == "STUCK"
+    assert rucio_client.get_replication_rule(ok_rule_id)["state"] == "OK"
+    assert rucio_client.get_replication_rule(replicating_rule_id)["state"] == "REPLICATING"
+    assert rucio_client.get_replication_rule(suspended_rule_id)["state"] == "SUSPENDED"
+    assert rucio_client.get_replication_rule(waiting_approval_rule_id)["state"] == "WAITING_APPROVAL"
+    assert rucio_client.get_replication_rule(inject_rule_id)["state"] == "INJECT"
+
+    state_rules = {
+        "STUCK": stuck_rule_id,
+        "OK": ok_rule_id,
+        "REPLICATING": replicating_rule_id,
+        "SUSPENDED": suspended_rule_id,
+        "WAITING_APPROVAL": waiting_approval_rule_id,
+        "INJECT": inject_rule_id,
+    }
+
+    for state, state_rule_id in state_rules.items():
+        cmd = f"rucio rule list --account {rucio_client.account} --state {state}"
+        exitcode, out, err = execute(cmd)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert state_rule_id in out
+        for other_id in state_rules.values():
+            if other_id != state_rule_id:
+                assert other_id not in out
+
+    cmd = f"rucio rule list --account {rucio_client.account} --state FOO"
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert "not one of" in err
+    assert "FOO" in err
+
     cmd = "rucio rule list"
     exitcode, out, err = execute(cmd)
     assert exitcode != 0
