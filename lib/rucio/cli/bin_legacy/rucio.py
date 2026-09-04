@@ -38,7 +38,8 @@ from tabulate import tabulate
 from rucio import version
 from rucio.cli.utils import RichCLITheme, RichUtils, exception_handler, get_client, get_scope, scope_exists, setup_gfal2_logger, signal_handler
 from rucio.common.client import detect_client_location
-from rucio.common.config import config_get, config_get_float
+from rucio.common.config import config_get_float
+from rucio.common.config_settings import Config
 from rucio.common.constants import ReplicaState
 from rucio.common.exception import (
     DuplicateRule,
@@ -1012,7 +1013,7 @@ def download(args, client, logger, console, spinner):
         item_defaults['nrandom'] = args.nrandom
         item_defaults['transfer_speed_timeout'] = args.transfer_speed_timeout \
             if args.transfer_speed_timeout is not None \
-            else config_get_float('download', 'transfer_speed_timeout', False, 500)
+            else Config.download.transfer_speed_timeout(raise_exception=False)
         items = []
         if args.dids:
             for did in args.dids:
@@ -1138,7 +1139,7 @@ def get_metadata(args, client, logger, console, spinner):
     if args.plugin:
         plugin = args.plugin
     else:
-        plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
+        plugin = Config.client.metadata_default_plugin()
 
     if cli_config == 'rich':
         spinner.update(status='Fetching metadata')
