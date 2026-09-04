@@ -101,7 +101,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y npm libkrb5-dev libxmlsec1-dev git
+          sudo apt-get update && sudo apt-get install -y cmake g++ git libcurl4-openssl-dev libkrb5-dev libxmlsec1-dev npm uuid-dev zlib1g-dev
           npm install --global pyright
           python -m pip --no-cache-dir install --upgrade pip
           python -m pip --no-cache-dir install --upgrade -r requirements/requirements.server.txt -r requirements/requirements.dev.txt
