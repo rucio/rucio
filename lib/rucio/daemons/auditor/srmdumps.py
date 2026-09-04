@@ -156,7 +156,7 @@ def http_links(base_url: str) -> list[str]:
     '''
     Returns a list of the urls contained in `base_url`.
     '''
-    html = requests.get(base_url).text
+    html = requests.get(base_url).text  # noqa: S113 - dump HTTP timeouts deferred in #6654.
     link_collector = _LinkCollector()
 
     link_collector.feed(html)

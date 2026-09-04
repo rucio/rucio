@@ -564,7 +564,7 @@ class Default(protocol.RSEProtocol):
         headers = {'Depth': '0'}
 
         try:
-            root = ElementTree.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert).text)  # noqa: S314
+            root = ElementTree.fromstring(self.session.request('PROPFIND', endpoint_basepath, verify=False, headers=headers, cert=self.session.cert, timeout=self.timeout).text)  # noqa: S314
             usedsize = root[0][1][0].find('{DAV:}quota-used-bytes').text
             try:
                 unusedsize = root[0][1][0].find('{DAV:}quota-available-bytes').text
