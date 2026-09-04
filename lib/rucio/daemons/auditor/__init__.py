@@ -249,7 +249,7 @@ def check(
                 process_output(output)
         except Exception:
             elapsed = (datetime.now() - start).total_seconds() / 60
-            logger.error('Check of "%s" failed in %d minutes, %d remaining attempts', rse, elapsed, attempts, exc_info=True)
+            logger.exception('Check of "%s" failed in %d minutes, %d remaining attempts', rse, elapsed, attempts)
             success = False
         else:
             elapsed = (datetime.now() - start).total_seconds() / 60
