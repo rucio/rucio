@@ -303,7 +303,6 @@ class DownloadClient:
         logger = self.logger
         trace_custom_fields['uuid'] = generate_uuid()
 
-        scopes = self.client.list_scopes()
         logger(logging.INFO, 'Processing %d item(s) for input' % len(items))
         input_items = []
         for item in items:
@@ -322,7 +321,7 @@ class DownloadClient:
                 logger(logging.DEBUG, did_str)
                 raise InputValidationError('Cannot use PFN download with wildcard in DID')
 
-            did_scope, did_name = extract_scope(did_str, scopes)
+            did_scope, did_name = extract_scope(did_str)
             dest_dir_path = self._prepare_dest_dir(item.get('base_dir', '.'), did_scope, item.get('no_subdir'))
 
             item['scope'] = did_scope
@@ -1348,7 +1347,7 @@ class DownloadClient:
             dids = [dids]
 
         for did_str in dids:
-            scope, did_name = extract_scope(did_str, scopes)
+            scope, did_name = extract_scope(did_str)
             filters['name'] = did_name
             any_did_resolved = False
             for did in self.client.list_dids(scope, filters=filters, did_type='all', long=True):

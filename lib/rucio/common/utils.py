@@ -570,7 +570,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
 
         self.vo = vo
 
-    def extract_scope(self, did: str, scopes: Optional['Sequence[str]'], extract_scope_convention: str) -> 'Sequence[str]':
+    def extract_scope(self, did: str, extract_scope_convention: str = 'def') -> 'Sequence[str]':
         """
         Calls the correct algorithm for scope extraction
         """
@@ -579,7 +579,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
             fn = super()._get_default_algorithm(ScopeExtractionAlgorithms._algorithm_type, self.vo)
         if fn is None:
             fn = self.get_algorithm(extract_scope_convention)
-        return fn(did, scopes)
+        return fn(did)
 
     @classmethod
     def supports(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> bool:
@@ -597,14 +597,14 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         cls.register('dirac', cls.extract_scope_dirac)
 
     @classmethod
-    def get_algorithm(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> 'Callable[[str, Optional[Sequence[str]]], Sequence[str]]':
+    def get_algorithm(cls: type[ScopeExtractionAlgorithmsT], extract_scope_convention: str) -> 'Callable[[str], Sequence[str]]':
         """
         Looks up a scope extraction algorithm by name
         """
         return super()._get_one_algorithm(cls._algorithm_type, extract_scope_convention)
 
     @classmethod
-    def register(cls: type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: 'Callable[[str, Optional[Sequence[str]]], Sequence[str]]') -> None:
+    def register(cls: type[ScopeExtractionAlgorithmsT], name: str, fn_extract_scope: 'Callable[[str], Sequence[str]]') -> None:
         """
         Registers a new scope extraction algorithm
         """
@@ -612,12 +612,11 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         super()._register(cls._algorithm_type, algorithm_dict)
 
     @staticmethod
-    def extract_scope_default(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
+    def extract_scope_default(did: str) -> 'Sequence[str]':
         """
         Default scope extraction algorithm. Extracts the scope from the DID.
 
         :param did: The DID to extract the scope from.
-        :param scopes: Not used in the default algorithm.
 
         :returns: A tuple containing the extracted scope and the name.
         """
@@ -643,7 +642,7 @@ class ScopeExtractionAlgorithms(PolicyPackageAlgorithms):
         return scope, name
 
     @staticmethod
-    def extract_scope_dirac(did: str, scopes: Optional['Sequence[str]']) -> 'Sequence[str]':
+    def extract_scope_dirac(did: str) -> 'Sequence[str]':
         # Default dirac scope extract algorithm. Scope is the second element in the LFN or the first one (VO name)
         # if only one element is the result of a split.
         elem = did.rstrip('/').split('/')
@@ -659,7 +658,6 @@ ScopeExtractionAlgorithms._module_init_()
 
 def extract_scope(
         did: str,
-        scopes: Optional['Sequence[str]'] = None,
         default_extract: str = 'def',
         vo: str = DEFAULT_VO
 ) -> 'Sequence[str]':
@@ -667,7 +665,7 @@ def extract_scope(
     extract_scope_convention = config_get('common', 'extract_scope', False, None) or config_get('policy', 'extract_scope', False, None)
     if extract_scope_convention is None or not ScopeExtractionAlgorithms.supports(extract_scope_convention):
         extract_scope_convention = default_extract
-    return scope_extraction_algorithms.extract_scope(did, scopes, extract_scope_convention)
+    return scope_extraction_algorithms.extract_scope(did, extract_scope_convention)
 
 
 def pid_exists(pid: int) -> bool:

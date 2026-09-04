@@ -19,9 +19,9 @@ from rich.padding import Padding
 from rich.text import Text
 from tabulate import tabulate
 
-from rucio.cli.utils import RichCLITheme, RichUtils, get_scope
+from rucio.cli.utils import RichCLITheme, RichUtils
 from rucio.common.exception import DuplicateRule, InputValidationError, RucioException
-from rucio.common.utils import sizefmt
+from rucio.common.utils import extract_scope, sizefmt
 
 
 @click.group()
@@ -70,7 +70,7 @@ def add_(
     did_list = []
     rule_ids = []
     for did in dids:
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         did_list.append({'scope': scope, 'name': name})
     try:
         rule_ids = ctx.obj.client.add_replication_rule(
@@ -138,7 +138,7 @@ def remove(ctx: click.Context, rule_id_dids: str, _all: bool, rses: Optional[str
         # Otherwise, trying to extract the scope, name from args.rule_id
         if not rses:
             raise InputValidationError('A RSE expression must be specified if you do not provide a rule_id but a DID')
-        scope, name = get_scope(rule_id_dids, ctx.obj.client)
+        scope, name = extract_scope(rule_id_dids)
         rules = ctx.obj.client.list_did_rules(scope=scope, name=name)
         if account is None:
             account = ctx.obj.client.account
@@ -261,7 +261,7 @@ def history(ctx: click.Context, did: str) -> None:
         ctx.obj.spinner.update(status='Fetching rules history')
         ctx.obj.spinner.start()
 
-    scope, name = get_scope(did, ctx.obj.client)
+    scope, name = extract_scope(did)
     table_data = []
     for rule in ctx.obj.client.list_replication_rule_full_history(scope, name):
         if rule['rule_id'] not in rule_dict:
@@ -385,18 +385,18 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
         ctx.obj.spinner.start()
 
     if file:
-        scope, name = get_scope(file, ctx.obj.client)
+        scope, name = extract_scope(file)
         rules = ctx.obj.client.list_associated_rules_for_file(scope=scope, name=name)
     elif traverse:
         if did is None:
             raise InputValidationError("Must supply a DID to traverse")
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         locks = ctx.obj.client.get_dataset_locks(scope=scope, name=name)
         rules = []
         for rule_id in list(set([lock['rule_id'] for lock in locks])):
             rules.append(ctx.obj.client.get_replication_rule(rule_id))
     elif did:
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = extract_scope(did)
         meta = ctx.obj.client.get_metadata(scope=scope, name=name)
         rules = ctx.obj.client.list_did_rules(scope=scope, name=name)
         try:
