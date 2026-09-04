@@ -21,18 +21,19 @@ from sqlalchemy import and_, select
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
+from rucio.core import rse_expression_parser
 from rucio.core.account_limit import set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.lock import failed_transfer, get_replica_locks, successful_transfer
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
-from rucio.core.rse import add_rse, add_rse_attribute, update_rse
+from rucio.core.rse import add_rse, add_rse_attribute, del_rse_attribute, update_rse
 from rucio.core.rule import add_rule, get_rule
 from rucio.core.transfer import cancel_transfers
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import DatabaseOperationType, DIDType, ReplicaState, RuleState
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType, LockState, ReplicaState, RuleState
 from rucio.db.sqla.session import db_session, get_session
 from rucio.tests.common import did_name_generator, rse_name_generator
 from rucio.tests.common_server import get_vo
@@ -43,6 +44,12 @@ from .test_rule import create_files, tag_generator
 @pytest.fixture(scope="class")
 def setup_class(request, rse_factory_unittest):
     request.cls.setUpClass()
+
+
+def delete_rse_expression_from_cache(rse_expression):
+    # Delete through the parser's own region, so the correct backend and keys
+    # are used even when caching is disabled and the region falls back to null
+    rse_expression_parser.REGION.delete(sha256(rse_expression.encode()).hexdigest())
 
 
 @pytest.mark.dirty
@@ -370,3 +377,167 @@ class TestJudgeRepairer:
                 change_availability(True)
                 rule_repairer(once=True)
                 assert (RuleState.REPLICATING == get_rule(rule_id)['state'])
+
+    def test_to_repair_a_rule_with_stuck_locks_on_nontarget_rses(self):
+        """ JUDGE REPAIRER: Test to repair a rule with stuck locks on RSEs which do not match the target expression anymore"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = InternalScope('mock', **self.vo)
+
+        for grouping in ('ALL', 'DATASET'):
+            rse_old, rse_old_id = self.rse_factory.make_mock_rse()
+            rse_new, rse_new_id = self.rse_factory.make_mock_rse()
+            tag = tag_generator()
+            add_rse_attribute(rse_old_id, tag, True)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                set_local_account_limit(self.jdoe, rse_old_id, -1, session=session)
+                set_local_account_limit(self.jdoe, rse_new_id, -1, session=session)
+
+            files = create_files(3, scope, self.rse4_id, bytes_=100)
+            dataset = did_name_generator('dataset')
+            add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+            attach_dids(scope, dataset, files, self.jdoe)
+
+            rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=tag, grouping=grouping, weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
+
+            successful_transfer(scope=scope, name=files[0]['name'], rse_id=rse_old_id, nowait=False)
+            successful_transfer(scope=scope, name=files[1]['name'], rse_id=rse_old_id, nowait=False)
+            failed_transfer(scope=scope, name=files[2]['name'], rse_id=rse_old_id)
+            assert (RuleState.STUCK == get_rule(rule_id)['state'])
+
+            # Move the tag from the RSE holding the stuck lock to another RSE
+            del_rse_attribute(rse_old_id, tag)
+            add_rse_attribute(rse_new_id, tag, True)
+            delete_rse_expression_from_cache(tag)
+
+            rule_repairer(once=True)
+
+            assert (RuleState.STUCK == get_rule(rule_id)['state'])
+            assert (get_rule(rule_id)['error'] == 'Found stuck locks on RSEs not matching target expression: %s (1)' % rse_old)
+
+    def test_to_repair_a_rule_with_stuck_locks_on_rse_still_in_target(self):
+        """ JUDGE REPAIRER: Test to repair a rule whose expression changed but still matches the RSE of the stuck locks"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = InternalScope('mock', **self.vo)
+        rse_lock, rse_lock_id = self.rse_factory.make_mock_rse()
+        rse_extra, rse_extra_id = self.rse_factory.make_mock_rse()
+        tag = tag_generator()
+        add_rse_attribute(rse_lock_id, tag, True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(self.jdoe, rse_lock_id, -1, session=session)
+            set_local_account_limit(self.jdoe, rse_extra_id, -1, session=session)
+
+        files = create_files(3, scope, self.rse4_id, bytes_=100)
+        dataset = did_name_generator('dataset')
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=tag, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=rse_lock_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=rse_lock_id, nowait=False)
+        failed_transfer(scope=scope, name=files[2]['name'], rse_id=rse_lock_id)
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+
+        # The expression evaluation changes, but still includes the RSE holding the stuck lock
+        add_rse_attribute(rse_extra_id, tag, True)
+        delete_rse_expression_from_cache(tag)
+
+        rule_repairer(once=True)
+
+        assert (RuleState.REPLICATING == get_rule(rule_id)['state'])
+        assert (get_rule(rule_id)['error'] is None)
+
+    def test_to_repair_a_rule_with_stuck_locks_on_multiple_nontarget_rses(self):
+        """ JUDGE REPAIRER: Test that the stuck lock error lists all non-target RSEs with their lock counts"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = InternalScope('mock', **self.vo)
+        rse_old1, rse_old1_id = self.rse_factory.make_mock_rse()
+        rse_old2, rse_old2_id = self.rse_factory.make_mock_rse()
+        rse_new1, rse_new1_id = self.rse_factory.make_mock_rse()
+        rse_new2, rse_new2_id = self.rse_factory.make_mock_rse()
+        tag = tag_generator()
+        add_rse_attribute(rse_old1_id, tag, True)
+        add_rse_attribute(rse_old2_id, tag, True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            for rse_id in (rse_old1_id, rse_old2_id, rse_new1_id, rse_new2_id):
+                set_local_account_limit(self.jdoe, rse_id, -1, session=session)
+
+        files = create_files(3, scope, self.rse4_id, bytes_=100)
+        dataset = did_name_generator('dataset')
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=tag, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
+
+        for file in files:
+            assert ({lock.rse_id for lock in get_replica_locks(scope=file['scope'], name=file['name'])} == {rse_old1_id, rse_old2_id})
+
+        failed_transfer(scope=scope, name=files[0]['name'], rse_id=rse_old1_id)
+        failed_transfer(scope=scope, name=files[1]['name'], rse_id=rse_old1_id)
+        failed_transfer(scope=scope, name=files[0]['name'], rse_id=rse_old2_id)
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+
+        # Move the tag away from both RSEs holding stuck locks
+        del_rse_attribute(rse_old1_id, tag)
+        del_rse_attribute(rse_old2_id, tag)
+        add_rse_attribute(rse_new1_id, tag, True)
+        add_rse_attribute(rse_new2_id, tag, True)
+        delete_rse_expression_from_cache(tag)
+
+        rule_repairer(once=True)
+
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+        error = get_rule(rule_id)['error']
+        assert (error.startswith('Found stuck locks on RSEs not matching target expression: '))
+        assert ('%s (2)' % rse_old1 in error)
+        assert ('%s (1)' % rse_old2 in error)
+        assert (rse_new1 not in error)
+        assert (rse_new2 not in error)
+
+    def test_to_repair_a_rule_with_stuck_locks_on_target_and_nontarget_rses(self):
+        """ JUDGE REPAIRER: Test that the stuck lock error persists while stuck locks on target RSEs are repaired"""
+
+        rule_repairer(once=True)  # Clean out the repairer
+        scope = InternalScope('mock', **self.vo)
+        rse_old, rse_old_id = self.rse_factory.make_mock_rse()
+        rse_kept, rse_kept_id = self.rse_factory.make_mock_rse()
+        rse_new, rse_new_id = self.rse_factory.make_mock_rse()
+        tag = tag_generator()
+        add_rse_attribute(rse_old_id, tag, True)
+        add_rse_attribute(rse_kept_id, tag, True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            for rse_id in (rse_old_id, rse_kept_id, rse_new_id):
+                set_local_account_limit(self.jdoe, rse_id, -1, session=session)
+
+        files = create_files(3, scope, self.rse4_id, bytes_=100)
+        dataset = did_name_generator('dataset')
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=2, rse_expression=tag, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
+
+        for file in files:
+            assert ({lock.rse_id for lock in get_replica_locks(scope=file['scope'], name=file['name'])} == {rse_old_id, rse_kept_id})
+
+        failed_transfer(scope=scope, name=files[0]['name'], rse_id=rse_old_id)
+        failed_transfer(scope=scope, name=files[1]['name'], rse_id=rse_kept_id)
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+
+        # Move the tag away from one of the two RSEs holding stuck locks
+        del_rse_attribute(rse_old_id, tag)
+        add_rse_attribute(rse_new_id, tag, True)
+        delete_rse_expression_from_cache(tag)
+
+        rule_repairer(once=True)
+
+        # The stuck lock on the target RSE was repaired in the same pass
+        lock_states = {lock.rse_id: lock.state for lock in get_replica_locks(scope=files[1]['scope'], name=files[1]['name'])}
+        assert (lock_states[rse_kept_id] == LockState.REPLICATING)
+        # The stuck lock on the non-target RSE stays untouched and the error is recorded
+        lock_states = {lock.rse_id: lock.state for lock in get_replica_locks(scope=files[0]['scope'], name=files[0]['name'])}
+        assert (lock_states[rse_old_id] == LockState.STUCK)
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+        assert (get_rule(rule_id)['error'] == 'Found stuck locks on RSEs not matching target expression: %s (1)' % rse_old)
