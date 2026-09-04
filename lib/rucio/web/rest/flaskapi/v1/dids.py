@@ -276,6 +276,12 @@ class Search(ErrorHandlingMethodView):
         limit = request.args.get('limit', type=int, default=None)
         long = param_get_bool(request.args, 'long', default=False)
         recursive = param_get_bool(request.args, 'recursive', default=False)
+
+        # enable cross-scope queries for scope="*"
+        if scope == "*":
+            scope = None
+            long = True
+
         try:
             def generate(vo):
                 for did in list_dids(scope=scope,
