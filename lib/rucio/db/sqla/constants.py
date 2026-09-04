@@ -152,6 +152,8 @@ class RequestState(Enum):
     SUSPEND = 'U'
     WAITING = 'W'
     PREPARING = 'P'
+    CANCELLING = 'X'
+    CANCELLED = 'C'
 
 
 class RequestType(Enum):

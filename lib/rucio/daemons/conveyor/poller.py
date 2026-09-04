@@ -84,7 +84,6 @@ def _fetch_requests(
         older_than=datetime.datetime.utcnow() - datetime.timedelta(seconds=older_than) if older_than else None,
         total_workers=total_workers,
         worker_number=worker_number,
-        mode_all=True,
         hash_variable='id',
         activity=activity,
         activity_shares=activity_shares,
@@ -149,6 +148,18 @@ def _handle_requests(
                     timeout=timeout,
                     logger=logger,
                 )
+
+                requests_to_cancel = request_core.get_requests_to_cancel(
+                    state=RequestState.SUBMITTED,
+                    # all request_ids from chunk = {external_id: {request_id: {}}}
+                    request_ids=list(itertools.chain.from_iterable(chunk.values())),
+                )
+                if requests_to_cancel:
+                    transfer_core.cancel_transfers(
+                        transfertool_obj=transfertool_obj,
+                        transfers=requests_to_cancel,
+                        logger=logger,
+                    )
             except Exception:
                 logger(logging.ERROR, 'Exception', exc_info=True)
 
@@ -345,10 +356,10 @@ def _poll_transfers(
         else:
             return
     except RequestException as error:
-        logger(logging.ERROR, "Failed to contact FTS server: %s" % (str(error)))
+        logger(logging.ERROR, "Failed to contact transfertool server: %s" % (str(error)))
         return
     except Exception:
-        logger(logging.ERROR, "Failed to query FTS info", exc_info=True)
+        logger(logging.ERROR, "Failed to query transfertool", exc_info=True)
         return
 
     tss = time.time()
@@ -368,7 +379,7 @@ def _poll_transfers(
                     transfer_core.mark_transfer_lost(request, logger=logger)
                 METRICS.counter('transfer_lost').inc()
             elif isinstance(transf_resp, Exception):
-                logger(logging.WARNING, "Failed to poll FTS(%s) job (%s): %s" % (transfertool_obj, transfer_id, transf_resp))
+                logger(logging.WARNING, "Failed to poll %s job (%s): %s" % (transfertool_obj, transfer_id, transf_resp))
                 METRICS.counter('query_transfer_exception').inc()
             else:
                 for request_id in request_ids.intersection(transf_resp):
@@ -385,7 +396,7 @@ def _poll_transfers(
 
             # should touch transfers.
             # Otherwise if one bulk transfer includes many requests and one is not terminated, the transfer will be poll again.
-            transfer_core.touch_transfer(transfertool_obj.external_host, transfer_id)
+            request_core.touch_requests_by_external_id(external_id=transfer_id)
         except (DatabaseException, DatabaseError) as error:
             if (re.match(ORACLE_RESOURCE_BUSY_REGEX, error.args[0])
                     or re.match(ORACLE_DEADLOCK_DETECTED_REGEX, error.args[0])
