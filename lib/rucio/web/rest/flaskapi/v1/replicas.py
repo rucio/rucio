@@ -435,6 +435,8 @@ class Replicas(ErrorHandlingMethodView):
             update_replicas_states(rse=rse, files=files, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
+        except (ValueError, AttributeError) as error:
+            return generate_http_error_flask(400, ValueError.__name__, exc_msg=str(error))
 
         return '', 200
 
