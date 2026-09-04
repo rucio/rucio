@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql import Insert, Update
 
 
+# Map (constraint name, uppercase table name) pairs to database-compatible aliases.
 _CK_CONSTRAINT_RENAMES: dict[tuple[str, str], str] = {
     ('SUBSCRIPTIONS_RETROACTIVE_CHK', 'SUBSCRIPTIONS_HISTORY'): 'SUBS_HISTORY_RETROACTIVE_CHK',
     ('SUBSCRIPTIONS_STATE_CHK', 'SUBSCRIPTIONS_HISTORY'): 'SUBS_HISTORY_STATE_CHK',
