@@ -1454,15 +1454,16 @@ def repair_rule(
         # 1. Try to find missing locks and create them based on grouping
         if did.did_type != DIDType.FILE and hard_repair:
             try:
-                __find_missing_locks_and_create_them(datasetfiles=datasetfiles,
-                                                     locks=locks,
-                                                     replicas=replicas,
-                                                     source_replicas=source_replicas,
-                                                     rseselector=rseselector,
-                                                     rule=rule,
-                                                     source_rses=[rse['id'] for rse in source_rses],
-                                                     session=session)
-            except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
+                with session.begin_nested():
+                    __find_missing_locks_and_create_them(datasetfiles=datasetfiles,
+                                                         locks=locks,
+                                                         replicas=replicas,
+                                                         source_replicas=source_replicas,
+                                                         rseselector=rseselector,
+                                                         rule=rule,
+                                                         source_rses=[rse['id'] for rse in source_rses],
+                                                         session=session)
+            except (InsufficientAccountLimit, InsufficientTargetRSEs, RSEOverQuota) as error:
                 rule.state = RuleState.STUCK
                 error_msg = str(error)
                 if rule.error:
@@ -1497,15 +1498,16 @@ def repair_rule(
 
         # 3. Try to find STUCK locks and repair them based on grouping
         try:
-            __find_stuck_locks_and_repair_them(datasetfiles=datasetfiles,
-                                               locks=locks,
-                                               replicas=replicas,
-                                               source_replicas=source_replicas,
-                                               rseselector=rseselector,
-                                               rule=rule,
-                                               source_rses=[rse['id'] for rse in source_rses],
-                                               session=session)
-        except (InsufficientAccountLimit, InsufficientTargetRSEs) as error:
+            with session.begin_nested():
+                __find_stuck_locks_and_repair_them(datasetfiles=datasetfiles,
+                                                   locks=locks,
+                                                   replicas=replicas,
+                                                   source_replicas=source_replicas,
+                                                   rseselector=rseselector,
+                                                   rule=rule,
+                                                   source_rses=[rse['id'] for rse in source_rses],
+                                                   session=session)
+        except (InsufficientAccountLimit, InsufficientTargetRSEs, RSEOverQuota) as error:
             rule.state = RuleState.STUCK
             error_msg = str(error)
             if rule.error:
@@ -3304,7 +3306,7 @@ def __find_missing_locks_and_create_them(
     :param source_rses:        RSE ids for eligible source RSEs.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
-    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs, RSEOverQuota
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
@@ -3413,7 +3415,7 @@ def __find_stuck_locks_and_repair_them(
     :param source_rses:        RSE ids of eligible source RSEs.
     :param session:            Session of the db.
     :param logger:             Optional decorated logger that can be passed from the calling daemons or servers.
-    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs
+    :raises:                   InsufficientAccountLimit, IntegrityError, InsufficientTargetRSEs, RSEOverQuota
     :attention:                This method modifies the contents of the locks and replicas input parameters.
     """
 
