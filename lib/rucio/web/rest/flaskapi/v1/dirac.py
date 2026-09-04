@@ -15,7 +15,7 @@
 from flask import Flask, request
 
 from rucio.common.constants import HTTPMethod
-from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierAlreadyExists, Duplicate, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
+from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierAlreadyExists, Duplicate, InvalidMetadata, InvalidPath, ResourceTemporaryUnavailable, RSENotFound, UnsupportedOperation
 from rucio.common.utils import parse_response
 from rucio.gateway.dirac import add_files
 from rucio.web.rest.flaskapi.authenticated_bp import AuthenticatedBlueprint
@@ -64,7 +64,7 @@ class AddFiles(ErrorHandlingMethodView):
                   type: string
                   enum: ["Created"]
           400:
-            description: "Cannot decode json parameter list."
+            description: "Bad Request - invalid request parameters, path, or metadata."
           401:
             description: "Invalid Auth Token"
           404:
@@ -83,7 +83,7 @@ class AddFiles(ErrorHandlingMethodView):
         try:
             add_files(lfns=lfns, issuer=request.environ['issuer'], ignore_availability=ignore_availability,
                       parents_metadata=parents_metadata, vo=request.environ['vo'])
-        except InvalidPath as error:
+        except (InvalidPath, InvalidMetadata) as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)

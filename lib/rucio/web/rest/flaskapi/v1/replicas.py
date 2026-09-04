@@ -28,6 +28,7 @@ from rucio.common.exception import (
     DataIdentifierAlreadyExists,
     DataIdentifierNotFound,
     Duplicate,
+    InvalidMetadata,
     InvalidObject,
     InvalidPath,
     InvalidType,
@@ -341,7 +342,7 @@ class Replicas(ErrorHandlingMethodView):
                   type: string
                   enum: ["Created"]
           400:
-            description: "Invalid Path"
+            description: "Invalid Path or metadata"
           401:
             description: "Invalid Auth Token"
           404:
@@ -363,7 +364,7 @@ class Replicas(ErrorHandlingMethodView):
                 vo=request.environ['vo'],
                 ignore_availability=param_get_bool(parameters, 'ignore_availability', default=False),
             )
-        except InvalidPath as error:
+        except (InvalidPath, InvalidMetadata) as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
