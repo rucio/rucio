@@ -14,8 +14,7 @@
 
 import enum
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from rucio.common.types import InternalAccount
@@ -24,14 +23,14 @@ if TYPE_CHECKING:
 @enum.unique
 class StorageTokenOperation(str, enum.Enum):
     FTS_AUTH = 'fts_auth'
-    TRANSFER_SOURCE = 'transfer_source' # Rename to TPC_SOURCE
-    TRANSFER_DESTINATION = 'transfer_destination' # Rename to TPC_DESTINATION
+    TPC_SOURCE = 'tpc_source'
+    TPC_DESTINATION = 'tpc_destination'
+    TPC_STAGE = 'tpc_stage'
+    TPC_POLL = 'tpc_poll'
+    CENTRAL_DELETE = 'central_delete'
     CLIENT_DELETE = 'client_delete'
     CLIENT_DOWNLOAD = 'client_download'
     CLIENT_UPLOAD = 'client_upload'
-    CENTRAL_DELETE = 'central_delete'
-    # STAGING - TPC
-    # POLLING - TPC
 
 
 @dataclass
@@ -40,7 +39,5 @@ class StorageTokenContext:
     rse_id: Optional[str] = None
     did: Optional[tuple[str, str]] = None
     account: Optional['InternalAccount'] = None
-    offline_access: bool = False
-    expiry_time: Optional[Union[int, datetime]] = None # Move to extras
     extras: dict[str, Any] = field(default_factory=dict)
     vo: Optional[str] = None

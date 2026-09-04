@@ -2058,11 +2058,11 @@ def determine_audience_for_rse(rse_id: str) -> str:
 def determine_scope_for_rse(
     rse_id: str,
     scopes: 'Iterable[str]',
-    extra_scopes: Optional['Iterable[str]'] = None,
+    oauth_scopes: Optional['Iterable[str]'] = None,
 ) -> str:
     """Construct the Scope claim for an RSE."""
-    if extra_scopes is None:
-        extra_scopes = []
+    if oauth_scopes is None:
+        oauth_scopes = []
     rse_protocols = get_rse_protocols(rse_id)
     filtered_prefixes = set()
     for protocol in rse_protocols['protocols']:
@@ -2077,5 +2077,5 @@ def determine_scope_for_rse(
         if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
             prefix = prefix.removeprefix(base_path)
         filtered_prefixes.add(prefix)
-    all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)
+    all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(oauth_scopes)
     return ' '.join(sorted(all_scopes))
