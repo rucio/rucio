@@ -20,6 +20,12 @@ from rucio.core.rse import determine_audience_for_rse
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
 
+_RSE_AUDIENCE_OPERATIONS = frozenset({
+    StorageTokenOperation.TPC_SOURCE,
+    StorageTokenOperation.TPC_DESTINATION,
+    StorageTokenOperation.CENTRAL_DELETE,
+})
+
 
 class TokenAudience(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
 
@@ -32,10 +38,7 @@ class TokenAudience(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
             if not hostname:
                 raise InvalidRequest('fts_hostname is required in extras for fts_auth')
             return str(hostname)
-        if ctx.operation in (
-            StorageTokenOperation.TRANSFER_SOURCE,
-            StorageTokenOperation.TRANSFER_DESTINATION,
-        ):
+        if ctx.operation in _RSE_AUDIENCE_OPERATIONS:
             if ctx.rse_id is None:
                 raise InvalidRequest(f'rse_id is required for operation {ctx.operation}')
             return determine_audience_for_rse(ctx.rse_id)

@@ -20,6 +20,13 @@ from rucio.core.rse import determine_scope_for_rse
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
 
+# Path-qualified storage capabilities vs OAuth scopes (e.g. offline_access).
+_RSE_SCOPE_BY_OPERATION: dict[StorageTokenOperation, tuple[list[str], list[str]]] = {
+    StorageTokenOperation.TPC_SOURCE: (['storage.read'], ['offline_access']),
+    StorageTokenOperation.TPC_DESTINATION: (['storage.modify', 'storage.read'], ['offline_access']),
+    StorageTokenOperation.CENTRAL_DELETE: (['storage.modify', 'storage.read'], []),
+}
+
 
 class TokenScope(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
 
@@ -29,25 +36,17 @@ class TokenScope(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
     def default(ctx: StorageTokenContext) -> str:
         if ctx.operation == StorageTokenOperation.FTS_AUTH:
             return 'fts'
-        if ctx.operation == StorageTokenOperation.TRANSFER_SOURCE:
-            if ctx.rse_id is None:
-                raise InvalidRequest(f'rse_id is required for operation {ctx.operation}')
-            extra_scopes = ['offline_access'] if ctx.offline_access else []
-            return determine_scope_for_rse(
-                rse_id=ctx.rse_id,
-                scopes=['storage.read'],
-                extra_scopes=extra_scopes,
-            )
-        if ctx.operation == StorageTokenOperation.TRANSFER_DESTINATION:
-            if ctx.rse_id is None:
-                raise InvalidRequest(f'rse_id is required for operation {ctx.operation}')
-            extra_scopes = ['offline_access'] if ctx.offline_access else []
-            return determine_scope_for_rse(
-                rse_id=ctx.rse_id,
-                scopes=['storage.modify', 'storage.read'],
-                extra_scopes=extra_scopes,
-            )
-        raise InvalidRequest(f'Unsupported storage token operation: {ctx.operation}')
+        spec = _RSE_SCOPE_BY_OPERATION.get(ctx.operation)
+        if spec is None:
+            raise InvalidRequest(f'Unsupported storage token operation: {ctx.operation}')
+        if ctx.rse_id is None:
+            raise InvalidRequest(f'rse_id is required for operation {ctx.operation}')
+        capabilities, oauth_scopes = spec
+        return determine_scope_for_rse(
+            rse_id=ctx.rse_id,
+            scopes=capabilities,
+            oauth_scopes=oauth_scopes,
+        )
 
 
 TokenScope._module_init()

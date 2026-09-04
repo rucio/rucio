@@ -24,8 +24,8 @@ from rucio.core import oidc as oidc_core
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext
 
-_NON_FORM_EXTRA_KEYS = frozenset({'fts_hostname'})
-_RESERVED_FORM_KEYS = frozenset({'grant_type', 'audience', 'scope'})
+_NON_FORM_EXTRA_KEYS = frozenset({'fts_hostname', 'expiry_time'})
+_RESERVED_FORM_KEYS = frozenset({'grant_type', 'audience', 'scope', 'expires_in'})
 
 
 def _expires_in_seconds(expiry_time: Union[datetime, int]) -> int:
@@ -51,18 +51,16 @@ class TokenRequest(TokenPolicyAlgorithm[Callable[[str, str, StorageTokenContext]
             'audience': audience,
             'scope': scope,
         }
-        
-        if ctx.expiry_time is not None:
-            form['expires_in'] = _expires_in_seconds(ctx.expiry_time)
+
+        if ctx.extras.get('expiry_time') is not None:
+            form['expires_in'] = _expires_in_seconds(ctx.extras['expiry_time'])
 
         for key, value in ctx.extras.items():
             if key in _NON_FORM_EXTRA_KEYS or key in _RESERVED_FORM_KEYS or value is None:
                 continue
-            # 'expires_in' is handled here
             form[key] = value
 
         try:
-            # 
             response = requests.post(
                 url=oidc_core.OIDC_PROVIDER_ENDPOINT,
                 auth=(oidc_core.OIDC_CLIENT_ID, oidc_core.OIDC_CLIENT_SECRET),
