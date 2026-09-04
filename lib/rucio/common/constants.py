@@ -159,6 +159,7 @@ class RseAttr:
     TYPE = 'type'
     USE_IPV4 = 'use_ipv4'
     VERIFY_CHECKSUM = 'verify_checksum'
+    WEBDAV_TRANSFER_MODE = 'webdav_transfer_mode'
 
     # The following RSE attributes are exclusively used in the permission layer
     # and are likely VO-specific.
@@ -201,7 +202,8 @@ RSE_ATTRS_STR = Literal[
     'source_for_used_space',
     'staging_buffer',
     'tombstone_delay',
-    'type'
+    'type',
+    'webdav_transfer_mode'
 ]
 
 RSE_ATTRS_BOOL = Literal[
