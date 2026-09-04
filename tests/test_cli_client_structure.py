@@ -22,7 +22,7 @@ import pytest
 from click.testing import CliRunner
 
 from rucio.cli.command import main as rucio_cli
-from rucio.common.exception import RucioException
+from rucio.common.exception import InvalidMetadata, RucioException
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator, with_each_cli_renderer
 
@@ -523,6 +523,30 @@ def test_did_metadata(rucio_client, root_account, file_config_mock):
     # assert exitcode == 0
     # assert "ERROR" not in err
     # assert metadata_value not in [value for value in rucio_client.get_metadata(scope=scope, name=dataset).values()]
+
+
+@with_each_cli_renderer
+def test_did_metadata_inheritance(rucio_client, mock_scope, did_factory, file_config_mock):
+    scope = mock_scope.external
+    test_metadata = f"test_metadata_{generate_uuid()[:8]}"
+    # Create a container with metadata
+    dataset_name = did_factory.make_dataset()['name']
+    container_name = did_factory.make_container()['name']
+    # Any non-default key is sent to JSON metadata
+    try:
+        rucio_client.set_metadata(scope=scope, name=container_name, key='TIER', value=test_metadata)
+        rucio_client.attach_dids_to_dids([
+            {'scope': scope, 'name': container_name, 'dids': [{'scope': scope, 'name': dataset_name}]}
+        ])
+        # Check only the json metadata, see above comment
+        cmd = f"rucio did metadata list {scope}:{dataset_name} --plugin JSON --inherit"
+        exitcode, out, err = execute(cmd)
+        print(out, err)
+        assert exitcode == 0
+        assert "ERROR" not in err
+        assert test_metadata in out
+    except InvalidMetadata:
+        pytest.skip("JSON metadata plugin not enabled")
 
 
 @with_each_cli_renderer
