@@ -18,6 +18,7 @@ import click
 from rich.padding import Padding
 from rich.text import Text
 from rich.tree import Tree
+from tabulate import tabulate
 
 from rucio.cli.utils import RichCLITheme, RichUtils
 from rucio.common.exception import InputValidationError
@@ -68,10 +69,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
     if ctx.obj.use_rich:
         keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.RSE_TYPE}
         output = []
-        table_data = []
-    else:
-        print('Settings:')
-        print('=========')
+    table_data = []
     for i, key in enumerate(sorted(rseinfo)):
         if ctx.obj.use_rich:
             if i == 0:
@@ -80,39 +78,44 @@ def show(ctx: click.Context, rse_name: str) -> None:
                 table_data.append([key, Text(str(rseinfo[key]), style=keyword_styles.get(str(rseinfo[key]), 'default'))])
         else:
             if key != 'protocols':
-                print(f'  {key}: {rseinfo[key]}')
+                table_data.append([key, rseinfo[key]])
 
     if ctx.obj.use_rich:
         table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
-        table_data = []
     else:
-        print('Attributes:')
-        print('===========')
+        print('Settings:')
+        print('=========')
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE']))
+
+    table_data = []
+
     for i, attribute in enumerate(sorted(attributes)):
         if ctx.obj.use_rich:
             if i == 0:
                 output.append('\n[b]Attributes:[/]')
             table_data.append([attribute, Text(str(attributes[attribute]), style=keyword_styles.get(str(attributes[attribute]), 'default'))])
         else:
-            print(f'  {attribute}: {attributes[attribute]}')
+            table_data.append([attribute, attributes[attribute]])
 
     if ctx.obj.use_rich:
         table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
     else:
-        print('Protocols:')
-        print('==========')
+        print('Attributes:')
+        print('===========')
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE']))
+
+    protocol_table = []
+
     for i, protocol in enumerate(sorted(rseinfo['protocols'], key=lambda x: x['scheme'])):
         if ctx.obj.use_rich:
             if i == 0:
                 output.append('\n[b]Protocols:[/]')
             output.append(Padding.indent(Text(protocol['scheme'], style=RichCLITheme.SUBHEADER_HIGHLIGHT), 2))
-        else:
-            print(f'  {protocol["scheme"]}')
 
         table_data = []
-        for item in sorted(protocol):
+        for j, item in enumerate(sorted(protocol)):
             if ctx.obj.use_rich:
                 if item == 'domains':
                     tree = Tree('')
@@ -124,22 +127,26 @@ def show(ctx: click.Context, rse_name: str) -> None:
                 else:
                     table_data.append([item, Text(str(protocol[item]), style=keyword_styles.get(protocol[item], 'default'))])
             else:
-                if item == 'domains':
-                    print('    ' + item + ': \'' + json.dumps(protocol[item]) + '\'')
+                if j == 0:
+                    scheme = protocol['scheme']
                 else:
-                    print('    ' + item + ': ' + str(protocol[item]))
-
+                    scheme = ''
+                if item == 'domains':
+                    protocol_table.append([scheme, item, json.dumps(protocol[item])])
+                else:
+                    protocol_table.append([scheme, item, str(protocol[item])])
         if ctx.obj.use_rich:
             table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
             output.append(Padding.indent(table, 2))
 
-    if ctx.obj.use_rich:
-        header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
-        key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
-        table_data = []
-    else:
-        print('Usage:')
-        print('======')
+    if not ctx.obj.use_rich:
+        print('Protocols:')
+        print('===========')
+        print(tabulate(protocol_table, tablefmt=ctx.obj.tablefmt, headers=['SCHEME', 'KEY', 'VALUE']))
+
+    header = ['SOURCE', 'USED', 'FILES', 'FREE', 'TOTAL', 'UPDATED AT']
+    key2id = {header[i].lower().replace(' ', '_'): i for i in range(len(header))}
+    table_data = []
     for i, elem in enumerate(sorted(usage, key=lambda x: x['source'])):
         if ctx.obj.use_rich:
             if i == 0:
@@ -154,30 +161,43 @@ def show(ctx: click.Context, rse_name: str) -> None:
                     row[key2id[item]] = str(elem[item])
             table_data.append(row)
         else:
-            print('  ' + elem['source'])
-            for item in sorted(elem):
-                print('    ' + item + ': ' + str(elem[item]))
+            table_data.append([
+                elem['source'],
+                elem['used'],
+                elem['files'],
+                elem['free'],
+                elem['total'],
+                elem['updated_at']
+            ])
 
-    if ctx.obj.use_rich:
+    if not ctx.obj.use_rich:
+        print('Usage:')
+        print('======')
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=header))
+
+    else:
         if len(table_data) > 0:
             usage_table = RichUtils.generate_table(table_data, headers=header, col_alignments=['left', 'right', 'right', 'right', 'right', 'left'])
             output.append(usage_table)
-        table_data = []
-    else:
-        print('RSE limits:')
-        print('===========')
+    table_data = []
     for i, limit in enumerate(rse_limits):
         if ctx.obj.use_rich:
             if i == 0:
                 output.append('\n[b]RSE limits:[/]')
             table_data.append([limit, f'{rse_limits[limit]} B'])
         else:
-            print(f'  {limit}: {rse_limits[limit]} B')
+            table_data.append([limit, f"{rse_limits[limit]} B"])
 
-    if ctx.obj.use_rich:
+    if not ctx.obj.use_rich:
+        print('RSE limits:')
+        print('===========')
+        print(tabulate(table_data, headers=["LIMIT", "BYTES"], tablefmt=ctx.obj.tablefmt))
+
+    else:
         if len(table_data) > 0:
             table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'right'])
             output.append(table)
+
         ctx.obj.spinner.stop()
         RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
@@ -345,8 +365,8 @@ def attr_list_(ctx: click.Context, rse_name: str) -> None:
         table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
-        for k in attributes:
-            print(f'{k}: {attributes[k]}')
+        table_data = [[k, str(v)] for k, v in sorted(attributes.items())]
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE']))
 
 
 @attribute.command("set")

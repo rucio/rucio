@@ -359,6 +359,31 @@ def test_config(file_config_mock):
 
 
 @with_each_cli_renderer
+@pytest.mark.parametrize(
+    "key,value",
+    [("bool", True), ("int", 12345), (12345, "int"), ("regex", "^[/]`")]
+)
+def test_config_render(file_config_mock, rucio_client, key, value):
+    section = "mock" + str(generate_uuid())
+    rucio_client.set_config_option(section, key, value)
+    if value is True:
+        value = 1  # Some DB schema store as 1 instead of true, changes what the print out is.
+    try:
+        exitcode, out, _ = execute("rucio config list")
+        assert exitcode == 0
+        assert str(key) in out
+        assert str(value) in out
+
+        exitcode, out, _ = execute(f"rucio config list --section {section}")
+        assert exitcode == 0
+        assert str(key) in out
+        assert str(value) in out
+
+    finally:
+        rucio_client.delete_config_section(section)
+
+
+@with_each_cli_renderer
 def test_did(rucio_client, root_account, file_config_mock):
     scope = scope_name_generator()
     rucio_client.add_scope(account=root_account.external, scope=scope)
@@ -855,6 +880,19 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     assert "ERROR" not in err
     assert rule_id in out
 
+    cmd = f"rucio rule show {rule_id}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert rule_rse in out
+    assert "1" in out  # One copy
+
+    cmd = f"rucio rule show {rule_id} --examine"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert "Status of the replication rule:" in out
+
     cmd = f"rucio rule list --account {rucio_client.account}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
@@ -911,6 +949,14 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     assert exitcode == 0
     assert "ERROR" not in err
     assert rucio_client.get_replication_rule(rule_id)["state"] == "SUSPENDED"
+
+    cmd = f"rucio rule history {rule_id}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    # Needs to have the right headers even if there isn't history in the table
+    for key in ['ACTION', 'ACCOUNT', 'RSE EXPRESSION', 'TIME']:
+        assert key in out
 
     # Do one without a child rule so i can delete it
     new_name = generate_uuid()
