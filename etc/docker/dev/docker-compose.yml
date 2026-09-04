@@ -23,7 +23,6 @@ services:
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
       - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
-      - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
@@ -51,7 +50,7 @@ services:
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
       - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
-      - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro
+      - ./rucio/idpsecrets.json:/opt/rucio/etc/idpsecrets.json:ro,z
       - ../../../tools:/opt/rucio/tools:Z
       - ../../../bin:/opt/rucio/bin:Z
       - ../../../lib:/opt/rucio/lib:Z
@@ -474,7 +473,7 @@ services:
     profiles:
       - iam
     healthcheck:
-      test: mysql -u indigoiam -psecret indigoiam -e "select * from client_details where client_name='rucio'" | grep 'rucio' > /dev/null
+      test: ["CMD", "sh", "-c", "mysql -u indigoiam -psecret indigoiam -e 'show databases;' > /dev/null 2>&1"]
       interval: 5s
       retries: 10
     environment:
@@ -483,7 +482,6 @@ services:
     volumes:
       - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
       - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
-      - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
       - vol-iam-db-mysql:/var/lib/mysql
 
   indigoiam:
@@ -503,16 +501,17 @@ services:
       - /dev/urandom:/dev/random
       - ./iam/indigoiam_nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - indigoiam-login-service
+      indigoiam-login-service:
+        condition: service_healthy
 
   indigoiam-login-service:
     container_name: dev-indigoiam-login-service-1
-    image: indigoiam/iam-login-service:v1.8.2p2
+    image: indigoiam/iam-login-service:v1.12.1
     platform: linux/amd64
     profiles:
       - iam
     environment:
-      - IAM_JAVA_OPTS=-Djava.security.egd=file:/dev/urandom -Dspring.profiles.active=prod,oidc,cern,registration,wlcg-scopes -agentlib:jdwp=transport=dt_socket,server=y,address=1044,suspend=n -Dlogging.file.name=/var/log/iam/iam.log
+      - IAM_JAVA_OPTS=-Djava.security.egd=file:/dev/urandom -Dspring.profiles.active=prod,oidc,cern,registration,wlcg-scopes,h2-test -agentlib:jdwp=transport=dt_socket,server=y,address=1044,suspend=n -Dlogging.file.name=/var/log/iam/iam.log
       - IAM_JWT_DEFAULT_PROFILE=wlcg
       - IAM_HOST=indigoiam
       - IAM_PORT=8090
@@ -538,8 +537,43 @@ services:
       - IAM_DB_PASSWORD=secret
     volumes:
       - ./iam/indigoiam_keystore.jwks:/keystore.jwks:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
     depends_on:
       iam-db:
+        condition: service_healthy
+
+  indigoiam-init:
+    image: python:3.11-slim
+    profiles:
+      - iam
+    container_name: dev-indigoiam_init-1
+    environment:
+      TEST_ADMIN_SCOPED_CLIENT_ID: "admin-client-rw"
+      TEST_ADMIN_SCOPED_CLIENT_SECRET: "secret"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "password"
+      IAM_ISSUER_URL: "https://indigoiam/"
+      RUCIO_IDPSECRETS_CONFIG_PATH: "/shared_config/idpsecrets.json"
+    volumes:
+      - ./iam/init-iam.py:/iam/init-iam.py
+      - ./rucio/idpsecrets.json:/shared_config/idpsecrets.json:z
+      - ../../certs/rucio_ca.pem:/usr/local/share/ca-certificates/rucio_ca.crt:ro
+    restart: "no"
+    entrypoint: >
+      sh -c "
+        apt-get update && apt-get install -y ca-certificates &&
+        update-ca-certificates &&
+        pip install requests PyMySQL &&
+        export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt &&
+        python /iam/init-iam.py
+      "
+    depends_on:
+      indigoiam-login-service:
         condition: service_healthy
 
   keycloak:
