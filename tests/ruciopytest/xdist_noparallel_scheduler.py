@@ -17,7 +17,10 @@ import math
 import pytest
 from xdist.scheduler import LoadScheduling
 
-from . import NoParallelGroups, xdist_noparallel_remote
+from . import NoParallelGroups, suite_profile_key, xdist_noparallel_remote
+
+# Stash key for conflict report data (consumed by plugin.py terminal summary)
+noparallel_report_key = pytest.StashKey[dict]()
 
 
 @pytest.hookimpl
@@ -65,22 +68,69 @@ class NoParallelScheduler(LoadScheduling):
         self._noparallel_marks_by_index = None
         self._indexes_by_noparallel_mark = None
         self._blocked_by = None
+        self._conflict_report = {}
         super().__init__(config=config, log=log)
 
     def add_node_collection(self, node, collection):
         if self._noparallel_marks_by_index is None:
             self._noparallel_marks_by_index = {}
             self._indexes_by_noparallel_mark = {}
-            for i, data in enumerate(collection.values()):
-                noparallel_marks = frozenset(data.get('noparallel', []))
+
+            # Suite-aware grouping: detect multi-suite runs and prefix group names
+            suite_prefixes = self._detect_suite_prefixes(collection)
+
+            for i, (nodeid, data) in enumerate(collection.items()):
+                noparallel_marks_raw = list(data.get('noparallel', []))
+
+                # Apply suite prefix for multi-suite runs
+                if suite_prefixes:
+                    prefix = self._get_suite_prefix(nodeid, suite_prefixes)
+                    if prefix:
+                        noparallel_marks_raw = [f"{prefix}::{m}" for m in noparallel_marks_raw]
+
+                noparallel_marks = frozenset(noparallel_marks_raw)
                 # all other noparallel markers don't matter if exclusive is set
-                if NoParallelGroups.EXCLUSIVE.value in noparallel_marks:
-                    noparallel_marks = frozenset((NoParallelGroups.EXCLUSIVE.value,))
+                exclusive_marks = {m for m in noparallel_marks if m.endswith(NoParallelGroups.EXCLUSIVE.value)}
+                if exclusive_marks:
+                    noparallel_marks = frozenset(exclusive_marks)
                 self._noparallel_marks_by_index[i] = noparallel_marks
                 for n in noparallel_marks:
                     self._indexes_by_noparallel_mark.setdefault(n, set()).add(i)
 
         super().add_node_collection(node, list(collection))
+
+    def _detect_suite_prefixes(self, collection):
+        """Detect if collection contains tests from multiple suites.
+
+        Returns a dict mapping path prefixes to suite names, or empty dict
+        for single-suite runs (no prefixing needed).
+        """
+        suite_profile = self.config.stash.get(suite_profile_key, None)
+        if suite_profile is None:
+            return {}
+
+        # Only apply suite-aware grouping for synthetic merged profiles
+        # (created by --infra without --suite, name contains '+')
+        if '+' not in suite_profile.name:
+            return {}
+
+        # Build prefix map from test_paths
+        # e.g. {"tests/test_clients": "client", "tests/test_rse": "remote_dbs"}
+        from .profiles import SUITE_PROFILES
+        prefix_map = {}
+        for name, profile in SUITE_PROFILES.items():
+            for path in profile.test_paths:
+                prefix_map[path] = name
+
+        return prefix_map
+
+    @staticmethod
+    def _get_suite_prefix(nodeid, suite_prefixes):
+        """Get the suite prefix for a test nodeid based on its path."""
+        for path_prefix, suite_name in suite_prefixes.items():
+            if nodeid.startswith(path_prefix):
+                return suite_name
+        return None
 
     def schedule(self):
         assert self.collection_is_completed
@@ -108,6 +158,17 @@ class NoParallelScheduler(LoadScheduling):
                 for m in test_marks:
                     blocked_by[test_index].update(self._indexes_by_noparallel_mark[m])
             self._blocked_by = blocked_by
+
+            # Build conflict report: group name -> list of test nodeids
+            for group_name, test_indexes in self._indexes_by_noparallel_mark.items():
+                self._conflict_report[group_name] = [
+                    self.collection[idx]
+                    for idx in sorted(test_indexes)
+                    if idx < len(self.collection)
+                ]
+
+            # Store conflict report in config stash for terminal summary
+            self.config.stash[noparallel_report_key] = self._conflict_report
 
             # Run in priority the tests which block the most other tests from running
             self.pending.sort(key=lambda x: -len(blocked_by[x]))
