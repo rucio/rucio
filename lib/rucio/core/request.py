@@ -1192,7 +1192,7 @@ def get_request_history_by_did(
     session: "Session"
 ) -> dict[str, Any]:
     """
-    Retrieve a historical request by its DID for a destination RSE.
+    Retrieve the latest historical request by its DID for a destination RSE.
 
     :param scope:          The scope of the data identifier.
     :param name:           The name of the data identifier.
@@ -1214,6 +1214,11 @@ def get_request_history_by_did(
             stmt = stmt.where(
                 models.RequestHistory.request_type == request_type
             )
+
+        stmt = stmt.order_by(
+            models.RequestHistory.created_at.desc(),
+            models.RequestHistory.retry_count.desc(),
+        ).limit(1)
 
         tmp = session.execute(stmt).scalar()
         if not tmp:
