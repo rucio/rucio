@@ -20,6 +20,8 @@ services:
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
       - ../../certs/ruciouser.pem:/tmp/usercert.pem:z
       - ../../certs/ruciouser.key.pem:/tmp/userkey.pem:z
+      - ../../certs/ruciouser.pem:/opt/rucio/etc/ruciouser.pem:z
+      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/ruciouser.key.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
       - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
@@ -48,6 +50,8 @@ services:
       - ../../certs/hostcert_rucio.key.pem:/etc/grid-security/hostkey.pem:z
       - ../../certs/ruciouser.pem:/tmp/usercert.pem:z
       - ../../certs/ruciouser.key.pem:/tmp/userkey.pem:z
+      - ../../certs/ruciouser.pem:/opt/rucio/etc/ruciouser.pem:z
+      - ../../certs/ruciouser.key.pem:/opt/rucio/etc/ruciouser.key.pem:z
       - ../../certs/ruciouser.certkey.pem:/opt/rucio/etc/usercertkey.pem:z
       - ../../certs/ssh/ruciouser_sshkey.pub:/root/.ssh/ruciouser_sshkey.pub:z
       - ../../certs/ssh/ruciouser_sshkey:/root/.ssh/ruciouser_sshkey:z
