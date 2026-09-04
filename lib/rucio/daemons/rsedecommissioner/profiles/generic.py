@@ -15,12 +15,13 @@
 """Generic decommissioning profiles."""
 import logging
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from sqlalchemy.exc import NoResultFound
 
-from rucio.common.constants import RseAttr
+from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import Duplicate, ReplicaNotFound, RequestNotFound, RucioException, RuleNotFound, RuleReplaceFailed, UnsupportedOperation
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.core.lock import get_replica_locks, get_replica_locks_for_rule_id
 from rucio.core.replica import list_replicas_per_rse, set_tombstone, update_replica_state
 from rucio.core.request import get_request_by_did
@@ -31,7 +32,7 @@ from rucio.db.sqla.constants import ReplicaState
 from .types import DecommissioningProfile, HandlerOutcome
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from rucio.common.types import LoggerFunction
 
@@ -95,6 +96,45 @@ def generic_move(rse: dict[str, Any], config: dict[str, Any]) -> Decommissioning
         ],
         finalizer=_generic_finalize
     )
+
+
+RSEDecommisionerProfilePluginT = TypeVar('RSEDecommisionerProfilePluginT', bound='RSEDecommisionerProfilePlugin')
+
+
+class RSEDecommisionerProfilePlugin(PolicyPackageAlgorithms):
+    """
+    Implement alternate rse-decommisioner daemon profiles
+    """
+
+    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'rse_decommisioner_profile_plugin'
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    @classmethod
+    def register(cls, name: str, algorithm: 'Callable[[dict[str, Any], dict[str, Any]], DecommissioningProfile]') -> None:
+        algorithm_dict = {name: algorithm}
+        super()._register(cls._algorithm_type, algorithm_dict)
+
+    @classmethod
+    def _module_init_(cls) -> None:
+        cls.register("generic_move", generic_move)
+        cls.register("generic_delete", generic_delete)
+
+    @classmethod
+    def get_algorithm(cls: type[RSEDecommisionerProfilePluginT], naming_convention: str) -> 'Callable[[dict[str, Any], dict[str, Any]], DecommissioningProfile]':
+        """
+        Return a decommisioning profile by name
+        """
+        return super()._get_one_algorithm(cls._algorithm_type, naming_convention)
+
+    @staticmethod
+    def policy(rse: dict[str, Any], config: dict[str, Any]) -> DecommissioningProfile:
+        """Create a decommisioning profile which tells Rucio which steps to take when removing an RSE."""
+        raise NotImplementedError
+
+
+RSEDecommisionerProfilePlugin._module_init_()
 
 
 def _generic_initialize(
