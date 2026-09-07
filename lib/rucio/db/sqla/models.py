@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, Integer, SmallInteger, String, Text, UniqueConstraint, event
+from sqlalchemy import BigInteger, Boolean, DateTime, Double, Enum, Float, Integer, SmallInteger, String, Text, UniqueConstraint, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.declarative import declared_attr
@@ -42,6 +42,7 @@ from rucio.db.sqla.constants import (
     IdentityType,
     KeyType,
     LifetimeExceptionsState,
+    LoadInjectionState,
     LockState,
     OpenDataDIDState,
     ReplicaState,
@@ -1823,6 +1824,78 @@ class FollowEvent(BASE, ModelBase):
                    CheckConstraint('DID_TYPE IS NOT NULL', name='DIDS_FOLLOWED_EVENTS_TYPE_NN'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='DIDS_FOLLOWED_EVENTS_ACC_FK'),
                    Index('DIDS_FOLLOWED_EVENTS_ACC_IDX', 'account'))
+
+
+class LoadInjectionDatasets(BASE, ModelBase):
+    """Unique datasets that exist in a specific RSE pair"""
+    __tablename__ = 'load_injection_datasets'
+    scope: Mapped[InternalScope] = mapped_column(InternalScopeString(common_schema.get_schema_value('SCOPE_LENGTH')))
+    name: Mapped[str] = mapped_column(String(common_schema.get_schema_value('NAME_LENGTH')))
+    bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
+    length: Mapped[Optional[int]] = mapped_column(BigInteger)
+    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    src_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    _table_args = (PrimaryKeyConstraint('scope', 'name', 'src_rse_id', 'dest_rse_id', name='LI_DATASETS_PK'),
+                   ForeignKeyConstraint(['scope', 'name'], ['dids.scope', 'dids.name'], name='LI_DATASETS_SCOPE_NAME_FK'),
+                   ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='LI_DATASETS_SRC_RSE_FK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='LI_DATASETS_DEST_RSE_FK'),
+                   Index('LI_DATASETS_SCOPE_NAME_IDX', 'scope', 'name'),
+                   Index('LI_DATASETS_RSE_IDX', 'src_rse_id', 'dest_rse_id'))
+
+
+class LoadInjectionPlans(BASE, ModelBase):
+    """Plans for injecting data"""
+    __tablename__ = 'load_injection_plans'
+    plan_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    src_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    vo: Mapped[Optional[str]] = mapped_column(String(3))
+    inject_rate: Mapped[int] = mapped_column(BigInteger)
+    interval: Mapped[int] = mapped_column(BigInteger)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    fudge: Mapped[Optional[float]] = mapped_column(Double)
+    max_injection: Mapped[Optional[float]] = mapped_column(Double)
+    expiration_delay: Mapped[Optional[int]] = mapped_column(BigInteger)
+    big_first: Mapped[Optional[bool]] = mapped_column(Boolean)
+    rule_lifetime: Mapped[Optional[int]] = mapped_column(BigInteger)
+    comments: Mapped[Optional[str]] = mapped_column(String(4000))
+    dry_run: Mapped[Optional[bool]] = mapped_column(Boolean)
+    state: Mapped[LoadInjectionState] = mapped_column(Enum(LoadInjectionState, name='LI_PLANS_STATE_CHK',
+                                                           create_constraint=True,
+                                                           values_callable=lambda obj: [e.value for e in obj]))
+    _table_args = (PrimaryKeyConstraint('src_rse_id', 'dest_rse_id', name='LI_PLANS_PK'),
+                   ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='LI_PLANS_SRC_RSE_FK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='LI_PLANS_DEST_RSE_FK'),
+                   UniqueConstraint('plan_id', name='LI_PLANS_PLAN_UC'))
+
+
+class LoadInjectionPlansHistory(BASE, ModelBase):
+    """History of plans for injecting data"""
+    __tablename__ = 'load_injection_plans_history'
+    plan_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    dest_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    src_rse_id: Mapped[uuid.UUID] = mapped_column(GUID())
+    vo: Mapped[Optional[str]] = mapped_column(String(3))
+    inject_rate: Mapped[int] = mapped_column(BigInteger)
+    interval: Mapped[int] = mapped_column(BigInteger)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    fudge: Mapped[Optional[float]] = mapped_column(Double)
+    max_injection: Mapped[Optional[float]] = mapped_column(Double)
+    expiration_delay: Mapped[Optional[int]] = mapped_column(BigInteger)
+    big_first: Mapped[Optional[bool]] = mapped_column(Boolean)
+    rule_lifetime: Mapped[Optional[int]] = mapped_column(BigInteger)
+    comments: Mapped[Optional[str]] = mapped_column(String(4000))
+    dry_run: Mapped[Optional[bool]] = mapped_column(Boolean)
+    state: Mapped[LoadInjectionState] = mapped_column(Enum(LoadInjectionState, name='LI_PLANS_HISTORY_STATE_CHK',
+                                                           create_constraint=True,
+                                                           values_callable=lambda obj: [e.value for e in obj]))
+    _table_args = (PrimaryKeyConstraint('plan_id', 'src_rse_id', 'dest_rse_id', name='LI_PLANS_HISTORY_PK'),
+                   ForeignKeyConstraint(['src_rse_id'], ['rses.id'], name='LI_PLANS_HISTORY_SRC_RSE_FK'),
+                   ForeignKeyConstraint(['dest_rse_id'], ['rses.id'], name='LI_PLANS_HISTORY_DEST_RSE_FK'),
+                   Index('LI_PLANS_HISTORY_PLAN_IDX', 'plan_id'),
+                   Index('LI_PLANS_HISTORY_RSE_IDX', 'src_rse_id', 'dest_rse_id'))
 
 
 def register_models(engine: Engine) -> None:

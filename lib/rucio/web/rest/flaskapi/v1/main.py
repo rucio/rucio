@@ -49,6 +49,7 @@ DEFAULT_ENDPOINTS = {
     'rules',
     'scopes',
     'subscriptions',
+    'loadinjection',
     'opendata',
     'opendata_public',
 }

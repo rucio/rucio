@@ -1303,3 +1303,47 @@ class OpenDataDuplicateRecordID(OpenDataError):
         super(OpenDataDuplicateRecordID, self).__init__(*args)
         self._message = f"Data identifier with the same Record ID ({record_id}) already exists in the open data catalog."
         self.error_code = 123
+
+
+class DuplicateLoadInjectionPlan(RucioException):
+    """
+    DuplicateLoadInjectionPlan
+    """
+
+    def __init__(self, *args):
+        super(DuplicateLoadInjectionPlan, self).__init__(*args)
+        self._message = "Load injection plan already exists."
+        self.error_code = 124
+
+
+class NoLoadInjectionPlanFound(RucioException):
+    """
+    NoLoadInjectionPlanFound
+    """
+
+    def __init__(self, *args):
+        super(NoLoadInjectionPlanFound, self).__init__(*args)
+        self._message = "No load injection plan found."
+        self.error_code = 125
+
+
+class NoUniqueDatasetFound(RucioException):
+    """
+    NoUniqueDatasetFound
+    """
+
+    def __init__(self, *args):
+        super(NoUniqueDatasetFound, self).__init__(*args)
+        self._message = "No unique dataset found."
+        self.error_code = 126
+
+
+class DuplicateUniqueDatasetFound(RucioException):
+    """
+    DuplicateUniqueDatasetFound
+    """
+
+    def __init__(self, *args):
+        super(DuplicateUniqueDatasetFound, self).__init__(*args)
+        self._message = "Duplicate unique dataset found."
+        self.error_code = 127
