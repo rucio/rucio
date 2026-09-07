@@ -33,7 +33,7 @@ from rich.tree import Tree
 from tabulate import tabulate
 
 from rucio import version
-from rucio.cli.utils import RichCLITheme, RichUtils, exception_handler, get_client, get_scope, setup_gfal2_logger, signal_handler
+from rucio.cli.utils import RichCLITheme, RichUtils, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.common.constants import RseAttr
 from rucio.common.exception import (
     InputValidationError,
@@ -43,7 +43,7 @@ from rucio.common.exception import (
     RucioException,
 )
 from rucio.common.extra import import_extras
-from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
+from rucio.common.utils import StoreAndDeprecateWarningAction, chunks, clean_pfns, construct_non_deterministic_pfn, extract_scope, get_bytes_value_from_string, parse_response, render_json, setup_logger, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 EXTRA_MODULES = import_extras(['argcomplete'])
@@ -920,7 +920,7 @@ def reevaluate_did_for_subscription(args, client, logger, console, spinner):
 
     """
     for did in args.dids.split(','):
-        scope, name = get_scope(did, client)
+        scope, name = extract_scope(did)
         client.set_metadata(scope, name, 'is_new', True)
     return SUCCESS
 
@@ -1053,7 +1053,7 @@ def declare_bad_file_replicas(args, client, logger, console, spinner):
     bad_files_pfns = []
     for bad_file in bad_files:
         if bad_file.find('://') == -1:
-            scope, name = get_scope(bad_file, client)
+            scope, name = extract_scope(bad_file)
             did_info = client.get_did(scope, name)
             if did_info['type'].upper() != 'FILE' and not args.allow_collection:
                 msg = f'DID {scope}:{name} is a collection and --allow-collection was not specified.'
@@ -1175,7 +1175,7 @@ def list_pfns(args, client, logger, console, spinner):
     rse = args.rse
     protocol = args.protocol
     for input_did in dids:
-        scope, name = get_scope(input_did, client)
+        scope, name = extract_scope(input_did)
         replicas = [rep for rep in client.list_replicas([{'scope': scope, 'name': name}, ], schemes=[protocol, ])]
         if rse in replicas[0]['rses'] and replicas[0]['rses'][rse]:
             print(replicas[0]['rses'][rse][0])
@@ -1318,7 +1318,7 @@ def set_tombstone(args, client, logger, console, spinner):
     dids = [dids] if ',' not in dids else dids.split(',')
     replicas = []
     for did in dids:
-        scope, name = get_scope(did, client)
+        scope, name = extract_scope(did)
         replicas.append({'scope': scope, 'name': name, 'rse': rse})
     client.set_tombstone(replicas)
     logger.info('Set tombstone successfully on: %s' % args.dids)
