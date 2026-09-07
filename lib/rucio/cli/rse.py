@@ -18,6 +18,7 @@ import click
 from rich.padding import Padding
 from rich.text import Text
 from rich.tree import Tree
+from tabulate import tabulate
 
 from rucio.cli.utils import RichCLITheme, RichUtils
 from rucio.common.exception import InputValidationError
@@ -254,6 +255,27 @@ def distance_show(ctx: click.Context, source_rse: str, destination_rse: str) -> 
             print(f'Distance information from {source_rse} to {destination_rse}: distance={distance}')
         else:
             print(f"No distance set from {source_rse} to {destination_rse}")
+
+
+@distance.command("list")
+@click.argument("source-rse")
+@click.pass_context
+def distance_list(ctx: click.Context, source_rse: str) -> None:
+    """Display all destinations and distances for SOURCE-RSE"""
+    distances = ctx.obj.client.get_distance(source_rse)
+    if not distances:
+        print(f"No distances found for source RSE '{source_rse}'.")
+        return
+    table_rows = [[row['dest_rse'], row['distance']] for row in distances]
+    if ctx.obj.use_rich:
+        table = RichUtils.generate_table(
+            table_rows,
+            headers=['DESTINATION', 'DISTANCE'],
+            col_alignments=['left', 'right']
+        )
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        print(tabulate(table_rows, tablefmt=ctx.obj.tablefmt, headers=['DESTINATION', 'DISTANCE']))
 
 
 @distance.command("set")

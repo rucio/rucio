@@ -1414,17 +1414,17 @@ class RSEClient(BaseClient):
     def get_distance(
             self,
             source: str,
-            destination: str
+            destination: Optional[str] = None
     ) -> list[dict[str, Union[str, int]]]:
         """
         Get distances between rses.
 
-        Param
+        Parameters
         ----------
         source :
             The source RSE.
         destination :
-            The destination RSE.
+            The destination RSE. If None, returns all distances from source RSE.
 
         Returns
         -------
@@ -1440,7 +1440,10 @@ class RSEClient(BaseClient):
             ** ranking ** [int]: Legacy name for distance, same value as distance.
 
         """
-        path = [self.RSE_BASEURL, source, 'distances', destination]
+        if destination is None:
+            path = [self.RSE_BASEURL, source, 'distances']
+        else:
+            path = [self.RSE_BASEURL, source, 'distances', destination]
         path = '/'.join(path)
         url = build_url(choice(self.list_hosts), path=path)
         r = self._send_request(url, method=HTTPMethod.GET)
