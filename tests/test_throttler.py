@@ -25,6 +25,7 @@ from rucio.core.replica import add_replica
 from rucio.core.request import (
     delete_transfer_limit,
     get_request_by_did,
+    queue_request_cancellation,
     queue_requests,
     release_all_waiting_requests,
     release_waiting_requests_fifo,
@@ -539,6 +540,28 @@ class TestSimpleLimits:
         assert request_3['state'] == RequestState.WAITING
         request_4 = get_request_by_did(mock_scope, name4, dest_rse_id2)
         assert request_4['state'] == RequestState.WAITING
+
+    def test_throttler_cancels_waiting_requests(self, mock_scope, root_account, connected_rse_pair, transfer_limit_factory):
+        """ THROTTLER (CLIENTS): throttler cancels waiting requests that are scheduled for cancellation. """
+        source_rse, source_rse_id, dest_rse, dest_rse_id = connected_rse_pair
+
+        transfer_limit_factory(dest_rse, max_transfers=0, activity=self.all_activities, strategy='fifo')
+
+        name1, = _add_test_replicas_and_request(
+            scope=mock_scope, account=root_account,
+            request_configs=[
+                {'source_rse_id': source_rse_id, 'dest_rse_id': dest_rse_id, 'requested_at': datetime.utcnow().replace(year=2020)},
+            ]
+        )
+
+        preparer(once=True, transfertools=['mock'])
+        request = get_request_by_did(mock_scope, name1, dest_rse_id)
+        assert request['state'] == RequestState.WAITING
+
+        queue_request_cancellation(mock_scope, name1, dest_rse_id)
+        throttler(once=True)
+        request = get_request_by_did(mock_scope, name1, dest_rse_id)
+        assert request['state'] == RequestState.CANCELLED
 
 
 @pytest.mark.noparallel(reason='uses preparer and throttler')
