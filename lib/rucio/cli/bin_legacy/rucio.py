@@ -20,7 +20,6 @@ import os
 import signal
 import sys
 import time
-import unittest
 import uuid
 from copy import deepcopy
 from datetime import datetime
@@ -50,7 +49,6 @@ from rucio.common.exception import (
     UnsupportedOperation,
 )
 from rucio.common.extra import import_extras
-from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import Color, StoreAndDeprecateWarningAction, chunks, parse_did_filter_from_string, parse_did_filter_from_string_fe, setup_logger, sizefmt
 
 if TYPE_CHECKING:
@@ -1987,16 +1985,6 @@ def add_lifetime_exception(args, client, logger, console, spinner):
     return SUCCESS
 
 
-def test_server(args, client, logger, console, spinner):
-    """"
-    %(prog)s test-rucio-server [options] <field1=value1 field2=value2 ...>
-    Test the client against a server.
-    """
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestRucioServer)
-    unittest.TextTestRunner(verbosity=2).run(suite)
-    return SUCCESS
-
-
 def touch(args, client, logger, console, spinner):
     """
     %(prog)s touch [options] <did1 did2 ...>
@@ -2648,10 +2636,6 @@ can be found in ' + Color.BOLD + 'https://rucio.cern.ch/documentation/started/co
     list_datasets_rse_parser.set_defaults(function=list_datasets_rse)
     list_datasets_rse_parser.add_argument(dest='rse', action='store', default=None, help='The RSE name').completer = rse_completer
     list_datasets_rse_parser.add_argument('--long', dest='long', action='store_true', default=False, help='The long option')
-
-    # The test-server command
-    test_server_parser = subparsers.add_parser('test-rucio-server', help='Test Server', description='Run a bunch of tests against the Rucio Servers.')
-    test_server_parser.set_defaults(function=test_server)
 
     # The get-metadata subparser
     touch_parser = subparsers.add_parser('touch', help='Touch one or more DIDs and set the last accessed date to the current date')
