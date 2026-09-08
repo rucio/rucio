@@ -26,7 +26,7 @@ from functools import wraps
 from os import rename
 from random import choice, choices
 from string import ascii_letters, ascii_uppercase, digits
-from typing import IO, TYPE_CHECKING, Any, Literal, Optional
+from typing import IO, TYPE_CHECKING, Any, Literal, Optional, Union
 
 import pytest
 import requests
@@ -38,7 +38,7 @@ from rucio.common.utils import execute, setup_logger
 from rucio.common.utils import generate_uuid as uuid
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Mapping
     from types import ModuleType
 
     from werkzeug.test import TestResponse
@@ -64,8 +64,13 @@ with_each_cli_renderer = pytest.mark.parametrize("file_config_mock", [
 
 class _CliRunner(CliRunner):
     @contextlib.contextmanager
-    def isolation(self, *args, **kwargs):
-        with super().isolation(*args, **kwargs) as streams:
+    def isolation(
+        self,
+        input: Optional[Union[str, bytes, IO[bytes]]] = None,
+        env: Optional["Mapping[str, Optional[str]]"] = None,
+        color: bool = False,
+    ) -> "Iterator[Any]":
+        with super().isolation(input=input, env=env, color=color) as streams:
             logging.getLogger("user").handlers.clear()
             setup_logger(logger_name="user")
             yield streams
