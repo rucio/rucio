@@ -760,9 +760,9 @@ def test_rse_protocol(file_config_mock):
 
 
 @with_each_cli_renderer
-def test_rse_distance(file_config_mock):
-    source_rse = "MOCK"
-    dest_rse = "MOCK2"
+def test_rse_distance(file_config_mock, rse_factory):
+    source_rse, _ = rse_factory.make_rse()
+    dest_rse, _ = rse_factory.make_rse()
 
     cmd = f"rucio rse distance unset {source_rse} {dest_rse}"
     exitcode, out, err = execute(cmd)
