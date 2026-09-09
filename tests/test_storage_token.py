@@ -13,20 +13,30 @@
 # limitations under the License.
 
 import base64
+import hashlib
 import json
+import logging
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from dogpile.cache.api import NoValue
+from jwkest.jwt import JWT
 
 from rucio.common.exception import InvalidRequest
 from rucio.core.token import (
     StorageTokenContext,
     StorageTokenOperation,
     TokenAudience,
+    TokenCache,
+    TokenManaged,
     TokenRequest,
     TokenScope,
     get_token_for_operation,
+    token_is_managed,
 )
+from rucio.core.token.request import _token_cache_get, _token_cache_set
+from rucio.transfertool.fts3 import _unmanaged_tokens_param
 
 
 def _unsigned_jwt(audience: str, scope: str) -> str:
@@ -39,6 +49,14 @@ def _decode_unsigned_jwt(token: str) -> dict:
     payload = token.split('.')[1]
     padding = '=' * (-len(payload) % 4)
     return json.loads(base64.urlsafe_b64decode(payload + padding))
+
+
+def _jwt_with_claims(**claims) -> str:
+    return JWT().pack([claims])
+
+
+def _future_exp(hours: int = 1) -> int:
+    return int((datetime.now(tz=timezone.utc) + timedelta(hours=hours)).timestamp())
 
 
 class TestTokenAudienceDefault:
@@ -133,8 +151,10 @@ class TestTokenRequestDefault:
             OIDC_CONFIGURATION_RUN=True,
         )
 
+    @patch('rucio.core.token.request.REGION')
     @patch('rucio.core.token.request.requests.post')
-    def test_posts_client_credentials_and_returns_access_token(self, mock_post):
+    def test_posts_client_credentials_and_returns_access_token(self, mock_post, mock_region):
+        mock_region.get.return_value = NoValue()
         mock_post.return_value = MagicMock()
         mock_post.return_value.raise_for_status.return_value = None
         mock_post.return_value.json.return_value = {'access_token': 'tok-1'}
@@ -151,8 +171,10 @@ class TestTokenRequestDefault:
             'scope': 'fts',
         }
 
+    @patch('rucio.core.token.request.REGION')
     @patch('rucio.core.token.request.requests.post')
-    def test_extras_expiry_time_reaches_form_but_fts_hostname_does_not(self, mock_post):
+    def test_extras_expiry_time_reaches_form_but_fts_hostname_does_not(self, mock_post, mock_region):
+        mock_region.get.return_value = NoValue()
         mock_post.return_value = MagicMock()
         mock_post.return_value.raise_for_status.return_value = None
         mock_post.return_value.json.return_value = {'access_token': 'tok-2'}
@@ -168,8 +190,10 @@ class TestTokenRequestDefault:
         assert 'fts_hostname' not in form
         assert 'expiry_time' not in form
 
+    @patch('rucio.core.token.request.REGION')
     @patch('rucio.core.token.request.requests.post')
-    def test_expiry_time_extra_maps_to_expires_in(self, mock_post):
+    def test_expiry_time_extra_maps_to_expires_in(self, mock_post, mock_region):
+        mock_region.get.return_value = NoValue()
         mock_post.return_value = MagicMock()
         mock_post.return_value.raise_for_status.return_value = None
         mock_post.return_value.json.return_value = {'access_token': 'tok-3'}
@@ -211,3 +235,171 @@ class TestGetTokenForOperation:
         claims = _decode_unsigned_jwt(token)
         assert claims['aud'] == audience
         assert claims['scope'] == scope
+
+
+class TestTokenCacheDefault:
+
+    @pytest.mark.parametrize('operation', [
+        StorageTokenOperation.FTS_AUTH,
+        StorageTokenOperation.TPC_SOURCE,
+        StorageTokenOperation.TPC_DESTINATION,
+        StorageTokenOperation.TPC_STAGE,
+        StorageTokenOperation.TPC_POLL,
+        StorageTokenOperation.CENTRAL_DELETE,
+    ])
+    def test_central_operations_are_cacheable(self, operation):
+        ctx = StorageTokenContext(operation=operation, rse_id='rse-1')
+        assert TokenCache.default(ctx) is True
+
+    @pytest.mark.parametrize('operation', [
+        StorageTokenOperation.CLIENT_DELETE,
+        StorageTokenOperation.CLIENT_DOWNLOAD,
+        StorageTokenOperation.CLIENT_UPLOAD,
+    ])
+    def test_client_operations_are_not_cacheable(self, operation):
+        ctx = StorageTokenContext(operation=operation, rse_id='rse-1')
+        assert TokenCache.default(ctx) is False
+
+
+class TestTokenRequestCache:
+
+    def _oidc_ready(self):
+        return patch.multiple(
+            'rucio.core.token.request.oidc_core',
+            OIDC_CLIENT_ID='client-id',
+            OIDC_CLIENT_SECRET='client-secret',
+            OIDC_PROVIDER_ENDPOINT='https://iam.example.org/token',
+            OIDC_CONFIGURATION_RUN=True,
+        )
+
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_cache_hit_skips_idp(self, mock_post, mock_region):
+        cached = _jwt_with_claims(exp=_future_exp())
+        mock_region.get.return_value = cached
+        ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
+        with self._oidc_ready():
+            token = TokenRequest.default('fts.example.org', 'fts', ctx)
+        assert token == cached
+        mock_post.assert_not_called()
+
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_cache_miss_stores_token(self, mock_post, mock_region):
+        mock_region.get.return_value = NoValue()
+        mock_post.return_value = MagicMock()
+        mock_post.return_value.raise_for_status.return_value = None
+        mock_post.return_value.json.return_value = {'access_token': 'tok-fresh'}
+        ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
+        with self._oidc_ready():
+            assert TokenRequest.default('fts.example.org', 'fts', ctx) == 'tok-fresh'
+        key = hashlib.md5(b'audience=fts.example.org;scope=fts').hexdigest()
+        mock_region.set.assert_called_once_with(key, 'tok-fresh')
+
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_token_cache_false_skips_get_and_set(self, mock_post, mock_region):
+        mock_post.return_value = MagicMock()
+        mock_post.return_value.raise_for_status.return_value = None
+        mock_post.return_value.json.return_value = {'access_token': 'tok-file'}
+        ctx = StorageTokenContext(operation=StorageTokenOperation.CLIENT_DOWNLOAD, rse_id='rse-1')
+        with self._oidc_ready():
+            TokenRequest.default('davs.example.org', 'storage.read:/file', ctx)
+            TokenRequest.default('davs.example.org', 'storage.read:/file', ctx)
+        assert mock_post.call_count == 2
+        mock_region.get.assert_not_called()
+        mock_region.set.assert_not_called()
+
+    @patch.object(TokenCache, 'get_configured_algorithm', return_value=lambda ctx: False)
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_policy_can_disable_cache_for_cacheable_operation(self, mock_post, mock_region, _mock_cache):
+        mock_post.return_value = MagicMock()
+        mock_post.return_value.raise_for_status.return_value = None
+        mock_post.return_value.json.return_value = {'access_token': 'tok-policy'}
+        ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
+        with self._oidc_ready():
+            TokenRequest.default('fts.example.org', 'fts', ctx)
+        mock_region.get.assert_not_called()
+        mock_region.set.assert_not_called()
+
+    @patch('rucio.core.token.request.REGION')
+    def test_cache_get_rejects_expired_and_invalid(self, mock_region):
+        mock_region.get.return_value = NoValue()
+        assert _token_cache_get('k') is None
+
+        valid = _jwt_with_claims(exp=_future_exp())
+        mock_region.get.return_value = valid
+        assert _token_cache_get('k') == valid
+
+        mock_region.get.return_value = 'not-a-jwt'
+        assert _token_cache_get('k') is None
+
+        nearly_expired = _jwt_with_claims(exp=int((datetime.now(tz=timezone.utc) + timedelta(minutes=1)).timestamp()))
+        mock_region.get.return_value = nearly_expired
+        assert _token_cache_get('k') is None
+
+        expired = _jwt_with_claims(exp=int((datetime.now(tz=timezone.utc) - timedelta(minutes=1)).timestamp()))
+        mock_region.get.return_value = expired
+        assert _token_cache_get('k') is None
+
+    @patch('rucio.core.token.request.REGION')
+    def test_cache_set_writes_region(self, mock_region):
+        _token_cache_set('k', 'tok')
+        mock_region.set.assert_called_once_with('k', 'tok')
+
+
+class TestTokenManagedDefault:
+
+    def test_offline_access_in_scope_string_is_managed(self):
+        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
+        token = _unsigned_jwt('davs.example.org', 'offline_access storage.read:/data')
+        assert TokenManaged.default(ctx, token) is True
+        assert token_is_managed(ctx, token) is True
+
+    def test_scope_without_offline_access_is_unmanaged(self):
+        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
+        token = _unsigned_jwt('davs.example.org', 'storage.modify:/data storage.read:/data')
+        assert TokenManaged.default(ctx, token) is False
+
+    def test_scope_list_claim(self):
+        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
+        token = _jwt_with_claims(scope=['offline_access', 'storage.read:/data'])
+        assert TokenManaged.default(ctx, token) is True
+
+    def test_invalid_token_is_unmanaged(self):
+        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
+        assert TokenManaged.default(ctx, 'not-a-jwt') is False
+
+
+class TestUnmanagedTokensParam:
+
+    def test_all_managed(self):
+        tokens = [
+            _unsigned_jwt('src.example.org', 'offline_access storage.read:/data'),
+            _unsigned_jwt('dst.example.org', 'offline_access storage.modify:/data'),
+        ]
+        assert _unmanaged_tokens_param(tokens, vo=None) is False
+
+    def test_all_unmanaged(self):
+        tokens = [
+            _unsigned_jwt('src.example.org', 'storage.read:/data'),
+            _unsigned_jwt('dst.example.org', 'storage.modify:/data'),
+        ]
+        assert _unmanaged_tokens_param(tokens, vo=None) is True
+
+    def test_mixed_prefers_managed(self):
+        tokens = [
+            _unsigned_jwt('src.example.org', 'offline_access storage.read:/data'),
+            _unsigned_jwt('dst.example.org', 'storage.modify:/data'),
+        ]
+        logged = []
+
+        def logger(level, msg, *args):
+            logged.append((level, msg % args if args else msg))
+
+        assert _unmanaged_tokens_param(tokens, vo=None, logger=logger) is False
+        assert logged == [(logging.WARNING, 'Mixed managed and unmanaged storage tokens in one FTS job; submitting as managed')]
+
+    def test_empty_is_managed(self):
+        assert _unmanaged_tokens_param([], vo=None) is False

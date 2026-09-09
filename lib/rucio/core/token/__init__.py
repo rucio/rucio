@@ -14,9 +14,10 @@
 
 from typing import Optional
 
-from rucio.common.constants import DEFAULT_VO
 from rucio.core.token.audience import TokenAudience
-from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
+from rucio.core.token.cache import TokenCache
+from rucio.core.token.context import StorageTokenContext, StorageTokenOperation, vo_from_ctx
+from rucio.core.token.managed import TokenManaged
 from rucio.core.token.request import TokenRequest
 from rucio.core.token.scope import TokenScope
 
@@ -24,24 +25,21 @@ __all__ = [
     'StorageTokenContext',
     'StorageTokenOperation',
     'TokenAudience',
+    'TokenCache',
+    'TokenManaged',
     'TokenRequest',
     'TokenScope',
     'get_token_for_operation',
+    'token_is_managed',
 ]
 
 
-def _vo_from_ctx(ctx: StorageTokenContext) -> str:
-    if ctx.vo:
-        return ctx.vo
-    if ctx.account is not None:
-        vo = getattr(ctx.account, 'vo', None)
-        if vo:
-            return vo
-    return DEFAULT_VO
-
-
 def get_token_for_operation(ctx: StorageTokenContext) -> Optional[str]:
-    vo = _vo_from_ctx(ctx)
+    vo = vo_from_ctx(ctx)
     audience = TokenAudience.get_configured_algorithm(vo)(ctx)
     scope = TokenScope.get_configured_algorithm(vo)(ctx)
     return TokenRequest.get_configured_algorithm(vo)(audience, scope, ctx)
+
+
+def token_is_managed(ctx: StorageTokenContext, token: str) -> bool:
+    return TokenManaged.get_configured_algorithm(vo_from_ctx(ctx))(ctx, token)

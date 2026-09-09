@@ -20,7 +20,6 @@ from rucio.core.rse import determine_scope_for_rse
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
 
-# Path-qualified storage capabilities vs OAuth scopes (e.g. offline_access).
 _RSE_SCOPE_BY_OPERATION: dict[StorageTokenOperation, tuple[list[str], list[str]]] = {
     StorageTokenOperation.TPC_SOURCE: (['storage.read'], ['offline_access']),
     StorageTokenOperation.TPC_DESTINATION: (['storage.modify', 'storage.read'], ['offline_access']),
