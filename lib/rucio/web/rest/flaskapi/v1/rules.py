@@ -252,6 +252,8 @@ class AllRule(ErrorHandlingMethodView):
                     yield dumps(rule, cls=APIEncoder) + '\n'
 
             return try_stream(generate(filters=dict(request.args.items(multi=False)), vo=request.environ['vo']))
+        except InputValidationError as error:
+            return generate_http_error_flask(400, error)
         except RuleNotFound as error:
             return generate_http_error_flask(404, error)
 
