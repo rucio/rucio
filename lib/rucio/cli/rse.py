@@ -211,7 +211,7 @@ def update(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
 
     \b
     Example:
-        $ rucio rse update my-rse --option availability_write True
+        $ rucio rse update my-rse --key availability_write --value True
     """
     param_value = value
     if value in ['true', 'True', 'TRUE', '1']:
