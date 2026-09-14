@@ -1992,12 +1992,12 @@ def get_did(scope: "InternalScope", name: str, dynamic_depth: "Optional[DIDType]
     if did.did_type == DIDType.FILE:
         return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
                 'account': did.account, 'bytes': bytes_, 'length': 1,
-                'md5': did.md5, 'adler32': did.adler32}
+                'md5': did.md5, 'adler32': did.adler32, 'accessed_at': did.accessed_at}
     else:
         return {'scope': did.scope, 'name': did.name, 'type': did.did_type,
                 'account': did.account, 'open': did.is_open,
                 'monotonic': did.monotonic, 'expired_at': did.expired_at,
-                'length': length, 'bytes': bytes_}
+                'length': length, 'bytes': bytes_, 'accessed_at': did.accessed_at}
 
 
 @transactional_session
