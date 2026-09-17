@@ -40,11 +40,11 @@ class TokenScope(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
             raise InvalidRequest(f'Unsupported storage token operation: {ctx.operation}')
         if ctx.rse_id is None:
             raise InvalidRequest(f'rse_id is required for operation {ctx.operation}')
-        capabilities, oauth_scopes = spec
+        parameterized_scopes, verbatim_scopes = spec
         return determine_scope_for_rse(
             rse_id=ctx.rse_id,
-            scopes=capabilities,
-            oauth_scopes=oauth_scopes,
+            parameterized_scopes=parameterized_scopes,
+            verbatim_scopes=verbatim_scopes,
         )
 
 

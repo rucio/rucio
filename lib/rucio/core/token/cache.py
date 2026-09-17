@@ -12,11 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 from collections.abc import Callable
 
 from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
+
+
+def token_cache_key(audience: str, scope: str, ctx: StorageTokenContext) -> str:
+    parts = [
+        f'audience={audience}',
+        f'scope={scope}'
+    ]
+    _ = ctx
+    return hashlib.md5(';'.join(parts).encode()).hexdigest()
+
 
 _CACHEABLE_OPERATIONS = frozenset({
     StorageTokenOperation.FTS_AUTH,
