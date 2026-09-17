@@ -621,7 +621,7 @@ def _run_once(
                 audience = determine_audience_for_rse(rse.id)
                 # FIXME: At the time of writing, StoRM requires `storage.read`
                 # in order to perform a stat operation.
-                scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'])
+                scope = determine_scope_for_rse(rse.id, parameterized_scopes=['storage.modify', 'storage.read'])
                 auth_token = request_token(audience, scope)
                 if auth_token:
                     logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)

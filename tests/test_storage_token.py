@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +26,7 @@ from jwkest.jwt import JWT
 
 from rucio.common.exception import InvalidRequest
 from rucio.core.token import (
+    JobTransferToken,
     StorageTokenContext,
     StorageTokenOperation,
     TokenAudience,
@@ -34,9 +36,11 @@ from rucio.core.token import (
     TokenScope,
     get_token_for_operation,
     token_is_managed,
+    unmanaged_tokens_for_job,
 )
+from rucio.core.token.cache import token_cache_key
 from rucio.core.token.request import _token_cache_get, _token_cache_set
-from rucio.transfertool.fts3 import _unmanaged_tokens_param
+from rucio.transfertool.fts3 import _job_transfer_tokens_from_files
 
 
 def _unsigned_jwt(audience: str, scope: str) -> str:
@@ -108,8 +112,8 @@ class TestTokenScopeDefault:
         assert TokenScope.default(ctx) == 'offline_access storage.read:/data'
         mock_scope.assert_called_once_with(
             rse_id='rse-1',
-            scopes=['storage.read'],
-            oauth_scopes=['offline_access'],
+            parameterized_scopes=['storage.read'],
+            verbatim_scopes=['offline_access'],
         )
 
     @patch('rucio.core.token.scope.determine_scope_for_rse')
@@ -119,8 +123,8 @@ class TestTokenScopeDefault:
         TokenScope.default(ctx)
         mock_scope.assert_called_once_with(
             rse_id='rse-1',
-            scopes=['storage.modify', 'storage.read'],
-            oauth_scopes=['offline_access'],
+            parameterized_scopes=['storage.modify', 'storage.read'],
+            verbatim_scopes=['offline_access'],
         )
 
     @patch('rucio.core.token.scope.determine_scope_for_rse')
@@ -130,8 +134,8 @@ class TestTokenScopeDefault:
         TokenScope.default(ctx)
         mock_scope.assert_called_once_with(
             rse_id='rse-1',
-            scopes=['storage.modify', 'storage.read'],
-            oauth_scopes=[],
+            parameterized_scopes=['storage.modify', 'storage.read'],
+            verbatim_scopes=[],
         )
 
     def test_reserved_tape_operation_is_unsupported(self):
@@ -173,7 +177,7 @@ class TestTokenRequestDefault:
 
     @patch('rucio.core.token.request.REGION')
     @patch('rucio.core.token.request.requests.post')
-    def test_extras_expiry_time_reaches_form_but_fts_hostname_does_not(self, mock_post, mock_region):
+    def test_default_ignores_extras(self, mock_post, mock_region):
         mock_region.get.return_value = NoValue()
         mock_post.return_value = MagicMock()
         mock_post.return_value.raise_for_status.return_value = None
@@ -184,26 +188,11 @@ class TestTokenRequestDefault:
         )
         with self._oidc_ready():
             TokenRequest.default('fts.example.org', 'fts', ctx)
-        form = mock_post.call_args.kwargs['data']
-        assert form['expires_in'] == 3600
-        assert form['resource'] == 'https://se.example.org'
-        assert 'fts_hostname' not in form
-        assert 'expiry_time' not in form
-
-    @patch('rucio.core.token.request.REGION')
-    @patch('rucio.core.token.request.requests.post')
-    def test_expiry_time_extra_maps_to_expires_in(self, mock_post, mock_region):
-        mock_region.get.return_value = NoValue()
-        mock_post.return_value = MagicMock()
-        mock_post.return_value.raise_for_status.return_value = None
-        mock_post.return_value.json.return_value = {'access_token': 'tok-3'}
-        ctx = StorageTokenContext(
-            operation=StorageTokenOperation.TPC_SOURCE,
-            extras={'expiry_time': 1800},
-        )
-        with self._oidc_ready():
-            TokenRequest.default('davs.example.org', 'storage.read:/data', ctx)
-        assert mock_post.call_args.kwargs['data']['expires_in'] == 1800
+        assert mock_post.call_args.kwargs['data'] == {
+            'grant_type': 'client_credentials',
+            'audience': 'fts.example.org',
+            'scope': 'fts',
+        }
 
 
 class TestGetTokenForOperation:
@@ -261,6 +250,33 @@ class TestTokenCacheDefault:
         assert TokenCache.default(ctx) is False
 
 
+class TestTokenCacheKey:
+
+    def test_v1_is_audience_and_scope(self):
+        ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
+        assert token_cache_key('fts.example.org', 'fts', ctx) == hashlib.md5(
+            b'audience=fts.example.org;scope=fts'
+        ).hexdigest()
+
+    def test_account_did_and_extras_are_not_in_v1_key(self):
+        audience, scope = 'davs.example.org', 'storage.read:/data'
+        bare = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE, rse_id='rse-1')
+        with_facts = StorageTokenContext(
+            operation=StorageTokenOperation.TPC_SOURCE,
+            rse_id='rse-1',
+            did=('mock', 'file.root'),
+            account=MagicMock(),
+            extras={'fts_hostname': 'fts.example.org'},
+        )
+        assert token_cache_key(audience, scope, bare) == token_cache_key(audience, scope, with_facts)
+
+    def test_different_audience_or_scope_changes_key(self):
+        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE, rse_id='rse-1')
+        base = token_cache_key('davs.example.org', 'storage.read:/data', ctx)
+        assert token_cache_key('other.example.org', 'storage.read:/data', ctx) != base
+        assert token_cache_key('davs.example.org', 'storage.modify:/data', ctx) != base
+
+
 class TestTokenRequestCache:
 
     def _oidc_ready(self):
@@ -293,7 +309,7 @@ class TestTokenRequestCache:
         ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
         with self._oidc_ready():
             assert TokenRequest.default('fts.example.org', 'fts', ctx) == 'tok-fresh'
-        key = hashlib.md5(b'audience=fts.example.org;scope=fts').hexdigest()
+        key = token_cache_key('fts.example.org', 'fts', ctx)
         mock_region.set.assert_called_once_with(key, 'tok-fresh')
 
     @patch('rucio.core.token.request.REGION')
@@ -372,34 +388,60 @@ class TestTokenManagedDefault:
         assert TokenManaged.default(ctx, 'not-a-jwt') is False
 
 
-class TestUnmanagedTokensParam:
+class TestUnmanagedTokensForJob:
+
+    def _items(self, *jwts: str, rse_type: Optional[str] = None) -> list[JobTransferToken]:
+        return [JobTransferToken(token=token, rse_type=rse_type) for token in jwts]
 
     def test_all_managed(self):
-        tokens = [
+        tokens = self._items(
             _unsigned_jwt('src.example.org', 'offline_access storage.read:/data'),
             _unsigned_jwt('dst.example.org', 'offline_access storage.modify:/data'),
-        ]
-        assert _unmanaged_tokens_param(tokens, vo=None) is False
+        )
+        assert unmanaged_tokens_for_job(tokens, vo=None) is False
 
     def test_all_unmanaged(self):
-        tokens = [
+        tokens = self._items(
             _unsigned_jwt('src.example.org', 'storage.read:/data'),
             _unsigned_jwt('dst.example.org', 'storage.modify:/data'),
-        ]
-        assert _unmanaged_tokens_param(tokens, vo=None) is True
+        )
+        assert unmanaged_tokens_for_job(tokens, vo=None) is True
 
     def test_mixed_prefers_managed(self):
-        tokens = [
+        tokens = self._items(
             _unsigned_jwt('src.example.org', 'offline_access storage.read:/data'),
             _unsigned_jwt('dst.example.org', 'storage.modify:/data'),
-        ]
+        )
         logged = []
 
         def logger(level, msg, *args):
             logged.append((level, msg % args if args else msg))
 
-        assert _unmanaged_tokens_param(tokens, vo=None, logger=logger) is False
+        assert unmanaged_tokens_for_job(tokens, vo=None, logger=logger) is False
         assert logged == [(logging.WARNING, 'Mixed managed and unmanaged storage tokens in one FTS job; submitting as managed')]
 
     def test_empty_is_managed(self):
-        assert _unmanaged_tokens_param([], vo=None) is False
+        assert unmanaged_tokens_for_job([], vo=None) is False
+
+    def test_default_ignores_disk_vs_tape(self):
+        managed = _unsigned_jwt('src.example.org', 'offline_access storage.read:/data')
+        tokens = [
+            JobTransferToken(token=managed, rse_type='DISK'),
+            JobTransferToken(token=managed, rse_type='TAPE'),
+        ]
+        assert unmanaged_tokens_for_job(tokens, vo=None) is False
+
+    def test_fts3_collector_passes_rse_type_facts(self):
+        src = _unsigned_jwt('src.example.org', 'storage.read:/data')
+        dst = _unsigned_jwt('dst.example.org', 'storage.modify:/data')
+        files = [{
+            'source_tokens': [src],
+            'destination_tokens': [dst],
+            'metadata': {'src_type': 'DISK', 'dst_type': 'TAPE'},
+        }]
+        items = _job_transfer_tokens_from_files(files)
+        assert [(i.operation, i.rse_type, i.token) for i in items] == [
+            (StorageTokenOperation.TPC_SOURCE, 'DISK', src),
+            (StorageTokenOperation.TPC_DESTINATION, 'TAPE', dst),
+        ]
+        assert unmanaged_tokens_for_job(items, vo=None) is True
