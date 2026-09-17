@@ -42,6 +42,7 @@ rucio rse add XRD4
 rucio rse add XRD5
 rucio rse add SSH1
 rucio rse add WEB1
+rucio rse add GARAGE
 
 # Add the protocol definitions for the storage servers
 rucio rse protocol add --host xrd1 --scheme root --prefix //rucio --port 1094 --impl rucio.rse.protocols.xrootd.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' XRD1
@@ -56,6 +57,7 @@ rucio rse protocol add --host ssh1 --scheme rsync --prefix /rucio --port 22 --im
 rucio rse protocol add --host ssh1 --scheme rclone --prefix /rucio --port 22 --impl rucio.rse.protocols.rclone.Default --domain-json '{"wan": {"read": 3, "write": 3, "delete": 3, "third_party_copy_read": 3, "third_party_copy_write": 3}, "lan": {"read": 3, "write": 3, "delete": 3}}' SSH1
 rucio rse protocol add --host web1 --scheme davs --prefix /rucio --port 443 --impl rucio.rse.protocols.gfal.Default --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 2}, "lan": {"read": 1, "write": 1, "delete": 1}}' WEB1
 rucio rse protocol add --host web1 --scheme magnet --prefix /var/www/webdav/data/rucio/ --port 10000 --impl rucio.rse.protocols.bittorrent.Default --domain-json '{"wan": {"read": 2, "write": 0, "delete": 0, "third_party_copy_read": 2, "third_party_copy_write": 2}, "lan": {"read": 2, "write": 0, "delete": 0}}' WEB1
+rucio rse protocol add --host garage --scheme https --prefix /garage --port 443 --impl rucio.rse.protocols.gfal.NoRename --domain-json '{"wan": {"read": 1, "write": 1, "delete": 1, "third_party_copy_read": 1, "third_party_copy_write": 1}, "lan": {"read": 1, "write": 1, "delete": 1}}' GARAGE
 
 # Set test_container_xrd attribute for xrd containers
 rucio rse attribute add XRD1 --key test_container_xrd --value True
@@ -72,6 +74,11 @@ rucio rse attribute add WEB1 --key verify_checksum --value False
 rucio rse attribute add WEB1 --key bittorrent_driver --value qbittorrent
 rucio rse attribute add WEB1 --key qbittorrent_management_address --value https://web1:8099/
 rucio rse attribute add WEB1 --key bittorrent_tracker_addr --value http://web1:10001/announce
+rucio rse attribute add GARAGE --key sign_url --value s3
+rucio rse attribute add GARAGE --key skip_upload_stat --value True
+rucio rse attribute add GARAGE --key verify_checksum --value False
+rucio rse attribute add GARAGE --key strict_copy --value True
+rucio rse attribute add GARAGE --key s3_url_style --value path
 
 # Workaround, xrootd.py#connect returns with Auth Failed due to execution of the command in subprocess
 XrdSecPROTOCOL=gsi XRD_REQUESTTIMEOUT=10 XrdSecGSISRVNAMES=xrd1 xrdfs xrd1:1094 query config xrd1:1094
@@ -111,6 +118,7 @@ rucio account limit add root --rse XRD2 --bytes -1
 rucio account limit add root --rse XRD3 --bytes -1
 rucio account limit add root --rse XRD4 --bytes -1
 rucio account limit add root --rse SSH1 --bytes -1
+rucio account limit add root --rse GARAGE --bytes -1
 
 # Create a default scope for testing
 rucio scope add test --account root
