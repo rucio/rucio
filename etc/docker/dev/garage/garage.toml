@@ -1,0 +1,19 @@
+metadata_dir = "/meta"
+data_dir = "/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "ec245672056fb875f685d3052506fb618281c3b58ac99c34fd216186f627d8a2"  # testing only
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".garage"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".garage"
+add_host_to_metrics = false

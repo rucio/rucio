@@ -12,6 +12,12 @@
     "progress_meter": "False",
     "skip_existing": "False"
   },
+  "garage.replace.with.rseid": {
+    "access_key": "GK3f770a3b643e6306c68992186a72TEST",
+    "secret_key": "a1c7029dc9e39e66e7cbaa873eae9d35975a2b66283954aa678bbd9661ebTEST",
+    "signature_version": "s3v4",
+    "region": "garage"
+  },
   "posix": {},
   "DESY-ZN_SCRATCHDISK": {
     "auth_type": "cert",
