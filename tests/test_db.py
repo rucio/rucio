@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import delete, select, text
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import TimeoutError as SQLATimeoutError
 
 from rucio.common.exception import DatabaseException, InputValidationError
@@ -150,3 +151,12 @@ class TestDbSession:
 
         with db_session(DatabaseOperationType.READ) as session:
             assert _config_rows(section, session) == []
+
+    def test_session_is_closed_after_block(self, section):
+        """ DB (CORE): db_session closes the session when the block ends """
+        with db_session(DatabaseOperationType.WRITE) as session:
+            row = models.Config(section=section, opt='closed', value='yes')
+            row.save(session=session)
+
+        assert not session.in_transaction()
+        assert sa_inspect(row).detached
