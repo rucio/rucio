@@ -15,10 +15,13 @@
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import delete, select, text
 
 from rucio.common.exception import InputValidationError
-from rucio.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, get_session
+from rucio.common.utils import generate_uuid
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import NullPool, QueuePool, SingletonThreadPool, _get_engine_poolclass, db_session, get_session
 
 
 def test_db_connection():
@@ -72,3 +75,39 @@ def test_pooloverload():
             'Please try again in a few minutes.' in response.data.decode())
 
     patch.stopall()
+
+
+def _config_rows(section, session):
+    """ Returns the (opt, value) pairs stored in the config table for the given section. """
+    stmt = select(
+        models.Config.opt,
+        models.Config.value
+    ).where(
+        models.Config.section == section
+    )
+    return [tuple(row) for row in session.execute(stmt)]
+
+
+@pytest.mark.noparallel(reason='Uses the config table, which reset_config_table clears.')
+class TestDbSession:
+
+    @pytest.fixture
+    def section(self):
+        """ A unique config section for one test; its rows are removed afterwards. """
+        section = f'test_db_session_{generate_uuid()[:8]}'
+        yield section
+        with db_session(DatabaseOperationType.WRITE) as session:
+            stmt = delete(
+                models.Config
+            ).where(
+                models.Config.section == section
+            )
+            session.execute(stmt)
+
+    def test_write_commits_on_success(self, section):
+        """ DB (CORE): db_session WRITE commits on success """
+        with db_session(DatabaseOperationType.WRITE) as session:
+            models.Config(section=section, opt='committed', value='yes').save(session=session)
+
+        with db_session(DatabaseOperationType.READ) as session:
+            assert _config_rows(section, session) == [('committed', 'yes')]
