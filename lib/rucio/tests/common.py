@@ -63,6 +63,11 @@ with_each_cli_renderer = pytest.mark.parametrize("file_config_mock", [
 
 
 class _CliRunner(CliRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        if getattr(self, "mix_stderr", False):
+            self.mix_stderr = False
+
     @contextlib.contextmanager
     def isolation(
         self,
@@ -96,10 +101,7 @@ def execute_cli(cmd: str) -> tuple[int, str, str]:
 
     previous_sigint = signal.getsignal(signal.SIGINT)
     try:
-        runner = _CliRunner()
-        if getattr(runner, "mix_stderr", False):
-            setattr(runner, "mix_stderr", False)
-        result = runner.invoke(main, args, catch_exceptions=False)
+        result = _CliRunner().invoke(main, args, catch_exceptions=False)
     finally:
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGINT, previous_sigint)
