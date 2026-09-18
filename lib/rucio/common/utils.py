@@ -312,12 +312,46 @@ def parse_response(data: Union[str, bytes, bytearray]) -> Any:
     return json.loads(data, object_hook=datetime_parser)
 
 
+def execute_args(
+    args: "Sequence[str]",
+    env: Optional["Mapping[str, str]"] = None,
+) -> tuple[int, str, str]:
+    """
+    Executes a command in a subprocess.
+    Passes args sequence to subprocess.Popen,
+    safeguards against possible shell injection from execute.
+
+    :param args: Process and arguments to execute in form of a string sequence
+    :param env: Optional additional environment variables to pass to the process
+    :return: a tuple containing (exitcode, out, err)
+    """
+
+    if env is not None:
+        env = dict(os.environ, **env)
+
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+
+    (out, err) = process.communicate()
+    return process.returncode, out.decode(), err.decode()
+
+
 def execute(cmd: str) -> tuple[int, str, str]:
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output
     from stdout and err is the string output from stderr when
     executing the command.
+
+    The command string is interpreted by a shell.
+    Prefer execute_args to avoid accidental os command injection.
+    Where a shell cannot be avoided, the string can be created
+    by using the Python shlex module, e.g. with shlex.join().
 
     :param cmd: Command string to execute
     """
