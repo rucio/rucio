@@ -121,3 +121,11 @@ class TestDbSession:
 
         with db_session(DatabaseOperationType.READ) as session:
             assert _config_rows(section, session) == []
+
+    def test_read_never_commits(self, section):
+        """ DB (CORE): db_session READ never commits """
+        with db_session(DatabaseOperationType.READ) as session:
+            models.Config(section=section, opt='not_committed', value='no').save(session=session)
+
+        with db_session(DatabaseOperationType.READ) as session:
+            assert _config_rows(section, session) == []
