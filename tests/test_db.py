@@ -16,8 +16,9 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import delete, select, text
+from sqlalchemy.exc import TimeoutError as SQLATimeoutError
 
-from rucio.common.exception import InputValidationError
+from rucio.common.exception import DatabaseException, InputValidationError
 from rucio.common.utils import generate_uuid
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DatabaseOperationType
@@ -126,6 +127,26 @@ class TestDbSession:
         """ DB (CORE): db_session READ never commits """
         with db_session(DatabaseOperationType.READ) as session:
             models.Config(section=section, opt='not_committed', value='no').save(session=session)
+
+        with db_session(DatabaseOperationType.READ) as session:
+            assert _config_rows(section, session) == []
+
+    def test_database_error_becomes_database_exception(self, section):
+        """ DB (CORE): db_session turns a failing statement into DatabaseException and rolls back """
+        with pytest.raises(DatabaseException):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                models.Config(section=section, opt='failed', value='no').save(session=session)
+                session.execute(text('SELECT 1 FROM table_that_does_not_exist'))
+
+        with db_session(DatabaseOperationType.READ) as session:
+            assert _config_rows(section, session) == []
+
+    def test_timeout_error_becomes_database_exception(self, section):
+        """ DB (CORE): db_session turns a pool TimeoutError into DatabaseException and rolls back """
+        with pytest.raises(DatabaseException):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                models.Config(section=section, opt='timed_out', value='no').save(session=session)
+                raise SQLATimeoutError('pool timeout')
 
         with db_session(DatabaseOperationType.READ) as session:
             assert _config_rows(section, session) == []
