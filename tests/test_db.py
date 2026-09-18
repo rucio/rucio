@@ -111,3 +111,13 @@ class TestDbSession:
 
         with db_session(DatabaseOperationType.READ) as session:
             assert _config_rows(section, session) == [('committed', 'yes')]
+
+    def test_write_rolls_back_and_reraises_on_error(self, section):
+        """ DB (CORE): db_session WRITE rolls back and re-raises on error """
+        with pytest.raises(RuntimeError, match='abort'):
+            with db_session(DatabaseOperationType.WRITE) as session:
+                models.Config(section=section, opt='rolled_back', value='no').save(session=session)
+                raise RuntimeError('abort')
+
+        with db_session(DatabaseOperationType.READ) as session:
+            assert _config_rows(section, session) == []
