@@ -1,6 +1,6 @@
 # All dependencies needed to run rucio server/daemons should be defined here
 requests==2.32.5                                            # Python HTTP for Humans.
-urllib3==1.26.19, <2                                        # HTTP library with thread-safe connection pooling, file post, etc. to be updated to 2.0 once Python 3.10 is the minimum version: https://github.com/boto/botocore/issues/3138
+urllib3==2.5.0                                        # HTTP library with thread-safe connection pooling, file post, etc. to be updated to 2.0 once Python 3.10 is the minimum version: https://github.com/boto/botocore/issues/3138
 dogpile.cache==1.2.2                                        # Caching API plugins (1.1.2 is the first version to support pymemcache)
 tabulate==0.9.0                                             # Pretty-print tabular data
 jsonschema==4.25.1                                          # For JSON schema validation (Policy modules)
