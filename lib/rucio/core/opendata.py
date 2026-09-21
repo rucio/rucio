@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import json
 import logging
 import time
 from re import match, search
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 from dogpile.cache.api import NoValue
@@ -39,7 +40,7 @@ from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -57,6 +58,7 @@ EOS_PROBE_NEGATIVE_REGION = MemcacheRegion(expiration_time=300)
 # expiration time of the file listing cache (REGION above) so that download
 # URLs served from the cache always carry a still-valid token.
 DEFAULT_EOS_TOKEN_LIFETIME_SECONDS = 4 * 3600
+OPENDATA_DID_FILES_CACHE_VERSION = 2
 
 
 def is_valid_opendata_did_state(state: str) -> bool:
@@ -292,95 +294,203 @@ def get_opendata_record_id(
         return int(result["record_id"])
 
 
+def _raise_on_temporary_http_error(
+    response: requests.Response,
+    *,
+    operation: str,
+    host: str,
+) -> None:
+    """
+    Raise an exception when an HTTP response represents a temporary failure.
+
+    HTTP 408 (Request Timeout), 429 (Too Many Requests), and all 5xx responses
+    are considered temporary failures and are reported as
+    ``ResourceTemporaryUnavailable``.
+
+    Args:
+        response: HTTP response to inspect.
+        operation: Description of the operation being performed.
+        host: Host against which the operation was performed.
+
+    Raises:
+        ResourceTemporaryUnavailable: If the response status code indicates
+            a temporary HTTP failure.
+    """
+    if response.status_code in {408, 429} or response.status_code >= 500:
+        raise exception.ResourceTemporaryUnavailable(
+            f"{operation} is temporarily unavailable for {host}."
+        )
+
+
 def _is_eos_host(host: str) -> bool:
     """
     Probe ``host`` to determine whether it exposes the EOS REST gateway.
 
-    Calls the documented ``version_cmd`` endpoint of the EOS REST gateway
-    (defined in ``proto/eos_rest_gateway/eos_rest_gateway_service.proto`` in
-    the cern-eos/eos repository). A genuine EOS instance returns its
-    standard command envelope ``{"retc": "0", "stdOut": "...", "stdErr": ""}``
-    where ``stdOut`` carries an ``EOS_SERVER_VERSION=`` line. The probe is
-    read-only and does not require client-cert auth.
+    Calls the documented ``version_cmd`` endpoint of the EOS REST gateway.
+    A genuine EOS instance returns its standard command envelope
+    ``{"retc": "0", "stdOut": "...", "stdErr": ""}``, where ``stdOut``
+    contains an ``EOS_SERVER_VERSION=`` line.
 
-    Positive results are cached for a long time; negative results for a short
-    window so transient probe failures (network blips, gateway restarts) do
-    not lock a host out indefinitely.
+    Positive and confirmed negative results are cached. Transient transport,
+    server, or response-decoding failures are propagated as
+    ``ResourceTemporaryUnavailable`` and are not negative-cached.
+
+    Args:
+        host: Host authority to probe, including the port if present
+            (e.g. ``eospilot.cern.ch:8444``).
+
+    Returns:
+        True if the host is confirmed to expose an EOS REST gateway,
+        False if it is confirmed not to expose one.
+
+    Raises:
+        ResourceTemporaryUnavailable: If the probe cannot be completed due
+            to a temporary transport or server failure, an invalid response,
+            or a failed EOS probe command.
     """
     cached = EOS_PROBE_REGION.get(host)
     if not isinstance(cached, NoValue):
         return bool(cached)
+
     cached_neg = EOS_PROBE_NEGATIVE_REGION.get(host)
     if not isinstance(cached_neg, NoValue):
         return bool(cached_neg)
 
-    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
-    timeout = config_get_int("opendata", "eos_probe_timeout", raise_exception=False, default=3)
+    ca_bundle = config_get(
+        "opendata",
+        "eos_ca_bundle",
+        raise_exception=False,
+        default="/etc/grid-security/ca.pem",
+    )
+    timeout = config_get_int(
+        "opendata",
+        "eos_probe_timeout",
+        raise_exception=False,
+        default=3,
+    )
+
+    # The EOS REST gateway is always exposed over HTTPS. This is independent
+    # from the replica PFN scheme.
     url = f"https://{host}/v1/eos/rest/gateway/version_cmd"
 
-    is_eos = False
     try:
         response = requests.post(
             url,
             json={},
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
             verify=ca_bundle,
             timeout=timeout,
             allow_redirects=False,
         )
-        if response.status_code == 200:
-            try:
-                payload = response.json()
-            except ValueError:
-                payload = None
-            if (
-                isinstance(payload, dict)
-                and str(payload.get("retc")) == "0"
-                and "EOS_SERVER_VERSION=" in payload.get("stdOut", "")
-            ):
-                is_eos = True
-        if not is_eos:
-            logger.info(
-                "Host %s did not respond as an EOS REST gateway (status=%s).",
-                host, response.status_code,
-            )
-    except Exception as e:
-        logger.warning("EOS probe failed for %s: %s", host, e)
+    except (requests.exceptions.RequestException, OSError) as error:
+        logger.warning(
+            "Failed to probe host %s for EOS REST gateway support: %s",
+            host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"Unable to probe {host} for EOS REST gateway support."
+        ) from error
+
+    _raise_on_temporary_http_error(
+        response,
+        operation="REST gateway probe",
+        host=host,
+    )
+
+    if response.status_code != 200:
+        logger.info(
+            "Host %s did not respond as an EOS REST gateway "
+            "(status=%s).",
+            host,
+            response.status_code,
+        )
+        EOS_PROBE_NEGATIVE_REGION.set(host, False)
+        return False
+
+    try:
+        payload = response.json()
+    except ValueError as error:
+        logger.warning(
+            "Failed to decode REST gateway probe response from %s: %s",
+            host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"REST gateway probe returned an invalid response for {host}."
+        ) from error
+
+    if not isinstance(payload, dict):
+        logger.warning(
+            "REST gateway probe for %s returned an unexpected response type.",
+            host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"REST gateway probe returned an invalid response for {host}."
+        )
+
+    if "retc" in payload and str(payload["retc"]) != "0":
+        logger.warning(
+            "EOS probe command failed for %s: retc=%s, stderr=%s",
+            host,
+            payload.get("retc"),
+            payload.get("stdErr", ""),
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"REST gateway probe command failed for {host}."
+        )
+
+    std_out = payload.get("stdOut", "")
+
+    is_eos = (
+        str(payload.get("retc")) == "0"
+        and isinstance(std_out, str)
+        and "EOS_SERVER_VERSION=" in std_out
+    )
 
     if is_eos:
         EOS_PROBE_REGION.set(host, True)
     else:
         EOS_PROBE_NEGATIVE_REGION.set(host, False)
+
     return is_eos
 
 
 def _eos_grpc_gateway_token_command(
-        eos_host: str,
-        filename: str,
-        lifetime_seconds: int,
-) -> Optional[str]:
+    eos_host: str,
+    filename: str,
+    lifetime_seconds: int,
+) -> str:
     """
-    Sends a POST request to the EOS GRPC REST Gateway to generate an access token.
-    The following environment configuration may need to be set on the target EOS instance: `EOS_MGM_ENABLE_REST_API=1`
+    Send a POST request to the EOS GRPC REST gateway to generate an access token.
+
+    The EOS REST gateway is always contacted over HTTPS, independently of the
+    replica PFN scheme.
 
     Args:
-        eos_host: The hostname/URL of the EOS instance (e.g., 'https://eospilot.cern.ch' or just 'eospilot.cern.ch').
-        filename: The path the token should grant access to.
-        lifetime_seconds: How many seconds the token should be valid for.
+        eos_host: EOS REST gateway authority, including the port if present
+            (e.g. ``eospilot.cern.ch:8444``).
+        filename: Path the token should grant read access to.
+        lifetime_seconds: Number of seconds the token should remain valid.
 
     Returns:
-        Optional[str]: The raw token string if successful, or None if the token could not be fetched.
+        The raw token string when token generation succeeds.
+
+    Raises:
+        ResourceTemporaryUnavailable: If the EOS token service cannot be
+            contacted, returns a temporary HTTP failure, or returns an invalid
+            response.
+        OpenDataError: If the EOS token service returns a non-temporary HTTP
+            error, rejects the token-generation command, or returns unexpected
+            token output.
     """
-    # Calculate the exact expiration Unix timestamp
     expires_at = int(time.time()) + lifetime_seconds
 
-    # Ensure the host has a valid HTTP scheme before we construct the URL
-    if not eos_host.startswith("http://") and not eos_host.startswith("https://"):
-        eos_host = f"https://{eos_host}"
-
-    # Construct the endpoint URL
-    eos_host = eos_host.rstrip('/')
-    url = f"{eos_host}/v1/eos/rest/gateway/token_cmd"
+    eos_host = eos_host.rstrip("/")
+    url = f"https://{eos_host}/v1/eos/rest/gateway/token_cmd"
 
     payload = {
         "path": filename,
@@ -390,16 +500,29 @@ def _eos_grpc_gateway_token_command(
 
     headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Accept": "application/json",
     }
 
-    # This is the default location the FTS renewal daemon uses to store the proxy.
-    cert = key = config_get("opendata", "eos_proxy_path", raise_exception=False, default="/opt/proxy/x509up")
+    cert = key = config_get(
+        "opendata",
+        "eos_proxy_path",
+        raise_exception=False,
+        default="/opt/proxy/x509up",
+    )
 
-    # Grid CA bundle for SSL verification
-    ca_bundle = config_get("opendata", "eos_ca_bundle", raise_exception=False, default="/etc/grid-security/ca.pem")
+    ca_bundle = config_get(
+        "opendata",
+        "eos_ca_bundle",
+        raise_exception=False,
+        default="/etc/grid-security/ca.pem",
+    )
 
-    timeout = config_get_int("opendata", "eos_token_request_timeout", raise_exception=False, default=5)
+    timeout = config_get_int(
+        "opendata",
+        "eos_token_request_timeout",
+        raise_exception=False,
+        default=5,
+    )
 
     try:
         response = requests.post(
@@ -409,68 +532,341 @@ def _eos_grpc_gateway_token_command(
             cert=(cert, key),
             verify=ca_bundle,
             timeout=timeout,
+            allow_redirects=False,
         )
-        response.raise_for_status()
+    except (requests.exceptions.RequestException, OSError) as error:
+        logger.warning(
+            "Failed to request EOS token for '%s' on %s: %s",
+            filename,
+            eos_host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token request could not be completed for {eos_host}."
+        ) from error
+
+    _raise_on_temporary_http_error(
+        response,
+        operation="EOS token service",
+        host=eos_host,
+    )
+
+    if response.status_code != 200:
+        logger.warning(
+            "EOS token service returned HTTP %s for '%s' on %s.",
+            response.status_code,
+            filename,
+            eos_host,
+        )
+        raise exception.OpenDataError(
+            f"EOS token generation failed for {eos_host}: "
+            f"HTTP {response.status_code}."
+        )
+
+    try:
         response_data = response.json()
+    except ValueError as error:
+        logger.warning(
+            "Failed to decode EOS token response for '%s' on %s: %s",
+            filename,
+            eos_host,
+            error,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token service returned an invalid response for {eos_host}."
+        ) from error
 
-        token = response_data.get("stdOut", "").strip()
+    if not isinstance(response_data, dict):
+        logger.warning(
+            "EOS token service returned an unexpected response type "
+            "for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token service returned an invalid response for {eos_host}."
+        )
 
-        if not token:
-            logger.warning("EOS GRPC Gateway returned an empty token for '%s' on %s.", filename, eos_host)
-            return None
+    try:
+        retc = int(response_data["retc"])
+    except (KeyError, TypeError, ValueError) as error:
+        logger.warning(
+            "EOS token service returned an invalid return code "
+            "for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token service returned an invalid response for {eos_host}."
+        ) from error
 
-        return token
-    except Exception as e:
-        logger.warning("Error fetching EOS GRPC token for '%s' on %s: %s", filename, eos_host, e)
-        return None
+    if retc != 0:
+        logger.warning(
+            "EOS token command failed for '%s' on %s: retc=%s, stderr=%s",
+            filename,
+            eos_host,
+            retc,
+            response_data.get("stdErr", ""),
+        )
+        raise OpenDataError(
+            f"EOS token generation failed for {eos_host}: retc={retc}."
+        )
+
+    token_output = response_data.get("stdOut", "")
+
+    if not isinstance(token_output, str) or not token_output.strip():
+        logger.warning(
+            "EOS token service returned an empty token for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise exception.ResourceTemporaryUnavailable(
+            f"EOS token generation failed for {eos_host}."
+        )
+
+    token_lines = [
+        line.strip()
+        for line in token_output.splitlines()
+        if line.strip()
+    ]
+
+    token = token_lines[0] if len(token_lines) == 1 else ""
+
+    if (
+        not token.startswith("zteos64:")
+        or len(token) <= len("zteos64:")
+    ):
+        logger.warning(
+            "EOS token service returned unexpected token output "
+            "for '%s' on %s.",
+            filename,
+            eos_host,
+        )
+        raise OpenDataError(
+            f"EOS token generation returned unexpected output for {eos_host}."
+        )
+
+    return token
+
+
+def _format_url_authority(host: str, port: Optional[int]) -> str:
+    """
+    Format a hostname and optional port as a valid URL authority.
+
+    IPv6 hostnames returned by urlparse().hostname do not contain the
+    brackets required when used inside a URL.
+    """
+    if ":" in host:
+        host = f"[{host}]"
+
+    if port is not None:
+        return f"{host}:{port}"
+
+    return host
+
+
+def _append_authz_query_parameter(uri: str, token: str) -> str:
+    """
+    Append an authz parameter without reparsing or rebuilding the existing query.
+
+    The original query string is preserved verbatim so repeated parameters,
+    valueless flags, ordering, and existing percent-encoding are not changed.
+    """
+    parsed = urlparse(uri)
+    authz_query = urlencode({"authz": token})
+
+    if parsed.query:
+        query = f"{parsed.query}&{authz_query}"
+    else:
+        query = authz_query
+
+    return parsed._replace(query=query).geturl()
 
 
 def _generate_download_urls(uris: list[str]) -> list[str]:
     """
     Build tokenized download URLs for the given replica URIs.
 
-    Only URIs whose host answers the EOS REST gateway probe are considered;
-    for those, a read-only EOS token scoped to the file path is requested and
-    appended to the URI as a ``token`` query parameter. URIs on non-EOS hosts
-    or for which no token could be obtained are skipped.
+    Only valid HTTP(S) or DAV(S) URIs whose host exposes an EOS REST gateway are
+    considered. For each eligible URI, a read-only EOS token scoped to the
+    file path is requested and appended as an ``authz`` query parameter.
+
+    Malformed URIs, unsupported schemes, and confirmed non-EOS hosts are
+    skipped. Temporary EOS failures are tolerated while other independent
+    replicas are tried and are propagated if no download URL can be generated.
 
     Args:
-        uris: The replica URIs (e.g. 'root://eos.example:1094//eos/path/file.root').
+        uris: Replica URIs to process.
 
     Returns:
-        The list of download URLs, possibly empty.
+        The successfully generated tokenized download URLs. The list may be
+        empty if none of the provided URIs can be used.
+
+    Raises:
+        ResourceTemporaryUnavailable: If no download URL can be generated
+            and at least one EOS backend operation failed temporarily.
+        OpenDataError: If no download URL can be generated and at least one
+            EOS backend operation failed permanently.
     """
     lifetime = config_get_int("opendata", "eos_token_lifetime", raise_exception=False,
                               default=DEFAULT_EOS_TOKEN_LIFETIME_SECONDS)
 
     download_urls = []
+
+    # The token lifetime and permission are constant within this invocation.
+    # Therefore, authority and normalized path identify the authorization scope.
+    token_cache: dict[tuple[str, str], Optional[str]] = {}
+
+    temporary_error: Optional[
+        exception.ResourceTemporaryUnavailable
+    ] = None
+    permanent_error: Optional[OpenDataError] = None
+
     for uri in uris:
         try:
             parsed = urlparse(uri)
+            host = parsed.hostname
+            port = parsed.port
         except ValueError:
-            logger.debug("Skipping malformed replica URI '%s'.", uri)
+            logger.warning("Skipping malformed replica URI '%s'.", uri)
             continue
 
-        host = parsed.hostname
-        if not host or not _is_eos_host(host):
+        if parsed.scheme not in {"http", "https", "dav", "davs"} or not host:
+            logger.debug(
+                "Skipping replica URI '%s': only HTTP(S) and DAV(S) replicas are supported.",
+                uri,
+            )
             continue
+
+        eos_authority = _format_url_authority(host, port)
 
         path = parsed.path
-        # PFNs such as 'root://host:1094//eos/path' carry a double slash before the path
+
+        # PFNs such as https://host:8444//eos/path contain a double
+        # slash between the authority and EOS path.
         if path.startswith("//"):
             path = path[1:]
 
-        token = _eos_grpc_gateway_token_command(
-            eos_host=host,
-            filename=path,
-            lifetime_seconds=lifetime,
+        token_scope = (eos_authority, path)
+
+        try:
+            if token_scope not in token_cache:
+                if not _is_eos_host(eos_authority):
+                    token_cache[token_scope] = None
+                else:
+                    token_cache[token_scope] = (
+                        _eos_grpc_gateway_token_command(
+                            eos_host=eos_authority,
+                            filename=path,
+                            lifetime_seconds=lifetime,
+                        )
+                    )
+        except exception.ResourceTemporaryUnavailable as error:
+            # Do not immediately fail: another independent replica may work.
+            token_cache[token_scope] = None
+
+            if temporary_error is None:
+                temporary_error = error
+            continue
+        except OpenDataError as error:
+            # A non-retryable failure for one replica must not prevent
+            # trying other independent replicas.
+            token_cache[token_scope] = None
+            if permanent_error is None:
+                permanent_error = error
+            continue
+
+        token = token_cache[token_scope]
+
+        if not token:
+            continue
+
+        download_urls.append(
+            _append_authz_query_parameter(uri, token)
         )
 
-        if token:
-            separator = "&" if "?" in uri else "?"
-            download_urls.append(f"{uri}{separator}token={token}")
+    # If at least one independent replica worked, return it. Otherwise,
+    # preserve the temporary nature of any EOS backend outage.
+    if not download_urls:
+        if temporary_error is not None:
+            raise temporary_error
+
+        if permanent_error is not None:
+            raise permanent_error
 
     return download_urls
+
+
+def _extract_disk_uris(
+    replicas: "Iterable[dict[str, Any]]",
+) -> list[str]:
+    """
+    Extract DISK replica URIs from ``list_replicas`` results.
+
+    Args:
+        replicas: Replica entries returned by ``list_replicas``.
+
+    Returns:
+        The PFN URIs whose replica type is ``DISK``.
+    """
+    uris = []
+
+    for replica in replicas:
+        for uri, data in replica["pfns"].items():
+            if data["type"] != "DISK":
+                continue
+            uris.append(uri)
+
+    return uris
+
+
+def _index_disk_uris_by_did(
+    replicas: "Iterable[dict[str, Any]]",
+) -> dict[tuple["InternalScope", str], list[str]]:
+    """
+    Index DISK PFNs by DID.
+    """
+    result: dict[tuple["InternalScope", str], list[str]] = {}
+
+    for replica in replicas:
+        key = (replica["scope"], replica["name"])
+        result.setdefault(key, []).extend(
+            _extract_disk_uris([replica])
+        )
+
+    return result
+
+
+def _make_opendata_did_files_cache_key(
+    scope: "InternalScope",
+    name: str,
+    include_download_urls: bool,
+) -> str:
+    """
+    Build a bounded and unambiguous cache key for Open Data DID file listings.
+
+    The complete internal scope is included so cache entries remain isolated
+    between VOs. The structured identity is hashed to avoid ambiguous field
+    concatenation and Memcached's 250-byte key limit.
+    """
+    cache_identity = json.dumps(
+        {
+            "scope": scope.internal,
+            "name": name,
+            "include_download_urls": include_download_urls,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+    digest = hashlib.sha256(
+        cache_identity.encode("utf-8")
+    ).hexdigest()
+
+    return (
+        f"opendata_did_files_v"
+        f"{OPENDATA_DID_FILES_CACHE_VERSION}_{digest}"
+    )
 
 
 def get_opendata_did_files(
@@ -482,23 +878,41 @@ def get_opendata_did_files(
         session: "Session",
 ) -> dict[str, Any]:
     """
-    Retrieve the files and replicas associated with an Opendata DID.
+    Retrieve the files and replicas associated with an OpenData DID.
+
+    When ``include_download_urls`` is enabled, HTTP(S) and DAV(S) replicas are retrieved
+    separately and used to generate tokenized EOS download URLs.
 
     Parameters:
-        scope: The scope of the Opendata DID.
-        name: The name of the Opendata DID.
+        scope: The scope of the OpenData DID.
+        name: The name of the OpenData DID.
         use_cache: If True, use caching to store/retrieve the result. Defaults to False.
-        include_download_urls: If True, include download URLs for the files. Defaults to False.
+        include_download_urls: If True, include tokenized download URLs for the files.
         session: SQLAlchemy session to use for the query.
 
     Returns:
-        A dictionary containing the list of files including replicas, cache hit status, and time elapsed in milliseconds.
+        A dictionary containing the files and their replica URIs, together
+        with cache-hit information and elapsed request time.
+
+    Raises:
+        OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
+        ReplicaNotFound: If download URLs are requested but no suitable
+            replica is available.
+        OpenDataError: If download URL generation fails due to a
+            non-temporary EOS backend error.
+        ResourceTemporaryUnavailable: If download URL generation cannot
+            complete because an EOS backend operation failed temporarily.
     """
 
     time_start = time.perf_counter()
 
-    # Append the include_download_urls flag to the cache key so we don't mix up responses
-    cache_key = f"opendata_did_files_{scope}_{name}_dl_{include_download_urls}"
+    # Build a cache key which uniquely identifies the DID, VO, and
+    # download URL inclusion mode.
+    cache_key = _make_opendata_did_files_cache_key(
+        scope,
+        name,
+        include_download_urls,
+    )
 
     if use_cache:
         file_list = REGION.get(cache_key)
@@ -539,25 +953,82 @@ def get_opendata_did_files(
 
     rse_expression = config_get("opendata", "rse_expression", raise_exception=True)
 
-    for i, file in enumerate(file_list):
-        replicas = list_replicas(
-            dids=[{"scope": file["scope"], "name": file["name"]}],
-            rse_expression=rse_expression, session=session
+    dids = [
+        {
+            "scope": file["scope"],
+            "name": file["name"],
+        }
+        for file in file_list
+    ]
+
+    regular_uris_by_did: dict[tuple["InternalScope", str], list[str]] = {}
+    download_uris_by_did: dict[tuple["InternalScope", str], list[str]] = {}
+
+    if dids:
+        regular_uris_by_did = _index_disk_uris_by_did(
+            list_replicas(
+                dids=dids,
+                rse_expression=rse_expression,
+                session=session,
+            )
         )
-        uris = []
-        for replica in replicas:
-            pfns = replica["pfns"]
-            for uri, data in pfns.items():
-                if data["type"] != "DISK":
-                    continue
-                uris.append(uri)
 
-        file_list[i]["uris"] = uris
+        if include_download_urls:
+            download_uris_by_did = _index_disk_uris_by_did(
+                list_replicas(
+                    dids=dids,
+                    rse_expression=rse_expression,
+                    schemes=["http", "https", "dav", "davs"],
+                    resolve_archives=False,
+                    session=session,
+                )
+            )
 
-    # Process download URLs before we cache the result
     if include_download_urls:
         for file in file_list:
-            file["download_urls"] = _generate_download_urls(file.get("uris", []))
+            did_key = (file["scope"], file["name"])
+            download_uris = download_uris_by_did.get(did_key, [])
+
+            if not download_uris:
+                logger.error(
+                    "No HTTP(S) or DAV(S) DISK replica URI available "
+                    "for OpenData file %s:%s.",
+                    file["scope"],
+                    file["name"],
+                )
+
+                raise exception.ReplicaNotFound(
+                    f"No HTTP(S) or DAV(S) DISK replica URI available "
+                    f"for OpenData file {file['scope']}:{file['name']}."
+                )
+
+    for file in file_list:
+        did_key = (file["scope"], file["name"])
+
+        # Missing regular replicas are represented by an empty URI list.
+        # A suitable replica is required only when download URLs are requested.
+        uris = regular_uris_by_did.get(did_key, [])
+        file["uris"] = uris
+
+        if not include_download_urls:
+            continue
+
+        download_uris = download_uris_by_did[did_key]
+        download_urls = _generate_download_urls(download_uris)
+
+        if not download_urls:
+            logger.error(
+                "Failed to generate download URL for OpenData file %s:%s.",
+                file["scope"],
+                file["name"],
+            )
+
+            raise exception.ReplicaNotFound(
+                f"No suitable EOS download replica available "
+                f"for OpenData file {file['scope']}:{file['name']}."
+            )
+
+        file["download_urls"] = download_urls
 
     # Now that the file_list is fully built (with or without download URLs), cache it
     if use_cache:
@@ -602,7 +1073,21 @@ def get_opendata_did(
 
     Returns:
         A dictionary containing info about the specified DID which include "scope", "name", "state", "meta" (if requested), etc.
+    Raises:
+        OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
+        InvalidRequest: If download URLs are requested without including files.
+        ReplicaNotFound: If download URLs are requested but no suitable
+            replica is available.
+        OpenDataError: If download URL generation fails due to a
+            non-temporary EOS backend error.
+        ResourceTemporaryUnavailable: If download URL generation cannot
+            complete because an EOS backend operation failed temporarily.
     """
+
+    if include_download_urls and not include_files:
+        raise exception.InvalidRequest(
+            "Download URLs require files to be included."
+        )
 
     query = select(
         models.OpenDataDid.scope,

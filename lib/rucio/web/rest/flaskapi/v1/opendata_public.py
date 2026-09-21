@@ -118,7 +118,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
             style: form
           - name: download_urls
             in: query
-            description: "Whether to include download URLs for the files. '1' to include, '0' to exclude. Default is '0'."
+            description: "Whether to include download URLs for the files. Requires 'files=1'. '1' to include, '0' to exclude. Default is '0'."
             schema:
               type: string
               enum: ['0', '1']
@@ -134,9 +134,13 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
           401:
             description: "Access denied: Invalid authentication."
           404:
-            description: "Data Identifier not found."
+            description: "Data Identifier or suitable download replica not found."
           400:
             description: "Invalid request or input parameters."
+          500:
+            description: "EOS backend failed while generating download URLs."
+          503:
+            description: "EOS backend temporarily unavailable while generating download URLs."
         """
 
         return OpenDataDIDsView.get_helper(scope=scope, name=name, public=True)
