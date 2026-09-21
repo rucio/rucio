@@ -80,7 +80,7 @@ class QBittorrentDriver(BittorrentDriver):
         if url.scheme.lower() == 'https':
             token = request_token(audience=url.hostname, scope='qbittorrent_admin')
         else:
-            logging.debug(f'{cls.external_name} will not try token authentication. Requires HTTPS.')
+            logging.debug('%s will not try token authentication. Requires HTTPS.', cls.external_name)
 
         rse_cred = get_rse_credentials().get(rse.id, {})
         username = rse_cred.get('qbittorrent_username')

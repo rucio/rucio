@@ -160,7 +160,7 @@ def attribute_list(ctx: click.Context, account_name: str):
 def attribute_set(ctx: click.Context, account_name: str, key: str, value: str):
     """Add or update an attribute [key] to an account"""
     if key in [attr['key'] for attr in next(ctx.obj.client.list_account_attributes(account_name))]:
-        ctx.obj.logger.debug("key %s already exists for account %s! Overwriting..." % (key, account_name))
+        ctx.obj.logger.debug("key %s already exists for account %s! Overwriting...", key, account_name)
         ctx.obj.client.delete_account_attribute(account=account_name, key=key)
     ctx.obj.client.add_account_attribute(account=account_name, key=key, value=value)
 
