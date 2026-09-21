@@ -40,6 +40,7 @@ FROM base AS python
             ./configure --enable-optimizations --enable-shared --libdir=/usr/local/lib LDFLAGS="-Wl,-rpath /usr/local/lib" && \
             make -j $(nproc) && \
             make altinstall exec_prefix=/usr && \
+            ln -s /usr/include/python${PYTHON}/pyconfig.h /usr/local/include/python${PYTHON}/pyconfig.h && \
             rm -rf Python-${PYTHON_VERSION}.tgz && \
             echo "/usr/local/lib" > /etc/ld.so.conf.d/python${PYTHON}.conf && \
             ldconfig && \
@@ -163,7 +164,7 @@ FROM python AS rucio-runtime
 FROM rucio-runtime AS requirements
     # Install Python dependencies
     COPY requirements /tmp/requirements
-    RUN dnf -y --skip-broken install make gcc krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
+    RUN dnf -y --skip-broken install cmake make gcc gcc-c++ libcurl-devel libuuid-devel zlib-devel krb5-devel xmlsec1-devel xmlsec1-openssl-devel pkg-config libtool-ltdl-devel git && \
         python3 -m pip --no-cache-dir install --upgrade pip && \
         python3 -m pip --no-cache-dir install --upgrade fts3 && \
         python3 -m pip --no-cache-dir install --upgrade setuptools wheel && \

@@ -65,6 +65,7 @@ swift = []
 argcomplete = ['argcomplete']
 sftp = ['paramiko']
 dumper = ['python-magic']
+xrootd = ['xrootd @ git+https://github.com/lobis/xrootd.git@c26d41a0695ca962b08a07dde08e72c511988b46']
 
 [project.urls]
 Homepage = "https://rucio.cern.ch/"
