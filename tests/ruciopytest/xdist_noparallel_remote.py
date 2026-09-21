@@ -53,12 +53,34 @@ class WorkerInteractor(OriginalWorkerInteractor):
             # Add the 'noparallel' markers as strings
             for mark in list(item.iter_markers('noparallel')):
                 noparallel_data = item_data.setdefault('noparallel', [])
-                for g in mark.kwargs.get('groups', [NoParallelGroups.EXCLUSIVE]):
-                    if isinstance(g, NoParallelGroups):
-                        g = g.value
-                    else:
-                        g = str(g)
-                    noparallel_data.append(g)
+
+                # Process positional args: @pytest.mark.noparallel('db_write')
+                positional_groups = []
+                for arg in mark.args:
+                    if isinstance(arg, NoParallelGroups):
+                        positional_groups.append(arg.value)
+                    elif isinstance(arg, str):
+                        positional_groups.append(arg)
+
+                # Process keyword groups: @pytest.mark.noparallel(groups=[...])
+                kwarg_groups = mark.kwargs.get('groups', None)
+
+                if positional_groups:
+                    # Positional args are the groups -- do NOT default to EXCLUSIVE
+                    for g in positional_groups:
+                        noparallel_data.append(g)
+                elif kwarg_groups is not None:
+                    # Explicit groups kwarg
+                    for g in kwarg_groups:
+                        if isinstance(g, NoParallelGroups):
+                            g = g.value
+                        else:
+                            g = str(g)
+                        noparallel_data.append(g)
+                else:
+                    # No positional args, no groups kwarg: default to EXCLUSIVE
+                    # (preserves behavior for @pytest.mark.noparallel(reason='...'))
+                    noparallel_data.append(NoParallelGroups.EXCLUSIVE.value)
 
             collected_items[item.nodeid] = item_data
         return collected_items

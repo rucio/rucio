@@ -1,0 +1,145 @@
+name: VO-specific tests (ruciopytest)
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime_images:
+    uses: ./.github/workflows/runtime_images.yml
+    permissions:
+      contents: read
+      packages: write
+
+  test:
+    needs: [runtime_images]
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - policy: atlas
+            leg: votest-atlas
+            python: "3.9"
+            rdbms: postgres14
+          - policy: belleii
+            leg: votest-belleii
+            python: "3.9"
+            rdbms: postgres14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements/requirements.dev.txt
+
+      - name: Install host plugin deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c requirements/requirements.dev.txt pytest pytest-xdist pyyaml
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Set up Docker Buildx
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Compute image metadata
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        id: imgmeta
+        run: |
+          echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "pynodot=$(echo '${{ matrix.python }}' | tr -d '.')" >> $GITHUB_OUTPUT
+
+      - name: Build runtime image locally
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: etc/docker/test/runtime.Dockerfile
+          target: final
+          build-args: |
+            PYTHON=${{ matrix.python }}
+          push: false
+          tags: ${{ needs.runtime_images.outputs.py39_image }}
+          outputs: type=docker
+          cache-from: type=registry,ref=ghcr.io/${{ steps.imgmeta.outputs.repo }}/rucio-dev-runtime:py${{ steps.imgmeta.outputs.pynodot }}-buildcache
+
+      - name: Run tests
+        env:
+          RUCIO_TEST_IMAGE: ${{ needs.runtime_images.outputs.py39_image }}
+          RDBMS: ${{ matrix.rdbms }}
+          PYTHON: ${{ matrix.python }}
+          POLICY: ${{ matrix.policy }}
+        run: |
+          set -o pipefail
+          mkdir -p test-results
+          python -m pytest \
+            --suite=votest \
+            --policy=${{ matrix.policy }} \
+            --junitxml=test-results/${{ matrix.leg }}-py${{ matrix.python }}.xml \
+            -r fExX \
+            --log-level=DEBUG \
+            -v --tb=short \
+            tests/ 2>&1 | tee test-results/${{ matrix.leg }}-py${{ matrix.python }}.pytest.log
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.leg }}-py${{ matrix.python }}
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Upload container logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-${{ matrix.leg }}-py${{ matrix.python }}
+          path: .test-logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload host logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-logs-${{ matrix.leg }}-py${{ matrix.python }}
+          # .test-forward/ is a dot dir holding the forwarded container's pytest
+          # stdout + JSONL report stream; include-hidden-files is required or the
+          # in-container traceback for a red leg is silently dropped.
+          include-hidden-files: true
+          path: |
+            .test-forward/
+            test-results/${{ matrix.leg }}-py${{ matrix.python }}.pytest.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: test-results/*.xml
+          check_name: Tests - ${{ matrix.leg }} (py${{ matrix.python }})
+          fail_on_failure: true

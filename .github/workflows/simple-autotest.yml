@@ -1,0 +1,267 @@
+name: Simple Autotests
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime_images:
+    uses: ./.github/workflows/runtime_images.yml
+    permissions:
+      contents: read
+      packages: write
+
+  test:
+    needs: [runtime_images]
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: remote_dbs
+            leg: remote_dbs
+            python: "3.9"
+            rdbms: postgres14
+          - suite: remote_dbs
+            leg: remote_dbs
+            python: "3.10"
+            rdbms: postgres14
+          # multi_vo runs as ONE leg (legacy parity): RUCIO_MULTI_VO_LEG is left unset
+          # (no `vo:` field), so InfraManager.run_multi_vo() takes the sequential
+          # shared-DB path -- tst first, then ts2 only on tst success, no DB reset
+          # between VOs. One shared instance, matching run_multi_vo_tests_docker.sh.
+          - suite: multi_vo
+            leg: multi_vo
+            python: "3.9"
+            rdbms: postgres14
+          - suite: client
+            leg: client
+            python: "3.9"
+            rdbms: postgres14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements/requirements.dev.txt
+
+      - name: Install host plugin deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -c requirements/requirements.dev.txt pytest pytest-xdist pyyaml
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Set up Docker Buildx
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Compute image metadata
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        id: imgmeta
+        run: |
+          echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "pynodot=$(echo '${{ matrix.python }}' | tr -d '.')" >> $GITHUB_OUTPUT
+
+      - name: Build runtime image locally
+        if: needs.runtime_images.outputs.build_locally == 'true'
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: etc/docker/test/runtime.Dockerfile
+          target: final
+          build-args: |
+            PYTHON=${{ matrix.python }}
+          push: false
+          tags: ${{ matrix.python == '3.10' && needs.runtime_images.outputs.py310_image || needs.runtime_images.outputs.py39_image }}
+          outputs: type=docker
+          cache-from: type=registry,ref=ghcr.io/${{ steps.imgmeta.outputs.repo }}/rucio-dev-runtime:py${{ steps.imgmeta.outputs.pynodot }}-buildcache
+
+      # ----------------------------------------------------------------
+      # Host-side `client` leg provisioning (legacy autotest path).
+      # Gated to matrix.suite == 'client' so the other 4 legs are untouched.
+      # Mirrors tools/test/test.sh SUITE=client: full rucio install +
+      # `tools/run_tests.sh -i` bootstrap + rucio_client.cfg/cert wiring.
+      # ----------------------------------------------------------------
+      - name: Install full rucio on host (client)
+        if: matrix.suite == 'client'
+        continue-on-error: true
+        run: |
+          # Match the runtime container's env: editable rucio + server + dev reqs.
+          # requirements.client.txt is intentionally NOT installed here: it pins
+          # urllib3>=2.5.0 which is irreconcilable with the server/dev pin
+          # urllib3==1.26.19,<2 (botocore constraint), so server+client+dev cannot
+          # co-resolve in one venv. Legacy runs client tests INSIDE the server
+          # container (urllib3 1.26.19); the client libs ship in `pip install -e .`
+          # and their runtime deps are a subset of the server env, so this is the
+          # legacy-faithful host environment. continue-on-error lets any residual
+          # host-install fragility degrade to the in-container fallback below.
+          # Reuses the setup-python (and its pip cache) from above; no second setup-python.
+          python -m pip install -e . \
+            -r requirements/requirements.server.txt \
+            -r requirements/requirements.dev.txt
+          # test_bin_rucio shells out to the `rucio` CLI; put bin/ on PATH (no console_scripts).
+          echo "$GITHUB_WORKSPACE/bin" >> "$GITHUB_PATH"
+
+      - name: Provision rucio server for client (host)
+        id: client_provision
+        if: matrix.suite == 'client'
+        continue-on-error: true
+        env:
+          RUCIO_TEST_IMAGE: ${{ matrix.python == '3.10' && needs.runtime_images.outputs.py310_image || needs.runtime_images.outputs.py39_image }}
+          RDBMS: ${{ matrix.rdbms }}
+          PYTHON: ${{ matrix.python }}
+        run: |
+          set -x
+          # Dev compose + ports override so the server is reachable on 127.0.0.1:8443
+          # and postgres on 127.0.0.1:5432, with the runtime image built/pulled above.
+          COMPOSE="docker compose -p rucio-client-ci -f etc/docker/dev/docker-compose.yml -f etc/docker/dev/docker-compose.test.override.yml -f etc/docker/dev/docker-compose.ports.yml --profile postgres14"
+          # Bring up server + DB, then run the legacy `-i` bootstrap inside the rucio
+          # container so DB init / bootstrap matches legacy exactly.
+          $COMPOSE up -d --wait rucio
+          $COMPOSE exec -T rucio tools/run_tests.sh -i
+
+          # Wire client cfg + certs into a host RUCIO_HOME pointed at the published server.
+          CLIENT_HOME="$GITHUB_WORKSPACE/.rucio-client-home"
+          mkdir -p "$CLIENT_HOME/etc"
+          cp etc/docker/test/extra/rucio_client.cfg "$CLIENT_HOME/etc/rucio.cfg"
+          # rucio_host/auth_host -> published 8443; cert paths -> checked-in host certs.
+          sed -i \
+            -e "s#https://localhost:443#https://localhost:8443#g" \
+            -e "s#/opt/rucio/etc/certs/rucio_ca.pem#$GITHUB_WORKSPACE/etc/certs/rucio_ca.pem#g" \
+            -e "s#/opt/rucio/etc/certs/ruciouser.pem#$GITHUB_WORKSPACE/etc/certs/ruciouser.pem#g" \
+            -e "s#/opt/rucio/etc/certs/ruciouser.key.pem#$GITHUB_WORKSPACE/etc/certs/ruciouser.key.pem#g" \
+            "$CLIENT_HOME/etc/rucio.cfg"
+          echo "RUCIO_HOME=$CLIENT_HOME" >> "$GITHUB_ENV"
+
+          # Reachability gate: httpd answers AND host collection imports cleanly.
+          # Either failure flips reachable=false -> in-container fallback takes over.
+          reachable=true
+          if ! curl --retry 15 --retry-all-errors --retry-delay 2 -k https://localhost:8443/ping; then
+            reachable=false
+          fi
+          export RUCIO_HOME="$CLIENT_HOME"
+          if ! python -m pytest --suite=client --co -q tests/ ; then
+            reachable=false
+          fi
+          echo "reachable=$reachable" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        if: matrix.suite != 'client' || steps.client_provision.outputs.reachable == 'true'
+        env:
+          RUCIO_TEST_IMAGE: ${{ matrix.python == '3.10' && needs.runtime_images.outputs.py310_image || needs.runtime_images.outputs.py39_image }}
+          RDBMS: ${{ matrix.rdbms }}
+          PYTHON: ${{ matrix.python }}
+          POLICY: ${{ matrix.policy }}
+          # The multi_vo leg leaves `vo:` unset, so this resolves to an empty string and
+          # run_multi_vo() takes the sequential shared-DB path (tst -> ts2, ts2 gated on
+          # tst success). Empty for the non-multi_vo legs too (harness ignores it).
+          # `tst`/`ts2` remain a local/dev single-VO override. The RUCIO_ prefix is
+          # auto-forwarded into the container by forwarding.py, so it reaches run_multi_vo().
+          RUCIO_MULTI_VO_LEG: ${{ matrix.vo }}
+        run: |
+          set -o pipefail
+          mkdir -p test-results
+          python -m pytest \
+            --suite=${{ matrix.suite }} \
+            --junitxml=test-results/${{ matrix.leg }}-py${{ matrix.python }}.xml \
+            -r fExX \
+            --log-level=DEBUG \
+            -v --tb=short \
+            tests/ 2>&1 | tee test-results/${{ matrix.leg }}-py${{ matrix.python }}.pytest.log
+
+      # ----------------------------------------------------------------
+      # Legacy-faithful in-container fallback for the client leg.
+      # Fires only when host-side provisioning left the server unreachable
+      # or host collection failed to import (reachable != 'true'). Reproduces
+      # exactly what tools/test/test.sh SUITE=client did: cp rucio_client.cfg
+      # then pytest the 3 client files INSIDE the rucio container. Writes junit
+      # to the same test-results/ path so the report step still renders.
+      # ----------------------------------------------------------------
+      - name: Run client tests in-container (fallback)
+        if: matrix.suite == 'client' && steps.client_provision.outputs.reachable != 'true'
+        env:
+          RUCIO_TEST_IMAGE: ${{ matrix.python == '3.10' && needs.runtime_images.outputs.py310_image || needs.runtime_images.outputs.py39_image }}
+          RDBMS: ${{ matrix.rdbms }}
+          PYTHON: ${{ matrix.python }}
+        run: |
+          set -o pipefail
+          mkdir -p test-results
+          COMPOSE="docker compose -p rucio-client-ci -f etc/docker/dev/docker-compose.yml -f etc/docker/dev/docker-compose.test.override.yml -f etc/docker/dev/docker-compose.ports.yml --profile postgres14"
+          # Ensure the stack is up + bootstrapped (it may not be if host provisioning aborted early).
+          $COMPOSE up -d --wait rucio
+          # The dev image mounts source at /rucio_source but does not install it;
+          # run_tests.sh -i (reset_database/alembic/bootstrap) and the client tests
+          # need rucio importable + the rucio CLI on PATH + etc fixtures in place.
+          $COMPOSE exec -T rucio pip install --no-cache-dir -e /rucio_source
+          $COMPOSE exec -T rucio bash -c 'ln -sf /rucio_source/bin/* /opt/venv/bin/ 2>/dev/null || true; for f in /rucio_source/etc/*; do n=$(basename "$f"); [ -e "/opt/rucio/etc/$n" ] || ln -sf "$f" "/opt/rucio/etc/$n"; done'
+          $COMPOSE exec -T rucio tools/run_tests.sh -i
+          # Legacy client path, run inside the rucio container; junit lands on the host
+          # via the /rucio_source bind mount (= repo root) under test-results/.
+          #
+          # rucio_client.cfg ships no [database] section, but test_bin_rucio's
+          # server-side fixtures (rse_factory / did_factory / db_session) talk to
+          # the DB directly -- they need one (else configparser.NoSectionError:
+          # 'database'). Legacy ran these inside the server container where the
+          # entrypoint-generated rucio.cfg carried [database]; the cp clobbered it.
+          # Re-append the rdbms [database] block (the same source the entrypoint
+          # used: etc/docker/test/extra/rucio_${RDBMS}.cfg, which is [database]-only)
+          # so the active cfg has both the client wiring and a working DB section.
+          $COMPOSE exec -T -e RDBMS="$RDBMS" rucio bash -lc 'cp etc/docker/test/extra/rucio_client.cfg /opt/rucio/etc/rucio.cfg && cat "etc/docker/test/extra/rucio_${RDBMS:-postgres14}.cfg" >> /opt/rucio/etc/rucio.cfg && tools/pytest.sh -v --tb=short tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py --junitxml=/rucio_source/test-results/client-py'"${{ matrix.python }}"'.xml' 2>&1 | tee test-results/client-py${{ matrix.python }}.pytest.log
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.leg }}-py${{ matrix.python }}
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Upload container logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-${{ matrix.leg }}-py${{ matrix.python }}
+          path: .test-logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload host logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-logs-${{ matrix.leg }}-py${{ matrix.python }}
+          # .test-forward/ is a dot dir holding the forwarded container's pytest
+          # stdout + JSONL report stream; include-hidden-files is required or the
+          # in-container traceback for a red leg is silently dropped.
+          include-hidden-files: true
+          path: |
+            .test-forward/
+            test-results/${{ matrix.leg }}-py${{ matrix.python }}.pytest.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: test-results/*.xml
+          check_name: Tests - ${{ matrix.leg }} (py${{ matrix.python }})
+          fail_on_failure: true
