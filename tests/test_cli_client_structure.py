@@ -1008,9 +1008,24 @@ def test_subscription(rucio_client, mock_scope, random_account, did_factory, fil
     assert subscription_name in out
 
     # Ensure there is at least one DID for the test
-    did_factory.make_dataset()
-    did = [i for i in rucio_client.list_dids(mock_scope.external, filters=[{}], did_type="all")][0]
-    cmd = f"rucio subscription touch {mock_scope.external}:{did}"
+    dids = [did_factory.make_dataset()['name'] for _ in range(3)]
+    cmd = f"rucio subscription touch {mock_scope.external}:{dids[0]}"
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    # Reeval for multiple dids with csv
+    cmd = "rucio subscription touch "
+    for did in dids:
+        cmd += f"{mock_scope.external}:{did},"
+    exitcode, _, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    # and with ssv
+    cmd = "rucio subscription touch "
+    for did in dids:
+        cmd += f"{mock_scope.external}:{did} "
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
