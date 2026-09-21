@@ -225,6 +225,8 @@ def finalize_auth(token, identity_type, cookie_dict_extra=None):
     except CannotAuthenticate:
         return render_template("problem.html", msg="It was not possible to validate and finalize your login with the provided token: " + token)
     try:
+        if identity_type.upper() == IdentityType.OIDC.value and valid_token_dict['identity'].startswith('ISS='):
+            identity_type = IdentityType.OIDC_ALL.value
         attribs = list_account_attributes(valid_token_dict['account'], valid_token_dict['vo'])
         accounts = identity.list_accounts_for_identity(valid_token_dict['identity'], identity_type)
         accvalues = ""
