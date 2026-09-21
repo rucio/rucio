@@ -19,12 +19,13 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import inspect, update
 from sqlalchemy.exc import CompileError, InvalidRequestError, NoResultFound
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import true
+from sqlalchemy.sql.expression import select, true
 
 from rucio.common import exception
 from rucio.core import account_counter, rse_counter
 from rucio.core.did_meta_plugins.did_meta_plugin_interface import DidMetaPlugin
 from rucio.core.did_meta_plugins.filter_engine import FilterEngine
+from rucio.core.did_meta_plugins.opendata_meta import add_is_opendata_column
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType
 from rucio.db.sqla.session import read_session, stream_session, transactional_session
@@ -66,9 +67,24 @@ class DidColumnMeta(DidMetaPlugin):
         :returns: DID metadata as a dictionary.
         """
         try:
-            row = session.query(models.DataIdentifier).filter_by(scope=scope, name=name). \
-                with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)", 'oracle').one()
-            return row.to_dict()
+            stmt = add_is_opendata_column(
+                select(models.DataIdentifier)
+            ).with_hint(
+                models.DataIdentifier,
+                'INDEX(DIDS DIDS_PK)',
+                'oracle'
+            ).where(
+                models.DataIdentifier.scope == scope,
+                models.DataIdentifier.name == name
+            )
+
+            row = session.execute(stmt).one()
+
+            data_identifier, is_opendata = row
+            result = data_identifier.to_dict()
+            result["is_opendata"] = is_opendata
+            return result
+
         except NoResultFound:
             raise exception.DataIdentifierNotFound(f"Data identifier '{scope}:{name}' not found")
 
@@ -483,7 +499,7 @@ class DidColumnMeta(DidMetaPlugin):
             'length.lt',
             'length.gte',
             'length.lte',
-            'type'
+            'type',
         ]
 
         hardcoded_keys = list(set(all_did_table_columns) - set(exclude_did_table_columns)) + additional_keys

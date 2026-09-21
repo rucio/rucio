@@ -72,6 +72,10 @@ RESTRICTED_CHARACTERS = {
     '.': "Used as a delimiter for key and operator (<key>.<operator>) in filtering engine."
 }
 
+READ_ONLY_METADATA_KEYS = {
+    'is_opendata',
+}
+
 
 @read_session
 def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
@@ -90,14 +94,27 @@ def get_metadata(scope, name, plugin="DID_COLUMN", *, session: "Session"):
     """
     if plugin.lower() == "all":
         all_metadata = {}
+        read_only_metadata = {}
+
         for metadata_plugin in METADATA_PLUGIN_MODULES:
             metadata = metadata_plugin.get_metadata(scope, name, session=session)
             all_metadata.update(metadata)
+
+            if metadata_plugin is METADATA_PLUGIN_MODULES[0]:
+                read_only_metadata = {
+                    key: metadata[key]
+                    for key in READ_ONLY_METADATA_KEYS
+                    if key in metadata
+                }
+
+        # Read-only metadata derived from Rucio's internal state must take
+        # precedence over values returned by other metadata plugins.
+        all_metadata.update(read_only_metadata)
         return all_metadata
-    else:
-        for metadata_plugin in METADATA_PLUGIN_MODULES:
-            if metadata_plugin.is_named(plugin):
-                return metadata_plugin.get_metadata(scope, name, session=session)
+
+    for metadata_plugin in METADATA_PLUGIN_MODULES:
+        if metadata_plugin.is_named(plugin):
+            return metadata_plugin.get_metadata(scope, name, session=session)
 
     raise exception.UnsupportedMetadataPlugin(f'Metadata plugin "{plugin}" is not enabled on the server.')
 
@@ -115,6 +132,10 @@ def set_metadata(scope, name, key, value, recursive=False, *, session: "Session"
     :param session: (optional) The database session in use.
     :raises: InvalidMetadata
     """
+    if key in READ_ONLY_METADATA_KEYS:
+        raise exception.InvalidMetadata(
+            f"'{key}' is a read-only metadata field"
+        )
     # Check for forbidden characters in key.
     for char in RESTRICTED_CHARACTERS:
         if char in key:
@@ -149,10 +170,14 @@ def set_metadata_bulk(scope, name, meta, recursive=False, *, session: "Session")
     :raises: InvalidMetadata
     """
     metadata = meta
-
-    unmanaged_keys = list()
     if not isinstance(metadata, dict):
         metadata = dict(metadata)
+    read_only_keys = READ_ONLY_METADATA_KEYS.intersection(metadata)
+    if read_only_keys:
+        raise exception.InvalidMetadata(
+            f"Metadata field(s) {sorted(read_only_keys)} are read-only"
+        )
+    unmanaged_keys = list()
     metadata_plugin_keys = {metadata_plugin: [] for metadata_plugin in METADATA_PLUGIN_MODULES}
 
     # Iterate through all keys, sequentially checking if each metadata plugin manages the considered key. If it
