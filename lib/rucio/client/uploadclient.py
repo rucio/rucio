@@ -353,7 +353,10 @@ class UploadClient:
         rse_expression = None
         for file in files:
             rse_expression = file['rse']
-            rse = self.rse_expressions.setdefault(rse_expression, _pick_random_rse(rse_expression))
+
+            if rse_expression not in self.rse_expressions:
+                self.rse_expressions[rse_expression] = _pick_random_rse(rse_expression)
+            rse = self.rse_expressions[rse_expression]
 
             if not self.rses.get(rse):
                 rse_settings = self.rses.setdefault(rse, rsemgr.get_rse_info(rse, vo=self.client.vo))
@@ -378,6 +381,7 @@ class UploadClient:
         registered_dataset_dids = set()
         num_succeeded = 0
         summary = []
+        rse_attribute_cache = {}
         for file in files:
             basename = file['basename']
             logger(logging.INFO, 'Preparing upload for file %s' % basename)
@@ -416,11 +420,15 @@ class UploadClient:
 
             # resolving local area networks
             domain = 'wan'
-            rse_attributes = {}
-            try:
-                rse_attributes = self.client.list_rse_attributes(rse)
-            except Exception:
-                logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+            if rse in rse_attribute_cache:
+                rse_attributes = rse_attribute_cache[rse]
+            else:
+                rse_attributes = {}
+                try:
+                    rse_attributes = self.client.list_rse_attributes(rse)
+                except Exception:
+                    logger(logging.WARNING, 'Attributes of the RSE: %s not available.' % rse)
+                rse_attribute_cache[rse] = rse_attributes
             if self.client_location and 'lan' in rse_settings['domain'] and RseAttr.SITE in rse_attributes:
                 if self.client_location['site'] == rse_attributes[RseAttr.SITE]:
                     domain = 'lan'
@@ -738,10 +746,16 @@ class UploadClient:
                 raise DataIdentifierAlreadyExists
 
             # add the file to rse if it is not registered yet
-            replicastate = list(self.client.list_replicas([file_did], all_states=True))
-            if rse not in replicastate[0]['rses']:
+            try:
+                replica_exists = self.client.replica_exists(file_scope, file_name, rse)
+            except Exception:  # TODO: Remove via issue #8742
+                # if the new endpoint fails, fall back to the old code for now
+                replicastate = list(self.client.list_replicas([file_did], all_states=True))
+                replica_exists = rse in replicastate[0]['rses']
+            if not replica_exists:
                 self.client.add_replicas(rse=rse, files=[replica_for_api])
                 logger(logging.INFO, 'Successfully added replica in Rucio catalogue at %s' % rse)
+
         except DataIdentifierNotFound:
             logger(logging.DEBUG, 'File DID does not exist')
             self.client.add_replicas(rse=rse, files=[replica_for_api])
