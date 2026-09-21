@@ -1053,7 +1053,7 @@ class FTS3Transfertool(Transfertool):
 
         :param files:        List of dictionaries describing the file transfers.
         :param job_params:   Dictionary containing key/value pairs, for all transfers.
-        :param timeout:      Timeout in seconds.
+        :param timeout:      Timeout in seconds; None uses 5 seconds to connect and 60 seconds to read.
         :returns:            FTS transfer identifier.
         """
         files = []
@@ -1086,7 +1086,7 @@ class FTS3Transfertool(Transfertool):
                                         cert=self.cert,
                                         data=params_str,
                                         headers=self.headers,
-                                        timeout=timeout)
+                                        timeout=timeout if timeout is not None else (5, 60))
             labels = {'host': self.__extract_host(self.external_host)}
             METRICS.timer('submit_transfer.{host}').labels(**labels).observe(stopwatch.elapsed / (len(files) or 1))
         except ReadTimeout as error:
@@ -1120,7 +1120,7 @@ class FTS3Transfertool(Transfertool):
         Cancel transfers that have been submitted to FTS3.
 
         :param transfer_ids: FTS transfer identifiers as list of strings.
-        :param timeout:      Timeout in seconds.
+        :param timeout:      Timeout in seconds; None uses 5 seconds to connect and 10 seconds to read.
         :returns:            True if cancellation was successful.
         """
 
@@ -1134,7 +1134,7 @@ class FTS3Transfertool(Transfertool):
                               verify=self.verify,
                               cert=self.cert,
                               headers=self.headers,
-                              timeout=timeout)
+                              timeout=timeout if timeout is not None else (5, 10))
 
         if job and job.status_code == 200:
             CANCEL_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
@@ -1149,7 +1149,7 @@ class FTS3Transfertool(Transfertool):
 
         :param transfer_id: FTS transfer identifier as a string.
         :param priority:    FTS job priority as an integer from 1 to 5.
-        :param timeout:     Timeout in seconds.
+        :param timeout:     Timeout in seconds; None uses 5 seconds to connect and 10 seconds to read.
         :returns:           True if update was successful.
         """
 
@@ -1162,7 +1162,7 @@ class FTS3Transfertool(Transfertool):
                             data=params_str,
                             cert=self.cert,
                             headers=self.headers,
-                            timeout=timeout)  # TODO set to 3 in conveyor
+                            timeout=timeout if timeout is not None else (5, 10))
 
         if job and job.status_code == 200:
             UPDATE_PRIORITY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
@@ -1177,7 +1177,7 @@ class FTS3Transfertool(Transfertool):
 
         :param transfer_ids: FTS transfer identifiers as list of strings.
         :param details:      Switch if detailed information should be listed.
-        :param timeout:      Timeout in seconds.
+        :param timeout:      Timeout in seconds; None uses 5 seconds to connect and 10 seconds to read.
         :returns:            Transfer status information as a list of dictionaries.
         """
 
@@ -1194,7 +1194,7 @@ class FTS3Transfertool(Transfertool):
                            verify=self.verify,
                            cert=self.cert,
                            headers=self.headers,
-                           timeout=timeout)  # TODO Set to 5 in conveyor
+                           timeout=timeout if timeout is not None else (5, 10))
         if job and job.status_code == 200:
             QUERY_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
             return [job.json()]
@@ -1216,7 +1216,8 @@ class FTS3Transfertool(Transfertool):
         get_result = requests.get('%s/whoami' % self.external_host,
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers=self.headers)
+                                  headers=self.headers,
+                                  timeout=(5, 5))
 
         if get_result and get_result.status_code == 200:
             WHOAMI_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
@@ -1237,7 +1238,8 @@ class FTS3Transfertool(Transfertool):
         get_result = requests.get('%s/' % self.external_host,
                                   verify=self.verify,
                                   cert=self.cert,
-                                  headers=self.headers)
+                                  headers=self.headers,
+                                  timeout=(5, 5))
 
         if get_result and get_result.status_code == 200:
             VERSION_COUNTER.labels(state='success', host=self.__extract_host(self.external_host)).inc()
@@ -1251,6 +1253,7 @@ class FTS3Transfertool(Transfertool):
         Query the status of a bulk of transfers in FTS3 via JSON.
 
         :param requests_by_eid: dictionary {external_id1: {request_id1: request1, ...}, ...} of request to be queried
+        :param timeout: Timeout in seconds; None uses 5 seconds to connect and 30 seconds to read.
         :returns: Transfer status information as a dictionary.
         """
 
@@ -1261,7 +1264,7 @@ class FTS3Transfertool(Transfertool):
                                verify=self.verify,
                                cert=self.cert,
                                headers=self.headers,
-                               timeout=timeout)
+                               timeout=timeout if timeout is not None else (5, 30))
 
         if jobs is None:
             BULK_QUERY_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
@@ -1297,7 +1300,7 @@ class FTS3Transfertool(Transfertool):
                                   verify=self.verify,
                                   cert=self.cert,
                                   headers=self.headers,
-                                  timeout=None)
+                                  timeout=(5, 30))
         except Exception as error:
             raise Exception('Could not retrieve transfer information: %s', error)
         if result and result.status_code == 200:
@@ -1311,12 +1314,13 @@ class FTS3Transfertool(Transfertool):
         :param storage_element: the storage element you want the configuration for.
         """
 
+        result = None
         try:
             result = requests.get('%s/config/se' % (self.external_host),
                                   verify=self.verify,
                                   cert=self.cert,
                                   headers=self.headers,
-                                  timeout=None)
+                                  timeout=(5, 30))
         except Exception:
             self.logger(logging.WARNING, 'Could not get config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
         if result and result.status_code == 200:
@@ -1375,13 +1379,14 @@ class FTS3Transfertool(Transfertool):
 
         params_str = json.dumps(params_dict, cls=APIEncoder)
 
+        result = None
         try:
             result = requests.post('%s/config/se' % (self.external_host),
                                    verify=self.verify,
                                    cert=self.cert,
                                    data=params_str,
                                    headers=self.headers,
-                                   timeout=None)
+                                   timeout=(5, 30))
 
         except Exception:
             self.logger(logging.WARNING, 'Could not set the config of %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
@@ -1420,7 +1425,7 @@ class FTS3Transfertool(Transfertool):
                                        cert=self.cert,
                                        data=params_str,
                                        headers=self.headers,
-                                       timeout=None)
+                                       timeout=(5, 30))
             except Exception:
                 self.logger(logging.WARNING, 'Could not ban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 200:
@@ -1434,7 +1439,7 @@ class FTS3Transfertool(Transfertool):
                                          cert=self.cert,
                                          data=params_str,
                                          headers=self.headers,
-                                         timeout=None)
+                                         timeout=(5, 30))
             except Exception:
                 self.logger(logging.WARNING, 'Could not unban %s on %s - %s', storage_element, self.external_host, str(traceback.format_exc()))
             if result and result.status_code == 204:
