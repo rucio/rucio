@@ -22,6 +22,7 @@ import pytest
 from click.testing import CliRunner
 
 from rucio.cli.command import main as rucio_cli
+from rucio.cli.utils import StrOrBoolType
 from rucio.common.exception import RucioException
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator, with_each_cli_renderer
@@ -1134,3 +1135,16 @@ def test_rse_distance_bidirectional(rucio_client, rse_factory):
     assert exitcode == 0
     assert rucio_client.get_distance(rse_name_6, rse_name_5)[0]['distance'] == distance
     assert rucio_client.get_distance(rse_name_5, rse_name_6)[0]['distance'] == distance
+
+
+@pytest.mark.parametrize(
+        "input_value, expected_result",
+        [
+            ("true", True), ("True", True), ("t", True), ("1", True), (None, None),
+            ("false", False), ("False", False), ("f", False), ("0", False),
+            ("Hello", "Hello"), ("Value", "Value"), ("12345", "12345"), ("gdklf", "gdklf")
+         ]
+)
+def test_str_or_bool_type(input_value, expected_result):
+    t = StrOrBoolType()
+    assert t.convert(input_value, None, None) == expected_result
