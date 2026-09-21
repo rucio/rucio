@@ -972,7 +972,7 @@ def list_rules(
 
     :param filters: dictionary of attributes by which the results should be filtered.
     :param session: The database session in use.
-    :raises:        RucioException
+    :raises:        InputValidationError, RucioException
     """
 
     stmt = select(
@@ -1007,12 +1007,13 @@ def list_rules(
                 continue
             elif key == 'state':
                 if isinstance(value, str):
-                    value = RuleState(value)
-                else:
                     try:
                         value = RuleState[value]
-                    except ValueError:
-                        pass
+                    except KeyError:
+                        try:
+                            value = RuleState(value)
+                        except ValueError as exc:
+                            raise InputValidationError('Invalid rule state: %s' % value) from exc
             elif key == 'did_type' and isinstance(value, str):
                 value = DIDType(value)
             elif key == 'grouping' and isinstance(value, str):
