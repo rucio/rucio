@@ -16,26 +16,27 @@ import signal
 import sys
 import threading
 import time
+import unittest
 from typing import Final, Optional, Union
 
 import click
 from rich.console import Console
 from rich.status import Status
+from rich.text import Text
 from rich.theme import Theme
 from rich.traceback import install
 
 from rucio import version
-from rucio.cli.bin_legacy.rucio import ping, test_server, whoami_account
 from rucio.cli.utils import Arguments, RichCLITheme, RichUtils, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.common.config import config_get_list
-from rucio.common.exception import ConfigurationError
+from rucio.common.exception import ConfigurationError, RucioException
+from rucio.common.test_rucio_server import TestRucioServer
 from rucio.common.utils import setup_logger
 
 
 # Taken directly from https://click.palletsprojects.com/en/stable/complex/#defining-the-lazy-group
 class LazyGroup(click.Group):
-
-    DEFAULT_COMMANDS: Final = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata"}
+    DEFAULT_COMMANDS: Final = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata", "data"}
     COMMAND_MAP: Final = {
         "account": "rucio.cli.account.account",
         "config": "rucio.cli.config.config",
@@ -49,6 +50,7 @@ class LazyGroup(click.Group):
         "subscription": "rucio.cli.subscription.subscription",
         "upload": "rucio.cli.upload.upload_command",
         "opendata": "rucio.cli.opendata.opendata",
+        "data": "rucio.cli.import_export.data"
     }
 
     def __init__(self, *args, **kwargs) -> None:
@@ -276,20 +278,30 @@ def _teardown(ctx):
 
 @main.command(name="whoami", help="Get information about account whose token is used")
 @click.pass_context
-def exe_whoami(ctx):
-    args = Arguments({"no_pager": ctx.obj.no_pager})
-    whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+def exe_whoami(ctx: click.Context) -> None:
+    info = ctx.obj.client.whoami()
+    if ctx.obj.use_rich:
+        keyword_styles = {**RichCLITheme.ACCOUNT_STATUS, **RichCLITheme.ACCOUNT_TYPE}
+        table_data = [(k, Text(str(v), style=keyword_styles.get(str(v), 'default'))) for (k, v) in sorted(info.items())]
+        table = RichUtils.generate_table(table_data, col_alignments=['left', 'left'], row_styles=['none'])
+        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        for k in info:
+            print(k.ljust(10) + ' : ' + str(info[k]))
 
 
 @main.command(name="ping", help="Ping Rucio server")
 @click.pass_context
-def exe_ping(ctx):
-    args = Arguments({"no_pager": ctx.obj.no_pager})
-    ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+def exe_ping(ctx: click.Context) -> None:
+    server_info = ctx.obj.client.ping()
+    if server_info:
+        print(server_info['version'])
+        return
+    raise RucioException('Ping failed')
 
 
 @main.command(name="test-server", help="Test client against the server")
 @click.pass_context
-def exe_test_server(ctx):
-    args = Arguments({"no_pager": ctx.obj.no_pager})
-    test_server(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+def exe_test_server(ctx: click.Context) -> None:
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestRucioServer)
+    unittest.TextTestRunner(verbosity=2).run(suite)

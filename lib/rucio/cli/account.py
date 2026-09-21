@@ -44,7 +44,7 @@ def add_(ctx: click.Context, account_type: Literal['USER', 'GROUP', 'SERVICE'], 
         type_=account_type,
         email=email
     )
-    print('Added new account: %s' % account)
+    print('Added new account: %s' % account_name)
 
 
 @account.command("list")
