@@ -12,7 +12,7 @@ dynamic = ["version"]
 # TODO: these dependencies can be removed from the top-level pyproject.toml
 # once https://github.com/rucio/rucio/issues/7330 is achieved.
 dependencies = [
-  'requests<=2.32.5',
+  'requests<=2.33.0',
   'urllib3<=1.26.19',
   'dogpile-cache<=1.2.2',
   'packaging<=26.2',
