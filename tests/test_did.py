@@ -86,6 +86,9 @@ class TestDIDCore:
         assert now == get_did_atime(scope=mock_scope, name=tmp_dsn1)
         assert get_did_atime(scope=mock_scope, name=tmp_dsn2) is None
 
+        did1 = get_did(scope=mock_scope, name=tmp_dsn1)
+        assert did1['accessed_at'] == now
+
     def test_touch_dids_access_cnt(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Increase DIDs access_cnt"""
         tmp_dsn1 = did_name_generator('dataset')
@@ -138,6 +141,8 @@ class TestDIDCore:
         did1 = get_did(dynamic_depth=DIDType.FILE, **dataset1)
         assert did1['length'] == 2
         assert did1['bytes'] == 20
+        assert 'accessed_at' in did1
+        assert did1['accessed_at'] is None
 
         # attach dataset to container and verify get_did(dynamic) on container
         container = did_factory.make_container()
@@ -930,6 +935,7 @@ class TestDIDClients:
 
         assert did['scope'] == scope
         assert did['name'] == file_
+        assert 'accessed_at' in did
 
         did_client.add_dataset(scope=scope, name=dsn, lifetime=10000000)
         did2 = did_client.get_did(scope, dsn)
