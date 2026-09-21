@@ -36,6 +36,9 @@ if [ -f /tmp/userkey.pem ]; then
     cp /tmp/userkey.pem "$RUCIO_HOME/etc/"
     chmod og-rwx "$RUCIO_HOME/etc/userkey.pem"
 fi
+if [ -f "$RUCIO_HOME/etc/ruciouser.key.pem" ]; then
+    chmod og-rwx "$RUCIO_HOME/etc/ruciouser.key.pem"
+fi
 
 echo "Generating alembic.ini and rucio.cfg"
 
