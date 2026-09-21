@@ -77,7 +77,7 @@ atlas:
       - rucio_tests/test_rse_protocol_rsync.py
       - rucio_tests/test_rse_protocol_ssh.py
   rdbms:
-    - postgres14
+    - postgres16
   python:
     - "3.9"
   dists:
@@ -162,7 +162,7 @@ belleii:
       - rucio_tests/test_bin_rucio.py
       - rucio_tests/test_auditor_hdfs.py
   rdbms:
-    - postgres14
+    - postgres16
   python:
     - "3.9"
   dists:
