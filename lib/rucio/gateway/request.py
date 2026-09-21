@@ -29,9 +29,31 @@ from rucio.db.sqla.session import db_session
 from rucio.gateway import permission
 
 if TYPE_CHECKING:
+    import datetime
     from collections.abc import Iterable, Iterator, Sequence
 
+    from sqlalchemy.orm import Session
+
     from rucio.db.sqla.constants import RequestState
+
+
+def _resolve_and_authorize_did_request(
+    scope: str,
+    name: str,
+    rse: str,
+    issuer: str,
+    action: str,
+    vo: str,
+    session: "Session",
+) -> tuple[str, InternalScope]:
+    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+
+    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action=action, kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
+
+    return rse_id, InternalScope(scope, vo=vo)
 
 
 def get_request_by_did(
@@ -52,14 +74,9 @@ def get_request_by_did(
     :returns: Request as a dictionary.
     """
     with db_session(DatabaseOperationType.READ) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-
-        kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_by_did', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
-
-        internal_scope = InternalScope(scope, vo=vo)
+        rse_id, internal_scope = _resolve_and_authorize_did_request(
+            scope, name, rse, issuer, 'get_request_by_did', vo, session
+        )
         req = request.get_request_by_did(internal_scope, name, rse_id, session=session)
 
         return gateway_update_return_dict(req, session=session)
@@ -83,17 +100,78 @@ def get_request_history_by_did(
     :returns: Request as a dictionary.
     """
     with db_session(DatabaseOperationType.READ) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-
-        kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
-
-        internal_scope = InternalScope(scope, vo=vo)
+        rse_id, internal_scope = _resolve_and_authorize_did_request(
+            scope, name, rse, issuer, 'get_request_history_by_did', vo, session
+        )
         req = request.get_request_history_by_did(internal_scope, name, rse_id, session=session)
 
         return gateway_update_return_dict(req, session=session)
+
+
+def list_requests_history_by_did(
+    scope: str,
+    name: str,
+    rse: str,
+    issuer: str,
+    vo: str = DEFAULT_VO,
+    rule_id: Optional[str] = None,
+    states: Optional["Sequence[RequestState]"] = None,
+    created_after: Optional["datetime.datetime"] = None,
+    created_before: Optional["datetime.datetime"] = None,
+    offset: Optional[int] = None,
+    limit: int = 10,
+) -> "Iterator[dict[str, Any]]":
+    """
+    List the latest historical requests for a DID towards a destination RSE, newest first.
+
+    Unlike `get_request_history_by_did`, which returns a single request, this returns up to `limit`. This can get
+    quite slow on large servers, so it's only intended for debugging purposes.
+
+    Parameters
+    ----------
+    scope :
+        The scope of the data identifier as a string.
+    name :
+        The name of the data identifier as a string.
+    rse :
+        The destination RSE of the requests as a string.
+    issuer :
+        Issuing account as a string.
+    vo :
+        The VO to act on.
+    rule_id :
+        Only return requests associated with this replication rule.
+    states :
+        Only return requests in one of these states. All states when omitted.
+    created_after :
+        Only return requests created at or after this time.
+    created_before :
+        Only return requests created at or before this time.
+    offset :
+        Number of requests to skip, for paging.
+    limit :
+        Maximum number of requests to return.
+
+    Returns
+    -------
+        An iterator over the matching historical requests as dictionaries.
+
+    Raises
+    ------
+    AccessDenied
+        If the issuer is not allowed to retrieve the historical requests.
+    RSENotFound
+        If the destination RSE does not exist.
+    """
+    with db_session(DatabaseOperationType.READ) as session:
+        rse_id, internal_scope = _resolve_and_authorize_did_request(
+            scope, name, rse, issuer, 'list_requests_history_by_did', vo, session
+        )
+        for req in request.list_requests_history_by_did(
+                scope=internal_scope, name=name, rse_id=rse_id, rule_id=rule_id, states=states,
+                created_after=created_after, created_before=created_before, offset=offset, limit=limit, session=session
+        ):
+            yield gateway_update_return_dict(req.to_dict(), session=session)
 
 
 def list_requests(
