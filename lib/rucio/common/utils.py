@@ -1239,47 +1239,6 @@ def get_thread_with_periodic_running_function(
     return t
 
 
-def run_cmd_process(cmd: str, timeout: int = 3600) -> tuple[int, str]:
-    """
-    shell command parser with timeout
-
-    :param cmd: shell command as a string
-    :param timeout: in seconds
-
-    :return: stdout xor stderr, and errorcode
-    """
-
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid, universal_newlines=True)
-
-    try:
-        stdout, stderr = process.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        try:
-            # Kill the whole process group since we're using shell=True.
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-            stdout, stderr = process.communicate(timeout=3)
-        except subprocess.TimeoutExpired:
-            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            stdout, stderr = process.communicate()
-
-    if not stderr:
-        stderr = ''
-    if not stdout:
-        stdout = ''
-    if stderr and stderr != '':
-        stdout += " Error: " + stderr
-    if process:
-        returncode = process.returncode
-    else:
-        returncode = 1
-    if returncode != 1 and 'Command time-out' in stdout:
-        returncode = 1
-    if returncode is None:
-        returncode = 0
-
-    return returncode, stdout
-
-
 def gateway_update_return_dict(
         dictionary: dict[str, Any],
         session: Optional["Session"] = None
