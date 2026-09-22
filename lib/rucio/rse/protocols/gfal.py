@@ -17,13 +17,14 @@ import json
 import logging
 import os
 import re
-import subprocess  # noqa: S404 -- subprocess used for external commands
+import shlex
 import urllib.parse as urlparse
 from threading import Timer
 
 from rucio.common import config, exception
 from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
 from rucio.common.constraints import STRING_TYPES
+from rucio.common.utils import execute_args
 from rucio.rse.protocols import protocol
 
 try:
@@ -654,17 +655,24 @@ class CLI(Default):
         if ':' not in dest:
             dest = "file://" + dest
 
-        cmd = 'gfal-copy -vf -p -t %s -T %s %s %s' % (transfer_timeout, transfer_timeout, path, dest)
-        self.logger(logging.DEBUG, 'Command: ' + cmd)
-        cmd = cmd.split()
+        args: tuple[str, ...] = (
+            'gfal-copy',
+            '-vf',
+            '-p',
+            '-t',
+            str(transfer_timeout),
+            '-T',
+            str(transfer_timeout),
+            str(path),
+            str(dest),
+        )
+        self.logger(logging.DEBUG, 'Command: ' + shlex.join(args))
+        exitcode, out, err = execute_args(args)
 
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-
-        if p.returncode:
-            self.logger(logging.DEBUG, 'Error STDOUT: ' + str(stdout))
-            self.logger(logging.DEBUG, 'Error STDERR: ' + str(stderr))
-            raise exception.RucioException(str(stderr))
+        if exitcode != 0:
+            self.logger(logging.DEBUG, 'Error STDOUT: ' + out)
+            self.logger(logging.DEBUG, 'Error STDERR: ' + err)
+            raise exception.RucioException(err.strip())
 
     def put(self, source, target, source_dir, transfer_timeout=None):
         """
@@ -687,20 +695,38 @@ class CLI(Default):
         if ':' not in source_url:
             source_url = "file://" + source_url
 
-        cmd = 'gfal-copy -vf -p -t %s -T %s %s %s ' % (transfer_timeout, transfer_timeout, source, target)
+        args: tuple[str, ...] = (
+            'gfal-copy',
+            '-vf',
+            '-p',
+            '-t',
+            str(transfer_timeout),
+            '-T',
+            str(transfer_timeout),
+            str(source),
+            str(target),
+        )
 
-        space_token = None
         if self.attributes['extended_attributes'] is not None and 'space_token' in list(self.attributes['extended_attributes'].keys()):
             space_token = self.attributes['extended_attributes']['space_token']
-            cmd = 'gfal-copy -vf -p -t %s -T %s -S %s %s %s ' % (transfer_timeout, transfer_timeout, space_token, source, target)
+            args = (
+                'gfal-copy',
+                '-vf',
+                '-p',
+                '-t',
+                str(transfer_timeout),
+                '-T',
+                str(transfer_timeout),
+                '-S',
+                str(space_token),
+                str(source),
+                str(target),
+            )
 
-        self.logger(logging.DEBUG, 'Command: ' + cmd)
-        cmd = cmd.split()
+        self.logger(logging.DEBUG, 'Command: ' + shlex.join(args))
+        exitcode, out, err = execute_args(args)
 
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-
-        if p.returncode:
-            self.logger(logging.DEBUG, 'Error STDOUT: ' + str(stdout))
-            self.logger(logging.DEBUG, 'Error STDERR: ' + str(stderr))
-            raise exception.RucioException(str(stderr))
+        if exitcode != 0:
+            self.logger(logging.DEBUG, 'Error STDOUT: ' + out)
+            self.logger(logging.DEBUG, 'Error STDERR: ' + err)
+            raise exception.RucioException(err.strip())
