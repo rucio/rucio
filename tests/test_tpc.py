@@ -21,7 +21,7 @@ import pytest
 
 from rucio.client.rseclient import RSEClient
 from rucio.client.ruleclient import RuleClient
-from rucio.common.utils import generate_uuid, run_cmd_process
+from rucio.common.utils import execute_args, generate_uuid
 from rucio.core.request import get_request_by_did, list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.rule import add_rule
 from rucio.core.topology import Topology
@@ -49,10 +49,23 @@ def check_url(pfn, hostname, path):
 
 
 def poll_fts_transfer_status(request_id, timeout=30):
-    rcode, out = run_cmd_process(f"fts-rest-transfer-status -v -s https://fts:8446 {request_id}", timeout=timeout)
+    args: tuple[str, ...] = (
+        'fts-rest-transfer-status',
+        '-v',
+        '-s',
+        'https://fts:8446',
+        str(request_id),
+    )
+    rcode, out, err = execute_args(args, timeout=timeout)
     transfer_status = None
     if rcode == 0:
-        transfer_status = re.search("Status: (.*)", out).group(1)
+        match = re.search("Status: (.*)", out)
+        if not match:
+            match = re.search("Status: (.*)", err)
+        if match:
+            transfer_status = match.group(1)
+        else:
+            raise RuntimeError(f'Could not retrieve transfer status from fts. Error output:\n{err}')
     return transfer_status
 
 
