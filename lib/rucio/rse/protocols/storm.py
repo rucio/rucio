@@ -14,12 +14,13 @@
 
 import logging
 import os
+import shlex
 from xml.dom import minidom
 
 import requests
 
 from rucio.common import exception
-from rucio.common.utils import run_cmd_process
+from rucio.common.utils import execute_args
 from rucio.rse.protocols import protocol
 
 
@@ -109,16 +110,25 @@ class Default(protocol.RSEProtocol):
         # retrieve the TURL from the webdav etag, DAVIX
         def davix_etag(pfn, timeout):
             pfn = 'davs' + pfn[5:]
-            cmd = 'davix-http --capath /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates --cert $X509_USER_PROXY -X PROPFIND %s' % pfn
+            args: tuple[str, ...] = (
+                'davix-http',
+                '--capath',
+                '/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/etc/grid-security-emi/certificates',
+                '--cert',
+                os.environ.get('X509_USER_PROXY', ''),
+                '-X',
+                'PROPFIND',
+                str(pfn),
+            )
             try:
-                rcode, output = run_cmd_process(cmd, timeout=timeout)
+                rcode, output, err = execute_args(args, timeout=timeout)
                 if rcode != 0:
-                    if output:
-                        raise exception.ServiceUnavailable("{}/n{}".format(str(output), cmd))
+                    if err:
+                        raise exception.ServiceUnavailable("{}/n{}".format(err, shlex.join(args)))
                     else:
-                        raise exception.ServiceUnavailable('Error message from subprocess davix-http call is missing./n{}'.format(cmd))
+                        raise exception.ServiceUnavailable('Error message from subprocess davix-http call is missing./n{}'.format(shlex.join(args)))
             except Exception as e:
-                raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: {}/n{}'.format(str(e), cmd))
+                raise exception.ServiceUnavailable('Could not retrieve STORM WebDAV ETag: {}/n{}'.format(str(e), shlex.join(args)))
             return rcode, output
 
         # using prefix from AGIS primarily (ATLAS spec.)
