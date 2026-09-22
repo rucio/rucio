@@ -235,6 +235,8 @@ class Default(protocol.RSEProtocol):
             status, out, err = execute_args(args)
             args: tuple[str, ...] = (
                 'scp',
+                '-P',
+                str(self.port),
                 f'{self.sshuser}{self.hostname}:{path}',
                 str(dest),
             )
@@ -270,6 +272,8 @@ class Default(protocol.RSEProtocol):
         try:
             args: tuple[str, ...] = (
                 'ssh',
+                '-p',
+                str(self.port),
                 str(self.sshuser) + str(self.hostname),
                 'mkdir',
                 '-p',
@@ -281,6 +285,8 @@ class Default(protocol.RSEProtocol):
                 raise exception.RucioException(err)
             args: tuple[str, ...] = (
                 'scp',
+                '-P',
+                str(self.port),
                 str(source_url),
                 f'{self.sshuser}{self.hostname}:{path}',
             )
