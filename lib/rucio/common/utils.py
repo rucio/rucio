@@ -315,6 +315,7 @@ def parse_response(data: Union[str, bytes, bytearray]) -> Any:
 def execute_args(
     args: "Sequence[str]",
     env: Optional["Mapping[str, str]"] = None,
+    timeout: Optional["Union[float, int]"] = None,
 ) -> tuple[int, str, str]:
     """
     Executes a command in a subprocess.
@@ -323,6 +324,7 @@ def execute_args(
 
     :param args: Process and arguments to execute in form of a string sequence
     :param env: Optional additional environment variables to pass to the process
+    :param timeout: Optional timeout in seconds. Terminates the process after this timeout.
     :return: a tuple containing (exitcode, out, err)
     """
 
@@ -337,7 +339,16 @@ def execute_args(
         env=env,
     )
 
-    (out, err) = process.communicate()
+    try:
+        (out, err) = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Kill the process after time is up
+        try:
+            os.kill(process.pid, signal.SIGTERM)
+            (out, err) = process.communicate(timeout=3)  # wait 3 more seconds before SIGKILL
+        except subprocess.TimeoutExpired:
+            os.kill(process.pid, signal.SIGKILL)
+            (out, err) = process.communicate()
     return process.returncode, out.decode(), err.decode()
 
 
