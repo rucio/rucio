@@ -14,11 +14,11 @@
 
 import logging
 import os
-import re
+import shlex
 
 from rucio.common import exception
 from rucio.common.checksum import PREFERRED_CHECKSUM
-from rucio.common.utils import execute
+from rucio.common.utils import execute_args
 from rucio.rse.protocols import protocol
 
 
@@ -70,9 +70,16 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'ssh.exists: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = 'ssh -p %s %s%s find %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'ssh.exists: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'find',
+                shlex.quote(str(path)),
+            )
+            self.logger(logging.DEBUG, f'ssh.exists: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 return False
         except Exception as e:
@@ -97,16 +104,31 @@ class Default(protocol.RSEProtocol):
 
         try:
             # ssh stat for getting filesize
-            cmd = 'ssh -p {0} {1}{2} stat --printf="%s" {3}'.format(self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'ssh.stat: filesize cmd: {}'.format(cmd))
-            status_stat, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'stat',
+                '--printf="%s"',
+                shlex.quote(str(path)),
+            )
+            self.logger(logging.DEBUG, f'ssh.stat: filesize cmd: {shlex.join(args)}')
+            status_stat, out, err = execute_args(args)
             if status_stat == 0:
                 ret['filesize'] = out
 
             # ssh query checksum for getting md5 checksum
-            cmd = 'ssh -p %s %s%s md5sum %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'ssh.stat: checksum cmd: {}'.format(cmd))
-            status_query, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'md5sum',
+                shlex.quote(str(path)),
+            )
+            self.logger(logging.DEBUG, f'ssh.stat: checksum cmd: {shlex.join(args)}')
+            status_query, out, err = execute_args(args)
 
             if status_query == 0:
                 chsum = 'md5'
@@ -173,10 +195,16 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'ssh.connect: port: {}, hostname {}, ssh-user {}'.format(self.port, self.hostname, self.sshuser))
         try:
-            cmd = 'ssh -p %s %s%s echo ok 2>&1' % (self.port, self.sshuser, self.hostname)
-            status, out, err = execute(cmd)
-            checker = re.search(r'ok', out)
-            if not checker:
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'echo',
+                'ok',
+            )
+            status, out, err = execute_args(args)
+            if 'ok' not in out:
                 raise exception.RSEAccessDenied(err)
         except Exception as e:
             raise exception.RSEAccessDenied(e)
@@ -198,12 +226,20 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             destdir = os.path.dirname(dest)
-            cmd = 'mkdir -p %s' % (destdir)
-            self.logger(logging.DEBUG, 'ssh.get: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            cmd = 'scp %s%s:%s %s' % (self.sshuser, self.hostname, path, dest)
-            self.logger(logging.DEBUG, 'ssh.get: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'mkdir',
+                '-p',
+                str(destdir),
+            )
+            self.logger(logging.DEBUG, f'ssh.get: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
+            args: tuple[str, ...] = (
+                'scp',
+                f'{self.sshuser}{self.hostname}:{path}',
+                str(dest),
+            )
+            self.logger(logging.DEBUG, f'ssh.get: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -232,9 +268,24 @@ class Default(protocol.RSEProtocol):
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         try:
-            cmd = 'ssh %s%s "mkdir -p %s" && scp %s %s%s:%s' % (self.sshuser, self.hostname, pathdir, source_url, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'ssh.put: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                str(self.sshuser) + str(self.hostname),
+                'mkdir',
+                '-p',
+                shlex.quote(str(pathdir)),
+            )
+            self.logger(logging.DEBUG, f'ssh.put: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
+            if status:
+                raise exception.RucioException(err)
+            args: tuple[str, ...] = (
+                'scp',
+                str(source_url),
+                f'{self.sshuser}{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'ssh.put: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -254,9 +305,16 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             path = self.pfn2path(pfn)
-            cmd = 'ssh -p %s %s%s rm %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'ssh.delete: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'rm',
+                shlex.quote(str(path)),
+            )
+            self.logger(logging.DEBUG, f'ssh.delete: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -278,12 +336,28 @@ class Default(protocol.RSEProtocol):
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
             new_dir = new_path[:new_path.rindex('/') + 1]
-            cmd = 'ssh -p %s %s%s "mkdir -p %s"' % (self.port, self.sshuser, self.hostname, new_dir)
-            self.logger(logging.DEBUG, 'ssh.rename: mkdir cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            cmd = 'ssh -p %s %s%s mv %s %s' % (self.port, self.sshuser, self.hostname, path, new_path)
-            self.logger(logging.DEBUG, 'ssh.rename: rename cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'mkdir',
+                '-p',
+                shlex.quote(str(new_dir)),
+            )
+            self.logger(logging.DEBUG, f'ssh.rename: mkdir cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'mv',
+                shlex.quote(str(path)),
+                shlex.quote(str(new_path)),
+            )
+            self.logger(logging.DEBUG, f'ssh.rename: rename cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -310,17 +384,32 @@ class Rsync(Default):
 
         try:
             # rsync stat for getting filesize
-            cmd = "rsync -an --size-only -e 'ssh -p {0}' --remove-source-files  {1}{2}:{3}".format(self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'rsync.stat: filesize cmd: {}'.format(cmd))
-            status_stat, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rsync',
+                '-ans',
+                '--size-only',
+                '-e',
+                f'ssh -p {int(self.port)}',  # self.port must be an integer
+                '--remove-source-files',
+                f'{self.sshuser}{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rsync.stat: filesize cmd: {shlex.join(args)}')
+            status_stat, out, err = execute_args(args)
             if status_stat == 0:
                 sizestr = out.split(" ")[-4]
                 ret['filesize'] = sizestr.replace(',', '')
 
             # rsync query checksum for getting md5 checksum
-            cmd = 'ssh -p %s %s%s md5sum %s' % (self.port, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'rsync.stat: checksum cmd: {}'.format(cmd))
-            status_query, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'md5sum',
+                shlex.quote(str(path)),
+            )
+            self.logger(logging.DEBUG, f'rsync.stat: checksum cmd: {shlex.join(args)}')
+            status_query, out, err = execute_args(args)
 
             if status_query == 0:
                 chsum = 'md5'
@@ -345,15 +434,27 @@ class Rsync(Default):
         """
         self.logger(logging.DEBUG, 'rsync.connect: port: {}, hostname {}, ssh-user {}'.format(self.port, self.hostname, self.sshuser))
         try:
-            cmd = 'ssh -p %s %s%s echo ok 2>&1' % (self.port, self.sshuser, self.hostname)
-            status, out, err = execute(cmd)
-            checker = re.search(r'ok', out)
-            if not checker:
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'echo',
+                'ok',
+            )
+            status, out, err = execute_args(args)
+            if 'ok' not in out:
                 raise exception.RSEAccessDenied(err)
-            cmd = 'ssh -p %s %s%s type rsync' % (self.port, self.sshuser, self.hostname)
-            status, out, err = execute(cmd)
-            checker = re.search(r'rsync is', out)
-            if not checker:
+            args = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'type',
+                'rsync',
+            )
+            status, out, err = execute_args(args)
+            if 'rsync is' not in out:
                 raise exception.RSEAccessDenied(err)
             self.path = out.split(" ")[2][:-1]
 
@@ -373,9 +474,26 @@ class Rsync(Default):
         try:
             path = self.pfn2path(pfn)
             destdir = os.path.dirname(dest)
-            cmd = 'mkdir -p %s && rsync -az -e "ssh -p %s" --append-verify %s%s:%s %s' % (destdir, self.port, self.sshuser, self.hostname, path, dest)
-            self.logger(logging.DEBUG, 'rsync.get: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'mkdir',
+                '-p',
+                str(destdir),
+            )
+            self.logger(logging.DEBUG, f'rsync.get: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
+            if status:
+                raise exception.RucioException(err)
+            args = (
+                'rsync',
+                '-azs',
+                '-e',
+                f'ssh -p {int(self.port)}',  # self.port must be an integer
+                '--append-verify',
+                f'{self.sshuser}{self.hostname}:{path}',
+                str(dest),
+            )
+            self.logger(logging.DEBUG, f'rsync.get: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -405,9 +523,30 @@ class Rsync(Default):
             raise exception.SourceNotFound()
 
         try:
-            cmd = 'ssh -p %s %s%s "mkdir -p %s" && rsync -az -e "ssh -p %s" --append-verify %s %s%s:%s' % (self.port, self.sshuser, self.hostname, pathdir, self.port, source_url, self.sshuser, self.hostname, path)
-            self.logger(logging.DEBUG, 'rsync.put: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'ssh',
+                '-p',
+                str(self.port),
+                str(self.sshuser) + str(self.hostname),
+                'mkdir',
+                '-p',
+                shlex.quote(str(pathdir)),
+            )
+            self.logger(logging.DEBUG, f'rsync.put: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
+            if status:
+                raise exception.RucioException(err)
+            args = (
+                'rsync',
+                '-azs',
+                '-e',
+                f'ssh -p {int(self.port)}',  # self.port must be an integer
+                '--append-verify',
+                str(source_url),
+                f'{self.sshuser}{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rsync.put: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RucioException(err)
         except Exception as e:
