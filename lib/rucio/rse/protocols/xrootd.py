@@ -14,10 +14,11 @@
 
 import logging
 import os
+import shlex
 
 from rucio.common import exception
 from rucio.common.checksum import PREFERRED_CHECKSUM
-from rucio.common.utils import execute
+from rucio.common.utils import execute_args
 from rucio.rse.protocols import protocol
 
 
@@ -25,11 +26,11 @@ class Default(protocol.RSEProtocol):
     """ Implementing access to RSEs using the XRootD protocol using GSI authentication."""
 
     @property
-    def _auth_env(self):
+    def _auth_env(self) -> dict[str, str]:
         if self.auth_token:
-            return f"XrdSecPROTOCOL=ztn BEARER_TOKEN='{self.auth_token}'"
+            return {'XrdSecPROTOCOL': 'ztn', 'BEARER_TOKEN': str(self.auth_token)}
         else:
-            return 'XrdSecPROTOCOL=gsi'
+            return {'XrdSecPROTOCOL': 'gsi'}
 
     def __init__(self, protocol_attr, rse_settings, logger=logging.log):
         """ Initializes the object with information about the referred RSE.
@@ -73,9 +74,14 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'xrootd.exists: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} stat {path}'
-            self.logger(logging.DEBUG, 'xrootd.exists: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'stat',
+                str(path),
+            )
+            self.logger(logging.DEBUG, f'xrootd.exists: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, self._auth_env)
             if status != 0:
                 return False
         except Exception as e:
@@ -101,9 +107,14 @@ class Default(protocol.RSEProtocol):
 
         try:
             # xrdfs stat for getting filesize
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} stat {path}'
-            self.logger(logging.DEBUG, 'xrootd.stat: filesize cmd: {}'.format(cmd))
-            status_stat, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'stat',
+                str(path),
+            )
+            self.logger(logging.DEBUG, f'xrootd.stat: filesize cmd: {shlex.join(args)}')
+            status_stat, out, err = execute_args(args, self._auth_env)
             if status_stat == 0:
                 for line in out.split('\n'):
                     if line and ':' in line:
@@ -113,9 +124,15 @@ class Default(protocol.RSEProtocol):
                             break
 
             # xrdfs query checksum for getting checksum
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} query checksum {path}'
-            self.logger(logging.DEBUG, 'xrootd.stat: checksum cmd: {}'.format(cmd))
-            status_query, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'query',
+                'checksum',
+                str(path),
+            )
+            self.logger(logging.DEBUG, f'xrootd.stat: checksum cmd: {shlex.join(args)}')
+            status_query, out, err = execute_args(args, self._auth_env)
             if status_query == 0:
                 chsum, value = out.strip('\n').split()
                 ret[chsum] = value
@@ -190,9 +207,16 @@ class Default(protocol.RSEProtocol):
         try:
             # The query stats call is not implemented on some xroot doors.
             # Workaround: fail, if server does not reply within 10 seconds for static config query
-            cmd = f'{self._auth_env} XRD_REQUESTTIMEOUT=10 xrdfs {self.hostname}:{self.port} query config {self.hostname}:{self.port}'
-            self.logger(logging.DEBUG, 'xrootd.connect: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            env = dict(self._auth_env, XRD_REQUESTTIMEOUT='10')
+            args: tuple[str, ...] = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'query',
+                'config',
+                f'{self.hostname}:{self.port}',
+            )
+            self.logger(logging.DEBUG, f'xrootd.connect: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, env)
             if status != 0:
                 raise exception.RSEAccessDenied(err)
         except Exception as e:
@@ -213,9 +237,14 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'xrootd.get: pfn: {}'.format(pfn))
         try:
-            cmd = f'{self._auth_env} xrdcp -f {pfn} {dest}'
-            self.logger(logging.DEBUG, 'xrootd.get: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdcp',
+                '-f',
+                str(pfn),
+                str(dest),
+            )
+            self.logger(logging.DEBUG, f'xrootd.get: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, self._auth_env)
             if status == 54:
                 raise exception.SourceNotFound()
             elif status != 0:
@@ -244,9 +273,14 @@ class Default(protocol.RSEProtocol):
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         try:
-            cmd = f'{self._auth_env} xrdcp -f {source_url} {path}'
-            self.logger(logging.DEBUG, 'xrootd.put: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdcp',
+                '-f',
+                str(source_url),
+                str(path),
+            )
+            self.logger(logging.DEBUG, f'xrootd.put: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, self._auth_env)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -266,9 +300,14 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             path = self.pfn2path(pfn)
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} rm {path}'
-            self.logger(logging.DEBUG, 'xrootd.delete: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'rm',
+                str(path),
+            )
+            self.logger(logging.DEBUG, f'xrootd.delete: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, self._auth_env)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -290,12 +329,24 @@ class Default(protocol.RSEProtocol):
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
             new_dir = new_path[:new_path.rindex('/') + 1]
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} mkdir -p {new_dir}'
-            self.logger(logging.DEBUG, 'xrootd.stat: mkdir cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} mv {path} {new_path}'
-            self.logger(logging.DEBUG, 'xrootd.stat: rename cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'mkdir',
+                '-p',
+                str(new_dir),
+            )
+            self.logger(logging.DEBUG, f'xrootd.stat: mkdir cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, self._auth_env)
+            args = (
+                'xrdfs',
+                f'{self.hostname}:{self.port}',
+                'mv',
+                str(path),
+                str(new_path),
+            )
+            self.logger(logging.DEBUG, f'xrootd.stat: rename cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args, self._auth_env)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
