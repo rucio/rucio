@@ -19,6 +19,7 @@ import logging
 import os
 import random
 import secrets
+import shlex
 import shutil
 import signal
 import subprocess
@@ -36,11 +37,11 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.common.didtype import DID
 from rucio.common.exception import InputValidationError, NoFilesDownloaded, NotAllFilesDownloaded, RucioException
 from rucio.common.pcache import Pcache
-from rucio.common.utils import execute, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
+from rucio.common.utils import execute_args, extract_scope, generate_uuid, parse_replicas_from_file, parse_replicas_from_string, send_trace, sizefmt
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Sequence
     from xmlrpc.client import ServerProxy as RPCServerProxy
 
     from rucio.common.constants import SORTING_ALGORITHMS_LITERAL
@@ -67,8 +68,8 @@ class BaseExtractionTool:
     def __init__(
             self,
             program_name: str,
-            useability_check_args: str,
-            extract_args: str,
+            usability_check_args: "Sequence[str]",
+            build_extract_args: "Callable[[str, str, str], Sequence[str]]",
             logger: "LoggerFunction" = logging.log
     ):
         """
@@ -78,17 +79,18 @@ class BaseExtractionTool:
         ----------
         program_name :
             the name of the archive extraction program, e.g., unzip
-        useability_check_args :
-            the arguments of the extraction program to test if it's installed, e.g., --version
-        extract_args :
-            the arguments that will be passed to the program for extraction
+        usability_check_args :
+            the arguments of the extraction program to test if it's installed, e.g., (--version, )
+        build_extract_args :
+            function to return the arguments that will be passed to the program for extraction
+            receives the arguments like try_extraction: (archive_file_path, file_to_extract, dest_dir_path)
         logger :
             optional decorated logging.log object that can be passed from the calling daemon or client.
 
         """
         self.program_name = program_name
-        self.useability_check_args = useability_check_args
-        self.extract_args = extract_args
+        self.usability_check_args = usability_check_args
+        self.build_extract_args = build_extract_args
         self.logger = logger
         self.is_useable_result = None
 
@@ -103,14 +105,16 @@ class BaseExtractionTool:
         if self.is_useable_result is not None:
             return self.is_useable_result
         self.is_usable_result = False
-        cmd = '%s %s' % (self.program_name, self.useability_check_args)
+        args: tuple[str, ...] = (
+            self.program_name,
+            *self.usability_check_args,
+        )
         try:
-            exitcode, out, err = execute(cmd)
-            exitcode = int(exitcode)
-            self.logger(logging.DEBUG, '"%s" returned with exitcode %d' % (cmd, exitcode))
+            exitcode, out, err = execute_args(args)
+            self.logger(logging.DEBUG, f'"{shlex.join(args)}" returned with exitcode {exitcode}')
             self.is_usable_result = (exitcode == 0)
         except Exception as error:
-            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % cmd)
+            self.logger(logging.DEBUG, f'Failed to execute: "{shlex.join(args)}"')
             self.logger(logging.DEBUG, error)
         return self.is_usable_result
 
@@ -139,18 +143,16 @@ class BaseExtractionTool:
         """
         if not self.is_useable():
             return False
-        args_map = {'archive_file_path': archive_file_path,
-                    'file_to_extract': file_to_extract,
-                    'dest_dir_path': dest_dir_path}
-        extract_args = self.extract_args % args_map
-        cmd = '%s %s' % (self.program_name, extract_args)
+        args: tuple[str, ...] = (
+            self.program_name,
+            *self.build_extract_args(archive_file_path, file_to_extract, dest_dir_path),
+        )
         try:
-            exitcode, out, err = execute(cmd)
-            exitcode = int(exitcode)
-            self.logger(logging.DEBUG, '"%s" returned with exitcode %d' % (cmd, exitcode))
+            exitcode, out, err = execute_args(args)
+            self.logger(logging.DEBUG, f'"{shlex.join(args)}" returned with exitcode {exitcode}')
             return (exitcode == 0)
         except Exception as error:
-            self.logger(logging.DEBUG, 'Failed to execute: "%s"' % cmd)
+            self.logger(logging.DEBUG, f'Failed to execute: "{shlex.join(args)}"')
             self.logger(logging.DEBUG, error)
         return False
 
@@ -223,12 +225,24 @@ class DownloadClient:
         self.extraction_tools = []
 
         # unzip <archive_file_path> <did_name> -d <dest_dir_path>
-        extract_args = '%(archive_file_path)s %(file_to_extract)s -d %(dest_dir_path)s'
-        self.extraction_tools.append(BaseExtractionTool('unzip', '-v', extract_args, logger=self.logger))
+        self.extraction_tools.append(
+            BaseExtractionTool(
+                program_name='unzip',
+                usability_check_args=('-v',),
+                build_extract_args=lambda archive, file, destdir: (archive, file, '-d', destdir),
+                logger=self.logger,
+            )
+        )
 
         # tar -C <dest_dir_path> -xf <archive_file_path>  <did_name>
-        extract_args = '-C %(dest_dir_path)s -xf %(archive_file_path)s %(file_to_extract)s'
-        self.extraction_tools.append(BaseExtractionTool('tar', '--version', extract_args, logger=self.logger))
+        self.extraction_tools.append(
+            BaseExtractionTool(
+                program_name='tar',
+                usability_check_args=('--version',),
+                build_extract_args=lambda archive, file, destdir: ('-C', destdir, '-xf', archive, file),
+                logger=self.logger,
+            )
+        )
         self.extract_scope_convention = config_get('common', 'extract_scope', False, None)
 
     def download_pfns(
