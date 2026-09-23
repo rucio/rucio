@@ -46,8 +46,8 @@ def detect_client_location() -> "IPWithLocationDict":
     Here setting ip on the one seen by the host itself. There is no connection
     to Google DNS servers.
     Try to determine the sitename automatically from common environment variables,
-    in this order: SITE_NAME, ATLAS_SITE_NAME, OSG_SITE_NAME. If none of these exist
-    use the fixed string 'ROAMING'.
+    in this order: SITE_NAME, OSG_SITE_NAME. If none of these exist use the fixed
+    string 'ROAMING'.
 
     If environment variables sets location, it uses it.
     """
@@ -73,9 +73,8 @@ def detect_client_location() -> "IPWithLocationDict":
         ip = '0.0.0.0'  # noqa: S104
 
     site = os.environ.get('SITE_NAME',
-                          os.environ.get('ATLAS_SITE_NAME',
-                                         os.environ.get('OSG_SITE_NAME',
-                                                        'ROAMING')))
+                          os.environ.get('OSG_SITE_NAME',
+                                         'ROAMING'))
 
     latitude = os.environ.get('RUCIO_LATITUDE')
     longitude = os.environ.get('RUCIO_LONGITUDE')
