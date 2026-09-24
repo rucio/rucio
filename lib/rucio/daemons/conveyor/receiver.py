@@ -199,13 +199,22 @@ def receiver(
 
             _, _, logger = heartbeat_handler.live()
 
-            for conn in conns:
+            for i, conn in enumerate(conns):
 
                 if not conn.is_connected():
                     logger(logging.INFO, 'connecting to %s' % conn.transport._Transport__host_and_ports[0][0])
                     METRICS.counter('reconnect.{host}').labels(host=conn.transport._Transport__host_and_ports[0][0].split('.')[0]).inc()
 
-                    conn.set_listener(
+                    new_con = stomp.Connection12(host_and_ports=[(broker, port)],
+                                                 vhost=vhost,
+                                                 heartbeats=(client_send, client_recv),
+                                                 reconnect_attempts_max=999)
+                    if use_ssl:
+                        con.set_ssl(key_file=key_file, cert_file=cert_file)
+
+                    conns[i] = new_con
+
+                    new_con.set_listener(
                         'rucio-messaging-fts3',
                         Receiver(
                             broker=conn.transport._Transport__host_and_ports[0],
@@ -216,8 +225,8 @@ def receiver(
                             all_vos=all_vos,
                             voname=voname,
                         ))
-                    conn.connect(wait=True, **auth_kwargs)
-                    conn.subscribe(destination=destination, id='rucio-messaging-fts3', ack='auto')
+                    new_con.connect(wait=True, **auth_kwargs)
+                    new_con.subscribe(destination=destination, id='rucio-messaging-fts3', ack='auto')
             time.sleep(1)
 
         for conn in conns:
