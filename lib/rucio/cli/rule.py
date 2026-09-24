@@ -432,7 +432,7 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
                 f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
                 rule['rse_expression'],
                 rule['copies'],
-                sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                sizefmt(rule['bytes'], not ctx.obj.robot) if rule['bytes'] is not None else 'N/A',
                 rule['expires_at'],
                 rule['created_at'],
                 sep=','
@@ -451,7 +451,7 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
                     f"[{RichCLITheme.RULE_STATE.get(rule['state'], 'default')}]{rule['state']}[/][{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
                     rule['rse_expression'],
                     rule['copies'],
-                    sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                    sizefmt(rule['bytes'], not ctx.obj.robot) if rule['bytes'] is not None else 'N/A',
                     rule['expires_at'],
                     rule['created_at']
                 ])
@@ -463,7 +463,7 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
                     f"{rule['state']}[{rule['locks_ok_cnt']}/{rule['locks_replicating_cnt']}/{rule['locks_stuck_cnt']}]",
                     rule['rse_expression'],
                     rule['copies'],
-                    sizefmt(rule['bytes'], ctx.obj.human) if rule['bytes'] is not None else 'N/A',
+                    sizefmt(rule['bytes'], not ctx.obj.robot) if rule['bytes'] is not None else 'N/A',
                     rule['expires_at'],
                     rule['created_at']
                 ])

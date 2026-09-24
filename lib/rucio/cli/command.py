@@ -210,7 +210,7 @@ def main(
     ctx.obj.console = console
     ctx.obj.no_pager = no_pager
     ctx.obj.pager = RichUtils.get_pager()
-    ctx.obj.human = not robot
+    ctx.obj.robot = robot
     ctx.obj.tablefmt = 'psql'
 
     if use_rich:

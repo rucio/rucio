@@ -196,7 +196,7 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
     table_data = []
     for item in usage:
         remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
-        table_data.append([item['rse'], sizefmt(item['bytes'], ctx.obj.human), sizefmt(item['bytes_limit'], ctx.obj.human), sizefmt(remaining, ctx.obj.human)])
+        table_data.append([item['rse'], sizefmt(item['bytes'], not ctx.obj.robot), sizefmt(item['bytes_limit'], not ctx.obj.robot), sizefmt(remaining, not ctx.obj.robot)])
     table_data.sort()
 
     if ctx.obj.use_rich:
@@ -209,7 +209,7 @@ def limit_list(ctx: click.Context, account_name: str, rse: Optional[str]):
     for item in usage:
         if (rse and rse in item['rse_expression']) or not rse:
             remaining = 0 if float(item['bytes_remaining']) < 0 else float(item['bytes_remaining'])
-            table_data.append([item['rse_expression'], sizefmt(item['bytes'], ctx.obj.human), sizefmt(item['bytes_limit'], ctx.obj.human), sizefmt(remaining, ctx.obj.human)])
+            table_data.append([item['rse_expression'], sizefmt(item['bytes'], not ctx.obj.robot), sizefmt(item['bytes_limit'], not ctx.obj.robot), sizefmt(remaining, not ctx.obj.robot)])
     table_data.sort()
 
     if ctx.obj.use_rich:
