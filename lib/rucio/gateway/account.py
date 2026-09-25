@@ -236,7 +236,7 @@ def add_account_attribute(
     :param vo: The VO to act on.
 
     """
-    validate_schema(name='account_attribute', obj=key, vo=vo)
+    validate_schema(name='account_attribute_name', obj=key, vo=vo)
     validate_schema(name='account_attribute', obj=value, vo=vo)
 
     kwargs = {'account': account, 'key': key, 'value': value}
