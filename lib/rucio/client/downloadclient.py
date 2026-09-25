@@ -828,7 +828,6 @@ class DownloadClient:
             pfn = source['pfn']
             rse_name = source['rse']
             scheme = pfn.split(':')[0]
-
             try:
                 rse = rsemgr.get_rse_info(rse_name, vo=self.client.vo)
             except RucioException as error:
@@ -852,7 +851,8 @@ class DownloadClient:
                 logger(logging.INFO, '%sUsing Implementation (impl): %s ' % (log_prefix, impl))
 
             try:
-                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl=impl, auth_token=self.auth_token, logger=logger)
+                domain = source.get('domain')
+                protocol = rsemgr.create_protocol(rse, operation='read', scheme=scheme, impl=impl, auth_token=self.auth_token, logger=logger, domain=domain if domain in ('lan', 'wan') else 'wan')
                 protocol.connect()
             except Exception as error:
                 logger(logging.WARNING, '%sFailed to create protocol for PFN: %s' % (log_prefix, pfn))
