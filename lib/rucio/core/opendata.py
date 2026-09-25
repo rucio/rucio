@@ -60,6 +60,13 @@ EOS_PROBE_NEGATIVE_REGION = MemcacheRegion(expiration_time=300)
 DEFAULT_EOS_TOKEN_LIFETIME_SECONDS = 4 * 3600
 OPENDATA_DID_FILES_CACHE_VERSION = 2
 
+DEFAULT_OPENDATA_DOWNLOAD_SCHEMES = (
+    "http",
+    "https",
+    "dav",
+    "davs",
+)
+
 
 def is_valid_opendata_did_state(state: str) -> bool:
     """
@@ -841,6 +848,7 @@ def _make_opendata_did_files_cache_key(
     scope: "InternalScope",
     name: str,
     include_download_urls: bool,
+    download_schemes: Optional["Sequence[str]"] = None,
 ) -> str:
     """
     Build a bounded and unambiguous cache key for Open Data DID file listings.
@@ -849,11 +857,22 @@ def _make_opendata_did_files_cache_key(
     between VOs. The structured identity is hashed to avoid ambiguous field
     concatenation and Memcached's 250-byte key limit.
     """
+    effective_download_schemes = (
+        tuple(download_schemes)
+        if download_schemes is not None
+        else DEFAULT_OPENDATA_DOWNLOAD_SCHEMES
+    )
+
     cache_identity = json.dumps(
         {
             "scope": scope.internal,
             "name": name,
             "include_download_urls": include_download_urls,
+            "download_schemes": (
+                effective_download_schemes
+                if include_download_urls
+                else None
+            ),
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -875,6 +894,7 @@ def get_opendata_did_files(
         name: str,
         use_cache: bool = False,
         include_download_urls: bool = False,
+        download_schemes: Optional["Sequence[str]"] = None,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -888,6 +908,8 @@ def get_opendata_did_files(
         name: The name of the OpenData DID.
         use_cache: If True, use caching to store/retrieve the result. Defaults to False.
         include_download_urls: If True, include tokenized download URLs for the files.
+        download_schemes: Optional replica schemes to use when generating
+            download URLs. Defaults to HTTP(S) and DAV(S).
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -906,12 +928,19 @@ def get_opendata_did_files(
 
     time_start = time.perf_counter()
 
-    # Build a cache key which uniquely identifies the DID, VO, and
-    # download URL inclusion mode.
+    # Build a cache key which uniquely identifies the DID, VO,
+    # download URL inclusion mode, and requested download schemes.
+    effective_download_schemes = (
+        list(download_schemes)
+        if download_schemes is not None
+        else list(DEFAULT_OPENDATA_DOWNLOAD_SCHEMES)
+    )
+
     cache_key = _make_opendata_did_files_cache_key(
         scope,
         name,
         include_download_urls,
+        effective_download_schemes,
     )
 
     if use_cache:
@@ -978,7 +1007,7 @@ def get_opendata_did_files(
                 list_replicas(
                     dids=dids,
                     rse_expression=rse_expression,
-                    schemes=["http", "https", "dav", "davs"],
+                    schemes=effective_download_schemes,
                     resolve_archives=False,
                     session=session,
                 )
@@ -1054,6 +1083,7 @@ def get_opendata_did(
         include_rule: bool = True,
         include_record_id: bool = True,
         include_download_urls: bool = False,
+        download_schemes: Optional["Sequence[str]"] = None,
         session: "Session",
 ) -> dict[str, Any]:
     """
@@ -1069,6 +1099,8 @@ def get_opendata_did(
         include_rule: If True, include the Opendata replication rule. Defaults to True.
         include_record_id: If True, include the record ID of the DID. Defaults to True.
         include_download_urls: If True, include download URLs for the files. Defaults to False.
+        download_schemes: Optional replica schemes to use when generating
+            download URLs. Defaults to HTTP(S) and DAV(S).
         session: SQLAlchemy session to use for the query.
 
     Returns:
@@ -1121,8 +1153,14 @@ def get_opendata_did(
     if include_rule:
         result["rule"] = _fetch_opendata_rule(scope=scope, name=name, session=session)
     if include_files:
-        opendata_files = get_opendata_did_files(scope=scope, name=name, use_cache=True,
-                                                include_download_urls=include_download_urls, session=session)
+        opendata_files = get_opendata_did_files(
+            scope=scope,
+            name=name,
+            use_cache=True,
+            include_download_urls=include_download_urls,
+            download_schemes=download_schemes,
+            session=session,
+        )
         result["files"] = opendata_files["files"]
 
         bytes_sum = sum(file["bytes"] for file in result["files"])
