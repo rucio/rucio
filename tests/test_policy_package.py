@@ -110,6 +110,9 @@ class TestPolicyPackage:
         # check that schemas not defined in our module fall back to generic
         rucio.common.schema.validate_schema('r_name', 'name_to_validate')
 
+        # check that account_attribute_name falls back to account_attribute
+        rucio.common.schema.validate_schema('account_attribute_name', 'https://rucio.cern.ch')
+
         # check that generic schema references our module correctly
         assert rucio.common.schema.get_schema_value('ACCOUNTS')['items']['maxLength'] == 1000
 

@@ -28,6 +28,11 @@ ACCOUNT = {"description": "Account name",
            "maxLength": 1000,
            "pattern": "^[a-z0-9-_]+$"}
 
-SCHEMAS = {'account': ACCOUNT}
+ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
+                     "type": "string",
+                     "pattern": r'^[a-zA-Z0-9-_\\/\\.:]{1,30}$'}
+
+SCHEMAS = {'account': ACCOUNT,
+           'account_attribute': ACCOUNT_ATTRIBUTE}
 
 TEST_SCHEMA = {"nameLength": SchemaRef("NAME_LENGTH")}
