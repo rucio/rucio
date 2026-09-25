@@ -44,6 +44,7 @@ from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import auth, did_name_generator, headers, with_each_cli_renderer
+from rucio.web.rest.flaskapi.v1.opendata_public import _select_download_url
 
 skip_unsupported_json = pytest.mark.skipif(
     not json_implemented(),
@@ -307,6 +308,56 @@ class TestOpenDataCore:
         )
 
         assert key_first != key_second
+
+    def test_opendata_did_files_cache_key_is_download_scheme_aware(self, mock_scope):
+        all_schemes_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "dataset",
+            True,
+            ["http", "https", "dav", "davs"],
+        )
+
+        http_schemes_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "dataset",
+            True,
+            ["http", "https"],
+        )
+
+        assert all_schemes_key != http_schemes_key
+
+    def test_opendata_did_files_cache_key_default_download_schemes(self, mock_scope):
+        implicit_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "dataset",
+            True,
+        )
+
+        explicit_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "dataset",
+            True,
+            ["http", "https", "dav", "davs"],
+        )
+
+        assert implicit_key == explicit_key
+
+    def test_opendata_did_files_cache_key_ignores_schemes_without_download_urls(self, mock_scope):
+        all_schemes_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "dataset",
+            False,
+            ["http", "https", "dav", "davs"],
+        )
+
+        http_schemes_key = opendata._make_opendata_did_files_cache_key(
+            mock_scope,
+            "dataset",
+            False,
+            ["http", "https"],
+        )
+
+        assert all_schemes_key == http_schemes_key
 
     def test_opendata_doi_update(self, mock_scope, root_account, doi_factory, db_write_session):
         name = did_name_generator(did_type="dataset")
@@ -617,6 +668,53 @@ class TestOpenDataEOS:
     def isolate_eos_probe_cache(self, monkeypatch):
         monkeypatch.setattr(opendata, "EOS_PROBE_REGION", _FakeCacheRegion())
         monkeypatch.setattr(opendata, "EOS_PROBE_NEGATIVE_REGION", _FakeCacheRegion())
+
+    @pytest.mark.parametrize(
+        "download_urls, expected",
+        [
+            (
+                [
+                    "https://first.example/file",
+                    "https://second.example/file",
+                ],
+                "https://first.example/file",
+            ),
+            (
+                [
+                    "http://first.example/file",
+                    "https://second.example/file",
+                ],
+                "https://second.example/file",
+            ),
+            (
+                [
+                    "dav://first.example/file",
+                    "davs://second.example/file",
+                    "http://third.example/file",
+                ],
+                "http://third.example/file",
+            ),
+            (
+                [
+                    "dav://first.example/file",
+                    "davs://second.example/file",
+                ],
+                None,
+            ),
+            (
+                [
+                    "https:///missing-host",
+                ],
+                None,
+            ),
+            (
+                [],
+                None,
+            ),
+        ],
+    )
+    def test_select_download_url(self, download_urls, expected):
+        assert _select_download_url(download_urls) == expected
 
     def test_is_eos_host_positive(self):
         eos_host = f"{self.eos_host}:8444"
@@ -1527,6 +1625,84 @@ class TestOpenDataEOS:
 
         assert ["http", "https", "dav", "davs"] in requested_schemes
 
+    def test_get_opendata_did_files_download_urls_selected_schemes(
+        self,
+        mock_scope,
+        monkeypatch,
+        did_factory,
+        db_write_session,
+    ):
+        _configure_opendata_rse_expression()
+
+        dataset = did_factory.make_dataset(
+            scope=mock_scope,
+            session=db_write_session,
+        )
+
+        name = dataset["name"]
+        file_name = did_name_generator(did_type="file")
+
+        opendata.add_opendata_did(
+            scope=mock_scope,
+            name=name,
+            session=db_write_session,
+        )
+
+        db_write_session.commit()
+
+        https_uri = (
+            f"https://{self.eos_host}:8444"
+            "//eos/opendata/experiment/file.root"
+        )
+
+        requested_schemes = []
+
+        def fake_list_files(*args, **kwargs):
+            yield {
+                "scope": mock_scope,
+                "name": file_name,
+                "bytes": 42,
+                "adler32": "deadbeef",
+            }
+
+        def fake_list_replicas(*args, **kwargs):
+            requested_schemes.append(kwargs.get("schemes"))
+
+            yield {
+                "scope": mock_scope,
+                "name": file_name,
+                "pfns": {
+                    https_uri: {"type": "DISK"},
+                },
+            }
+
+        monkeypatch.setattr(opendata, "list_files", fake_list_files)
+        monkeypatch.setattr(opendata, "list_replicas", fake_list_replicas)
+        monkeypatch.setattr(
+            opendata,
+            "_is_eos_host",
+            lambda host: True,
+        )
+        monkeypatch.setattr(
+            opendata,
+            "_eos_grpc_gateway_token_command",
+            lambda **kwargs: self.eos_token,
+        )
+
+        result = opendata.get_opendata_did_files(
+            scope=mock_scope,
+            name=name,
+            include_download_urls=True,
+            download_schemes=["http", "https"],
+            session=db_write_session,
+        )
+
+        assert len(result["files"]) == 1
+        assert len(result["files"][0]["download_urls"]) == 1
+
+        assert ["http", "https"] in requested_schemes
+        assert ["http", "https", "dav", "davs"] not in requested_schemes
+
     def test_get_opendata_did_files_without_download_urls(
         self,
         mock_scope,
@@ -2118,6 +2294,7 @@ class TestOpenDataClient:
 class TestOpenDataAPI:
     api_endpoint = '/opendata/dids'
     api_endpoint_public = '/opendata/public/dids'
+    api_endpoint_download = '/opendata/public/download'
 
     def test_opendata_api_list(self, rest_client, auth_token, root_account):
         response = rest_client.get(
@@ -2214,6 +2391,158 @@ class TestOpenDataAPI:
                 endpoint,
                 headers=request_headers,
             )
+
+    def test_opendata_public_download_redirect(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        https_url = (
+            "https://eos.example:8444//eos/file.root"
+            "?authz=token"
+        )
+
+        result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "sgn.root",
+                    "download_urls": [
+                        "http://http.example/file?authz=token",
+                        https_url,
+                    ],
+                }
+            ]
+        }
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            return_value=result,
+        ) as mock_get_opendata_did:
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/sgn.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 307
+        assert response.headers["Location"] == https_url
+
+        kwargs = mock_get_opendata_did.call_args.kwargs
+
+        assert kwargs["state"] == "public"
+        assert kwargs["include_files"] is True
+        assert kwargs["include_download_urls"] is True
+        assert kwargs["download_schemes"] == ["http", "https"]
+
+    def test_opendata_public_download_did_name_with_slashes(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        download_url = "https://eos.example/file.root?authz=token"
+
+        result = {
+            "files": [
+                {
+                    "download_urls": [download_url],
+                }
+            ]
+        }
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            return_value=result,
+        ) as mock_get_opendata_did:
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/source/2026/sgn.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 307
+
+        kwargs = mock_get_opendata_did.call_args.kwargs
+        assert kwargs["scope"] == str(mock_scope)
+        assert kwargs["name"] == "source/2026/sgn.root"
+
+    def test_opendata_public_download_rejects_dav_urls(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        result = {
+            "files": [
+                {
+                    "download_urls": [
+                        "dav://one.example/file",
+                        "davs://two.example/file",
+                    ],
+                }
+            ]
+        }
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            return_value=result,
+        ):
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/test.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 400
+        assert "Location" not in response.headers
+
+    def test_opendata_public_download_non_public_returns_403(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=OpenDataDataIdentifierNotFound(
+                "OpenData DID not found"
+            ),
+        ):
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/test.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 403
+        assert "Location" not in response.headers
+
+    def test_opendata_public_download_no_replica_returns_400(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=ReplicaNotFound("No suitable replica"),
+        ):
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/test.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 400
+        assert "Location" not in response.headers
+
+    def test_opendata_public_download_backend_error_returns_500(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=OpenDataError("EOS failure"),
+        ):
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/test.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 500
 
     @pytest.mark.parametrize("public", [False, True])
     def test_opendata_api_temporary_failure_returns_503(
