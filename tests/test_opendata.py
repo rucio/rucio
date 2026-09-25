@@ -2544,6 +2544,24 @@ class TestOpenDataAPI:
 
         assert response.status_code == 500
 
+    def test_opendata_public_download_temporary_failure_returns_500(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=ResourceTemporaryUnavailable(
+                "Temporary EOS failure"
+            ),
+        ):
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/test.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 500
+
     @pytest.mark.parametrize("public", [False, True])
     def test_opendata_api_temporary_failure_returns_503(
         self,
