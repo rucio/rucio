@@ -277,10 +277,7 @@ class OpenDataPublicDownloadView(ErrorHandlingMethodView):
 
         return Response(
             status=307,
-            headers={
-                "Location": download_url,
-                "Cache-Control": "no-store",
-            },
+            headers={"Location": download_url},
         )
 
 
