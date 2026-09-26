@@ -15,25 +15,30 @@
 import contextlib
 import itertools
 import json
+import logging
 import os
+import shlex
+import signal
 import tempfile
+import threading
 from collections import namedtuple
 from functools import wraps
 from os import rename
 from random import choice, choices
 from string import ascii_letters, ascii_uppercase, digits
-from typing import IO, TYPE_CHECKING, Any, Literal, Optional
+from typing import IO, TYPE_CHECKING, Any, Literal, Optional, Union
 
 import pytest
 import requests
+from click.testing import CliRunner
 
 from rucio.common.config import config_get, config_get_bool, get_config_dirs
 from rucio.common.constants import DEFAULT_VO
-from rucio.common.utils import execute
+from rucio.common.utils import execute, setup_logger
 from rucio.common.utils import generate_uuid as uuid
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable, Iterator, Mapping
     from types import ModuleType
 
     from werkzeug.test import TestResponse
@@ -55,6 +60,53 @@ with_each_cli_renderer = pytest.mark.parametrize("file_config_mock", [
     pytest.param({"overrides": [('experimental', 'cli', 'tabulate')]}, id="cli=tabulate"),
     pytest.param({"overrides": [('experimental', 'cli', 'rich')]}, id="cli=rich"),
 ], indirect=True)
+
+
+class _CliRunner(CliRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        if getattr(self, "mix_stderr", False):
+            self.mix_stderr = False
+
+    @contextlib.contextmanager
+    def isolation(
+        self,
+        input: Optional[Union[str, bytes, IO[bytes]]] = None,
+        env: Optional["Mapping[str, Optional[str]]"] = None,
+        color: bool = False,
+    ) -> "Iterator[Any]":
+        with super().isolation(input=input, env=env, color=color) as streams:
+            logging.getLogger("user").handlers.clear()
+            setup_logger(logger_name="user")
+            yield streams
+
+
+def execute_cli(cmd: str) -> tuple[int, str, str]:
+    """
+    Execute the Click rucio CLI in-process.
+    Returns (exitcode, stdout, stderr) like func: `~rucio.common.utils.execute`.
+    """
+    from rucio.cli.bin_legacy import rucio as bin_legacy_rucio
+    from rucio.cli.bin_legacy import rucio_admin as bin_legacy_rucio_admin
+    from rucio.cli.command import main
+    from rucio.cli.utils import RichUtils
+
+    args = shlex.split(cmd)
+    if args and args[0] in ("rucio", "bin/rucio"):
+        args = args[1:]
+
+    renderer = RichUtils.get_cli_config()
+    bin_legacy_rucio.cli_config = renderer
+    bin_legacy_rucio_admin.cli_config = renderer
+
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    try:
+        result = _CliRunner().invoke(main, args, catch_exceptions=False)
+    finally:
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, previous_sigint)
+
+    return result.exit_code, result.stdout or "", result.stderr or ""
 
 
 def is_influxdb_available(
