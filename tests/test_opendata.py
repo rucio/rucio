@@ -2528,6 +2528,34 @@ class TestOpenDataAPI:
         assert response.status_code == 400
         assert "Location" not in response.headers
 
+    @pytest.mark.parametrize(
+        "files",
+        [
+            [],
+            [
+                {"download_urls": ["https://one.example/file"]},
+                {"download_urls": ["https://two.example/file"]},
+            ],
+        ],
+    )
+    def test_opendata_public_download_requires_single_file(
+        self,
+        rest_client,
+        mock_scope,
+        files,
+    ):
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            return_value={"files": files},
+        ):
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}/test",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 400
+        assert "Location" not in response.headers
+
     def test_opendata_public_download_backend_error_returns_500(
         self,
         rest_client,
