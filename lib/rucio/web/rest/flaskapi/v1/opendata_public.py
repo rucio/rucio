@@ -196,8 +196,10 @@ class OpenDataPublicDownloadView(ErrorHandlingMethodView):
         ---
         summary: Download a public Open Data file
         description: >
-          Resolves a public Open Data DID and temporarily redirects the client
-          to one HTTP(S) download URL. DAV and DAVS endpoints are ignored.
+          Resolves a public Open Data DID which maps to exactly one file and
+          temporarily redirects the client to one HTTP(S) download URL.
+          Multi-file DIDs are not supported by this endpoint. DAV and DAVS
+          endpoints are ignored.
         tags:
           - Open Data Public
         parameters:
