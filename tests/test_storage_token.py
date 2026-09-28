@@ -18,7 +18,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from dogpile.cache.api import NoValue
@@ -40,7 +40,6 @@ from rucio.core.token import (
 )
 from rucio.core.token.cache import token_cache_key
 from rucio.core.token.request import _token_cache_get, _token_cache_set
-from rucio.transfertool.fts3 import _job_transfer_tokens_from_files
 
 
 def _unsigned_jwt(audience: str, scope: str) -> str:
@@ -434,14 +433,88 @@ class TestUnmanagedTokensForJob:
     def test_fts3_collector_passes_rse_type_facts(self):
         src = _unsigned_jwt('src.example.org', 'storage.read:/data')
         dst = _unsigned_jwt('dst.example.org', 'storage.modify:/data')
-        files = [{
-            'source_tokens': [src],
-            'destination_tokens': [dst],
-            'metadata': {'src_type': 'DISK', 'dst_type': 'TAPE'},
-        }]
-        items = _job_transfer_tokens_from_files(files)
+        items = [
+            JobTransferToken(token=src, operation=StorageTokenOperation.TPC_SOURCE, rse_type='DISK'),
+            JobTransferToken(token=dst, operation=StorageTokenOperation.TPC_DESTINATION, rse_type='TAPE'),
+        ]
         assert [(i.operation, i.rse_type, i.token) for i in items] == [
             (StorageTokenOperation.TPC_SOURCE, 'DISK', src),
             (StorageTokenOperation.TPC_DESTINATION, 'TAPE', dst),
         ]
         assert unmanaged_tokens_for_job(items, vo=None) is True
+
+
+class _ReplicaScope:
+    def __init__(self, external='mock', vo='def'):
+        self.external = external
+        self.vo = vo
+
+    def __str__(self):
+        return self.external
+
+
+class TestReaperCentralDelete:
+
+    def _replica(self, name):
+        return {
+            'scope': _ReplicaScope(),
+            'name': name,
+            'bytes': 1,
+            'pfn': f'davs://se.example.org/{name}',
+            'datatype': 'RAW',
+        }
+
+    @patch('rucio.daemons.reaper.reaper.get_token_for_operation', return_value='tok')
+    def test_central_delete_token_always_passes_did(self, mock_get):
+        from rucio.daemons.reaper.reaper import _central_delete_token
+
+        replica = self._replica('file.root')
+        assert _central_delete_token('rse-1', replica, logging.log) == 'tok'
+        ctx = mock_get.call_args.args[0]
+        assert ctx.operation == StorageTokenOperation.CENTRAL_DELETE
+        assert ctx.rse_id == 'rse-1'
+        assert ctx.did == ('mock', 'file.root')
+        assert ctx.vo == 'def'
+
+    @patch('rucio.daemons.reaper.reaper.add_message')
+    def test_delete_from_storage_sets_bearer_per_replica(self, mock_msg):
+        from rucio.daemons.reaper.reaper import delete_from_storage
+
+        replicas = [self._replica('a.root'), self._replica('b.root')]
+        tokens = {'a.root': 'tok-a', 'b.root': 'tok-b'}
+        prot = MagicMock()
+        prot.attributes = {'scheme': 'davs'}
+        hb = MagicMock()
+        hb.live.return_value = (None, 1, logging.log)
+        rse_info = {'rse': 'MOCK-RSE', 'id': 'rse-1', 'sign_url': None}
+
+        deleted = delete_from_storage(
+            hb, 'payload', replicas, prot, rse_info, False, 100,
+            logger=logging.log,
+            storage_token_for_replica=lambda replica: tokens[replica['name']],
+        )
+
+        assert [item['name'] for item in deleted] == ['a.root', 'b.root']
+        assert prot.set_auth_token.call_args_list == [
+            call('tok-a'),
+            call('tok-a'),
+            call('tok-b'),
+        ]
+        assert prot.delete.call_args_list == [
+            call(replicas[0]['pfn']),
+            call(replicas[1]['pfn']),
+        ]
+        prot.connect.assert_called_once()
+
+    def test_webdav_set_auth_token_updates_authorization_header(self):
+        from rucio.rse.protocols.webdav import Default as WebDAV
+
+        prot = MagicMock()
+        headers: dict[str, str] = {}
+        prot.session.headers = headers
+        prot.auth_token = 'tok-2'
+        WebDAV._on_auth_token_changed(prot)
+        assert headers['Authorization'] == 'Bearer tok-2'
+        prot.auth_token = None
+        WebDAV._on_auth_token_changed(prot)
+        assert 'Authorization' not in headers

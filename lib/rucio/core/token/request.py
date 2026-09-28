@@ -75,7 +75,7 @@ class TokenRequest(TokenPolicyAlgorithm[Callable[[str, str, StorageTokenContext]
     @staticmethod
     def default(audience: str, scope: str, ctx: StorageTokenContext) -> Optional[str]:
         if not all([oidc_core.OIDC_CLIENT_ID, oidc_core.OIDC_CLIENT_SECRET, oidc_core.OIDC_PROVIDER_ENDPOINT]):
-            if oidc_core.OIDC_CONFIGURATION_RUN or not oidc_core.__load_oidc_configuration():
+            if oidc_core.OIDC_CONFIGURATION_RUN or not oidc_core._load_oidc_configuration():
                 return None
 
         use_cache = TokenCache.get_configured_algorithm(vo_from_ctx(ctx))(ctx)
