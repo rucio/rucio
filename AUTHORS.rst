@@ -73,6 +73,7 @@ Individual contributors to the source code
 - Riccardo Di Maio <riccardodimaio11@gmail.com>, 2024-2025
 - Karanjot Singh <karanjot.singh@cern.ch>, 2025-2026
 - Vlad Galuska <vlad.galuska21@gmail.com>, 2026
+- Luca Giommi <luca.g.lp2@gmail.com>, 2026
 
 Organisations employing contributors
 ------------------------------------
