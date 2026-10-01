@@ -2554,6 +2554,10 @@ def __resolve_bytes_length_events_did(
                 func.count(),
                 func.sum(models.DataIdentifierAssociation.bytes),
                 func.sum(models.DataIdentifierAssociation.events),
+            ).with_hint(
+                models.DataIdentifierAssociation,
+                'INDEX_RS_ASC(contents)',
+                'oracle'
             ).where(
                 and_(models.DataIdentifierAssociation.scope == did.scope,
                      models.DataIdentifierAssociation.name == did.name)
