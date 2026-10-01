@@ -95,6 +95,10 @@ def execute_cli(cmd: str) -> tuple[int, str, str]:
     if args and args[0] in ("rucio", "bin/rucio"):
         args = args[1:]
 
+    # Click commands such as upload, whoami, and scope still call into bin_legacy,
+    # which reads the module-level cli_config captured at import. Refresh it so
+    # @with_each_cli_renderer switches rich/tabulate. This is not the rucio
+    # --legacy flag. Remove this once bin_legacy is gone.
     renderer = RichUtils.get_cli_config()
     bin_legacy_rucio.cli_config = renderer
     bin_legacy_rucio_admin.cli_config = renderer
