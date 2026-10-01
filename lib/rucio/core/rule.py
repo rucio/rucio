@@ -3601,6 +3601,10 @@ def __oldest_file_under(
     """
     stmt = select(
         models.DataIdentifierAssociation
+    ).with_hint(
+        models.DataIdentifierAssociation,
+        'INDEX_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)',
+        'oracle'
     ).where(
         and_(models.DataIdentifierAssociation.scope == scope,
              models.DataIdentifierAssociation.name == name)
