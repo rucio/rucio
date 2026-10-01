@@ -78,41 +78,7 @@ include-package-data = true
 
 script-files = [
   "bin/rucio",
-  "bin/rucio-abacus-account",
-  "bin/rucio-abacus-collection-replica",
-  "bin/rucio-abacus-rse",
-  "bin/rucio-admin",
-  "bin/rucio-atropos",
-  "bin/rucio-auditor",
-  "bin/rucio-automatix",
-  "bin/rucio-bb8",
-  "bin/rucio-cache-client",
-  "bin/rucio-cache-consumer",
-  "bin/rucio-conveyor-finisher",
-  "bin/rucio-conveyor-poller",
-  "bin/rucio-conveyor-preparer",
-  "bin/rucio-conveyor-receiver",
-  "bin/rucio-conveyor-stager",
-  "bin/rucio-conveyor-submitter",
-  "bin/rucio-conveyor-throttler",
-  "bin/rucio-dark-reaper",
-  "bin/rucio-dumper",
-  "bin/rucio-follower",
-  "bin/rucio-hermes",
-  "bin/rucio-judge-cleaner",
-  "bin/rucio-judge-evaluator",
-  "bin/rucio-judge-injector",
-  "bin/rucio-judge-repairer",
-  "bin/rucio-kronos",
-  "bin/rucio-minos",
-  "bin/rucio-minos-temporary-expiration",
-  "bin/rucio-necromancer",
-  "bin/rucio-reaper",
-  "bin/rucio-replica-recoverer",
-  "bin/rucio-rse-decommissioner",
-  "bin/rucio-storage-consistency-actions",
-  "bin/rucio-transmogrifier",
-  "bin/rucio-undertaker"
+  "bin/rucio-admin"
 ]
 
 [tool.setuptools.data-files]
