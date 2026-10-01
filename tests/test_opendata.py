@@ -44,7 +44,8 @@ from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
 from rucio.tests.common import auth, did_name_generator, headers, with_each_cli_renderer
-from rucio.web.rest.flaskapi.v1.opendata_public import _select_download_url
+from rucio.web.rest.flaskapi.v1 import common as rest_common
+from rucio.web.rest.flaskapi.v1.opendata_public import OpenDataPublicDownloadView, _select_download_url
 
 skip_unsupported_json = pytest.mark.skipif(
     not json_implemented(),
@@ -2402,7 +2403,16 @@ class TestOpenDataAPI:
             "?authz=token"
         )
 
-        result = {
+        initial_result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "sgn.root",
+                }
+            ]
+        }
+
+        download_result = {
             "files": [
                 {
                     "scope": str(mock_scope),
@@ -2417,7 +2427,7 @@ class TestOpenDataAPI:
 
         with patch(
             "rucio.gateway.opendata.get_opendata_did",
-            return_value=result,
+            side_effect=[initial_result, download_result],
         ) as mock_get_opendata_did:
             response = rest_client.get(
                 f"{self.api_endpoint_download}/{mock_scope}/sgn.root",
@@ -2427,12 +2437,19 @@ class TestOpenDataAPI:
         assert response.status_code == 307
         assert response.headers["Location"] == https_url
 
-        kwargs = mock_get_opendata_did.call_args.kwargs
+        assert mock_get_opendata_did.call_count == 2
 
-        assert kwargs["state"] == "public"
-        assert kwargs["include_files"] is True
-        assert kwargs["include_download_urls"] is True
-        assert kwargs["download_schemes"] == ["http", "https"]
+        initial_kwargs = mock_get_opendata_did.call_args_list[0].kwargs
+        download_kwargs = mock_get_opendata_did.call_args_list[1].kwargs
+
+        assert initial_kwargs["state"] == "public"
+        assert initial_kwargs["include_files"] is True
+        assert initial_kwargs["include_download_urls"] is False
+
+        assert download_kwargs["state"] == "public"
+        assert download_kwargs["include_files"] is True
+        assert download_kwargs["include_download_urls"] is True
+        assert download_kwargs["download_schemes"] == ["http", "https"]
 
     def test_opendata_public_download_did_name_with_slashes(
         self,
@@ -2441,9 +2458,20 @@ class TestOpenDataAPI:
     ):
         download_url = "https://eos.example/file.root?authz=token"
 
-        result = {
+        initial_result = {
             "files": [
                 {
+                    "scope": str(mock_scope),
+                    "name": "source/2026/sgn.root",
+                }
+            ]
+        }
+
+        download_result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "source/2026/sgn.root",
                     "download_urls": [download_url],
                 }
             ]
@@ -2451,7 +2479,7 @@ class TestOpenDataAPI:
 
         with patch(
             "rucio.gateway.opendata.get_opendata_did",
-            return_value=result,
+            side_effect=[initial_result, download_result],
         ) as mock_get_opendata_did:
             response = rest_client.get(
                 f"{self.api_endpoint_download}/{mock_scope}/source/2026/sgn.root",
@@ -2460,9 +2488,105 @@ class TestOpenDataAPI:
 
         assert response.status_code == 307
 
-        kwargs = mock_get_opendata_did.call_args.kwargs
-        assert kwargs["scope"] == str(mock_scope)
-        assert kwargs["name"] == "source/2026/sgn.root"
+        assert mock_get_opendata_did.call_count == 2
+
+        for call in mock_get_opendata_did.call_args_list:
+            assert call.kwargs["scope"] == str(mock_scope)
+            assert call.kwargs["name"] == "source/2026/sgn.root"
+
+    def test_opendata_public_download_did_name_starting_with_slash(
+        self,
+        rest_client,
+        mock_scope,
+    ):
+        download_url = "https://eos.example/file.root?authz=token"
+
+        initial_result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "/belle/file.root",
+                }
+            ]
+        }
+
+        download_result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "/belle/file.root",
+                    "download_urls": [download_url],
+                }
+            ]
+        }
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=[initial_result, download_result],
+        ) as mock_get_opendata_did:
+            response = rest_client.get(
+                f"{self.api_endpoint_download}/{mock_scope}//belle/file.root",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 307
+        assert response.headers["Location"] == download_url
+
+        assert mock_get_opendata_did.call_count == 2
+
+        for call in mock_get_opendata_did.call_args_list:
+            assert call.kwargs["scope"] == str(mock_scope)
+            assert call.kwargs["name"] == "/belle/file.root"
+
+    def test_opendata_public_download_encoded_slashes_no_decode(
+        self,
+        rest_client,
+        mock_scope,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            rest_common,
+            "RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE",
+            True,
+        )
+
+        download_url = "https://eos.example/file.root?authz=token"
+
+        initial_result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "source/2026/sgn.root",
+                }
+            ]
+        }
+
+        download_result = {
+            "files": [
+                {
+                    "scope": str(mock_scope),
+                    "name": "source/2026/sgn.root",
+                    "download_urls": [download_url],
+                }
+            ]
+        }
+
+        with patch(
+            "rucio.gateway.opendata.get_opendata_did",
+            side_effect=[initial_result, download_result],
+        ) as mock_get_opendata_did:
+            with rest_client.application.test_request_context():
+                response = OpenDataPublicDownloadView().get(
+                    f"{mock_scope}/source%2F2026%2Fsgn.root"
+                )
+
+        assert response.status_code == 307
+
+        assert mock_get_opendata_did.call_count == 2
+
+        for call in mock_get_opendata_did.call_args_list:
+            assert call.kwargs["scope"] == str(mock_scope)
+            assert call.kwargs["name"] == "source/2026/sgn.root"
 
     def test_opendata_public_download_rejects_dav_urls(
         self,
@@ -2533,8 +2657,8 @@ class TestOpenDataAPI:
         [
             [],
             [
-                {"download_urls": ["https://one.example/file"]},
-                {"download_urls": ["https://two.example/file"]},
+                {"name": "one.root"},
+                {"name": "two.root"},
             ],
         ],
     )
@@ -2547,7 +2671,7 @@ class TestOpenDataAPI:
         with patch(
             "rucio.gateway.opendata.get_opendata_did",
             return_value={"files": files},
-        ):
+        ) as mock_get_opendata_did:
             response = rest_client.get(
                 f"{self.api_endpoint_download}/{mock_scope}/test",
                 follow_redirects=False,
@@ -2555,6 +2679,15 @@ class TestOpenDataAPI:
 
         assert response.status_code == 400
         assert "Location" not in response.headers
+
+        # Zero- and multi-file DIDs must be rejected before requesting
+        # tokenized download URLs from EOS.
+        assert mock_get_opendata_did.call_count == 1
+
+        kwargs = mock_get_opendata_did.call_args.kwargs
+
+        assert kwargs["include_files"] is True
+        assert kwargs["include_download_urls"] is False
 
     def test_opendata_public_download_backend_error_returns_500(
         self,

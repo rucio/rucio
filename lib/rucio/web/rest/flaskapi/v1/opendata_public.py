@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import unquote_plus, urlparse
 
 from flask import Blueprint, Flask, Response
 
@@ -24,6 +24,7 @@ from rucio.common.exception import (
     ReplicaNotFound,
 )
 from rucio.gateway import opendata
+from rucio.web.rest.flaskapi.v1 import common as rest_common
 from rucio.web.rest.flaskapi.v1.common import (
     ErrorHandlingMethodView,
     check_accept_header_wrapper_flask,
@@ -191,7 +192,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
 
 
 class OpenDataPublicDownloadView(ErrorHandlingMethodView):
-    def get(self, scope: str, name: str) -> "Response":
+    def get(self, scope_name: str) -> "Response":
         """
         ---
         summary: Download a public Open Data file
@@ -203,16 +204,11 @@ class OpenDataPublicDownloadView(ErrorHandlingMethodView):
         tags:
           - Open Data Public
         parameters:
-          - name: scope
+          - name: scope_name
             in: path
-            description: "The scope of the data identifier."
-            schema:
-              type: string
-            required: true
-            style: simple
-          - name: name
-            in: path
-            description: "The name of the data identifier."
+            description: >
+              The scope and name of the data identifier, separated by '/'.
+              The DID name may itself contain slashes.
             schema:
               type: string
             required: true
@@ -237,6 +233,49 @@ class OpenDataPublicDownloadView(ErrorHandlingMethodView):
         """
 
         try:
+            scope, name = scope_name.split("/", 1)
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
+        # When Apache is configured with AllowEncodedSlashes NoDecode,
+        # encoded slashes reach Flask unchanged and must be decoded here.
+        if rest_common.RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE:
+            name = unquote_plus(name)
+
+        # First resolve the DID without generating download URLs.
+        # This allows us to reject zero- or multi-file DIDs before
+        # requesting any EOS access token.
+        try:
+            result = opendata.get_opendata_did(
+                scope=scope,
+                name=name,
+                vo=DEFAULT_VO,
+                state="public",
+                include_files=True,
+                include_metadata=False,
+                include_doi=False,
+                include_record_id=False,
+                include_download_urls=False,
+            )
+        except OpenDataDataIdentifierNotFound as error:
+            return generate_http_error_flask(403, error)
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(400, error)
+
+        files = result.get("files", [])
+
+        if len(files) != 1:
+            return generate_http_error_flask(
+                400,
+                InvalidRequest(
+                    "The public download endpoint requires a DID "
+                    "resolving to exactly one file."
+                ),
+            )
+
+        # Only after cardinality has been validated do we request
+        # tokenized HTTP(S) download URLs.
+        try:
             result = opendata.get_opendata_did(
                 scope=scope,
                 name=name,
@@ -256,6 +295,8 @@ class OpenDataPublicDownloadView(ErrorHandlingMethodView):
 
         files = result.get("files", [])
 
+        # Defensive check. Public collections are closed, but keep the
+        # endpoint safe if the result unexpectedly changes between calls.
         if len(files) != 1:
             return generate_http_error_flask(
                 400,
@@ -279,7 +320,10 @@ class OpenDataPublicDownloadView(ErrorHandlingMethodView):
 
         return Response(
             status=307,
-            headers={"Location": download_url},
+            headers={
+                "Location": download_url,
+                "Cache-Control": "no-store",
+            },
         )
 
 
@@ -296,7 +340,7 @@ def blueprint() -> "Blueprint":
         "opendata_download"
     )
     bp.add_url_rule(
-        "/download/<scope>/<path:name>",
+        "/download/<path:scope_name>",
         view_func=opendata_public_download_view,
         methods=[HTTPMethod.GET.value],
     )
