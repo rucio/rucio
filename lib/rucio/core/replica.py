@@ -204,7 +204,7 @@ def __exist_replicas(
                             else_=0))
                 ).with_hint(
                     models.RSEFileAssociation,
-                    'INDEX(REPLICAS REPLICAS_PATH_IDX',
+                    'INDEX(REPLICAS REPLICAS_PATH_IDX)',
                     'oracle'
                 ).outerjoin(
                     models.BadReplica,
