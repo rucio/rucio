@@ -1,4 +1,4 @@
-FROM almalinux:9.1 AS base
+FROM almalinux:9 AS base
     WORKDIR /usr/local/src
     ARG PYTHON
     ENV PYTHON=$PYTHON
