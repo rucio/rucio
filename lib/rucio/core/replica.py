@@ -4478,6 +4478,9 @@ def get_rse_coverage_of_dataset(
     stmt = select(
         models.RSEFileAssociation.rse_id,
         func.sum(models.DataIdentifierAssociation.bytes)
+    ).prefix_with(
+        '/*+ INDEX(contents CONTENTS_PK) NO_INDEX_FFS(contents CONTENTS_PK) LEADING(contents replicas) USE_NL(replicas) INDEX(replicas REPLICAS_PK) */',
+        dialect='oracle'
     ).where(
         and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
              models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
