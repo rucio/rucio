@@ -126,10 +126,6 @@ script-files = [
   "etc/*.template"
 ]
 
-"rucio/etc/web" = [
-  "etc/web/*.template"
-]
-
 "rucio/etc/mail_templates" = [
   "etc/mail_templates/*.tmpl"
 ]
