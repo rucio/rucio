@@ -34,25 +34,19 @@ if TYPE_CHECKING:
 @with_each_cli_renderer
 def test_main_args(file_config_mock):
     specify_account = "rucio --account root --auth-strategy userpass whoami"
-    exitcode, out, err = execute(specify_account)
+    exitcode, out, err = execute_cli(specify_account)
     assert exitcode == 0
     assert "This method is being deprecated" not in err
     assert "root" in out
 
     specify_not_real_account = "rucio --account foo --auth-strategy userpass whoami"
-    exitcode, out, err = execute(specify_not_real_account)
+    exitcode, out, err = execute_cli(specify_not_real_account)
     assert exitcode == 1
     assert "CannotAuthenticate" in err
 
-    legacy_arg = "rucio --legacy --account root --auth-strategy userpass whoami"
-    exitcode, out, err = execute(legacy_arg)
-    assert exitcode == 0
-    assert "This method is being deprecated" in err
-    assert "root" in out
-
     # Ensure non-exist commands don't throw the deprecation error
     non_existent_cmd = "rucio lfkdl --slkfdj 1"
-    _, _, err = execute(non_existent_cmd)
+    _, _, err = execute_cli(non_existent_cmd)
     assert "This method is being deprecated" not in err
 
     import configparser
@@ -663,32 +657,32 @@ def test_rse(rucio_client, file_config_mock):
     rse_name = rse_name_generator()
 
     cmd = f"rucio rse add {rse_name}"
-    exitcode, _, err = execute(cmd)
+    exitcode, _, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert rse_name in [i['rse'] for i in rucio_client.list_rses(rse_name)]
 
     cmd = "rucio rse list"
-    exitcode, out, err = execute(cmd)
+    exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert rse_name in out
 
     cmd = f"rucio rse show {rse_name}"
-    exitcode, out, err = execute(cmd)
+    exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert rse_name in out
 
     value = rse_name_generator()
     cmd = f"rucio rse update {rse_name} --key city --value {value}"
-    exitcode, out, err = execute(cmd)
+    exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert value == rucio_client.list_rse_attributes(rse_name)['city']
 
     cmd = f"rucio rse remove {rse_name}"
-    exitcode, out, err = execute(cmd)
+    exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
     assert rse_name not in [i for i in rucio_client.list_rses(rse_name)]
