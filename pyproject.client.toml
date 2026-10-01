@@ -117,9 +117,7 @@ script-files = [
 
 [tool.setuptools.data-files]
 "rucio/tools" = [
-  "tools/merge_rucio_configs.py",
-  "tools/bootstrap.py",
-  "tools/reset_database.py"
+  "tools/merge_rucio_configs.py"
 ]
 
 "rucio/etc" = [

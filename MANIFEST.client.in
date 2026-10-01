@@ -14,8 +14,6 @@ include lib/rucio/rse
 include etc/rse-accounts.cfg.template
 include etc/rucio.cfg.template
 include etc/rucio.cfg.atlas.client.template
-include tools/bootstrap.py
-include tools/reset_database.py
 include tools/merge_rucio_configs.py
 include bin/rucio
 include bin/rucio-admin
