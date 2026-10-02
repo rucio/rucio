@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, parse_qsl, urlparse
 import pytest
 import requests
 from dogpile.cache.api import NoValue
+from sqlalchemy import delete
 
 from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
@@ -38,8 +39,9 @@ from rucio.common.exception import (
 from rucio.common.types import InternalScope
 from rucio.common.utils import execute
 from rucio.core import opendata
-from rucio.core.did import add_did, set_status
+from rucio.core.did import add_did, delete_dids, set_status
 from rucio.core.rse import add_rse_attribute
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
@@ -76,6 +78,79 @@ def module_setup():
     _configure_opendata_rse_expression()
 
 
+@pytest.fixture
+def opendata_did_cleanup(request, root_account):
+    """Track and remove DIDs created by OpenData tests.
+
+    OpenData entries are removed directly from the test database so cleanup
+    also works for PUBLIC and SUSPENDED entries, which cannot be removed via
+    ``delete_opendata_did``. The backing Rucio DID is then removed as well.
+    """
+    tracked_dids = []
+    db_write_session = (
+        request.getfixturevalue("db_write_session")
+        if "db_write_session" in request.fixturenames
+        else None
+    )
+
+    def register(scope, name, did_type=DIDType.DATASET):
+        did = {
+            "scope": scope,
+            "name": name,
+            "did_type": did_type,
+        }
+        if did not in tracked_dids:
+            tracked_dids.append(did)
+
+    yield register
+
+    # Roll back any uncommitted work first. Committed rows are removed below
+    # with an independent session.
+    if db_write_session is not None:
+        db_write_session.rollback()
+
+    session = get_session()
+    try:
+        for did in reversed(tracked_dids):
+            scope = did["scope"]
+            name = did["name"]
+
+            for model in (models.OpenDataDOI, models.OpenDataMeta, models.OpenDataRecord):
+                session.execute(
+                    delete(model).where(
+                        model.scope == scope,
+                        model.name == name,
+                    )
+                )
+
+            session.execute(
+                delete(models.OpenDataDid).where(
+                    models.OpenDataDid.scope == scope,
+                    models.OpenDataDid.name == name,
+                )
+            )
+
+        session.commit()
+    finally:
+        session.close()
+
+    # Remove the regular Rucio DID too. Entries which were never committed,
+    # or were already deleted by the test itself, are simply ignored.
+    for did in reversed(tracked_dids):
+        try:
+            delete_dids(
+                dids=[{
+                    "scope": did["scope"],
+                    "name": did["name"],
+                    "did_type": did["did_type"],
+                    "purge_replicas": True,
+                }],
+                account=root_account,
+            )
+        except DataIdentifierNotFound:
+            pass
+
+
 class TestOpenDataCommon:
     def test_opendata_did_states(self):
         """
@@ -95,10 +170,12 @@ class TestOpenDataCommon:
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataCore:
-    def test_opendata_dids_add(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_add(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         dids = [
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(6)
         ]
+        for did in dids:
+            opendata_did_cleanup(mock_scope, did["name"])
 
         for did in dids[0:5]:
             add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET,
@@ -129,8 +206,9 @@ class TestOpenDataCore:
         with pytest.raises(OpenDataDataIdentifierAlreadyExists):
             opendata.add_opendata_did(scope=dids[0]["scope"], name=dids[0]["name"], session=db_write_session)
 
-    def test_opendata_dids_defaults(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_defaults(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET, session=db_write_session)
 
@@ -148,8 +226,9 @@ class TestOpenDataCore:
         assert opendata_did["name"] == name, "Name does not match"
         assert opendata_did["state"] == OpenDataDIDState.DRAFT, "State does not match"
 
-    def test_opendata_dids_remove(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_remove(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         with pytest.raises(OpenDataDataIdentifierNotFound):
             opendata.delete_opendata_did(scope=mock_scope, name=name, session=db_write_session)
@@ -179,8 +258,9 @@ class TestOpenDataCore:
             with pytest.raises(OpenDataDataIdentifierNotFound):
                 opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)
 
-    def test_opendata_dids_update(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_update(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET, session=db_write_session)
         opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
@@ -238,8 +318,9 @@ class TestOpenDataCore:
         assert state == OpenDataDIDState.PUBLIC
 
     @skip_unsupported_dialect
-    def test_opendata_dids_meta_update(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_meta_update(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
                 session=db_write_session)
@@ -360,8 +441,9 @@ class TestOpenDataCore:
 
         assert all_schemes_key == http_schemes_key
 
-    def test_opendata_doi_update(self, mock_scope, root_account, doi_factory, db_write_session):
+    def test_opendata_doi_update(self, mock_scope, root_account, doi_factory, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
                 session=db_write_session)
@@ -392,9 +474,11 @@ class TestOpenDataCore:
 
         assert doi_after == doi, "DOI should be updated"
 
-    def test_opendata_doi_duplicate(self, mock_scope, root_account, doi_factory, db_write_session):
+    def test_opendata_doi_duplicate(self, mock_scope, root_account, doi_factory, db_write_session, opendata_did_cleanup):
         name_first = did_name_generator(did_type="dataset")
         name_second = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name_first)
+        opendata_did_cleanup(mock_scope, name_second)
 
         doi = doi_factory()
 
@@ -408,8 +492,9 @@ class TestOpenDataCore:
         with pytest.raises(OpenDataDuplicateDOI):
             opendata.update_opendata_doi(scope=mock_scope, name=name_second, doi=doi, session=db_write_session)
 
-    def test_opendata_record_id_update(self, mock_scope, root_account, db_write_session):
+    def test_opendata_record_id_update(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
                 session=db_write_session)
@@ -445,9 +530,11 @@ class TestOpenDataCore:
 
         db_write_session.commit()
 
-    def test_opendata_record_id_duplicate(self, mock_scope, root_account, db_write_session):
+    def test_opendata_record_id_duplicate(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name_first = did_name_generator(did_type="dataset")
         name_second = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name_first)
+        opendata_did_cleanup(mock_scope, name_second)
 
         for name in [name_first, name_second]:
             add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET,
@@ -476,10 +563,12 @@ class TestOpenDataCore:
             opendata.update_opendata_did(scope=mock_scope, name=name_first, record_id=record_id,
                                          session=db_write_session)
 
-    def test_opendata_dids_list(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_list(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         dids = [
             {"scope": mock_scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
         ]
+        for did in dids:
+            opendata_did_cleanup(mock_scope, did["name"])
 
         for did in dids:
             add_did(scope=did["scope"], name=did["name"], account=root_account, did_type=DIDType.DATASET,
@@ -494,9 +583,11 @@ class TestOpenDataCore:
             assert opendata_dids[index]["name"] == did["name"], "Name does not match"
             assert opendata_dids[index]["state"] == OpenDataDIDState.DRAFT, "State does not match"
 
-    def test_opendata_dids_list_public(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_list_public(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         did_private_name = did_name_generator(did_type="dataset")
         did_public_name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, did_private_name)
+        opendata_did_cleanup(mock_scope, did_public_name)
 
         opendata_public_number_before = len(
             opendata.list_opendata_dids(state=OpenDataDIDState.PUBLIC, session=db_write_session)["dids"])
@@ -526,11 +617,12 @@ class TestOpenDataCore:
         assert opendata_did_public_new["name"] == did_public_name, "Name does not match"
         assert opendata_did_public_new["state"] == OpenDataDIDState.PUBLIC, "State does not match"
 
-    def test_opendata_dids_update_rule(self, mock_scope, root_account, vo, db_write_session, rse_factory):
+    def test_opendata_dids_update_rule(self, mock_scope, root_account, vo, db_write_session, rse_factory, opendata_did_cleanup):
         _, opendata_rse_id = rse_factory.make_posix_rse(session=db_write_session)
         add_rse_attribute(opendata_rse_id, key='OpenData', value=True, session=db_write_session)
 
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
 
         add_did(scope=mock_scope, name=name, account=root_account, did_type=DIDType.DATASET, session=db_write_session)
         opendata.add_opendata_did(scope=mock_scope, name=name, session=db_write_session)
@@ -590,8 +682,9 @@ class TestOpenDataCore:
             config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
             config_set('opendata', 'rule_rse_expression', OPENDATA_RSE_EXPRESSION)
 
-    def test_opendata_dids_show_files(self, mock_scope, root_account, db_write_session):
+    def test_opendata_dids_show_files(self, mock_scope, root_account, db_write_session, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
         scope = mock_scope
 
         try:
@@ -2197,15 +2290,14 @@ class TestOpenDataEOS:
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
 class TestOpenDataClient:
-    def test_opendata_dids_list_client(self, mock_scope, rucio_client):
+    def test_opendata_dids_list_client(self, mock_scope, rucio_client, did_factory):
         scope = str(mock_scope)
         dids = [
-            {"scope": scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
+            {"scope": scope, "name": did_factory.make_dataset(scope=mock_scope)["name"]} for _ in range(5)
         ]
         dids.sort(key=lambda x: x["name"])
 
         for did in dids:
-            rucio_client.add_did(scope=did["scope"], name=did["name"], did_type="DATASET")
             rucio_client.add_opendata_did(scope=did["scope"], name=did["name"])
 
         opendata_dids = rucio_client.list_opendata_dids()["dids"]
@@ -2217,17 +2309,16 @@ class TestOpenDataClient:
             assert did_output["name"] == did["name"], "Name does not match"
             assert did_output["state"] == "DRAFT", "State does not match"
 
-    def test_opendata_dids_public_list_client(self, mock_scope, rucio_client):
+    def test_opendata_dids_public_list_client(self, mock_scope, rucio_client, did_factory):
         scope = str(mock_scope)
         dids = [
-            {"scope": scope, "name": did_name_generator(did_type="dataset")} for _ in range(5)
+            {"scope": scope, "name": did_factory.make_dataset(scope=mock_scope)["name"]} for _ in range(5)
         ]
         dids.sort(key=lambda x: x["name"])
 
         opendata_dids_before = rucio_client.list_opendata_dids()["dids"]
 
         for did in dids:
-            rucio_client.add_did(scope=did["scope"], name=did["name"], did_type="DATASET")
             rucio_client.add_opendata_did(scope=did["scope"], name=did["name"])
 
         # set number 2 and 3 to public
@@ -2254,17 +2345,15 @@ class TestOpenDataClient:
             assert did_output["name"] == did_input["name"], "Name does not match"
             assert did_output["state"] == "PUBLIC", "State does not match"
 
-    def test_opendata_show_client(self, mock_scope, rucio_client):
-        name = did_name_generator(did_type="dataset")
+    def test_opendata_show_client(self, mock_scope, rucio_client, did_factory):
+        dataset = did_factory.make_dataset(scope=mock_scope)
+        name = dataset["name"]
         scope = str(mock_scope)
 
         if not config_has_section('opendata'):
             config_add_section('opendata')
 
         config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
-
-        # Add it as a DID
-        rucio_client.add_did(scope=scope, name=name, did_type="DATASET")
 
         # Add it as open data
         rucio_client.add_opendata_did(scope=scope, name=name)
@@ -2310,8 +2399,9 @@ class TestOpenDataAPI:
         )
         assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
 
-    def test_opendata_api_add_remove(self, rest_client, auth_token, root_account, mock_scope):
+    def test_opendata_api_add_remove(self, rest_client, auth_token, root_account, mock_scope, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
         endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
         request_headers = headers(auth(auth_token))
 
@@ -2360,8 +2450,9 @@ class TestOpenDataAPI:
         )
         assert response.status_code == 404, f"Expected 404 Not Found, got {response.status_code}"
 
-    def test_opendata_api_get_download_urls(self, rest_client, auth_token, root_account, mock_scope):
+    def test_opendata_api_get_download_urls(self, rest_client, auth_token, root_account, mock_scope, opendata_did_cleanup):
         name = did_name_generator(did_type="dataset")
+        opendata_did_cleanup(mock_scope, name)
         endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
         request_headers = headers(auth(auth_token))
 
@@ -2875,7 +2966,7 @@ class TestOpenDataCLI:
         assert "--files" in stderr, f"Error message should mention the --files requirement, got: {stderr.strip()}"
 
     @with_each_cli_renderer
-    def test_opendata_cli_add_show_list_remove(self, mock_scope, file_config_mock):
+    def test_opendata_cli_add_show_list_remove(self, mock_scope, file_config_mock, did_factory):
         exitcode, stdout, stderr = execute("rucio opendata did list")
         assert exitcode == 0, f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
         assert "ERROR" not in stderr.upper(), f"Command 'rucio opendata list' failed with error: {stderr.strip()}"
@@ -2890,8 +2981,8 @@ class TestOpenDataCLI:
         assert exitcode == 1, f"Expected failure when removing unregistered DID: {stderr.strip()}"
         assert "Data identifier not found in the open data catalog" in stderr
 
-        exitcode, _, stderr = execute(f"rucio did add --type dataset {mock_scope}:{name}")
-        assert exitcode == 0, f"Failed to add dataset: {stderr.strip()}"
+        dataset = did_factory.make_dataset(scope=mock_scope)
+        name = dataset["name"]
 
         exitcode, _, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
         assert exitcode == 0, f"Failed to add opendata DID: {stderr.strip()}"
@@ -2950,12 +3041,9 @@ class TestOpenDataCLI:
         )
 
     @skip_unsupported_dialect
-    def test_opendata_cli_update_delete(self, mock_scope, doi_factory):
-        name = did_name_generator(did_type="dataset")
-
-        # Add Rucio DID
-        exitcode, _, stderr = execute(f"rucio did add {mock_scope}:{name}")
-        assert exitcode == 0, f"Failed to add DID: {stderr.strip()}"
+    def test_opendata_cli_update_delete(self, mock_scope, doi_factory, did_factory):
+        dataset = did_factory.make_dataset(scope=mock_scope)
+        name = dataset["name"]
 
         # Add DID to Open Data
         exitcode, _, stderr = execute(f"rucio opendata did add {mock_scope}:{name}")
