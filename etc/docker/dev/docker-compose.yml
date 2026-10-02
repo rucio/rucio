@@ -5,7 +5,7 @@ services:
   # Main Rucio dev containers
   # ------------------------------------------------------------------
   rucioclient:
-    container_name: dev-rucioclient-1
+    container_name: ${RUCIO_RUCIOCLIENT_CONTAINER_NAME:-dev-rucioclient-1}
     image: "docker.io/${DOCKER_REPO:-rucio}/rucio-dev:${RUCIO_DEV_PREFIX:-}${RUCIO_TAG:-latest}"
     platform: linux/amd64
     entrypoint: ["/rucio_source/etc/docker/dev/rucio/entrypoint.sh"]
@@ -83,7 +83,7 @@ services:
   # Database, MQ, metrics, and other external services
   # ------------------------------------------------------------------
   ruciodb:
-    container_name: dev-ruciodb-1
+    container_name: ${RUCIO_RUCIODB_CONTAINER_NAME:-dev-ruciodb-1}
     image: docker.io/postgres:14
     environment:
       - POSTGRES_USER=rucio

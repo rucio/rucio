@@ -37,4 +37,4 @@ jobs:
             run: pip install -r requirements/requirements.dev.txt
 
           - name: Run unit tests
-            run: pytest tests/rucio
+            run: pytest tests/rucio tests/ruciopytest
