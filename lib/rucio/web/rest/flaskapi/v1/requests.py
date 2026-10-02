@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import json
-from typing import TYPE_CHECKING, Union, cast
+import uuid
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 import flask
 from flask import Flask, Response
 
 from rucio.common.constants import HTTPMethod, TransferLimitDirection
-from rucio.common.exception import AccessDenied, RequestNotFound
+from rucio.common.exception import AccessDenied, RequestNotFound, RSENotFound
 from rucio.common.utils import APIEncoder, render_json
 from rucio.core.rse import get_rses_with_attribute_value
 from rucio.db.sqla.constants import RequestState
@@ -29,6 +31,52 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+# smallest maximum allowed value across the supported databases
+MAX_BIGINT = 2 ** 63 - 1
+
+
+def _parse_request_states_param(request_states: Optional[str]) -> Optional[list[RequestState]]:
+    if not request_states:
+        return None
+    try:
+        return [RequestState(state) for state in request_states.split(',')]
+    except ValueError as error:
+        raise ValueError('Request state value is invalid') from error
+
+
+def _parse_datetime_param(value: Optional[str], name: str) -> Optional[datetime.datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
+    except ValueError as error:
+        raise ValueError(f'Cannot decode {name}, must be of the form %Y-%m-%dT%H:%M:%S') from error
+
+
+# not using `flask.request.args.get(type=int)` because it fails silently on non-number values, whereas we want to throw a 400
+def _parse_int_param(value: Optional[str], name: str, default: int) -> int:
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError as error:
+        raise ValueError(f'Cannot decode {name}, must be an integer') from error
+
+
+def _validate_paging_param(name: str, value: int, minimum: int) -> int:
+    if value < minimum or value > MAX_BIGINT:
+        raise ValueError(f'The {name} must be between {minimum} and {MAX_BIGINT}')
+    return value
+
+
+def _validate_and_normalize_rule_id_param(rule_id: Optional[str]) -> Optional[str]:
+    if not rule_id:
+        return None
+    try:
+        return str(uuid.UUID(rule_id))
+    except ValueError as error:
+        raise ValueError('The rule_id is not a valid UUID') from error
 
 
 class RequestGet(ErrorHandlingMethodView):
@@ -821,6 +869,234 @@ class RequestHistoryList(ErrorHandlingMethodView):
         return try_stream(generate(issuer=flask.request.environ['issuer'], vo=flask.request.environ['vo']))
 
 
+class RequestHistoryListByDid(ErrorHandlingMethodView):
+    """ REST API to list the latest historical requests for a DID. """
+
+    @check_accept_header_wrapper_flask(['application/x-json-stream'])
+    def get(self, scope_name: str, rse: str) -> "Response":
+        """
+        ---
+        summary: List Historic Requests By DID
+        description: |
+          List the latest historical requests for a given DID to a destination RSE, newest first.
+
+          Warning: this call can be very slow on large instances, it is meant for operator debugging. Restricting the
+          time window with `created_after`/`created_before` also improves performance if the table is partitioned on that.
+
+        tags:
+          - Requests
+        parameters:
+        - name: scope_name
+          in: path
+          description: "Data identifier (scope)/(name)."
+          schema:
+            type: string
+          style: simple
+        - name: rse
+          in: path
+          description: "Destination rse."
+          schema:
+            type: string
+          style: simple
+        - name: rule_id
+          in: query
+          description: "Only return requests belonging to this replication rule."
+          schema:
+            type: string
+        - name: request_states
+          in: query
+          description: "The accepted request states. Delimited by comma, defaults to all."
+          schema:
+            type: string
+        - name: created_after
+          in: query
+          description: "Only return requests created at or after this time, as %Y-%m-%dT%H:%M:%S."
+          schema:
+            type: string
+        - name: created_before
+          in: query
+          description: "Only return requests created at or before this time, as %Y-%m-%dT%H:%M:%S."
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: "The offset of the list. Must be between 0 and 2^63 - 1."
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: "The maximum number of items to return. Must be between 1 and 2^63 - 1."
+          schema:
+            type: integer
+            default: 10
+        responses:
+          200:
+            description: "OK"
+            content:
+              application/x-json-stream:
+                schema:
+                  description: "All historical requests matching the arguments, newest first."
+                  type: array
+                  items:
+                    description: "A historical request."
+                    type: object
+                    properties:
+                      id:
+                        description: "The id of the request."
+                        type: string
+                      request_type:
+                        description: "The request type."
+                        $ref: "#/components/schemas/RequestType"
+                      scope:
+                        description: "The scope of the transfer."
+                        type: string
+                      name:
+                        description: "The name of the transfer."
+                        type: string
+                      did_type:
+                        description: "The DID type."
+                        type: string
+                      dest_rse_id:
+                        description: "The destination RSE id."
+                        type: string
+                      source_rse_id:
+                        description: "The source RSE id."
+                        type: string
+                      attributes:
+                        description: "All attributes associated with the request, as a raw JSON string."
+                        type: string
+                      state:
+                        description: "The state of the request."
+                        $ref: "#/components/schemas/RequestState"
+                      external_id:
+                        description: "External id of the request."
+                        type: string
+                      external_host:
+                        description: "External host of the request."
+                        type: string
+                      retry_count:
+                        description: "The numbers of attempted retries."
+                        type: integer
+                      err_msg:
+                        description: "An error message if one occurred."
+                        type: string
+                      previous_attempt_id:
+                        description: "The id of the previous attempt."
+                        type: string
+                      rule_id:
+                        description: "The id of the associated replication rule."
+                        type: string
+                      activity:
+                        description: "The activity of the request."
+                        type: string
+                      bytes:
+                        description: "The size of the DID in bytes."
+                        type: integer
+                      md5:
+                        description: "The md5 checksum of the DID to transfer."
+                        type: string
+                      adler32:
+                        description: "The adler32 checksum of the DID to transfer."
+                        type: string
+                      dest_url:
+                        description: "The destination url."
+                        type: string
+                      created_at:
+                        description: "The time the request got created. The results are ordered by this value, newest first."
+                        type: string
+                      submitted_at:
+                        description: "The time the request got submitted."
+                        type: string
+                      started_at:
+                        description: "The time the request got started."
+                        type: string
+                      transferred_at:
+                        description: "The time the request got transferred."
+                        type: string
+                      estimated_at:
+                        description: "The time the request got estimated."
+                        type: string
+                      submitter_id:
+                        description: "The id of the submitter."
+                        type: string
+                      estimated_stated_at:
+                        description: "The estimation of the started at value."
+                        type: string
+                      estimated_transferred_at:
+                        description: "The estimation of the transferred at value."
+                        type: string
+                      staging_started_at:
+                        description: "The time the staging got started."
+                        type: string
+                      staging_finished_at:
+                        description: "The time the staging got finished."
+                        type: string
+                      account:
+                        description: "The account which issued the request."
+                        type: string
+                      requested_at:
+                        description: "The time the request got requested."
+                        type: string
+                      priority:
+                        description: "The priority of the request."
+                        type: integer
+                      transfertool:
+                        description: "The transfertool used."
+                        type: string
+                      source_rse:
+                        description: "The name of the source RSE."
+                        type: string
+                      dest_rse:
+                        description: "The name of the destination RSE."
+                        type: string
+          400:
+            description: "Invalid parameter"
+          401:
+            description: "Invalid Auth Token"
+          404:
+            description: "Not found"
+          406:
+            description: "Not acceptable"
+        """
+        try:
+            scope, name = parse_scope_name(scope_name, flask.request.environ['vo'])
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
+        try:
+            states = _parse_request_states_param(flask.request.args.get('request_states', default=None))
+            created_after = _parse_datetime_param(
+                flask.request.args.get('created_after', default=None), 'created_after'
+            )
+            created_before = _parse_datetime_param(
+                flask.request.args.get('created_before', default=None), 'created_before'
+            )
+            limit = _validate_paging_param(
+                'limit', _parse_int_param(flask.request.args.get('limit'), 'limit', default=10), minimum=1
+            )
+            offset = _validate_paging_param(
+                'offset', _parse_int_param(flask.request.args.get('offset'), 'offset', default=0), minimum=0
+            )
+            rule_id = _validate_and_normalize_rule_id_param(flask.request.args.get('rule_id', default=None))
+        except ValueError as error:
+            return generate_http_error_flask(400, 'Invalid', str(error))
+
+        def generate(issuer: str, vo: str) -> "Iterator[str]":
+            for result in request.list_requests_history_by_did(
+                    scope=scope, name=name, rse=rse, issuer=issuer, vo=vo, rule_id=rule_id, states=states,
+                    created_after=created_after, created_before=created_before, offset=offset, limit=limit
+            ):
+                yield render_json(**result) + '\n'
+
+        try:
+            return try_stream(generate(issuer=flask.request.environ['issuer'], vo=flask.request.environ['vo']))
+        except RSENotFound as error:
+            return generate_http_error_flask(404, error)
+        except AccessDenied as error:
+            return generate_http_error_flask(401, error)
+
+
 class RequestMetricsGet(ErrorHandlingMethodView):
     """ REST API to get request stats. """
 
@@ -1169,6 +1445,8 @@ def blueprint() -> AuthenticatedBlueprint:
     bp.add_url_rule('/list', view_func=request_list_view, methods=[HTTPMethod.GET.value])
     request_history_list_view = RequestHistoryList.as_view('request_history_list')
     bp.add_url_rule('/history/list', view_func=request_history_list_view, methods=[HTTPMethod.GET.value])
+    request_history_list_by_did_view = RequestHistoryListByDid.as_view('request_history_list_by_did')
+    bp.add_url_rule('/history/list/<path:scope_name>/<rse>', view_func=request_history_list_by_did_view, methods=[HTTPMethod.GET.value])
     request_metrics_view = RequestMetricsGet.as_view('request_metrics_get')
     bp.add_url_rule('/metrics', view_func=request_metrics_view, methods=[HTTPMethod.GET.value])
     transfer_limits_view = TransferLimits.as_view('transfer_limits_get')
