@@ -189,7 +189,7 @@ class Default(protocol.RSEProtocol):
         self.__ctx.set_opt_boolean("HTTP PLUGIN", "RETRIEVE_BEARER_TOKEN", False)
         auth_configured = False
         if self.auth_token:
-            self.__ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
+            self._on_auth_token_changed()
             auth_configured = True
         # Configure gfal authentication to use the rucio client proxy if and only if gfal didn't initialize its credentials already
         # (https://gitlab.cern.ch/dmc/gfal2/-/blob/48cfe3476392c884b53d00799198b1238603a406/src/core/common/gfal_common.c#L79)
@@ -367,6 +367,18 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'closing protocol connection')
         del self.__ctx
         self.__ctx = None
+
+    def _on_auth_token_changed(self) -> None:
+        """
+        Set the authentication token for the gfal context.
+        """
+        try:
+            ctx = self.__ctx
+        except AttributeError:
+            return
+        if not ctx or not self.auth_token:
+            return
+        ctx.set_opt_string("BEARER", "TOKEN", self.auth_token)
 
     def stat(self, path):
         """
