@@ -573,6 +573,26 @@ services:
       iam-db:
         condition: service_healthy
 
+  kafka:
+      container_name: ${RUCIO_KAFKA_CONTAINER_NAME:-dev-kafka-1}
+      image: docker.io/apache/kafka:4.3.1
+      profiles:
+        - kafka
+      environment:
+        KAFKA_NODE_ID: 1
+        KAFKA_PROCESS_ROLES: broker,controller
+        KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+        KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+        KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      healthcheck:
+        test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+        interval: 5s
+        timeout: 10s
+        retries: 12
+
 volumes:
   # ------------------------------------------------------------------
   # Named volumes for each container
