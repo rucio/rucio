@@ -605,6 +605,30 @@ class DIDClient(BaseClient):
             length/bytes calculation. If not set, the size will not be computed dynamically.
         dynamic :
             Deprecated. Same as setting dynamic_depth='FILE'.
+
+        Returns
+        -------
+        Dictionary with DID attributes
+            'scope'
+                Scope name.
+            'name'
+                DID name.
+            'type'
+                DID type. Either Dataset, Container, or File.
+            'account'
+                Account that owns the DID.
+            'open'
+                If other DIDs can be attached to this DID.
+            'monotonic'
+                If the DID is montonic.
+            'expired_at'
+                If a DID has a lifetime, when that lifetime expires. Can be none.
+            'length'
+                For collection type DIDs, number of files within the DID.
+            'bytes'
+                If collection, number of bytes within the collection. Otherwise, the size of the file.
+            'accessed_at'
+                Last time the DID was accessed.
         """
 
         path = '/'.join([self.DIDS_BASEURL, quote_plus(scope), quote_plus(name)])
