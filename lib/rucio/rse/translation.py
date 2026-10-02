@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from rucio.common import config
 from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import ConfigNotFound
-from rucio.common.plugins import PolicyPackageAlgorithms
+from rucio.common.plugins import PolicyPackageAlgorithms, get_lfn2pfn_algorithm_default
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -244,7 +244,7 @@ class RSEDeterministicTranslation(PolicyPackageAlgorithms):
         if policy_module:
             importlib.import_module(policy_module)
 
-        cls._DEFAULT_LFN2PFN = config.get_lfn2pfn_algorithm_default()
+        cls._DEFAULT_LFN2PFN = get_lfn2pfn_algorithm_default()
 
     def path(
             self,
