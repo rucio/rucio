@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import re
 import time
 from configparser import NoOptionError
@@ -23,10 +24,11 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
+from rucio.common.exception import DataIdentifierNotFound, InvalidMetadata, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
-from rucio.core.did import add_did, set_status
+from rucio.core.did import add_did, delete_dids, get_metadata, get_metadata_bulk, set_metadata, set_metadata_bulk, set_status
+from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
@@ -38,10 +40,17 @@ skip_unsupported_json = pytest.mark.skipif(
     reason="JSON support is not implemented in this database"
 )
 
-skip_unsupported_dialect = pytest.mark.skipif(
-    get_session().bind.dialect.name in ['oracle', 'sqlite'],
-    reason=f"Unsupported dialect: {get_session().bind.dialect.name}"
-)
+
+def skip_unsupported_dialect(*unsupported_dialects):
+    session = get_session()
+    if not session.bind:
+        return pytest.mark.skipif(False, reason="Database not bound")
+
+    dialect: str = session.bind.dialect.name
+    should_skip = dialect in unsupported_dialects
+    reason = f"Unsupported dialect: {dialect}" if should_skip else "Dialect supported"
+    return pytest.mark.skipif(should_skip, reason=reason)
+
 
 OPENDATA_RSE_EXPRESSION = 'OpenData=True'
 
@@ -216,7 +225,7 @@ class TestOpenDataCore:
 
         assert state == OpenDataDIDState.PUBLIC
 
-    @skip_unsupported_dialect
+    @skip_unsupported_dialect("oracle", "sqlite")
     def test_opendata_dids_meta_update(self, mock_scope, root_account, db_write_session):
         name = did_name_generator(did_type="dataset")
 
@@ -506,6 +515,170 @@ class TestOpenDataCore:
 
         finally:
             config_set('opendata', 'rse_expression', OPENDATA_RSE_EXPRESSION)
+
+    def test_get_metadata_bulk_includes_is_opendata(
+        self,
+        mock_scope,
+        root_account,
+        db_write_session,
+    ):
+        regular_name = did_name_generator(did_type="dataset")
+        opendata_name = did_name_generator(did_type="dataset")
+        dids = [
+            {"scope": mock_scope, "name": regular_name},
+            {"scope": mock_scope, "name": opendata_name},
+        ]
+
+        for did in dids:
+            add_did(
+                scope=did["scope"],
+                name=did["name"],
+                account=root_account,
+                did_type=DIDType.DATASET,
+                session=db_write_session,
+            )
+
+        try:
+            opendata.add_opendata_did(
+                scope=mock_scope,
+                name=opendata_name,
+                session=db_write_session,
+            )
+            db_write_session.flush()
+
+            metadata = {
+                item["name"]: item
+                for item in get_metadata_bulk(
+                    dids=dids,
+                    session=db_write_session,
+                )
+            }
+
+            assert metadata[regular_name]["is_opendata"] is False
+            assert metadata[opendata_name]["is_opendata"] is True
+
+        finally:
+            db_write_session.rollback()
+
+    def test_is_opendata_metadata_is_read_only(
+        self,
+        mock_scope,
+        root_account,
+        db_write_session,
+    ):
+        name = did_name_generator(did_type="dataset")
+
+        add_did(
+            scope=mock_scope,
+            name=name,
+            account=root_account,
+            did_type=DIDType.DATASET,
+            session=db_write_session,
+        )
+
+        try:
+            db_write_session.flush()
+
+            with pytest.raises(InvalidMetadata):
+                set_metadata(
+                    scope=mock_scope,
+                    name=name,
+                    key="is_opendata",
+                    value=False,
+                    session=db_write_session,
+                )
+
+            with pytest.raises(InvalidMetadata):
+                set_metadata_bulk(
+                    scope=mock_scope,
+                    name=name,
+                    meta={"is_opendata": False},
+                    session=db_write_session,
+                )
+        finally:
+            db_write_session.rollback()
+
+    @skip_unsupported_json
+    def test_get_metadata_all_includes_is_opendata(
+        self,
+        mock_scope,
+        root_account,
+        db_write_session,
+    ):
+        regular_name = did_name_generator(did_type="dataset")
+        opendata_name = did_name_generator(did_type="dataset")
+
+        dids = [
+            {"scope": mock_scope, "name": regular_name},
+            {"scope": mock_scope, "name": opendata_name},
+        ]
+
+        for did_data in dids:
+            add_did(
+                scope=did_data["scope"],
+                name=did_data["name"],
+                account=root_account,
+                did_type=DIDType.DATASET,
+                session=db_write_session,
+            )
+
+        try:
+            opendata.add_opendata_did(
+                scope=mock_scope,
+                name=opendata_name,
+                session=db_write_session,
+            )
+
+            # Simulate legacy custom metadata created before `is_opendata`
+            # became a read-only derived metadata field.
+            JSONDidMeta().set_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                key="is_opendata",
+                value=False,
+                session=db_write_session,
+            )
+
+            db_write_session.flush()
+
+            json_metadata = get_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                plugin="JSON",
+                session=db_write_session,
+            )
+            assert json_metadata["is_opendata"] is False
+
+            single_metadata = get_metadata(
+                scope=mock_scope,
+                name=opendata_name,
+                plugin="ALL",
+                session=db_write_session,
+            )
+            assert single_metadata["is_opendata"] is True
+
+            regular_single_metadata = get_metadata(
+                scope=mock_scope,
+                name=regular_name,
+                plugin="ALL",
+                session=db_write_session,
+            )
+            assert regular_single_metadata["is_opendata"] is False
+
+            all_metadata = {
+                item["name"]: item
+                for item in get_metadata_bulk(
+                    dids=dids,
+                    plugin="ALL",
+                    session=db_write_session,
+                )
+            }
+
+            assert all_metadata[regular_name]["is_opendata"] is False
+            assert all_metadata[opendata_name]["is_opendata"] is True
+
+        finally:
+            db_write_session.rollback()
 
 
 class _FakeCacheRegion:
@@ -808,9 +981,11 @@ class TestOpenDataAPI:
     api_endpoint_public = '/opendata/public/dids'
 
     def test_opendata_api_list(self, rest_client, auth_token, root_account):
+        request_headers = headers(auth(auth_token))
+
         response = rest_client.get(
             self.api_endpoint,
-            headers=headers(auth(auth_token)),
+            headers=request_headers,
         )
         assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
 
@@ -847,7 +1022,7 @@ class TestOpenDataAPI:
             endpoint,
             headers=request_headers,
         )
-        assert response.status_code == 201, f"Expected 200 OK, got {response.status_code}"
+        assert response.status_code == 201, f"Expected 201 OK, got {response.status_code}"
 
         # Add it again, should fail because it already exists
         response = rest_client.post(
@@ -901,6 +1076,79 @@ class TestOpenDataAPI:
             rest_client.delete(
                 endpoint,
                 headers=request_headers,
+            )
+
+    def test_is_opendata(self, rest_client, auth_token, root_account, mock_scope, monkeypatch):
+        monkeypatch.setattr("rucio.core.did.add_message", lambda *args, **kwargs: None)
+        name = did_name_generator(did_type="dataset")
+        opendata_endpoint = f"{self.api_endpoint}/{mock_scope}/{name}"
+        meta_endpoint = f"/dids/{mock_scope}/{name}/meta"
+        request_headers = headers(auth(auth_token))
+
+        add_did(
+            scope=mock_scope,
+            name=name,
+            account=root_account,
+            did_type=DIDType.DATASET,
+        )
+
+        try:
+            # Check `is_opendata` returns False for a regular DID
+            response = rest_client.get(
+                meta_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+
+            response_data = json.loads(response.get_data(as_text=True))
+            assert response_data["is_opendata"] is False, \
+                "Expected is_opendata to be False for a regular DID"
+
+            # Register as OpenData
+            response = rest_client.post(
+                opendata_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 201, f"Expected 201 Created, got {response.status_code}"
+
+            # Check `is_opendata` returns True for an OpenData DID
+            response = rest_client.get(
+                meta_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+
+            response_data = json.loads(response.get_data(as_text=True))
+            assert response_data["is_opendata"] is True, \
+                "Expected is_opendata to be True for an OpenData DID"
+
+            # Remove it from OpenData
+            response = rest_client.delete(
+                opendata_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 204, f"Expected 204 No Content, got {response.status_code}"
+
+            # Check `is_opendata` returns False again after removal
+            response = rest_client.get(
+                meta_endpoint,
+                headers=request_headers,
+            )
+            assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+
+            response_data = json.loads(response.get_data(as_text=True))
+            assert response_data["is_opendata"] is False, \
+                "Expected is_opendata to be False after removal from OpenData"
+
+        finally:
+            delete_dids(
+                dids=[{
+                    "scope": mock_scope,
+                    "name": name,
+                    "did_type": DIDType.DATASET,
+                    "purge_replicas": True,
+                }],
+                account=root_account,
             )
 
 
@@ -1045,7 +1293,7 @@ class TestOpenDataCLI:
             f"Expected valid states {valid_states} in error message, got {stderr}"
         )
 
-    @skip_unsupported_dialect
+    @skip_unsupported_dialect("oracle", "sqlite")
     def test_opendata_cli_update_delete(self, mock_scope, doi_factory):
         name = did_name_generator(did_type="dataset")
 
