@@ -15,7 +15,15 @@
 from flask import Blueprint, Flask, Response, request
 
 from rucio.common.constants import DEFAULT_VO, HTTPMethod
-from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound
+from rucio.common.exception import (
+    AccessDenied,
+    DataIdentifierNotFound,
+    OpenDataDataIdentifierAlreadyExists,
+    OpenDataDataIdentifierNotFound,
+    OpenDataError,
+    ReplicaNotFound,
+    ResourceTemporaryUnavailable,
+)
 from rucio.common.utils import render_json
 from rucio.core.opendata import validate_opendata_did_state
 from rucio.gateway import opendata
@@ -108,21 +116,31 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             include_doi = request.args.get("doi", default="1").lower() == "1"
             include_record_id = request.args.get("record_id", default="1").lower() == "1"
             include_download_urls = request.args.get("download_urls", default="0").lower() == "1"
-            result = opendata.get_opendata_did(scope=scope, name=name, vo=vo,
-                                               state=state,
-                                               include_files=include_files,
-                                               include_metadata=include_metadata,
-                                               include_doi=include_doi,
-                                               include_record_id=include_record_id,
-                                               include_download_urls=include_download_urls,
-                                               )
+            try:
+                result = opendata.get_opendata_did(
+                    scope=scope,
+                    name=name,
+                    vo=vo,
+                    state=state,
+                    include_files=include_files,
+                    include_metadata=include_metadata,
+                    include_doi=include_doi,
+                    include_record_id=include_record_id,
+                    include_download_urls=include_download_urls,
+                )
+            except OpenDataDataIdentifierNotFound as error:
+                return generate_http_error_flask(404, error)
+            except OpenDataError as error:
+                return generate_http_error_flask(500, error)
 
             result = render_json(**result)
             return Response(result, status=200, mimetype='application/json')
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
-        except OpenDataDataIdentifierNotFound as error:
+        except ReplicaNotFound as error:
             return generate_http_error_flask(404, error)
+        except ResourceTemporaryUnavailable as error:
+            return generate_http_error_flask(503, error)
         except Exception as error:
             return generate_http_error_flask(400, error)
 
@@ -183,7 +201,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             style: form
           - name: download_urls
             in: query
-            description: "Whether to include download URLs for the files. '1' to include, '0' to exclude. Default is '0'."
+            description: "Whether to include download URLs for the files. Requires 'files=1'. '1' to include, '0' to exclude. Default is '0'."
             schema:
               type: string
               enum: ['0', '1']
@@ -206,9 +224,13 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
           401:
             description: "Access denied: Invalid authentication."
           404:
-            description: "Data Identifier not found."
+            description: "Data Identifier or suitable download replica not found."
           400:
             description: "Invalid request or input parameters."
+          500:
+            description: "EOS backend failed while generating download URLs."
+          503:
+            description: "EOS backend temporarily unavailable while generating download URLs."
         """
         return self.get_helper(scope=scope, name=name, public=False)
 

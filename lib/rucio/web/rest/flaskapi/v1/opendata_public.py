@@ -12,11 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+from urllib.parse import unquote_plus, urlparse
+
 from flask import Blueprint, Flask, Response
 
-from rucio.common.constants import HTTPMethod
-from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_accept_header_wrapper_flask, response_headers
+from rucio.common.constants import DEFAULT_VO, HTTPMethod
+from rucio.common.exception import (
+    InvalidRequest,
+    OpenDataDataIdentifierNotFound,
+    ReplicaNotFound,
+)
+from rucio.gateway import opendata
+from rucio.web.rest.flaskapi.v1 import common as rest_common
+from rucio.web.rest.flaskapi.v1.common import (
+    ErrorHandlingMethodView,
+    check_accept_header_wrapper_flask,
+    generate_http_error_flask,
+    response_headers,
+)
 from rucio.web.rest.flaskapi.v1.opendata import OpenDataDIDsView, OpenDataView
+
+
+def _select_download_url(download_urls: list[str]) -> Optional[str]:
+    """
+    Select a single HTTP(S) download URL.
+
+    DAV and DAVS URLs are intentionally ignored because this endpoint is
+    intended for clients which can follow a regular HTTP redirect.
+    HTTPS is preferred over HTTP when both are available.
+    """
+    first_http_url = None
+
+    for download_url in download_urls:
+        try:
+            parsed_url = urlparse(download_url)
+        except ValueError:
+            continue
+
+        scheme = parsed_url.scheme.lower()
+
+        if scheme not in {"http", "https"} or not parsed_url.netloc:
+            continue
+
+        if scheme == "https":
+            return download_url
+
+        if first_http_url is None:
+            first_http_url = download_url
+
+    return first_http_url
 
 
 class OpenDataPublicView(ErrorHandlingMethodView):
@@ -118,7 +163,7 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
             style: form
           - name: download_urls
             in: query
-            description: "Whether to include download URLs for the files. '1' to include, '0' to exclude. Default is '0'."
+            description: "Whether to include download URLs for the files. Requires 'files=1'. '1' to include, '0' to exclude. Default is '0'."
             schema:
               type: string
               enum: ['0', '1']
@@ -134,12 +179,152 @@ class OpenDataPublicDIDsView(ErrorHandlingMethodView):
           401:
             description: "Access denied: Invalid authentication."
           404:
-            description: "Data Identifier not found."
+            description: "Data Identifier or suitable download replica not found."
           400:
             description: "Invalid request or input parameters."
+          500:
+            description: "EOS backend failed while generating download URLs."
+          503:
+            description: "EOS backend temporarily unavailable while generating download URLs."
         """
 
         return OpenDataDIDsView.get_helper(scope=scope, name=name, public=True)
+
+
+class OpenDataPublicDownloadView(ErrorHandlingMethodView):
+    def get(self, scope_name: str) -> "Response":
+        """
+        ---
+        summary: Download a public Open Data file
+        description: >
+          Resolves a public Open Data DID which maps to exactly one file and
+          temporarily redirects the client to one HTTP(S) download URL.
+          Multi-file DIDs are not supported by this endpoint. DAV and DAVS
+          endpoints are ignored.
+        tags:
+          - Open Data Public
+        parameters:
+          - name: scope_name
+            in: path
+            description: >
+              The scope and name of the data identifier, separated by '/'.
+              The DID name may itself contain slashes.
+            schema:
+              type: string
+            required: true
+            style: simple
+        responses:
+          307:
+            description: "Temporary redirect to an HTTP(S) download URL."
+            headers:
+              Location:
+                description: "Temporary URL used to download the file."
+                schema:
+                  type: string
+                  format: uri
+          400:
+            description: >
+              The DID does not resolve to exactly one file or no usable
+              HTTP(S) download URL is available.
+          403:
+            description: "The requested DID is not available as public Open Data."
+          500:
+            description: "Failed to generate the download URL."
+        """
+
+        try:
+            scope, name = scope_name.split("/", 1)
+        except ValueError as error:
+            return generate_http_error_flask(400, error)
+
+        # When Apache is configured with AllowEncodedSlashes NoDecode,
+        # encoded slashes reach Flask unchanged and must be decoded here.
+        if rest_common.RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE:
+            name = unquote_plus(name)
+
+        # First resolve the DID without generating download URLs.
+        # This allows us to reject zero- or multi-file DIDs before
+        # requesting any EOS access token.
+        try:
+            result = opendata.get_opendata_did(
+                scope=scope,
+                name=name,
+                vo=DEFAULT_VO,
+                state="public",
+                include_files=True,
+                include_metadata=False,
+                include_doi=False,
+                include_record_id=False,
+                include_download_urls=False,
+            )
+        except OpenDataDataIdentifierNotFound as error:
+            return generate_http_error_flask(403, error)
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(400, error)
+
+        files = result.get("files", [])
+
+        if len(files) != 1:
+            return generate_http_error_flask(
+                400,
+                InvalidRequest(
+                    "The public download endpoint requires a DID "
+                    "resolving to exactly one file."
+                ),
+            )
+
+        # Only after cardinality has been validated do we request
+        # tokenized HTTP(S) download URLs.
+        try:
+            result = opendata.get_opendata_did(
+                scope=scope,
+                name=name,
+                vo=DEFAULT_VO,
+                state="public",
+                include_files=True,
+                include_metadata=False,
+                include_doi=False,
+                include_record_id=False,
+                include_download_urls=True,
+                download_schemes=["http", "https"],
+            )
+        except OpenDataDataIdentifierNotFound as error:
+            return generate_http_error_flask(403, error)
+        except ReplicaNotFound as error:
+            return generate_http_error_flask(400, error)
+
+        files = result.get("files", [])
+
+        # Defensive check. Public collections are closed, but keep the
+        # endpoint safe if the result unexpectedly changes between calls.
+        if len(files) != 1:
+            return generate_http_error_flask(
+                400,
+                InvalidRequest(
+                    "The public download endpoint requires a DID "
+                    "resolving to exactly one file."
+                ),
+            )
+
+        download_urls = files[0].get("download_urls", [])
+        download_url = _select_download_url(download_urls)
+
+        if download_url is None:
+            return generate_http_error_flask(
+                400,
+                ReplicaNotFound(
+                    "No HTTP or HTTPS download URL is available for the "
+                    "requested OpenData DID."
+                ),
+            )
+
+        return Response(
+            status=307,
+            headers={
+                "Location": download_url,
+                "Cache-Control": "no-store",
+            },
+        )
 
 
 def blueprint() -> "Blueprint":
@@ -150,6 +335,15 @@ def blueprint() -> "Blueprint":
 
     opendata_private_did_view = OpenDataPublicDIDsView.as_view("opendata_did")
     bp.add_url_rule("/dids/<scope>/<name>", view_func=opendata_private_did_view, methods=[HTTPMethod.GET.value])
+
+    opendata_public_download_view = OpenDataPublicDownloadView.as_view(
+        "opendata_download"
+    )
+    bp.add_url_rule(
+        "/download/<path:scope_name>",
+        view_func=opendata_public_download_view,
+        methods=[HTTPMethod.GET.value],
+    )
 
     bp.after_request(response_headers)
 

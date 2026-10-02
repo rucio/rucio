@@ -64,6 +64,7 @@ def get_opendata_did(
         include_doi: bool = True,
         include_record_id: bool = True,
         include_download_urls: bool = False,
+        download_schemes: Optional[list[str]] = None,
         vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
@@ -78,10 +79,20 @@ def get_opendata_did(
         include_doi: Whether to include DOI information in the result.
         include_record_id: Whether to include the record ID in the result.
         include_download_urls: Whether to include download URLs in the result.
+        download_schemes: Optional replica schemes to use when generating download URLs.
         vo: The virtual organization.
 
     Returns:
         A dictionary containing the details of the requested DID.
+    Raises:
+        OpenDataDataIdentifierNotFound: If the OpenData DID does not exist.
+        InvalidRequest: If download URLs are requested without including files.
+        ReplicaNotFound: If download URLs are requested but no suitable
+            replica is available.
+        OpenDataError: If the requested state is invalid or download URL
+            generation fails due to a non-temporary EOS backend error.
+        ResourceTemporaryUnavailable: If download URL generation cannot
+            complete because an EOS backend operation failed temporarily.
     """
 
     internal_scope = InternalScope(scope, vo=vo)
@@ -99,6 +110,7 @@ def get_opendata_did(
                                            include_doi=include_doi,
                                            include_record_id=include_record_id,
                                            include_download_urls=include_download_urls,
+                                           download_schemes=download_schemes,
                                            session=session)
         return gateway_update_return_dict(result, session=session)
 
