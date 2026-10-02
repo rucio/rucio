@@ -14,3 +14,4 @@ paramiko>=5.0.0                                             # ssh_extras; SSH2 p
 requests-kerberos>=0.15.0                                   # kerberos_extras for client and server
 argcomplete>=3.7.0                                          # argcomplete_extras; Bash tab completion for argparse
 python-magic>=0.4.27                                        # dumper_extras; File type identification using libmagic
+xrootd @ git+https://github.com/lobis/xrootd.git@c26d41a0695ca962b08a07dde08e72c511988b46  # xrootd_extras; Native XRootD Python bindings

@@ -12,291 +12,291 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import logging
 import os
+import threading
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from rucio.common import exception
-from rucio.common.checksum import PREFERRED_CHECKSUM
-from rucio.common.utils import execute
+from rucio.common.checksum import GLOBALLY_SUPPORTED_CHECKSUMS, PREFERRED_CHECKSUM
+from rucio.common.config import config_get
 from rucio.rse.protocols import protocol
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from rucio.common.types import LoggerFunction, RSESettingsDict
+
+
+try:
+    _xrootd_client: ModuleType | None = import_module('XRootD.client')
+except Exception:
+    _xrootd_client = None
+
+
+def _client() -> ModuleType:
+    """Return bindings which provide the application-level storage API."""
+    required_api = (
+        'STORAGE_CLIENT_API_VERSION',
+        'StorageClient',
+        'XRootDAlreadyExistsError',
+        'XRootDAuthorizationError',
+        'XRootDChecksumError',
+        'XRootDError',
+        'XRootDNotFoundError',
+        'XRootDTimeoutError',
+    )
+    if (
+            _xrootd_client is None
+            or any(not hasattr(_xrootd_client, name) for name in required_api)
+            or _xrootd_client.STORAGE_CLIENT_API_VERSION < 2
+    ):
+        raise exception.MissingDependency(
+            "Missing dependency: a version of xrootd containing the high-level "
+            "StorageClient API is required. Install the 'xrootd' extra for your "
+            "Rucio distribution."
+        )
+    return _xrootd_client
 
 
 class Default(protocol.RSEProtocol):
-    """ Implementing access to RSEs using the XRootD protocol using GSI authentication."""
+    """Access XRootD and WebDAV RSEs through the native Python bindings."""
 
-    @property
-    def _auth_env(self):
-        if self.auth_token:
-            return f"XrdSecPROTOCOL=ztn BEARER_TOKEN='{self.auth_token}'"
-        else:
-            return 'XrdSecPROTOCOL=gsi'
+    _DEFAULT_TIMEOUT = 300
+    _ROOT_SCHEMES = frozenset(('root', 'roots', 'xroot', 'xroots'))
+    _HTTP_SCHEMES = frozenset(('http', 'https', 'dav', 'davs'))
 
-    def __init__(self, protocol_attr, rse_settings, logger=logging.log):
-        """ Initializes the object with information about the referred RSE.
-
-            :param props: Properties derived from the RSE Repository
-        """
-        super(Default, self).__init__(protocol_attr, rse_settings, logger=logger)
-
+    def __init__(
+            self,
+            protocol_attr: dict[str, Any],
+            rse_settings: RSESettingsDict,
+            logger: LoggerFunction = logging.log,
+    ) -> None:
+        super().__init__(protocol_attr, rse_settings, logger=logger)
         self.scheme = self.attributes['scheme']
         self.hostname = self.attributes['hostname']
         self.port = str(self.attributes['port'])
-        self.logger = logger
+        self.__client: Any | None = None
+        self.__client_lock = threading.Lock()
 
-    def path2pfn(self, path):
-        """
-            Returns a fully qualified PFN for the file referred by path.
+    @property
+    def _endpoint(self) -> str:
+        return '{}://{}:{}'.format(self.scheme, self.hostname, self.port)
 
-            :param path: The path to the file.
+    def check_dependencies(self) -> None:
+        """Validate the optional transport without affecting URL translation."""
+        _client()
 
-            :returns: Fully qualified PFN.
+    def prepare_credentials(self) -> None:
+        """Create the immutable, object-scoped authentication context."""
+        self._storage_client()
 
-        """
-        self.logger(logging.DEBUG, 'xrootd.path2pfn: path: {}'.format(path))
-        if not path.startswith('xroot') and not path.startswith('root'):
-            if path.startswith('/'):
-                return '%s://%s:%s/%s' % (self.scheme, self.hostname, self.port, path)
-            else:
-                return '%s://%s:%s//%s' % (self.scheme, self.hostname, self.port, path)
-        else:
-            return path
+    def _storage_client(self) -> Any:
+        if self.__client is not None:
+            return self.__client
+        with self.__client_lock:
+            if self.__client is None:
+                xrootd = _client()
+                self.__client = xrootd.StorageClient.from_environment(
+                    timeout=self._DEFAULT_TIMEOUT,
+                    token=self.auth_token,
+                    proxy=self._auth_proxy_override(),
+                    fallback='anonymous' if self.scheme in self._HTTP_SCHEMES else 'none',
+                    use_bearer_environment=False,
+                )
+        return self.__client
 
-    def exists(self, pfn):
-        """ Checks if the requested file is known by the referred RSE.
+    def _auth_proxy_override(self) -> str | None:
+        for variable in ('RUCIO_CLIENT_PROXY', 'XrdSecGSIUSERPROXY'):
+            if variable in os.environ:
+                return os.environ[variable]
+        return self._configured_x509_proxy()
 
-            :param pfn: Physical file name
-
-            :returns: True if the file exists, False if it doesn't
-
-            :raise  ServiceUnavailable
-        """
-        self.logger(logging.DEBUG, 'xrootd.exists: pfn: {}'.format(pfn))
+    @staticmethod
+    def _configured_x509_proxy() -> str | None:
         try:
-            path = self.pfn2path(pfn)
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} stat {path}'
-            self.logger(logging.DEBUG, 'xrootd.exists: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            if status != 0:
-                return False
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+            configured_proxy = config_get(
+                'client', 'client_x509_proxy', default=None, raise_exception=False)
+        except Exception:
+            return None
+        if configured_proxy in ('$X509_USER_PROXY', '${X509_USER_PROXY}'):
+            return os.environ.get('X509_USER_PROXY')
+        return configured_proxy
 
-        return True
+    def _as_url(self, path: str) -> str:
+        parsed = urlsplit(str(path))
+        if parsed.scheme and parsed.netloc:
+            return str(path)
+        return self.path2pfn(str(path))
 
-    def stat(self, path):
-        """
-        Returns the stats of a file.
+    def _translate_error(
+            self,
+            error: Exception,
+            *,
+            source_not_found: bool = False,
+            destination: bool = False,
+    ) -> None:
+        xrootd = _client()
+        if isinstance(error, xrootd.XRootDNotFoundError) and source_not_found:
+            raise exception.SourceNotFound(str(error)) from error
+        if isinstance(error, xrootd.XRootDAuthorizationError):
+            raise exception.RSEAccessDenied(str(error)) from error
+        if isinstance(error, xrootd.XRootDChecksumError):
+            raise exception.RSEChecksumUnavailable(str(error)) from error
+        if destination and isinstance(error, xrootd.XRootDAlreadyExistsError):
+            raise exception.DestinationNotAccessible(str(error)) from error
+        raise exception.ServiceUnavailable(str(error)) from error
 
-        :param path: path to file
+    def path2pfn(self, path: str) -> str:
+        """Return a fully qualified PFN for ``path``."""
+        self.logger(logging.DEBUG, 'xrootd.path2pfn: path: %s', path)
+        parsed = urlsplit(str(path))
+        if parsed.scheme and parsed.netloc:
+            return str(path)
+        path = str(path).lstrip('/')
+        separator = '//' if self.scheme in self._ROOT_SCHEMES else '/'
+        return '{}{}{}'.format(self._endpoint, separator, path)
 
-        :raises ServiceUnavailable: if some generic error occurred in the library.
+    def pfn2path(self, pfn: str) -> str:
+        """Return the remote path component of a PFN."""
+        self.logger(logging.DEBUG, 'xrootd.pfn2path: pfn: %s', pfn)
+        parsed = urlsplit(str(pfn))
+        if parsed.scheme and parsed.netloc:
+            return parsed.path
+        return str(pfn)
 
-        :returns: a dict with two keys, filesize and an element of GLOBALLY_SUPPORTED_CHECKSUMS.
-        """
-        self.logger(logging.DEBUG, f'xrootd.stat: path: {path}')
-        ret = {}
-        chsum = None
-        if path.startswith('root:'):
-            path = self.pfn2path(path)
-
+    def connect(self) -> None:
+        """Prepare credentials and verify bounded access to the RSE prefix."""
+        self.logger(
+            logging.DEBUG, 'xrootd.connect: port: %s, hostname %s',
+            self.port, self.hostname)
         try:
-            # xrdfs stat for getting filesize
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} stat {path}'
-            self.logger(logging.DEBUG, 'xrootd.stat: filesize cmd: {}'.format(cmd))
-            status_stat, out, err = execute(cmd)
-            if status_stat == 0:
-                for line in out.split('\n'):
-                    if line and ':' in line:
-                        k, v = line.split(':', maxsplit=1)
-                        if k.strip().lower() == 'size':
-                            ret['filesize'] = v.strip()
-                            break
+            self._storage_client().probe(
+                self.path2pfn(self.attributes['prefix']), timeout=10)
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error)
 
-            # xrdfs query checksum for getting checksum
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} query checksum {path}'
-            self.logger(logging.DEBUG, 'xrootd.stat: checksum cmd: {}'.format(cmd))
-            status_query, out, err = execute(cmd)
-            if status_query == 0:
-                chsum, value = out.strip('\n').split()
-                ret[chsum] = value
+    def close(self) -> None:
+        """Release credentials owned by this protocol instance."""
+        with self.__client_lock:
+            client = self.__client
+            self.__client = None
+        if client is not None:
+            client.close()
 
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
-
-        if 'filesize' not in ret:
-            raise exception.ServiceUnavailable('Filesize could not be retrieved.')
-        if PREFERRED_CHECKSUM != chsum or not chsum:
-            msg = '{} does not match with {}'.format(chsum, PREFERRED_CHECKSUM)
-            raise exception.RSEChecksumUnavailable(msg)
-
-        return ret
-
-    def pfn2path(self, pfn):
-        """
-        Returns the path of a file given the pfn, i.e. scheme and hostname are subtracted from the pfn.
-
-        :param path: pfn of a file
-
-        :returns: path.
-        """
-        self.logger(logging.DEBUG, 'xrootd.pfn2path: pfn: {}'.format(pfn))
-        if pfn.startswith('//'):
-            return pfn
-        elif pfn.startswith('/'):
-            return '/' + pfn
-        else:
-            prefix = self.attributes['prefix']
-            path = pfn.partition(self.attributes['prefix'])[2]
-            path = prefix + path
-            return path
-
-    def lfns2pfns(self, lfns):
-        """
-        Returns a fully qualified PFN for the file referred by path.
-
-        :param path: The path to the file.
-
-        :returns: Fully qualified PFN.
-        """
-        self.logger(logging.DEBUG, 'xrootd.lfns2pfns: lfns: {}'.format(lfns))
-        pfns = {}
-        prefix = self.attributes['prefix']
-
-        if not prefix.startswith('/'):
-            prefix = ''.join(['/', prefix])
-        if not prefix.endswith('/'):
-            prefix = ''.join([prefix, '/'])
-
-        lfns = [lfns] if isinstance(lfns, dict) else lfns
-        for lfn in lfns:
-            scope, name = lfn['scope'], lfn['name']
-            if 'path' in lfn and lfn['path'] is not None:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, lfn['path']])
-            else:
-                pfns['%s:%s' % (scope, name)] = ''.join([self.attributes['scheme'], '://', self.attributes['hostname'], ':', str(self.attributes['port']), prefix, self._get_path(scope=scope, name=name)])
-        return pfns
-
-    def connect(self):
-        """ Establishes the actual connection to the referred RSE.
-
-            :param credentials: Provides information to establish a connection
-                to the referred storage system. For S3 connections these are
-                access_key, secretkey, host_base, host_bucket, progress_meter
-                and skip_existing.
-
-            :raises RSEAccessDenied
-        """
-        self.logger(logging.DEBUG, 'xrootd.connect: port: {}, hostname {}'.format(self.port, self.hostname))
+    def exists(self, pfn: str | None) -> bool:
+        """Return whether ``pfn`` exists on the RSE."""
+        self.logger(logging.DEBUG, 'xrootd.exists: pfn: %s', pfn)
+        if pfn is None:
+            return False
         try:
-            # The query stats call is not implemented on some xroot doors.
-            # Workaround: fail, if server does not reply within 10 seconds for static config query
-            cmd = f'{self._auth_env} XRD_REQUESTTIMEOUT=10 xrdfs {self.hostname}:{self.port} query config {self.hostname}:{self.port}'
-            self.logger(logging.DEBUG, 'xrootd.connect: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            if status != 0:
-                raise exception.RSEAccessDenied(err)
-        except Exception as e:
-            raise exception.RSEAccessDenied(e)
+            return bool(self._storage_client().exists(self._as_url(pfn)))
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error)
+        return False
 
-    def close(self):
-        """ Closes the connection to RSE."""
-        pass
-
-    def get(self, pfn, dest, transfer_timeout=None):
-        """ Provides access to files stored inside connected the RSE.
-
-            :param pfn: Physical file name of requested file
-            :param dest: Name and path of the files when stored at the client
-            :param transfer_timeout: Transfer timeout (in seconds) - dummy
-
-            :raises DestinationNotAccessible, ServiceUnavailable, SourceNotFound
-        """
-        self.logger(logging.DEBUG, 'xrootd.get: pfn: {}'.format(pfn))
+    def stat(self, path: str) -> dict[str, str]:
+        """Return file size and, when enabled, a supported checksum."""
+        self.logger(logging.DEBUG, 'xrootd.stat: path: %s', path)
+        url = self._as_url(path)
+        verify_checksum = self.rse.get('verify_checksum', True)
+        algorithms = [PREFERRED_CHECKSUM]
+        algorithms.extend(
+            algorithm for algorithm in GLOBALLY_SUPPORTED_CHECKSUMS
+            if algorithm != PREFERRED_CHECKSUM)
         try:
-            cmd = f'{self._auth_env} xrdcp -f {pfn} {dest}'
-            self.logger(logging.DEBUG, 'xrootd.get: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            if status == 54:
-                raise exception.SourceNotFound()
-            elif status != 0:
-                raise exception.RucioException(err)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+            info = self._storage_client().info(
+                url,
+                checksum_algorithms=algorithms if verify_checksum else (),
+                require_checksum=verify_checksum,
+            )
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error, source_not_found=True)
 
-    def put(self, filename, target, source_dir, transfer_timeout=None):
-        """
-            Allows to store files inside the referred RSE.
+        result = {'filesize': str(info.size)}
+        if info.checksum is not None:
+            result[info.checksum.algorithm] = info.checksum.value
+        return result
 
-            :param source: path to the source file on the client file system
-            :param target: path to the destination file on the storage
-            :param source_dir: Path where the to be transferred files are stored in the local file system
-            :param transfer_timeout: Transfer timeout (in seconds) - dummy
-
-            :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occurred in the library.
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        self.logger(logging.DEBUG, 'xrootd.put: filename: {} target: {}'.format(filename, target))
-        source_dir = source_dir or '.'
-        source_url = '%s/%s' % (source_dir, filename)
-        self.logger(logging.DEBUG, 'xrootd put: source url: {}'.format(source_url))
-        path = self.path2pfn(target)
-        if not os.path.exists(source_url):
-            raise exception.SourceNotFound()
+    def get(self, pfn: str, dest: str, transfer_timeout: int | str | None = None) -> None:
+        """Download ``pfn`` to a local destination."""
+        self.logger(logging.DEBUG, 'xrootd.get: pfn: %s', pfn)
         try:
-            cmd = f'{self._auth_env} xrdcp -f {source_url} {path}'
-            self.logger(logging.DEBUG, 'xrootd.put: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            if status != 0:
-                raise exception.RucioException(err)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+            self._storage_client().get(
+                self._as_url(pfn), dest,
+                timeout=int(transfer_timeout) if transfer_timeout is not None else None,
+                force=True)
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error, source_not_found=True, destination=True)
 
-    def delete(self, pfn):
-        """
-            Deletes a file from the connected RSE.
-
-            :param pfn: Physical file name
-
-            :raises ServiceUnavailable: if some generic error occurred in the library.
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        self.logger(logging.DEBUG, 'xrootd.delete: pfn: {}'.format(pfn))
-        if not self.exists(pfn):
-            raise exception.SourceNotFound()
+    def put(
+            self,
+            filename: str,
+            target: str,
+            source_dir: str | None,
+            transfer_timeout: int | str | None = None,
+    ) -> None:
+        """Upload one local file, creating missing remote parents."""
+        source = os.path.join(source_dir or '.', filename)
+        self.logger(
+            logging.DEBUG, 'xrootd.put: source: %s target: %s', source, target)
+        if not os.path.exists(source):
+            raise exception.SourceNotFound(source)
         try:
-            path = self.pfn2path(pfn)
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} rm {path}'
-            self.logger(logging.DEBUG, 'xrootd.delete: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            if status != 0:
-                raise exception.RucioException(err)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+            self._storage_client().put(
+                os.path.abspath(source), self._as_url(target),
+                timeout=int(transfer_timeout) if transfer_timeout is not None else None,
+                force=True, create_parents=True)
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error, destination=True)
 
-    def rename(self, pfn, new_pfn):
-        """ Allows to rename a file stored inside the connected RSE.
-
-            :param pfn:      Current physical file name
-            :param new_pfn  New physical file name
-            :raises DestinationNotAccessible: if the destination storage was not accessible.
-            :raises ServiceUnavailable: if some generic error occurred in the library.
-            :raises SourceNotFound: if the source file was not found on the referred storage.
-        """
-        self.logger(logging.DEBUG, 'xrootd.rename: pfn: {}'.format(pfn))
-        if not self.exists(pfn):
-            raise exception.SourceNotFound()
+    def delete(self, pfn: str) -> None:
+        """Delete one file or WebDAV collection."""
+        self.logger(logging.DEBUG, 'xrootd.delete: pfn: %s', pfn)
         try:
-            path = self.pfn2path(pfn)
-            new_path = self.pfn2path(new_pfn)
-            new_dir = new_path[:new_path.rindex('/') + 1]
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} mkdir -p {new_dir}'
-            self.logger(logging.DEBUG, 'xrootd.stat: mkdir cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            cmd = f'{self._auth_env} xrdfs {self.hostname}:{self.port} mv {path} {new_path}'
-            self.logger(logging.DEBUG, 'xrootd.stat: rename cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
-            if status != 0:
-                raise exception.RucioException(err)
-        except Exception as e:
-            raise exception.ServiceUnavailable(e)
+            self._storage_client().delete(self._as_url(pfn))
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error, source_not_found=True)
+
+    def rename(self, pfn: str, new_pfn: str) -> None:
+        """Atomically move a resource and create destination parents."""
+        self.logger(
+            logging.DEBUG, 'xrootd.rename: pfn: %s new_pfn: %s', pfn, new_pfn)
+        try:
+            self._storage_client().move(
+                self._as_url(pfn), self._as_url(new_pfn), create_parents=True)
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error, source_not_found=True, destination=True)
+
+    def get_space_usage(self) -> tuple[int, int]:
+        """Return total and unused bytes for the configured namespace."""
+        endpoint_basepath = self.path2pfn(self.attributes['prefix'])
+        self.logger(
+            logging.DEBUG, 'xrootd.get_space_usage: endpoint: %s',
+            endpoint_basepath)
+        try:
+            usage = self._storage_client().space(endpoint_basepath)
+            return int(usage['total']), int(usage['free'])
+        except exception.RucioException:
+            raise
+        except Exception as error:
+            self._translate_error(error)
+        raise exception.ServiceUnavailable('Space usage could not be retrieved')
