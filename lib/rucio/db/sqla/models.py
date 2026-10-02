@@ -63,6 +63,26 @@ if TYPE_CHECKING:
     from sqlalchemy.sql import Insert, Update
 
 
+# Map (constraint name, uppercase table name) pairs to database-compatible aliases.
+_CK_CONSTRAINT_RENAMES: dict[tuple[str, str], str] = {
+    ('SUBSCRIPTIONS_RETROACTIVE_CHK', 'SUBSCRIPTIONS_HISTORY'): 'SUBS_HISTORY_RETROACTIVE_CHK',
+    ('SUBSCRIPTIONS_STATE_CHK', 'SUBSCRIPTIONS_HISTORY'): 'SUBS_HISTORY_STATE_CHK',
+    ('QUARANTINED_REPLICAS_CREATED_NN', 'QUARANTINED_REPLICAS'): 'QURD_REPLICAS_CREATED_NN',
+    ('QUARANTINED_REPLICAS_UPDATED_NN', 'QUARANTINED_REPLICAS'): 'QURD_REPLICAS_UPDATED_NN',
+    ('QUARANTINED_REPLICAS_HISTORY_CREATED_NN', 'QUARANTINED_REPLICAS_HISTORY'): 'QURD_REPLICAS_HIST_CREATED_NN',
+    ('QUARANTINED_REPLICAS_HISTORY_UPDATED_NN', 'QUARANTINED_REPLICAS_HISTORY'): 'QURD_REPLICAS_HIST_UPDATED_NN',
+    ('ARCHIVE_CONTENTS_HISTORY_CREATED_NN', 'ARCHIVE_CONTENTS_HISTORY'): 'ARCH_CNTS_HIST_CREATED_NN',
+    ('ARCHIVE_CONTENTS_HISTORY_UPDATED_NN', 'ARCHIVE_CONTENTS_HISTORY'): 'ARCH_CNTS_HIST_UPDATED_NN',
+    ('ACCOUNT_USAGE_HISTORY_CREATED_NN', 'ACCOUNT_USAGE_HISTORY'): 'ACCOUNT_USAGE_HIST_CREATED_NN',
+    ('ACCOUNT_USAGE_HISTORY_UPDATED_NN', 'ACCOUNT_USAGE_HISTORY'): 'ACCOUNT_USAGE_HIST_UPDATED_NN',
+    ('SUBSCRIPTIONS_HISTORY_CREATED_NN', 'SUBSCRIPTIONS_HISTORY'): 'SUBSCRIPTIONS_HIST_CREATED_NN',
+    ('SUBSCRIPTIONS_HISTORY_UPDATED_NN', 'SUBSCRIPTIONS_HISTORY'): 'SUBSCRIPTIONS_HIST_UPDATED_NN',
+    ('REQUESTS_TYPE_CHK', 'REQUESTS_HISTORY'): 'REQUESTS_HISTORY_TYPE_CHK',
+    ('REQUESTS_DIDTYPE_CHK', 'REQUESTS_HISTORY'): 'REQUESTS_HISTORY_DIDTYPE_CHK',
+    ('REQUESTS_STATE_CHK', 'REQUESTS_HISTORY'): 'REQUESTS_HISTORY_STATE_CHK',
+}
+
+
 @compiles(Boolean, "oracle")
 def compile_binary_oracle(type_, compiler, **kw) -> str:
     return "NUMBER(1)"
@@ -146,48 +166,17 @@ def _unique_constraint_name(const: UniqueConstraint, table: Table) -> None:
 @event.listens_for(CheckConstraint, "after_parent_attach")
 def _ck_constraint_name(const: CheckConstraint, table: Table) -> None:
 
+    table_name = table.name.upper()
     if const.name is None:
         if 'DELETED' in str(const.sqltext).upper():
             if len(table.name) > 20:
-                const.name = "%s_DEL_CHK" % (table.name.upper())
+                const.name = "%s_DEL_CHK" % (table_name)
             else:
-                const.name = "%s_DELETED_CHK" % (table.name.upper())
-    elif const.name == 'SUBSCRIPTIONS_RETROACTIVE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
-        const.name = "SUBS_HISTORY_RETROACTIVE_CHK"
-    elif const.name == 'SUBSCRIPTIONS_STATE_CHK' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
-        const.name = "SUBS_HISTORY_STATE_CHK"
-    elif const.name == 'QUARANTINED_REPLICAS_CREATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
-        const.name = "QURD_REPLICAS_CREATED_NN"
-    elif const.name == 'QUARANTINED_REPLICAS_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS':
-        const.name = "QURD_REPLICAS_UPDATED_NN"
-    elif const.name == 'QUARANTINED_REPLICAS_HISTORY_CREATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
-        const.name = "QURD_REPLICAS_HIST_CREATED_NN"
-    elif const.name == 'QUARANTINED_REPLICAS_HISTORY_UPDATED_NN' and table.name.upper() == 'QUARANTINED_REPLICAS_HISTORY':
-        const.name = "QURD_REPLICAS_HIST_UPDATED_NN"
-    elif const.name == 'ARCHIVE_CONTENTS_HISTORY_CREATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
-        const.name = "ARCH_CNTS_HIST_CREATED_NN"
-    elif const.name == 'ARCHIVE_CONTENTS_HISTORY_UPDATED_NN' and table.name.upper() == 'ARCHIVE_CONTENTS_HISTORY':
-        const.name = "ARCH_CNTS_HIST_UPDATED_NN"
-    elif const.name == 'ACCOUNT_USAGE_HISTORY_CREATED_NN' and table.name.upper() == 'ACCOUNT_USAGE_HISTORY':
-        const.name = "ACCOUNT_USAGE_HIST_CREATED_NN"
-    elif const.name == 'ACCOUNT_USAGE_HISTORY_UPDATED_NN' and table.name.upper() == 'ACCOUNT_USAGE_HISTORY':
-        const.name = "ACCOUNT_USAGE_HIST_UPDATED_NN"
-    elif const.name == 'SUBSCRIPTIONS_HISTORY_CREATED_NN' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
-        const.name = "SUBSCRIPTIONS_HIST_CREATED_NN"
-    elif const.name == 'SUBSCRIPTIONS_HISTORY_UPDATED_NN' and table.name.upper() == 'SUBSCRIPTIONS_HISTORY':
-        const.name = "SUBSCRIPTIONS_HIST_UPDATED_NN"
+                const.name = "%s_DELETED_CHK" % (table_name)
+        else:
+            const.name = table_name + '_' + str(uuid.uuid4())[:6] + '_CHK'
 
-    if const.name is None:
-        const.name = table.name.upper() + '_' + str(uuid.uuid4())[:6] + '_CHK'
-
-    if const.name == 'REQUESTS_TYPE_CHK' and table.name.upper() == 'REQUESTS_HISTORY':
-        const.name = "REQUESTS_HISTORY_TYPE_CHK"
-    elif const.name == 'REQUESTS_DIDTYPE_CHK' and table.name.upper() == 'REQUESTS_HISTORY':
-        const.name = "REQUESTS_HISTORY_DIDTYPE_CHK"
-    elif const.name == 'REQUESTS_DIDTYPE_CHK' and table.name.upper() == 'REQUESTS_HISTORY':
-        const.name = "REQUESTS_HISTORY_DIDTYPE_CHK"
-    elif const.name == 'REQUESTS_STATE_CHK' and table.name.upper() == 'REQUESTS_HISTORY':
-        const.name = "REQUESTS_HISTORY_STATE_CHK"
+    const.name = _CK_CONSTRAINT_RENAMES.get((const.name, table_name), const.name)
 
 
 class ModelBase:
