@@ -80,6 +80,15 @@ class TestAccountCoreGateway:
             with db_session(DatabaseOperationType.WRITE) as session:
                 add_account_attribute(root_account, key, value, session=session)
 
+    def test_add_account_attribute_flexible_value(self, root_account):
+        """ACCOUNT (CORE): Test adding attribute with a flexible value."""
+        key = account_name_generator()
+        value = "https://rucio.cern.ch"
+        with db_session(DatabaseOperationType.WRITE) as session:
+            add_account_attribute(root_account, key, value, session=session)
+        with db_session(DatabaseOperationType.READ) as session:
+            assert {'key': key, 'value': value} in list_account_attributes(root_account, session=session)
+
 
 def test_create_user_success(rest_client, auth_token):
     """ ACCOUNT (REST): send a POST to create a new user """
