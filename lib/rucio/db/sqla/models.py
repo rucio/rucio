@@ -1193,6 +1193,7 @@ class ReplicationRule(BASE, ModelBase):
                                                                 values_callable=lambda obj: [e.value for e in obj]),
                                                            default=RuleNotification.NO)
     stuck_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    stuck_counter: Mapped[int] = mapped_column(SmallInteger, server_default='0')
     purge_replicas: Mapped[bool] = mapped_column(Boolean(name='RULES_PURGE_REPLICAS_CHK', create_constraint=True),
                                                  default=False)
     ignore_availability: Mapped[bool] = mapped_column(Boolean(name='RULES_IGNORE_AVAILABILITY_CHK', create_constraint=True),
@@ -1254,6 +1255,7 @@ class ReplicationRuleHistoryRecent(BASE, ModelBase):
     locks_ok_cnt: Mapped[Optional[int]] = mapped_column(BigInteger)
     locks_replicating_cnt: Mapped[int] = mapped_column(BigInteger)
     locks_stuck_cnt: Mapped[Optional[int]] = mapped_column(BigInteger)
+    stuck_counter: Mapped[int] = mapped_column(SmallInteger)
     source_replica_expression: Mapped[Optional[str]] = mapped_column(String(255))
     activity: Mapped[Optional[str]] = mapped_column(String(50))
     grouping: Mapped[RuleGrouping] = mapped_column(Enum(RuleGrouping, name='RULES_HIST_RECENT_GROUPING_CHK',
@@ -1303,6 +1305,7 @@ class ReplicationRuleHistory(BASE, ModelBase):
     locks_ok_cnt: Mapped[Optional[int]] = mapped_column(BigInteger)
     locks_replicating_cnt: Mapped[int] = mapped_column(BigInteger)
     locks_stuck_cnt: Mapped[Optional[int]] = mapped_column(BigInteger)
+    stuck_counter: Mapped[int] = mapped_column(SmallInteger)
     source_replica_expression: Mapped[Optional[str]] = mapped_column(String(255))
     activity: Mapped[Optional[str]] = mapped_column(String(50))
     grouping: Mapped[RuleGrouping] = mapped_column(Enum(RuleGrouping, name='RULES_HISTORY_GROUPING_CHK',
