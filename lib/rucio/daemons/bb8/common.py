@@ -206,7 +206,7 @@ def _list_rebalance_rule_candidates_dump(
     success = False
     while not success and len(rse_dump_urls):
         url = rse_dump_urls.pop()
-        resp = get(url, stream=True)
+        resp = get(url, stream=True)  # noqa: S113 - dump HTTP timeouts deferred in #6654.
         if resp:
             success = True
     if not resp or resp is None:

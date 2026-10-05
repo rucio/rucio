@@ -139,7 +139,8 @@ def request_token(audience: str, scope: str, use_cache: bool = True) -> Optional
                                  auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
                                  data={'grant_type': 'client_credentials',
                                        'audience': audience,
-                                       'scope': scope})
+                                       'scope': scope},
+                                 timeout=(5, 10))
         response.raise_for_status()
         payload = response.json()
         token = payload['access_token']
@@ -251,11 +252,11 @@ def __load_oidc_configuration() -> bool:
         return False
     try:
         oidc_discover_url = urljoin(issuer, '.well-known/openid-configuration')
-        response = requests.get(oidc_discover_url)
+        response = requests.get(oidc_discover_url, timeout=(5, 10))
         response.raise_for_status()
         payload = response.json()
         OIDC_PROVIDER_ENDPOINT = payload['token_endpoint']
-    except (requests.HTTPError, requests.JSONDecodeError, KeyError):
+    except (requests.RequestException, KeyError):
         logging.error('Failed to discover token endpoint', exc_info=True)
         return False
 

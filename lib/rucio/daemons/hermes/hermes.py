@@ -474,7 +474,7 @@ def submit_to_elastic(
     for message in messages:
         text += '{ "index":{ } }\n%s\n' % json.dumps(message, default=default)
     res = requests.post(
-        endpoint, data=text, headers={"Content-Type": "application/json"}, auth=auth
+        endpoint, data=text, headers={"Content-Type": "application/json"}, auth=auth, timeout=(5, 30)
     )
     return res.status_code
 
@@ -584,7 +584,7 @@ def aggregate_to_influx(
     if influx_token:
         headers = {"Authorization": "Token %s" % influx_token}
     if points:
-        res = requests.post(endpoint, headers=headers, data=points)
+        res = requests.post(endpoint, headers=headers, data=points, timeout=(5, 30))
         logger(logging.DEBUG, "%s", str(res.text))
         return res.status_code
     return 204
