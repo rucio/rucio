@@ -540,33 +540,20 @@ def run_with_httpd(
         project = os.urandom(8).hex()
         compose_env = os.environ.copy()
         compose_env.update(namespace_env)
-        rucio_container = f'{project}-rucio-1'
-        compose_env['RUCIO_HTTPD_CONTAINER_NAME'] = rucio_container
-        compose_env['RUCIO_INFLUXDB_CONTAINER_NAME'] = f'{project}-influxdb-1'
-        compose_env['RUCIO_GRAPHITE_CONTAINER_NAME'] = f'{project}-graphite-1'
-        compose_env['RUCIO_ELASTICSEARCH_CONTAINER_NAME'] = f'{project}-elasticsearch-1'
-        compose_env['RUCIO_ACTIVEMQ_CONTAINER_NAME'] = f'{project}-activemq-1'
-        compose_env['RUCIO_WEB1_CONTAINER_NAME'] = f'{project}-web1-1'
-        rdbms_container_env = {
-            'postgres14': 'RUCIO_POSTGRES14_CONTAINER_NAME',
-            'mysql8': 'RUCIO_MYSQL8_CONTAINER_NAME',
-            'oracle': 'RUCIO_ORACLE_CONTAINER_NAME',
-        }
-        rdbms_env = rdbms_container_env.get(rdbms)
-        if rdbms_env:
-            compose_env[rdbms_env] = f'{project}-{rdbms}-1'
+        compose_env['RUCIO_NETWORK_NAME'] = f'{project}-network'
         up_down_args = (
             '--file', 'etc/docker/dev/docker-compose.yml',
             '--file', compose_override_file.name,
             '--profile', rdbms,
         )
+        compose_exec_args = ('docker', 'compose', '-p', project, *up_down_args, 'exec')
         try:
             # Start docker compose
             run('docker', 'compose', '-p', project, *up_down_args, 'up', '-d', env=compose_env)
 
             # Install Rucio directly from the mounted source
-            run('docker', *namespace_args, 'exec', rucio_container, 'ln', '-sf', 'pyproject.server.toml', 'pyproject.toml')
-            run('docker', *namespace_args, 'exec', rucio_container, 'pip', 'install', '--no-cache-dir', '-e', '/rucio_source')
+            run(*compose_exec_args, 'rucio', 'ln', '-sf', 'pyproject.server.toml', 'pyproject.toml', env=compose_env)
+            run(*compose_exec_args, 'rucio', 'pip', 'install', '--no-cache-dir', '-e', '/rucio_source', env=compose_env)
 
             # Running test.sh
             if tests:
@@ -576,7 +563,7 @@ def run_with_httpd(
                 tests_env = ()
                 tests_arg = ()
 
-            run('docker', *namespace_args, 'exec', *tests_env, rucio_container, './tools/test/test.sh', *tests_arg)
+            run(*compose_exec_args, *tests_env, 'rucio', './tools/test/test.sh', *tests_arg, env=compose_env)
 
             # if everything went through without an exception, mark this case as a success
             return True
@@ -588,12 +575,12 @@ def run_with_httpd(
                 flush=True,
             )
         finally:
-            run('docker', *namespace_args, 'logs', rucio_container, check=False)
+            run('docker', 'compose', '-p', project, *up_down_args, 'logs', 'rucio', check=False, env=compose_env)
             if copy_rucio_logs:
                 try:
                     if logs_dir.exists():
                         shutil.rmtree(logs_dir)
-                    run('docker', *namespace_args, 'cp', f'{rucio_container}:/var/log', str(logs_dir))
+                    run('docker', 'compose', '-p', project, *up_down_args, 'cp', 'rucio:/var/log', str(logs_dir), check=False, env=compose_env)
                 except Exception:
                     print(
                         "** Error on retrieving logs for",
