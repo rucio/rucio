@@ -276,6 +276,8 @@ werkzeug==3.1.8
     #   flask
 xmlsec==1.3.17
     # via -r requirements.server.in
+xrootd @ git+https://github.com/lobis/xrootd.git@c26d41a0695ca962b08a07dde08e72c511988b46
+    # via -r requirements.server.in
 yarl==1.22.0
     # via aiohttp
 zipp==3.23.1
