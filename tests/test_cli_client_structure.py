@@ -801,6 +801,32 @@ def test_rse_distance(file_config_mock, rse_factory):
 
 
 @with_each_cli_renderer
+def test_rse_distance_list(file_config_mock, rse_factory):
+    source_rse, _ = rse_factory.make_rse()
+    dest_rse, _ = rse_factory.make_rse()
+    distance = 3
+
+    cmd = f"rucio rse distance set {source_rse} {dest_rse} --distance {distance}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+
+    cmd = f"rucio rse distance list {source_rse}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert dest_rse in out
+    assert 'DESTINATION' in out
+    assert 'DISTANCE' in out
+    assert str(distance) in out
+
+    # The pipe check verifies tabulate (psql) output from the non-Rich path, since Rich
+    # uses box-drawing characters instead of '|'.
+    if file_config_mock.get('experimental', 'cli') == 'tabulate':
+        assert '|' in out
+
+
+@with_each_cli_renderer
 def test_rse_limits(rucio_client, file_config_mock):
     mock_rse = 'MOCK'
     limit = "mock_limit"
