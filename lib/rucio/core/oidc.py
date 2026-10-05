@@ -246,8 +246,7 @@ def __load_oidc_configuration() -> bool:
             OIDC_CLIENT_SECRET = data[ADMIN_ISSUER_ID]['client_secret']
             issuer = data[ADMIN_ISSUER_ID]['issuer']
     except Exception:
-        logging.error('Failed to parse configuration file "%s"', IDPSECRETS,
-                      exc_info=True)
+        logging.exception('Failed to parse configuration file "%s"', IDPSECRETS)
         return False
     try:
         oidc_discover_url = urljoin(issuer, '.well-known/openid-configuration')
@@ -256,7 +255,7 @@ def __load_oidc_configuration() -> bool:
         payload = response.json()
         OIDC_PROVIDER_ENDPOINT = payload['token_endpoint']
     except (requests.HTTPError, requests.JSONDecodeError, KeyError):
-        logging.error('Failed to discover token endpoint', exc_info=True)
+        logging.exception('Failed to discover token endpoint')
         return False
 
     return True
@@ -856,7 +855,7 @@ def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
         identity_string = oidc_identity_string(token_payload['sub'], token_payload['iss'])
         expiry_date = datetime.utcfromtimestamp(float(token_payload['exp']))
         if expiry_date < datetime.utcnow():  # check if expired
-            logging.debug("Token has already expired since: %s", str(expiry_date))
+            logging.debug("Token has already expired since: %s", expiry_date)
             return None
         scope = None
         audience = None
@@ -870,7 +869,7 @@ def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
             account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
         else:
             if not exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
-                logging.debug("No OIDC identity exists for account: %s", str(account))
+                logging.debug("No OIDC identity exists for account: %s", account)
                 return None
         value = {'account': account,
                  'identity': identity_string,

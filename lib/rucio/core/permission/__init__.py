@@ -70,8 +70,8 @@ if not multivo:
         # if policy package does not contain permission module, load fallback module instead
         # this allows a policy package to omit modules that do not need customisation
         try:
-            LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s'
-                           % (policy, fallback_policy))
+            LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s',
+                           policy, fallback_policy)
             policy = 'rucio.core.permission.' + fallback_policy.lower()
             module = importlib.import_module(policy)
         except ModuleNotFoundError:
@@ -108,8 +108,8 @@ def load_permission_for_vo(vo: str) -> None:
         # if policy package does not contain permission module, load fallback module instead
         # this allows a policy package to omit modules that do not need customisation
         try:
-            LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s'
-                           % (policy, generic_fallback))
+            LOGGER.warning('Unable to load permission module %s from policy package, falling back to %s',
+                           policy, generic_fallback)
             policy = 'rucio.core.permission.' + generic_fallback.lower()
             module = importlib.import_module(policy)
         except ModuleNotFoundError:
