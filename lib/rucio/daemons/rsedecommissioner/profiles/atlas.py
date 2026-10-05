@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from rucio.core.did import get_metadata
 
-from .generic import _call_for_attention, generic_move
+from .generic import RSEDecommisionerProfilePlugin, _call_for_attention, generic_move
 
 if TYPE_CHECKING:
     from rucio.common.types import LoggerFunction
@@ -27,34 +27,36 @@ if TYPE_CHECKING:
     from .types import DecommissioningProfile
 
 
-def atlas_move(rse: dict[str, Any], config: dict[str, Any]) -> 'DecommissioningProfile':
-    """Return a profile for moving rules that satisfy conditions to a specific destination.
+class AtlasMove(RSEDecommisionerProfilePlugin):
 
-    The "ATLAS move" profile lists out all rules that are locking replicas
-    at the given RSE, and moves them to the specified destination if either
-    one of the following is true:
+    @staticmethod
+    def policy(rse: dict[str, Any], config: dict[str, Any]) -> 'DecommissioningProfile':
+        """Return a profile for moving rules that satisfy conditions to a specific destination.
 
-    - The RSE expression of the rule is trivial (the RSE name itself).
-    - There are no replicas locked by the rule that reside on another RSE.
-    - The datatype of the DID is not "log".
+        The "ATLAS move" profile lists out all rules that are locking replicas
+        at the given RSE, and moves them to the specified destination if either
+        one of the following is true:
 
-    :param rse: RSE to decommission.
-    :param config: Decommissioning configuration dictionary.
-    :returns: A decommissioning profile dictionary.
-    """
-    profile = generic_move(rse, config)
-    # Insert before the trivial RSE expression handler
-    idx = next(pos for pos, handler in enumerate(profile.handlers)
-               if handler[0].__name__ == '_has_trivial_rse_expression')
-    profile.handlers.insert(idx, (_is_log_file, _call_for_attention))
-    return profile
+        - The RSE expression of the rule is trivial (the RSE name itself).
+        - There are no replicas locked by the rule that reside on another RSE.
+        - The datatype of the DID is not "log".
 
+        :param rse: RSE to decommission.
+        :param config: Decommissioning configuration dictionary.
+        :returns: A decommissioning profile dictionary.
+        """
+        def _is_log_file(
+            rule: dict[str, Any],
+            rse: dict[str, Any],
+            *,
+            logger: "LoggerFunction" = logging.log
+        ) -> bool:
+            """Check if the datatype metadata is 'log'."""
+            return get_metadata(rule['scope'], rule['name'])['datatype'] == 'log'
 
-def _is_log_file(
-    rule: dict[str, Any],
-    rse: dict[str, Any],
-    *,
-    logger: "LoggerFunction" = logging.log
-) -> bool:
-    """Check if the datatype metadata is 'log'."""
-    return get_metadata(rule['scope'], rule['name'])['datatype'] == 'log'
+        profile = generic_move(rse, config)
+        # Insert before the trivial RSE expression handler
+        idx = next(pos for pos, handler in enumerate(profile.handlers)
+                if handler[0].__name__ == '_has_trivial_rse_expression')
+        profile.handlers.insert(idx, (_is_log_file, _call_for_attention))
+        return profile
