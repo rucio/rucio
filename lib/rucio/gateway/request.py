@@ -73,7 +73,7 @@ def get_request_history_by_did(
     vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
-    Retrieve a historical request by its DID for a destination RSE.
+    Retrieve the latest historical request by its DID for a destination RSE.
 
     :param scope: The scope of the data identifier as a string.
     :param name: The name of the data identifier as a string.
