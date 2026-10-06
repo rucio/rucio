@@ -36,7 +36,7 @@ import rucio.core.did
 import rucio.core.lock  # import get_replica_locks, get_files_and_replica_locks_of_dataset
 import rucio.core.replica  # import get_and_lock_file_replicas, get_and_lock_file_replicas_for_dataset
 from rucio.common.cache import MemcacheRegion
-from rucio.common.config import config_get
+from rucio.common.config import config_get, config_get_int
 from rucio.common.constants import DEFAULT_ACTIVITY, DEFAULT_VO, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import (
     DataIdentifierNotFound,
@@ -1561,7 +1561,13 @@ def repair_rule(
                     models.DatasetLock.state: LockState.STUCK
                 })
                 session.execute(stmt)
-            # TODO: Increase some kind of Stuck Counter here, The rule should at some point be SUSPENDED
+            max_stuck_count_before_suspension = config_get_int('rules','max_stuck_count_before_suspension',default=-1,session=session)
+            if max_stuck_count_before_suspension >0:
+                rule.stuck_count = rule.stuck_count + 1
+                if rule.stuck_count >= max_stuck_count_before_suspension:
+                    rule.state = RuleState.SUSPENDED
+                    insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
+                    logger(logging.INFO, 'Replication rule %s has been SUSPENDED after %d retries', rule_id, rule.stuck_count) 
             return
 
         rule.stuck_at = None
@@ -1585,6 +1591,7 @@ def repair_rule(
             return
 
         rule.state = RuleState.OK
+        rule.stuck_count = 0
         rule.error = None
         # Insert rule history
         insert_rule_history(rule=rule, recent=True, longterm=False, session=session)
@@ -1846,6 +1853,7 @@ def update_rule(
 
                 if options['state'].lower() == 'suspended':
                     rule.state = RuleState.SUSPENDED
+                    rule.stuck_count = 0
 
                 elif options['state'].lower() == 'stuck':
                     rule.state = RuleState.STUCK
@@ -2911,7 +2919,7 @@ def insert_rule_history(
         models.ReplicationRuleHistoryRecent(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
                                             did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
                                             expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
-                                            locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
+                                            locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, stuck_count = rule.stuck_count, source_replica_expression=rule.source_replica_expression,
                                             activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
                                             ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
                                             updated_at=rule.updated_at, child_rule_id=rule.child_rule_id, eol_at=rule.eol_at,
@@ -2920,7 +2928,7 @@ def insert_rule_history(
         models.ReplicationRuleHistory(id=rule.id, subscription_id=rule.subscription_id, account=rule.account, scope=rule.scope, name=rule.name,
                                       did_type=rule.did_type, state=rule.state, error=rule.error, rse_expression=rule.rse_expression, copies=rule.copies,
                                       expires_at=rule.expires_at, weight=rule.weight, locked=rule.locked, locks_ok_cnt=rule.locks_ok_cnt,
-                                      locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, source_replica_expression=rule.source_replica_expression,
+                                      locks_replicating_cnt=rule.locks_replicating_cnt, locks_stuck_cnt=rule.locks_stuck_cnt, stuck_count = rule.stuck_count, source_replica_expression=rule.source_replica_expression,
                                       activity=rule.activity, grouping=rule.grouping, notification=rule.notification, stuck_at=rule.stuck_at, purge_replicas=rule.purge_replicas,
                                       ignore_availability=rule.ignore_availability, ignore_account_limit=rule.ignore_account_limit, comments=rule.comments, created_at=rule.created_at,
                                       updated_at=rule.updated_at, child_rule_id=rule.child_rule_id, eol_at=rule.eol_at,
