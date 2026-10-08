@@ -31,7 +31,28 @@ from rucio.gateway import permission
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
 
+    from sqlalchemy.orm import Session
+
     from rucio.db.sqla.constants import RequestState
+
+
+def _resolve_and_authorize_did_request(
+    scope: str,
+    name: str,
+    rse: str,
+    issuer: str,
+    action: str,
+    vo: str,
+    session: "Session",
+) -> tuple[str, InternalScope]:
+    rse_id = get_rse_id(rse=rse, vo=vo, session=session)
+
+    kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
+    auth_result = permission.has_permission(issuer=issuer, vo=vo, action=action, kwargs=kwargs, session=session)
+    if not auth_result.allowed:
+        raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
+
+    return rse_id, InternalScope(scope, vo=vo)
 
 
 def get_request_by_did(
@@ -52,14 +73,9 @@ def get_request_by_did(
     :returns: Request as a dictionary.
     """
     with db_session(DatabaseOperationType.READ) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-
-        kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_by_did', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
-
-        internal_scope = InternalScope(scope, vo=vo)
+        rse_id, internal_scope = _resolve_and_authorize_did_request(
+            scope, name, rse, issuer, 'get_request_by_did', vo, session
+        )
         req = request.get_request_by_did(internal_scope, name, rse_id, session=session)
 
         return gateway_update_return_dict(req, session=session)
@@ -83,14 +99,9 @@ def get_request_history_by_did(
     :returns: Request as a dictionary.
     """
     with db_session(DatabaseOperationType.READ) as session:
-        rse_id = get_rse_id(rse=rse, vo=vo, session=session)
-
-        kwargs = {'scope': scope, 'name': name, 'rse': rse, 'rse_id': rse_id, 'issuer': issuer}
-        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='get_request_history_by_did', kwargs=kwargs, session=session)
-        if not auth_result.allowed:
-            raise exception.AccessDenied(f'{issuer} cannot retrieve the request DID {scope}:{name} to RSE {rse}. {auth_result.message}')
-
-        internal_scope = InternalScope(scope, vo=vo)
+        rse_id, internal_scope = _resolve_and_authorize_did_request(
+            scope, name, rse, issuer, 'get_request_history_by_did', vo, session
+        )
         req = request.get_request_history_by_did(internal_scope, name, rse_id, session=session)
 
         return gateway_update_return_dict(req, session=session)
