@@ -15,7 +15,9 @@
 import json
 from typing import TYPE_CHECKING, Any, Optional
 
+import rucio.gateway.permission
 from rucio.common.constants import DEFAULT_VO
+from rucio.common.exception import AccessDenied
 from rucio.common.types import InternalScope
 from rucio.common.utils import gateway_update_return_dict
 from rucio.core import opendata
@@ -101,6 +103,7 @@ def add_opendata_did(
         *,
         scope: str,
         name: str,
+        issuer: str,
         vo: str = DEFAULT_VO,
 ) -> None:
     """
@@ -109,6 +112,7 @@ def add_opendata_did(
     Parameters:
         scope: The scope of the DID.
         name: The name of the DID.
+        issuer: The issuer account.
         vo: The virtual organization.
 
     Returns:
@@ -117,13 +121,37 @@ def add_opendata_did(
 
     internal_scope = InternalScope(scope, vo=vo)
     with db_session(DatabaseOperationType.WRITE) as session:
-        return opendata.add_opendata_did(scope=internal_scope, name=name, session=session)
+        kwargs = {
+            'scope': scope,
+            'name': name,
+        }
+
+        auth_result = rucio.gateway.permission.has_permission(
+            issuer=issuer,
+            vo=vo,
+            action='add_opendata_did',
+            kwargs=kwargs,
+            session=session,
+        )
+
+        if not auth_result.allowed:
+            raise AccessDenied(
+                f'Account {issuer} can not add Opendata DID '
+                f'{scope}:{name}. {auth_result.message}'
+            )
+
+        return opendata.add_opendata_did(
+            scope=internal_scope,
+            name=name,
+            session=session,
+        )
 
 
 def delete_opendata_did(
         *,
         scope: str,
         name: str,
+        issuer: str,
         vo: str = DEFAULT_VO,
 ) -> None:
     """
@@ -132,6 +160,7 @@ def delete_opendata_did(
     Parameters:
         scope: The scope of the DID.
         name: The name of the DID.
+        issuer: The issuer account.
         vo: The virtual organization.
 
     Returns:
@@ -140,7 +169,30 @@ def delete_opendata_did(
 
     internal_scope = InternalScope(scope, vo=vo)
     with db_session(DatabaseOperationType.WRITE) as session:
-        return opendata.delete_opendata_did(scope=internal_scope, name=name, session=session)
+        kwargs = {
+            'scope': scope,
+            'name': name,
+        }
+
+        auth_result = rucio.gateway.permission.has_permission(
+            issuer=issuer,
+            vo=vo,
+            action='delete_opendata_did',
+            kwargs=kwargs,
+            session=session,
+        )
+
+        if not auth_result.allowed:
+            raise AccessDenied(
+                f'Account {issuer} can not delete Opendata DID '
+                f'{scope}:{name}. {auth_result.message}'
+            )
+
+        return opendata.delete_opendata_did(
+            scope=internal_scope,
+            name=name,
+            session=session,
+        )
 
 
 def update_opendata_did(
@@ -150,6 +202,7 @@ def update_opendata_did(
         state: Optional["OPENDATA_DID_STATE_LITERAL"] = None,
         meta: Optional[dict] = None,
         doi: Optional[str] = None,
+        issuer: str,
         vo: str = DEFAULT_VO,
 ) -> dict[str, Any]:
     """
@@ -161,6 +214,7 @@ def update_opendata_did(
         state: Optional new state for the DID.
         meta: Optional metadata dictionary or JSON string.
         doi: Optional DOI string.
+        issuer: The issuer account.
         vo: The virtual organization.
 
     Returns:
@@ -182,6 +236,27 @@ def update_opendata_did(
             raise ValueError(f"Invalid JSON: {error}")
 
     with db_session(DatabaseOperationType.WRITE) as session:
+        kwargs = {
+            'scope': scope,
+            'name': name,
+            'state': state,
+            'meta': meta,
+            'doi': doi,
+        }
+
+        auth_result = rucio.gateway.permission.has_permission(
+            issuer=issuer,
+            vo=vo,
+            action='update_opendata_did',
+            kwargs=kwargs,
+            session=session,
+        )
+
+        if not auth_result.allowed:
+            raise AccessDenied(
+                f'Account {issuer} can not update Opendata DID '
+                f'{scope}:{name}. {auth_result.message}'
+            )
         return opendata.update_opendata_did(scope=internal_scope,
                                             name=name,
                                             state=state_enum,

@@ -234,7 +234,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
         vo = request.environ.get("vo", DEFAULT_VO)
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", vo=vo)
-            opendata.add_opendata_did(scope=scope, name=name, vo=vo)
+            opendata.add_opendata_did(scope=scope, issuer=request.environ['issuer'], name=name, vo=vo)
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except DataIdentifierNotFound as error:
@@ -310,13 +310,15 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             state = param_get(parameters, 'state', default=None)
             meta = param_get(parameters, 'meta', default=None)
             doi = param_get(parameters, 'doi', default=None)
-            result = opendata.update_opendata_did(scope=scope,
-                                         name=name,
-                                         state=state,
-                                         meta=meta,
-                                         doi=doi,
-                                         vo=request.environ.get("vo", DEFAULT_VO),
-                                         )
+            result = opendata.update_opendata_did(
+                scope=scope,
+                name=name,
+                state=state,
+                meta=meta,
+                doi=doi,
+                issuer=request.environ['issuer'],
+                vo=request.environ.get("vo", DEFAULT_VO),
+            )
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except OpenDataDataIdentifierNotFound as error:
@@ -360,7 +362,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
         """
         try:
             scope, name = parse_scope_name(f"{scope}/{name}", request.environ.get("vo", DEFAULT_VO))
-            opendata.delete_opendata_did(scope=scope, name=name, vo=request.environ.get("vo", DEFAULT_VO))
+            opendata.delete_opendata_did(scope=scope, name=name, issuer=request.environ['issuer'], vo=request.environ.get("vo", DEFAULT_VO))
         except AccessDenied as error:
             return generate_http_error_flask(401, error)
         except OpenDataDataIdentifierNotFound as error:
