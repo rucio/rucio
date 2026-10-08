@@ -23,7 +23,7 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
+from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
@@ -31,6 +31,7 @@ from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
+from rucio.gateway import opendata as gateway_opendata
 from rucio.tests.common import auth, did_name_generator, headers, with_each_cli_renderer
 
 skip_unsupported_json = pytest.mark.skipif(
@@ -704,6 +705,75 @@ class TestOpenDataEOS:
         result = opendata.get_opendata_did_files(scope=mock_scope, name=name, include_download_urls=False,
                                                  session=db_write_session)
         assert "download_urls" not in result["files"][0]
+
+
+class TestOpenDataGateway:
+
+    def test_opendata_gateway_permissions(
+            self,
+            vo,
+            root_account,
+            random_account,
+            did_factory,
+    ):
+        did = did_factory.make_dataset()
+
+        scope = did['scope'].external
+        name = did['name']
+
+        # A normal account must not be able to register an Open Data DID.
+        with pytest.raises(AccessDenied):
+            gateway_opendata.add_opendata_did(
+                scope=scope,
+                name=name,
+                issuer=random_account.external,
+                vo=vo,
+            )
+
+        # Root can register it.
+        gateway_opendata.add_opendata_did(
+            scope=scope,
+            name=name,
+            issuer=root_account.external,
+            vo=vo,
+        )
+
+        try:
+            # A normal account must not be able to update it.
+            with pytest.raises(AccessDenied):
+                gateway_opendata.update_opendata_did(
+                    scope=scope,
+                    name=name,
+                    state='public',
+                    issuer=random_account.external,
+                    vo=vo,
+                )
+
+            # A normal account must not be able to delete it.
+            with pytest.raises(AccessDenied):
+                gateway_opendata.delete_opendata_did(
+                    scope=scope,
+                    name=name,
+                    issuer=random_account.external,
+                    vo=vo,
+                )
+
+            # Failed operations must not modify the DID.
+            opendata_did = gateway_opendata.get_opendata_did(
+                scope=scope,
+                name=name,
+                vo=vo,
+            )
+
+            assert opendata_did['state'] == OpenDataDIDState.DRAFT
+
+        finally:
+            gateway_opendata.delete_opendata_did(
+                scope=scope,
+                name=name,
+                issuer=root_account.external,
+                vo=vo,
+            )
 
 
 @pytest.mark.noparallel(reason="Changes in configuration values and race conditions")
