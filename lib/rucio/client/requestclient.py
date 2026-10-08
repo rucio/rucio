@@ -83,7 +83,7 @@ class RequestClient(BaseClient):
             name: str,
             rse: str,
             scope: Optional[str] = None
-    ) -> 'Iterator[dict[str, Any]]':
+    ) -> dict[str, Any]:
         """Return latest request details for a DID
         Parameters
         ----------
@@ -119,7 +119,7 @@ class RequestClient(BaseClient):
             name: str,
             rse: str,
             scope: Optional[str] = None
-    ) -> 'Iterator[dict[str, Any]]':
+    ) -> dict[str, Any]:
         """
         Return latest request details for a DID
 
