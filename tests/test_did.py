@@ -36,6 +36,7 @@ from rucio.core.did import (
     list_new_dids,
     remove_did_from_followed,
     set_metadata,
+    set_metadata_bulk,
     set_new_dids,
     set_status,
     touch_dids,
@@ -337,6 +338,34 @@ class TestDIDCore:
         assert len(result) == len(files)
         for dataset in non_existing_datasets:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
+
+    def test_is_opendata_protected(self, mock_scope, root_account):
+        """OpenData membership cannot be changed through metadata APIs."""
+        name = did_name_generator('dataset')
+        add_did(
+            scope=mock_scope,
+            name=name,
+            did_type=DIDType.DATASET,
+            account=root_account,
+        )
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata(
+                scope=mock_scope,
+                name=name,
+                key='is_opendata',
+                value=True,
+            )
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata_bulk(
+                scope=mock_scope,
+                name=name,
+                meta={'is_opendata': True, 'lifetime': 3600},
+            )
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is None
+        assert get_metadata(scope=mock_scope, name=name)['expired_at'] is None
 
 
 class TestDIDGateway:
