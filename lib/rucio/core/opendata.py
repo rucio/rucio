@@ -780,6 +780,17 @@ def delete_opendata_did(
         raise exception.OpenDataInvalidState(
             f"OpenData entry '{scope}:{name}' not in a valid state for deletion. State: {result['state']}, expected: {OpenDataDIDState.DRAFT}")
 
+    # Explicitly remove dependent entries before deleting the OpenData DID.
+    for model in (models.OpenDataDOI, models.OpenDataRecord, models.OpenDataMeta):
+        session.execute(
+            delete(model).where(
+                and_(
+                    model.scope == scope,
+                    model.name == name,
+                )
+            )
+        )
+
     delete_stmt = delete(models.OpenDataDid).where(
         and_(
             models.OpenDataDid.scope == bindparam("scope"),
