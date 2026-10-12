@@ -38,6 +38,7 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
 from rucio.core.did import list_parent_dids, touch_dids
 from rucio.core.lock import touch_dataset_locks
+from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.replica import declare_bad_file_replicas, touch_collection_replicas, touch_replica
 from rucio.core.rse import get_rse_id
@@ -160,6 +161,10 @@ class AMQConsumer:
                                         pfn = report['url']
                                         declare_bad_file_replicas([pfn, ], reason=reason, issuer=InternalAccount('root', vo=report['vo']), status=BadFilesStatus.SUSPICIOUS)
                                         self.__logger(logging.INFO, 'Declare suspicious file %s with reason %s' % (report['url'], reason))
+                                        suspicious_dict = {'daemon':'kronos',
+                                                            'pfn': pfn,
+                                                            'reason':reason}
+                                        add_message('replica-suspicious', suspicious_dict)
                                     except Exception as error:
                                         self.__logger(logging.ERROR, 'Failed to declare suspicious file' + str(error))
                 except Exception as error:
