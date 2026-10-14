@@ -211,7 +211,7 @@ class Default(protocol.RSEProtocol):
         self.session = requests.Session()
         self.session.mount('https://', TLSHTTPAdapter())
         if self.auth_token:
-            self.session.headers.update({'Authorization': 'Bearer ' + self.auth_token})
+            self._on_auth_token_changed()
         # "ping" to see if the server is available
         try:
             test_url = self.path2pfn('')
@@ -226,6 +226,18 @@ class Default(protocol.RSEProtocol):
             raise exception.ServiceUnavailable('Problem to connect %s : %s' % (test_url, error))
         except requests.exceptions.ReadTimeout as error:
             raise exception.ServiceUnavailable(error)
+
+    def _on_auth_token_changed(self) -> None:
+        """
+        Set the authentication token for the WebDAV session.
+        """
+        session = getattr(self, 'session', None)
+        if session is None:
+            return
+        if self.auth_token:
+            session.headers.update({'Authorization': 'Bearer ' + self.auth_token})
+        else:
+            session.headers.pop('Authorization', None)
 
     def close(self):
         self.session.close()

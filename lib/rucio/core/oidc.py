@@ -126,7 +126,7 @@ def request_token(audience: str, scope: str, use_cache: bool = True) -> Optional
     was unsuccessful.
     """
     if not all([OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT]):
-        if OIDC_CONFIGURATION_RUN or not __load_oidc_configuration():
+        if OIDC_CONFIGURATION_RUN or not _load_oidc_configuration():
             return None
 
     key = hashlib.md5(f'audience={audience};scope={scope}'.encode()).hexdigest()
@@ -226,7 +226,7 @@ def __initialize_oidc_clients() -> None:
         pass
 
 
-def __load_oidc_configuration() -> bool:
+def _load_oidc_configuration() -> bool:
     """Load the configuration for the new-style token support."""
     global OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT, OIDC_CONFIGURATION_RUN
 

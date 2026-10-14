@@ -1023,13 +1023,13 @@ class FTS3Transfertool(Transfertool):
             t_file['source_tokens'] = []
             for source in transfer.sources:
                 src_audience = determine_audience_for_rse(rse_id=source.rse.id)
-                src_scope = determine_scope_for_rse(rse_id=source.rse.id, scopes=['storage.read'], extra_scopes=['offline_access'])
+                src_scope = determine_scope_for_rse(rse_id=source.rse.id, parameterized_scopes=['storage.read'], verbatim_scopes=['offline_access'])
                 t_file['source_tokens'].append(request_token(src_audience, src_scope))
 
             dst_audience = determine_audience_for_rse(transfer.dst.rse.id)
             # FIXME: At the time of writing, StoRM requires `storage.read` in
             # order to perform a stat operation.
-            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, scopes=['storage.modify', 'storage.read'], extra_scopes=['offline_access'])
+            dst_scope = determine_scope_for_rse(transfer.dst.rse.id, parameterized_scopes=['storage.modify', 'storage.read'], verbatim_scopes=['offline_access'])
             t_file['destination_tokens'] = [request_token(dst_audience, dst_scope)]
 
         if isinstance(self.scitags_exp_id, int):
