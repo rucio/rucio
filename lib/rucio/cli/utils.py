@@ -56,7 +56,7 @@ from rucio.common.exception import (
 from rucio.common.utils import extract_scope, setup_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
     from rich.style import StyleType
 
@@ -254,6 +254,25 @@ class Arguments(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+
+class DSVType(click.ParamType):
+    name = "DSV"
+
+    def convert(
+            self,
+            value: str,
+            param: "Optional[click.Parameter]",
+            ctx: "Optional[click.Context]",
+    ) -> "Optional[Iterable[str]]":
+        """
+        Values delimitated by ' ' or ',' to be converted into a list
+        Intended to be used with nargs=-1.
+        """
+        if value is None or len(value) == 0:
+            self.fail("Invalid value, cannot be None", param, ctx)
+        items = [item for item in re.split(r"[,\s]+", value.strip()) if item]
+        return items
 
 
 class JSONType(click.ParamType):
