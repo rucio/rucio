@@ -205,6 +205,8 @@ def test_get_supported_transfertools_fts_globus(vo, rse_factory):
     add_rse_attribute(dest_rse_id, RseAttr.FTS, 'b')
     add_rse_attribute(source_rse_id, RseAttr.GLOBUS_ENDPOINT_ID, 'a')
     add_rse_attribute(dest_rse_id, RseAttr.GLOBUS_ENDPOINT_ID, 'b')
+    add_rse_attribute(source_rse_id, RseAttr.GLOBUS_COLLECTION_ID, 'a')
+    add_rse_attribute(dest_rse_id, RseAttr.GLOBUS_COLLECTION_ID, 'b')
 
     transfertools = get_supported_transfertools(source_rse=RseData(source_rse_id), dest_rse=RseData(dest_rse_id), transfertools=['fts3', 'globus'])
 
