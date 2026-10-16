@@ -311,7 +311,7 @@ def test_account_limit(jdoe_account, rucio_client, file_config_mock):
     assert exitcode == 1  # Fails bc locality is limited to local or global
 
 
-@pytest.mark.noparallel("Changes config settings")
+@pytest.mark.noparallel(reason='Changes config settings')
 @with_each_cli_renderer
 def test_config(file_config_mock):
     cmd = "rucio config list"  # Basic - this command works
