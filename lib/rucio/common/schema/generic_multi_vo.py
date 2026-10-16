@@ -340,9 +340,13 @@ CACHE_DELETE_REPLICAS = {"description": "rucio cache delete replicas",
 MESSAGE_OPERATION = {"type": "object",
                      "properties": {'operation': {"enum": ["add_replicas", "delete_replicas"]}}}
 
+ACCOUNT_ATTRIBUTE_NAME = {"description": "Account attribute name",
+                          "type": "string",
+                          "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
+
 ACCOUNT_ATTRIBUTE = {"description": "Account attribute",
                      "type": "string",
-                     "pattern": r'^[a-zA-Z0-9-_\\/\\.]{1,30}$'}
+                     "pattern": r'^[a-zA-Z0-9-_\\/\\.:]{1,30}$'}
 
 SCOPE_NAME_REGEXP = '/(.*)/(.*)'
 
@@ -393,6 +397,7 @@ SCHEMAS = {'account': ACCOUNT,
            'subscription_filter': SUBSCRIPTION_FILTER,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
+           'account_attribute_name': ACCOUNT_ATTRIBUTE_NAME,
            'account_attribute': ACCOUNT_ATTRIBUTE,
            'import': IMPORT,
            'vo': VO}
