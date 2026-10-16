@@ -78,7 +78,7 @@ def __download_geoip_db(destination: 'StrPath') -> None:
             raise Exception('Cannot download GeoIP database: licence key not provided')
         download_url = 'https://download.maxmind.com/app/geoip_download?edition_id=%s&license_key=%s&suffix=tar.gz' % (edition_id, licence_key)
 
-    result = requests.get(download_url, stream=True, verify=verify_tls)
+    result = requests.get(download_url, stream=True, verify=verify_tls, timeout=(5, 60))
     if result and result.status_code in [200, ]:
         with TemporaryFile() as file_obj:
             for chunk in result.iter_content(8192):
@@ -195,7 +195,7 @@ def __download_custom_distance_table() -> None:
         download_url = config_get('core', 'custom_distance_download_url', raise_exception=False, default=None)
         if download_url is None:
             raise Exception('Cannot download custom distance table: no URL provided')
-        result = requests.get(download_url, stream=True, verify=False)
+        result = requests.get(download_url, stream=True, verify=False, timeout=(5, 30))
         if result and result.status_code in [200, ]:
             with open(db_path, mode='w') as file_obj:
                 file_obj.write(result.text)

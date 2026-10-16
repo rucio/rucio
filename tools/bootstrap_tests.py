@@ -70,7 +70,7 @@ def belleii_bootstrap(client):
 
 def create_influxdb_database():
     response = requests.get('http://influxdb:8086/api/v2/buckets?org=rucio',
-                            headers={'Authorization': 'Token mytoken'})
+                            headers={'Authorization': 'Token mytoken'}, timeout=(2, 10))
     if response.status_code == 200:
         json = response.json()
         buckets = json.get('buckets', [])
@@ -78,7 +78,7 @@ def create_influxdb_database():
             bucket_id, name = bucket['id'], bucket['name']
             if name == 'rucio':
                 data = {"bucketId": bucket_id, "database": "rucio", "default": True, "org": "rucio", "retention_policy": "example-rp"}
-                res = requests.post('http://influxdb:8086/api/v2/dbrps', headers={'Authorization': 'Token mytoken', 'Content-type': 'application/json'}, data=dumps(data))
+                res = requests.post('http://influxdb:8086/api/v2/dbrps', headers={'Authorization': 'Token mytoken', 'Content-type': 'application/json'}, data=dumps(data), timeout=(2, 10))
                 return res
     return response
 

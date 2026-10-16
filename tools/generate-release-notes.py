@@ -55,7 +55,7 @@ def format_issue(issue, doc=False):
 def load_milestones(github_token, page=1):
     r = requests.get(url='https://api.github.com/repos/rucio/rucio/milestones',
                      headers={'Authorization': 'token %s' % github_token},
-                     params={'state': 'all', 'page': page, 'per_page': '100'})
+                     params={'state': 'all', 'page': page, 'per_page': '100'}, timeout=(5, 30))
     return json.loads(r.text)
 
 
@@ -146,7 +146,7 @@ for milestone in milestones:
 issues = []
 r = requests.get(url='https://api.github.com/repos/rucio/rucio/issues',
                  headers={'Authorization': 'token %s' % github_token},
-                 params={'milestone': milestone_number, 'state': 'closed', 'per_page': 100})
+                 params={'milestone': milestone_number, 'state': 'closed', 'per_page': 100}, timeout=(5, 30))
 for issue in json.loads(r.text):
     component, type_ = get_issue_component_type(issue)
     issues.append({'component': component,
@@ -157,12 +157,12 @@ for issue in json.loads(r.text):
 if option_backport:
     r = requests.get(url='https://api.github.com/repos/rucio/rucio/issues',
                      headers={'Authorization': 'token %s' % github_token},
-                     params={'labels': 'backport', 'state': 'closed', 'per_page': 100})
+                     params={'labels': 'backport', 'state': 'closed', 'per_page': 100}, timeout=(5, 30))
     for issue in json.loads(r.text):
         # Load the comments
         r = requests.get(url=issue['comments_url'],
                          headers={'Authorization': 'token %s' % github_token},
-                         params={'per_page': 100})
+                         params={'per_page': 100}, timeout=(5, 30))
         # Iterate comments
         for comment in json.loads(r.text):
             if 'backport %s' % milestone_title in comment['body'].lower():
