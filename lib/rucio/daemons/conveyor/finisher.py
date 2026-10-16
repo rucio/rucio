@@ -165,7 +165,7 @@ def finisher(
     # Get suspicious patterns
     suspicious_patterns = config_get_list('conveyor', 'suspicious_pattern', default=[])
     suspicious_patterns = [re.compile(pat.strip()) for pat in suspicious_patterns]
-    logging.log(logging.DEBUG, "Suspicious patterns: %s" % [pat.pattern for pat in suspicious_patterns])
+    logging.log(logging.DEBUG, "Suspicious patterns: %s", [pat.pattern for pat in suspicious_patterns])
 
     retry_protocol_mismatches = config_get_bool('conveyor', 'retry_protocol_mismatches', default=False)
 

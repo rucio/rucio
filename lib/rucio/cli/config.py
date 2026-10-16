@@ -60,7 +60,7 @@ def set(ctx: click.Context, section: str, key: str, value: str):
         $ rucio config set --section my-section --key key --value value
     """
     if ctx.obj.client.get_config().get(section, {}).get(key, None) is not None:
-        ctx.obj.logger.debug("%s.%s already exists. Overwriting..." % (section, key))
+        ctx.obj.logger.debug("%s.%s already exists. Overwriting...", section, key)
 
     ctx.obj.client.set_config_option(section=section, option=key, value=value)
     print(f'Set configuration: {section}.{key}={value}')
