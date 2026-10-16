@@ -87,7 +87,7 @@ def list_opendata_dids(ctx: "Context", state: Optional["OPENDATA_DID_STATE_LITER
             spinner.stop()
             RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
         else:
-            print(tabulate(table_data, tablefmt="psql", headers=['SCOPE:NAME', '[STATE]']))
+            print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['SCOPE:NAME', '[STATE]']))
 
 
 @opendata_did.command("add")
@@ -154,8 +154,8 @@ def get_opendata_did(ctx: "Context", did: str, files: bool, meta: bool, public: 
         table = RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left'])
         output.append(table)
     else:
-        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+        table = [(k, str(v)) for (k, v) in sorted(info.items())]
+        print(tabulate(table, tablefmt=ctx.obj.tablefmt, disable_numparse=True, headers=["KEY", "VALUE"]))
 
     if ctx.obj.use_rich:
         spinner.stop()
@@ -202,7 +202,7 @@ def update_opendata_did(ctx: "Context", did: str, meta: Optional[str],
         spinner.stop()
         RichUtils.print_output(table, console=console, no_pager=ctx.obj.no_pager)
     else:
-        table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-        print(tabulate(table, tablefmt='plain', disable_numparse=True))
+        table = [(k, str(v)) for (k, v) in sorted(info.items())]
+        print(tabulate(table, tablefmt=ctx.obj.tablefmt, disable_numparse=True, headers=["KEY", "VALUE"]))
 
     client.update_opendata_did(scope=scope, name=name, meta=meta, state=state, doi=doi, record_id=record_id)
