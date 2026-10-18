@@ -253,6 +253,13 @@ class RSEProtocol(ABC):
         """
         raise NotImplementedError
 
+    def set_auth_token(self, token: Optional[str]) -> None:
+        self.auth_token = token
+        self._on_auth_token_changed()
+
+    def _on_auth_token_changed(self) -> None:
+        return
+
     @abstractmethod
     def connect(self) -> None:
         """
