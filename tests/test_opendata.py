@@ -26,8 +26,8 @@ from rucio.common.config import config_add_section, config_get, config_get_bool,
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
 from rucio.common.exception import AccessDenied, DataIdentifierNotFound, InvalidMetadata, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
-from rucio.core import opendata
-from rucio.core.did import add_did, delete_dids, get_metadata, get_metadata_bulk, set_metadata, set_metadata_bulk, set_status
+from rucio.core import did_meta_plugins, opendata
+from rucio.core.did import add_did, delete_dids, delete_metadata, get_metadata, get_metadata_bulk, list_dids, set_dids_metadata_bulk, set_metadata, set_metadata_bulk, set_status
 from rucio.core.did_meta_plugins.json_meta import JSONDidMeta
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
@@ -596,8 +596,74 @@ class TestOpenDataCore:
                     meta={"is_opendata": False},
                     session=db_write_session,
                 )
+
+            with pytest.raises(
+                InvalidMetadata,
+                match="'is_opendata' is a read-only metadata field",
+            ):
+                delete_metadata(
+                    scope=mock_scope,
+                    name=name,
+                    key="is_opendata",
+                    session=db_write_session,
+                )
         finally:
             db_write_session.rollback()
+
+    @pytest.mark.parametrize("filter_key", ["is_opendata", "is_opendata.eq"])
+    def test_is_opendata_filter_is_rejected(
+        self,
+        filter_key,
+        mock_scope,
+        db_write_session,
+    ):
+        with pytest.raises(
+            InvalidMetadata,
+            match="Filtering on metadata field 'is_opendata' is not supported",
+        ):
+            list_dids(
+                scope=mock_scope,
+                filters={filter_key: True},
+                session=db_write_session,
+            )
+
+    def test_set_dids_metadata_bulk_validates_read_only_before_writes(
+        self,
+        mock_scope,
+        db_write_session,
+        monkeypatch,
+    ):
+        writes = []
+
+        def set_metadata_bulk_mock(*args, **kwargs):
+            writes.append(kwargs)
+
+        monkeypatch.setattr(
+            did_meta_plugins,
+            "set_metadata_bulk",
+            set_metadata_bulk_mock,
+        )
+
+        dids = [
+            {
+                "scope": mock_scope,
+                "name": did_name_generator(did_type="dataset"),
+                "meta": {"project": "test"},
+            },
+            {
+                "scope": mock_scope,
+                "name": did_name_generator(did_type="dataset"),
+                "meta": {"is_opendata": True},
+            },
+        ]
+
+        with pytest.raises(InvalidMetadata):
+            set_dids_metadata_bulk(
+                dids=dids,
+                session=db_write_session,
+            )
+
+        assert writes == []
 
     @skip_unsupported_json
     def test_get_metadata_all_includes_is_opendata(
@@ -1191,6 +1257,12 @@ class TestOpenDataAPI:
             response_data = json.loads(response.get_data(as_text=True))
             assert response_data["is_opendata"] is True, \
                 "Expected is_opendata to be True for an OpenData DID"
+            # `is_opendata` is derived and cannot be deleted through the metadata API.
+            response = rest_client.delete(
+                f"{meta_endpoint}?key=is_opendata",
+                headers=request_headers,
+            )
+            assert response.status_code == 400
 
             # Remove it from OpenData
             response = rest_client.delete(

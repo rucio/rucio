@@ -2063,6 +2063,15 @@ def set_dids_metadata_bulk(
     :param session: The database session in use.
     """
 
+    dids = list(dids)
+
+    # Validate the complete request before writing through any metadata plugin.
+    for did in dids:
+        read_only_keys = did_meta_plugins.READ_ONLY_METADATA_KEYS.intersection(did['meta'])
+        if read_only_keys:
+            raise exception.InvalidMetadata(
+                f"Metadata field(s) {sorted(read_only_keys)} are read-only"
+            )
     for did in dids:
         did_meta_plugins.set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=recursive, session=session)
 

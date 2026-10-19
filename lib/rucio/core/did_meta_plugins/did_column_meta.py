@@ -499,7 +499,7 @@ class DidColumnMeta(DidMetaPlugin):
             'length.lt',
             'length.gte',
             'length.lte',
-            'type',
+            'type'
         ]
 
         hardcoded_keys = list(set(all_did_table_columns) - set(exclude_did_table_columns)) + additional_keys

@@ -218,6 +218,10 @@ def delete_metadata(scope, name, key, *, session: "Session"):
     :param name: The name of the DID.
     :param key: Key of the metadata.
     """
+    if key in READ_ONLY_METADATA_KEYS:
+        raise exception.InvalidMetadata(
+            f"'{key}' is a read-only metadata field"
+        )
     for metadata_plugin in METADATA_PLUGIN_MODULES:
         if metadata_plugin.manages_key(key, session=session):
             metadata_plugin.delete_metadata(scope, name, key, session=session)
@@ -254,6 +258,10 @@ def list_dids(scope=None, filters=None, did_type='collection', ignore_case=False
             if key == 'name':                       # [name] is always passed through, and needs to be in schema of all plugins
                 continue
             key_nooperator = key.split('.')[0]      # remove operator attribute from key if suffixed
+            if key_nooperator == 'is_opendata':
+                raise exception.InvalidMetadata(
+                    "Filtering on metadata field 'is_opendata' is not supported"
+                )
 
             # `created_at` is filterable but not mutable metadata, so route it to the DID-column plugin.
             if key_nooperator == 'created_at':

@@ -252,6 +252,8 @@ class Search(ErrorHandlingMethodView):
                   items:
                     type: object
                     description: "The name of a DID or a dictionary of a DID for long option."
+          400:
+            description: "Bad Request - invalid filter syntax or metadata key."
           401:
             description: "Invalid Auth Token"
           404:
@@ -288,7 +290,7 @@ class Search(ErrorHandlingMethodView):
                     yield dumps(did) + '\n'
 
             return try_stream(generate(vo=request.environ['vo']))
-        except DIDFilterSyntaxError as error:
+        except (DIDFilterSyntaxError, InvalidMetadata) as error:
             return generate_http_error_flask(400, error)
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
@@ -1577,7 +1579,7 @@ class Meta(ErrorHandlingMethodView):
                   type: string
                   enum: [""]
           400:
-            description: "Bad Request – invalid scope_name."
+            description: "Bad Request – invalid scope_name or metadata key."
           401:
             description: "Unauthorized – invalid Auth Token."
           404:
@@ -1612,6 +1614,8 @@ class Meta(ErrorHandlingMethodView):
         delete_key = request.args['key']
         try:
             delete_metadata(scope=scope, name=name, key=delete_key, vo=vo)
+        except InvalidMetadata as error:
+            return generate_http_error_flask(400, error)
         except (KeyNotFound, DataIdentifierNotFound) as error:
             return generate_http_error_flask(404, error)
         except NotImplementedError as error:
@@ -1637,8 +1641,9 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
             dictionary holding the key–value pairs to insert / update for that DID.
           * If a key already exists the exact action (overwrite, merge, reject)
             depends on the metadata plug‑in configured on the server.
-          * The operation is atomic across the whole list: the request succeeds only if
-            all DIDs are updated successfully; otherwise no metadata is written.
+          * The complete request is validated for read-only metadata before writes are
+            started. Transactional guarantees for subsequent writes depend on the
+            configured metadata plugin.
         tags:
           - Data Identifiers
         requestBody:
