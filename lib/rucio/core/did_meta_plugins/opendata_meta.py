@@ -14,7 +14,8 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_
+from sqlalchemy import and_, false
+from sqlalchemy.sql.expression import case, true
 
 from rucio.db.sqla import models
 
@@ -24,7 +25,10 @@ if TYPE_CHECKING:
 
 def add_is_opendata_column(stmt: "Select") -> "Select":
     return stmt.add_columns(
-        models.OpenDataDid.scope.isnot(None).label("is_opendata")
+        case(
+            (models.OpenDataDid.scope.isnot(None), true()),
+            else_=false()
+        ).label("is_opendata")
     ).outerjoin(
         models.OpenDataDid,
         and_(
