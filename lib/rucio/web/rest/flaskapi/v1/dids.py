@@ -252,6 +252,8 @@ class Search(ErrorHandlingMethodView):
                   items:
                     type: object
                     description: "The name of a DID or a dictionary of a DID for long option."
+          400:
+            description: "Bad Request - invalid filter syntax or metadata key."
           401:
             description: "Invalid Auth Token"
           404:
@@ -288,7 +290,7 @@ class Search(ErrorHandlingMethodView):
                     yield dumps(did) + '\n'
 
             return try_stream(generate(vo=request.environ['vo']))
-        except DIDFilterSyntaxError as error:
+        except (DIDFilterSyntaxError, InvalidMetadata) as error:
             return generate_http_error_flask(400, error)
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
@@ -342,6 +344,8 @@ class BulkDIDS(ErrorHandlingMethodView):
                 schema:
                   type: string
                   enum: ["Created"]
+          400:
+            description: "Bad Request - invalid metadata."
           401:
             description: "Invalid Auth Token"
           406:
@@ -352,6 +356,8 @@ class BulkDIDS(ErrorHandlingMethodView):
         dids = json_list()
         try:
             add_dids(dids=dids, issuer=request.environ['issuer'], vo=request.environ['vo'])
+        except InvalidMetadata as error:
+            return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation) as error:
@@ -456,6 +462,8 @@ class Attachments(ErrorHandlingMethodView):
                 schema:
                   type: string
                   enum: ["Created"]
+          400:
+            description: "Bad Request - invalid metadata."
           401:
             description: "Invalid Auth Token"
           404:
@@ -478,6 +486,8 @@ class Attachments(ErrorHandlingMethodView):
                                 ignore_duplicate=ignore_duplicate,
                                 issuer=request.environ['issuer'],
                                 vo=request.environ['vo'])
+        except InvalidMetadata as error:
+            return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except (DuplicateContent, DataIdentifierAlreadyExists, UnsupportedOperation, FileAlreadyExists) as error:
@@ -675,6 +685,8 @@ class DIDs(ErrorHandlingMethodView):
                 schema:
                   type: string
                   enum: ['Created']
+          400:
+            description: "Bad Request - invalid request path, object, or metadata."
           401:
             description: "Invalid Auth Token"
           404:
@@ -704,7 +716,7 @@ class DIDs(ErrorHandlingMethodView):
                 issuer=request.environ['issuer'],
                 vo=request.environ['vo'],
             )
-        except (InvalidObject, InvalidPath) as error:
+        except (InvalidObject, InvalidPath, InvalidMetadata) as error:
             return generate_http_error_flask(400, error)
         except (DataIdentifierNotFound, ScopeNotFound) as error:
             return generate_http_error_flask(404, error)
@@ -898,6 +910,8 @@ class Attachment(ErrorHandlingMethodView):
                 schema:
                   type: string
                   enum: ["Created"]
+          400:
+            description: "Bad Request - invalid path or metadata."
           401:
             description: "Invalid Auth Token"
           404:
@@ -920,7 +934,7 @@ class Attachment(ErrorHandlingMethodView):
                         attachment=attachments,
                         issuer=request.environ['issuer'],
                         vo=request.environ['vo'])
-        except InvalidPath as error:
+        except (InvalidPath, InvalidMetadata) as error:
             return generate_http_error_flask(400, error)
         except (DataIdentifierNotFound, RSENotFound) as error:
             return generate_http_error_flask(404, error)
@@ -1565,7 +1579,7 @@ class Meta(ErrorHandlingMethodView):
                   type: string
                   enum: [""]
           400:
-            description: "Bad Request – invalid scope_name."
+            description: "Bad Request – invalid scope_name or metadata key."
           401:
             description: "Unauthorized – invalid Auth Token."
           404:
@@ -1600,6 +1614,8 @@ class Meta(ErrorHandlingMethodView):
         delete_key = request.args['key']
         try:
             delete_metadata(scope=scope, name=name, key=delete_key, vo=vo)
+        except InvalidMetadata as error:
+            return generate_http_error_flask(400, error)
         except (KeyNotFound, DataIdentifierNotFound) as error:
             return generate_http_error_flask(404, error)
         except NotImplementedError as error:
@@ -1625,8 +1641,9 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
             dictionary holding the key–value pairs to insert / update for that DID.
           * If a key already exists the exact action (overwrite, merge, reject)
             depends on the metadata plug‑in configured on the server.
-          * The operation is atomic across the whole list: the request succeeds only if
-            all DIDs are updated successfully; otherwise no metadata is written.
+          * The complete request is validated for read-only metadata before writes are
+            started. Transactional guarantees for subsequent writes depend on the
+            configured metadata plugin.
         tags:
           - Data Identifiers
         requestBody:
@@ -1685,10 +1702,7 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
                   type: string
                   enum: ["Created"]
           400:
-            description: |
-              Bad Request – malformed JSON or missing/invalid `dids` structure.
-              (Raised by the generic JSON‑parameter parser before reaching the
-              business logic.)
+            description: "Bad Request – malformed request structure or invalid metadata."
           401:
             description: |
               Unauthorized – invalid Auth Token or insufficient privileges to
@@ -1880,6 +1894,8 @@ class BulkDIDsMeta(ErrorHandlingMethodView):
                 issuer=request.environ["issuer"],
                 vo=request.environ["vo"],
             )
+        except InvalidMetadata as err:
+            return generate_http_error_flask(400, err)
         except DataIdentifierNotFound as err:
             return generate_http_error_flask(404, err)
         except UnsupportedOperation as err:
