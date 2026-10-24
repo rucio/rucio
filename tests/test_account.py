@@ -25,6 +25,7 @@ from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, DatabaseOperationType, IdentityType
 from rucio.db.sqla.session import db_session
 from rucio.gateway.account import account_exists, add_account, del_account, get_account_info, update_account
+from rucio.gateway.account import add_account_attribute as gateway_add_account_attribute
 from rucio.tests.common import account_name_generator, auth, headers, loginhdr, skip_non_belleii, vohdr
 
 
@@ -79,6 +80,24 @@ class TestAccountCoreGateway:
         with pytest.raises(Duplicate):
             with db_session(DatabaseOperationType.WRITE) as session:
                 add_account_attribute(root_account, key, value, session=session)
+
+    def test_add_account_attribute_flexible_value(self, root_account):
+        """ACCOUNT (GATEWAY): Test adding attribute with a flexible value."""
+        import importlib
+
+        import rucio.common.schema
+        from rucio.common.constants import DEFAULT_VO
+
+        old_module = rucio.common.schema.schema_modules[DEFAULT_VO]
+        try:
+            rucio.common.schema.schema_modules[DEFAULT_VO] = importlib.import_module('rucio.common.schema.generic')
+            key = account_name_generator()
+            value = "https://rucio.cern.ch"
+            gateway_add_account_attribute(key=key, value=value, account=root_account.external, issuer='root')
+            with db_session(DatabaseOperationType.READ) as session:
+                assert {'key': key, 'value': value} in list_account_attributes(root_account, session=session)
+        finally:
+            rucio.common.schema.schema_modules[DEFAULT_VO] = old_module
 
 
 def test_create_user_success(rest_client, auth_token):
