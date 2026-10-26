@@ -170,60 +170,82 @@ class TestOpenDataCore:
         record_id = 1_000_000_000 + time.time_ns() % 1_000_000_000
         meta = {"test": "metadata"}
 
-        add_did(
-            scope=mock_scope, name=name, account=root_account,
-            did_type=DIDType.DATASET, session=db_write_session
-        )
-        opendata.add_opendata_did(
-            scope=mock_scope, name=name, session=db_write_session
-        )
-        opendata.update_opendata_did(
-            scope=mock_scope, name=name, doi=doi,
-            record_id=record_id, meta=meta, session=db_write_session
-        )
-        db_write_session.commit()
-
-        # Verify that all dependent entries exist before deletion.
-        assert opendata.get_opendata_doi(
-            scope=mock_scope, name=name, session=db_write_session
-        ) == doi
-        assert opendata.get_opendata_record_id(
-            scope=mock_scope, name=name, session=db_write_session
-        ) == record_id
-        assert opendata.get_opendata_meta(
-            scope=mock_scope, name=name, session=db_write_session
-        ) == meta
-
-        # Delete the OpenData entry and its dependencies.
-        opendata.delete_opendata_did(
-            scope=mock_scope, name=name, session=db_write_session
-        )
-        db_write_session.commit()
-
-        with pytest.raises(OpenDataDataIdentifierNotFound):
-            opendata.get_opendata_did(
+        try:
+            add_did(
+                scope=mock_scope, name=name, account=root_account,
+                did_type=DIDType.DATASET, session=db_write_session
+            )
+            opendata.add_opendata_did(
                 scope=mock_scope, name=name, session=db_write_session
             )
-
-        assert opendata.get_opendata_doi(
-            scope=mock_scope, name=name, session=db_write_session
-        ) is None
-        assert opendata.get_opendata_record_id(
-            scope=mock_scope, name=name, session=db_write_session
-        ) is None
-        assert opendata.get_opendata_meta(
-            scope=mock_scope, name=name, session=db_write_session
-        ) == {}
-
-        # The original DID must still exist.
-        did = db_write_session.execute(
-            select(models.DataIdentifier).where(
-                models.DataIdentifier.scope == mock_scope,
-                models.DataIdentifier.name == name,
+            opendata.update_opendata_did(
+                scope=mock_scope, name=name, doi=doi,
+                record_id=record_id, meta=meta, session=db_write_session
             )
-        ).scalar_one_or_none()
+            db_write_session.commit()
 
-        assert did is not None
+            # Verify that all dependent entries exist before deletion.
+            assert opendata.get_opendata_doi(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == doi
+            assert opendata.get_opendata_record_id(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == record_id
+            assert opendata.get_opendata_meta(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == meta
+
+            # Delete the OpenData entry and its dependencies.
+            opendata.delete_opendata_did(
+                scope=mock_scope, name=name, session=db_write_session
+            )
+            db_write_session.commit()
+
+            with pytest.raises(OpenDataDataIdentifierNotFound):
+                opendata.get_opendata_did(
+                    scope=mock_scope, name=name, session=db_write_session
+                )
+
+            assert opendata.get_opendata_doi(
+                scope=mock_scope, name=name, session=db_write_session
+            ) is None
+            assert opendata.get_opendata_record_id(
+                scope=mock_scope, name=name, session=db_write_session
+            ) is None
+            assert opendata.get_opendata_meta(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == {}
+
+            # The original DID must still exist.
+            did = db_write_session.execute(
+                select(models.DataIdentifier).where(
+                    models.DataIdentifier.scope == mock_scope,
+                    models.DataIdentifier.name == name,
+                )
+            ).scalar_one_or_none()
+
+            assert did is not None
+
+        finally:
+            db_write_session.rollback()
+
+            # Clean up any remaining test data.
+            for model in (
+                models.OpenDataDOI,
+                models.OpenDataRecord,
+                models.OpenDataMeta,
+                models.OpenDataDid,
+                models.DataIdentifier,
+            ):
+                stmt = delete(
+                    model
+                ).where(
+                    model.scope == mock_scope,
+                    model.name == name,
+                )
+                db_write_session.execute(stmt)
+
+            db_write_session.commit()
 
     @pytest.mark.skipif(
         get_session().bind.dialect.name == 'sqlite',
