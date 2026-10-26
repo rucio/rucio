@@ -782,14 +782,15 @@ def delete_opendata_did(
 
     # Explicitly remove dependent entries before deleting the OpenData DID.
     for model in (models.OpenDataDOI, models.OpenDataRecord, models.OpenDataMeta):
-        session.execute(
-            delete(model).where(
-                and_(
-                    model.scope == scope,
-                    model.name == name,
-                )
+        stmt = delete(
+            model
+        ).where(
+            and_(
+                model.scope == scope,
+                model.name == name,
             )
         )
+        session.execute(stmt)
 
     delete_stmt = delete(models.OpenDataDid).where(
         and_(
