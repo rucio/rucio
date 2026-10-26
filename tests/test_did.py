@@ -23,6 +23,7 @@ from rucio.common.utils import generate_uuid
 from rucio.core.did import (
     add_did,
     add_did_to_followed,
+    add_dids,
     attach_dids,
     bulk_list_files,
     delete_dids,
@@ -35,6 +36,7 @@ from rucio.core.did import (
     list_dids,
     list_new_dids,
     remove_did_from_followed,
+    resurrect,
     set_metadata,
     set_new_dids,
     set_status,
@@ -68,6 +70,33 @@ class TestDIDCore:
         for dsn in dsns:
             add_did(scope=mock_scope, name=dsn['name'], did_type='DATASET', account=root_account)
         delete_dids(dids=dsns, account=root_account)
+
+    @pytest.mark.parametrize("core_config_mock", [{"table_content": [('deletion', 'archive_dids', True)]}], indirect=True)
+    def test_register_deleted_did(self, did_factory, root_account, core_config_mock):
+        """ DATA IDENTIFIERS (CORE): Deleted DIDs cannot be registered again """
+        deleted_did = did_factory.make_dataset()
+        delete_dids(dids=[{**deleted_did, 'did_type': DIDType.DATASET, 'purge_replicas': False}],
+                    account=root_account)
+
+        with pytest.raises(exception.DataIdentifierPreviouslyDeleted):
+            add_did(scope=deleted_did['scope'], name=deleted_did['name'], did_type=DIDType.DATASET, account=root_account)
+
+        unused_did = did_factory.random_dataset_did()
+        with pytest.raises(exception.DataIdentifierPreviouslyDeleted):
+            add_dids(dids=[{**deleted_did, 'type': DIDType.DATASET},
+                           {**unused_did, 'type': DIDType.DATASET}],
+                     account=root_account)
+
+        # The failed bulk registration must not create the unused DID
+        with pytest.raises(DataIdentifierNotFound):
+            get_did(scope=unused_did['scope'], name=unused_did['name'])
+
+        add_did(scope=unused_did['scope'], name=unused_did['name'], did_type=DIDType.DATASET, account=root_account)
+        assert get_did(scope=unused_did['scope'], name=unused_did['name'])['name'] == unused_did['name']
+
+        # Explicit resurrection must remain possible
+        resurrect(dids=[deleted_did])
+        assert get_did(scope=deleted_did['scope'], name=deleted_did['name'])['name'] == deleted_did['name']
 
     def test_touch_dids_atime(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Touch DIDs accessed_at timestamp"""

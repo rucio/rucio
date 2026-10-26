@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
+from rucio.common import exception
 from rucio.common.utils import generate_uuid
-from rucio.core.did import attach_dids, get_metadata
+from rucio.core.did import attach_dids, get_metadata, list_archive_content, resurrect
 from rucio.core.replica import add_replicas, delete_replicas
 from rucio.core.rse import add_protocol, update_rse
 
@@ -42,6 +45,30 @@ def test_add_and_list_archive(rse_factory, replica_client, did_client, mock_scop
         content = [f for f in did_client.list_archive_content(scope=scope, name=archive_file)]
 
         assert len(content) == 10
+
+
+@pytest.mark.parametrize("core_config_mock", [{"table_content": [('deletion', 'archive_dids', True)]}], indirect=True)
+def test_add_deleted_file_to_archive(rse_factory, did_factory, root_account, core_config_mock):
+    """  ARCHIVE (CORE): Deleted files cannot be added to an archive """
+    _, rse_id = rse_factory.make_mock_rse()
+
+    archive = did_factory.random_file_did(name_suffix='.zip')
+    add_replicas(rse_id=rse_id, files=[{**archive, 'bytes': 1, 'adler32': '0cc737eb'}], account=root_account)
+
+    file_ = did_factory.random_file_did()
+    add_replicas(rse_id=rse_id, files=[{**file_, 'bytes': 1, 'adler32': '0cc737eb'}], account=root_account)
+    delete_replicas(rse_id=rse_id, files=[file_])
+
+    with pytest.raises(exception.DataIdentifierPreviouslyDeleted):
+        attach_dids(scope=archive['scope'], name=archive['name'],
+                    dids=[{**file_, 'bytes': 1, 'adler32': '0cc737eb'}], account=root_account)
+
+    # Explicit resurrection must restore the file and allow it to be added
+    resurrect(dids=[file_])
+    attach_dids(scope=archive['scope'], name=archive['name'],
+                dids=[{**file_, 'bytes': 1, 'adler32': '0cc737eb'}], account=root_account)
+    assert [content for content in list_archive_content(scope=archive['scope'], name=archive['name'])
+            if content['name'] == file_['name']]
 
 
 def test_list_archive_contents_transparently(rse_factory, replica_client, did_client, mock_scope, root_account):

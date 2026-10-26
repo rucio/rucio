@@ -155,6 +155,38 @@ def add_did(
                     account=account, session=session)
 
 
+def check_deleted_dids(
+        dids: "Iterable[tuple[InternalScope, str]]",
+        *,
+        session: "Session",
+) -> None:
+    """
+    Raise an exception if one of the DIDs was previously deleted.
+
+    :param dids: The (scope, name) pairs of the DIDs to check.
+    :param session: The database session in use.
+    """
+    for chunk in chunks(list(dids), 100):
+        stmt = select(
+            models.DeletedDataIdentifier.scope,
+            models.DeletedDataIdentifier.name,
+        ).with_hint(
+            models.DeletedDataIdentifier,
+            'INDEX(DELETED_DIDS DELETED_DIDS_PK)',
+            'oracle'
+        ).where(
+            or_(*[and_(models.DeletedDataIdentifier.scope == scope,
+                       models.DeletedDataIdentifier.name == name)
+                  for scope, name in chunk])
+        ).limit(1)
+
+        deleted_did = session.execute(stmt).first()
+        if deleted_did:
+            raise exception.DataIdentifierPreviouslyDeleted(
+                "Data identifier '%s:%s' was previously deleted and cannot be registered again." % (deleted_did.scope, deleted_did.name)
+            )
+
+
 @transactional_session
 def add_dids(
         dids: "Sequence[dict[str, Any]]",
@@ -169,6 +201,8 @@ def add_dids(
     :param account: The account owner.
     :param session: The database session in use.
     """
+    check_deleted_dids(dids=((did['scope'], did['name']) for did in dids), session=session)
+
     try:
 
         for did in dids:
@@ -470,6 +504,8 @@ def __add_files_to_archive(
             }
 
         archive_contents_to_add[row.scope, row.name] = new_content
+
+    check_deleted_dids(dids=dids_to_add.keys(), session=session)
 
     # insert into archive_contents
     try:

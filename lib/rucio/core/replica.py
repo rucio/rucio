@@ -1665,6 +1665,7 @@ def __bulk_add_file_dids(
                 break
         if not found:
             new_files.append(file)
+    rucio.core.did.check_deleted_dids(dids=[(file['scope'], file['name']) for file in new_files], session=session)
     __bulk_add_new_file_dids(files=new_files, account=account,
                              dataset_meta=dataset_meta,
                              session=session)

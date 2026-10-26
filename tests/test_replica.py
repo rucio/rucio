@@ -29,10 +29,10 @@ from werkzeug.datastructures import Headers, MultiDict
 import rucio.core.permission
 from rucio.client.ruleclient import RuleClient
 from rucio.common.constants import RseAttr
-from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, InputValidationError, InvalidObject, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
+from rucio.common.exception import AccessDenied, DatabaseException, DataIdentifierNotFound, DataIdentifierPreviouslyDeleted, InputValidationError, InvalidObject, ReplicaIsLocked, ReplicaNotFound, RucioException, ScopeNotFound
 from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
-from rucio.core.did import add_did, attach_dids, get_did, get_did_access_cnt, get_did_atime, list_files, set_status
+from rucio.core.did import add_did, attach_dids, get_did, get_did_access_cnt, get_did_atime, list_files, resurrect, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_rse_coverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
 from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute
 from rucio.daemons.badreplicas.minos import minos
@@ -262,6 +262,30 @@ class TestReplicaCore:
 
         for file in files2:
             get_did(scope=file['scope'], name=file['name'])
+
+    @pytest.mark.parametrize("core_config_mock", [{"table_content": [('deletion', 'archive_dids', True)]}], indirect=True)
+    def test_add_replica_for_deleted_did(self, rse_factory, did_factory, root_account, core_config_mock):
+        """ REPLICA (CORE): Deleted file DIDs cannot be registered again """
+        _, rse1_id = rse_factory.make_mock_rse()
+        _, rse2_id = rse_factory.make_mock_rse()
+
+        deleted_file = did_factory.random_file_did()
+        add_replica(rse_id=rse1_id, scope=deleted_file['scope'], name=deleted_file['name'], bytes_=1, adler32='0cc737eb', account=root_account)
+        delete_replicas(rse_id=rse1_id, files=[deleted_file])
+
+        with pytest.raises(DataIdentifierPreviouslyDeleted):
+            add_replica(rse_id=rse2_id, scope=deleted_file['scope'], name=deleted_file['name'], bytes_=1, adler32='0cc737eb', account=root_account)
+
+        # Additional replicas for existing DIDs must still be possible
+        existing_file = did_factory.random_file_did()
+        add_replica(rse_id=rse1_id, scope=existing_file['scope'], name=existing_file['name'], bytes_=1, adler32='0cc737eb', account=root_account)
+        add_replica(rse_id=rse2_id, scope=existing_file['scope'], name=existing_file['name'], bytes_=1, adler32='0cc737eb', account=root_account)
+        assert get_replica(rse_id=rse2_id, scope=existing_file['scope'], name=existing_file['name'])
+
+        # Explicit resurrection must restore the DID
+        resurrect(dids=[deleted_file])
+        add_replica(rse_id=rse2_id, scope=deleted_file['scope'], name=deleted_file['name'], bytes_=1, adler32='0cc737eb', account=root_account)
+        assert get_replica(rse_id=rse2_id, scope=deleted_file['scope'], name=deleted_file['name'])
 
     def test_delete_replicas_from_datasets_old(self, rse_factory, mock_scope, root_account):
         """ REPLICA (CORE): Delete replicas from dataset """

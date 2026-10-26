@@ -1303,3 +1303,14 @@ class OpenDataDuplicateRecordID(OpenDataError):
         super(OpenDataDuplicateRecordID, self).__init__(*args)
         self._message = f"Data identifier with the same Record ID ({record_id}) already exists in the open data catalog."
         self.error_code = 123
+
+
+class DataIdentifierPreviouslyDeleted(DataIdentifierAlreadyExists):
+    """
+    Throws when a data identifier which was previously deleted is registered again.
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._message = "Data identifier was previously deleted and cannot be registered again."
+        self.error_code = 124
