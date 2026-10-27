@@ -186,11 +186,11 @@ def list_identities(args, client, logger, console, spinner):
     identities = client.list_identities(account=args.account)
     for identity in identities:
         if cli_config == 'rich':
-            table_data.append([identity['identity'], identity['type']])
+            table_data.append([identity['identity'], identity['type'], identity.get('is_default')])
         else:
-            print('Identity: %(identity)s,\ttype: %(type)s' % identity)
+            print('Identity: %s,\ttype: %s,\tdefault: %s' % (identity['identity'], identity['type'], identity.get('is_default')))
     if cli_config == 'rich':
-        table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE', 'DEFAULT'], col_alignments=['left', 'left', 'left'])
         RichUtils.print_output(table, console=console, no_pager=args.no_pager)
     return SUCCESS
 

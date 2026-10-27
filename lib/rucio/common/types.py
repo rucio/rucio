@@ -335,6 +335,7 @@ class IdentityDict(TypedDict):
     type: "IdentityType"
     identity: str
     email: str
+    is_default: bool
 
 
 class UsageDict(TypedDict):
