@@ -89,7 +89,7 @@ jobs:
       && github.event_name != 'schedule'
       && github.ref_type != 'tag'
     name: Python type check (Pyright)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       PYRIGHT_CURRENT_REPORT: ../pyright_current_report.json
       PYRIGHT_ANCESTOR_REPORT: ../pyright_ancestor_report.json
