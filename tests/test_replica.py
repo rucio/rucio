@@ -24,6 +24,7 @@ from xml.etree import ElementTree  # noqa: S405 -- trusted XML input
 
 import pytest
 import xmltodict
+from sqlalchemy import update
 from werkzeug.datastructures import Headers, MultiDict
 
 import rucio.core.permission
@@ -34,7 +35,7 @@ from rucio.common.utils import clean_pfns, generate_uuid, parse_response
 from rucio.core.config import set as cconfig_set
 from rucio.core.did import add_did, attach_dids, get_did, get_did_access_cnt, get_did_atime, list_files, set_status
 from rucio.core.replica import add_bad_dids, add_replica, add_replicas, delete_replicas, get_bad_pfns, get_replica, get_replica_atime, get_replicas_state, get_rse_coverage_of_dataset, list_replicas, set_tombstone, touch_replica, update_replica_state
-from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute, get_rse_usage
+from rucio.core.rse import add_protocol, add_rse_attribute, del_rse_attribute, get_rse_usage, list_rse_usage_history
 from rucio.core.rse_counter_expired import check_deletable_replicas, check_obsolete_replicas
 from rucio.daemons.badreplicas.minos import minos
 from rucio.daemons.badreplicas.minos_temporary_expiration import minos_tu_expiration
@@ -560,7 +561,7 @@ class TestReplicaCore:
             set_tombstone(rse_id, mock_scope, name)
 
     def test_check_expired_replicas(self, rse_factory, mock_scope, root_account):
-        """ REPLICA (CORE): check obsolete replicas for a given rse """
+        """ REPLICA (CORE): check obsolete and deletable replicas for a given rse """
         # Set tombstone on replicas
         rse, rse_id = rse_factory.make_mock_rse()
         nbfiles = 3
@@ -589,6 +590,36 @@ class TestReplicaCore:
         res = get_rse_usage(rse_id, 'expired')[0]  # 6 files, 24 bytes
         assert res['used'] == 24
         assert res['files'] == 6
+
+        stale_updated_at = datetime(2000, 1, 1)
+        scan_cases = (
+            ('obsolete', check_obsolete_replicas, 12, 3),
+            ('expired', check_deletable_replicas, 24, 6),
+        )
+        for source, scan, expected_used, expected_files in scan_cases:
+            initial_usage = get_rse_usage(rse_id, source)[0]
+            scanned_at = initial_usage['updated_at'] + timedelta(minutes=5)
+            with db_session(DatabaseOperationType.WRITE) as session:
+                session.execute(
+                    update(models.RSEUsage)
+                    .where(models.RSEUsage.rse_id == rse_id, models.RSEUsage.source == source)
+                    .values(updated_at=stale_updated_at)
+                )
+            # check that the timestamp is refreshed on every scan
+            with mock.patch('rucio.core.rse_counter_expired.datetime') as datetime_mock:
+                datetime_mock.now.return_value = scanned_at
+                scan(rse_id)
+            usage = get_rse_usage(rse_id, source)[0]
+            assert usage['updated_at'] == scanned_at
+            assert usage['updated_at'] > stale_updated_at
+            assert usage['used'] == expected_used
+            assert usage['files'] == expected_files
+
+            history = next(list_rse_usage_history(rse_id, source), None)
+            assert history is not None, f"No usage history was recorded for source '{source}'"
+            assert history['updated_at'] == usage['updated_at']
+            assert history['used'] == usage['used']
+            assert history['free'] == (usage['free'] or 0)
 
     def test_core_default_tombstone_correctly_set(self, rse_factory, did_factory, root_account):
         """ REPLICA (CORE): Per-RSE default tombstone is correctly taken into consideration"""

@@ -27,7 +27,7 @@ from rucio.tests.common import did_name_generator
 
 
 @pytest.mark.noparallel(reason='uses daemon, failing in parallel to other tests')
-class TestAbacusRSEObsolete:
+class TestAbacusRSEExpired:
 
     def test_abacus_rse_obsolete(self, mock_scope, rse_factory, root_account):
         """ ABACUS (RSE): Test update of RSE usage for obsolete replicas. """
@@ -66,7 +66,7 @@ class TestAbacusRSEObsolete:
             assert res['used'] == 12
             assert res['files'] == 3
             run(once=True)
-            res = get_rse_usage(rse_id, 'expired')[0]  # 4 files (OBSOLETE included), 37 bytes
+            res = get_rse_usage(rse_id, 'expired')[0]  # 4 files (OBSOLETE included), 39 bytes
             assert res['used'] == 39
             assert res['files'] == 4
             # rse_id2 undisturbed ..

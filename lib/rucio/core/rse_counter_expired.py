@@ -16,9 +16,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import Select, func, select
 
-from rucio.core.rse import set_rse_usage
 from rucio.db.sqla import models
-from rucio.db.sqla.constants import OBSOLETE, ReplicaState
+from rucio.db.sqla.constants import OBSOLETE
 from rucio.db.sqla.session import transactional_session
 
 if TYPE_CHECKING:
@@ -41,7 +40,15 @@ def check_obsolete_replicas(rse_id: str, *, session: "Session") -> None:
         models.RSEFileAssociation.tombstone == OBSOLETE
     )
     bytes, files = session.execute(stmt).one()
-    set_rse_usage(rse_id, 'obsolete', bytes, None, files, session=session)
+    scanned_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    _update_rse_usage(
+        rse_id=rse_id,
+        source='obsolete',
+        used=bytes,
+        files=files,
+        scanned_at=scanned_at,
+        session=session,
+    )
 
 
 @transactional_session
@@ -57,11 +64,49 @@ def check_deletable_replicas(rse_id: str, *, session: "Session") -> None:
     stmt = _select_query(
     ).where(
         models.RSEFileAssociation.rse_id == rse_id,
-        models.RSEFileAssociation.tombstone < datetime.now(timezone.utc),
-        models.RSEFileAssociation.state.in_((ReplicaState.AVAILABLE, ReplicaState.UNAVAILABLE, ReplicaState.BAD))
+        models.RSEFileAssociation.tombstone < datetime.now(timezone.utc).replace(tzinfo=None)
     )
     bytes, files = session.execute(stmt).one()
-    set_rse_usage(rse_id, 'expired', bytes, None, files, session=session)
+    scanned_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    _update_rse_usage(
+        rse_id=rse_id,
+        source='expired',
+        used=bytes,
+        files=files,
+        scanned_at=scanned_at,
+        session=session,
+    )
+
+
+def _update_rse_usage(
+    rse_id: str,
+    source: str,
+    used: int,
+    files: int,
+    scanned_at: datetime,
+    *,
+    session: "Session",
+) -> None:
+    usage = models.RSEUsage(
+        rse_id=rse_id,
+        source=source,
+        used=used,
+        free=None,
+        files=files,
+        updated_at=scanned_at,
+    )
+    usage = session.merge(usage)
+    usage.save(session=session)
+
+    history = models.RSEUsageHistory(
+        rse_id=usage.rse_id,
+        source=usage.source,
+        used=usage.used,
+        free=usage.free,
+        files=usage.files,
+        updated_at=usage.updated_at,
+    )
+    history.save(session=session)
 
 
 def _select_query() -> Select:
