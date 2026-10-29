@@ -13,39 +13,23 @@
 # limitations under the License.
 
 import logging
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.constants import RseAttr
-from rucio.common.utils import chunks
+from rucio.common.utils import EXTRA_MODULES, chunks
 from rucio.db.sqla.constants import RequestState
+from rucio.transfertool.globus_library import GlobusTools
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 
-from .globus_library import bulk_check_xfers, bulk_submit_xfer, submit_xfer
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
+    from rucio.common.types import LoggerFunction
+    from rucio.core.request import DirectTransfer
+    from rucio.db.sqla.session import Session
 
-def bulk_group_transfers(transfer_paths, policy='single', group_bulk=200):
-    """
-    Group transfers in bulk based on certain criteria
-
-    :param transfer_paths:  List of (potentially multihop) transfer paths to group. Each path is a list of single-hop transfers.
-    :param policy:          Policy to use to group.
-    :param group_bulk:      Bulk sizes.
-    :return:                List of transfer groups
-    """
-    if policy == 'single':
-        group_bulk = 1
-
-    grouped_jobs = []
-    for chunk in chunks(transfer_paths, group_bulk):
-        # Globus doesn't support multihop. Get the first hop only.
-        transfers = [transfer_path[0] for transfer_path in chunk]
-
-        grouped_jobs.append({
-            'transfers': transfers,
-            # Job params are not used by globus transfertool, but are needed for further common fts/globus code
-            'job_params': {}
-        })
-
-    return grouped_jobs
+    if EXTRA_MODULES['globus_sdk']:
+        from globus_sdk import GlobusHTTPResponse
 
 
 class GlobusTransferStatusReport(TransferStatusReport):
@@ -55,7 +39,7 @@ class GlobusTransferStatusReport(TransferStatusReport):
         'external_id',
     ]
 
-    def __init__(self, request_id, external_id, globus_response):
+    def __init__(self, request_id: str, external_id: str, globus_response: "Union[str, GlobusHTTPResponse]") -> None:
         super().__init__(request_id)
 
         if globus_response == 'FAILED':
@@ -70,10 +54,10 @@ class GlobusTransferStatusReport(TransferStatusReport):
         if new_state in [RequestState.FAILED, RequestState.DONE]:
             self.external_id = external_id
 
-    def initialize(self, session, logger=logging.log):
+    def initialize(self, session: "Session", logger: "LoggerFunction" = logging.log) -> None:
         pass
 
-    def get_monitor_msg_fields(self, session, logger=logging.log):
+    def get_monitor_msg_fields(self, session: "Session", logger: "LoggerFunction" = logging.log) -> dict[str, Any]:
         return {'protocol': 'globus'}
 
 
@@ -83,9 +67,10 @@ class GlobusTransferTool(Transfertool):
     """
 
     external_name = 'globus'
-    required_rse_attrs = (RseAttr.GLOBUS_ENDPOINT_ID, )
+    supported_schemes = set(['https'])
+    required_rse_attrs = (RseAttr.GLOBUS_ENDPOINT_ID, RseAttr.GLOBUS_COLLECTION_ID)
 
-    def __init__(self, external_host, logger=logging.log, group_bulk=200, group_policy='single'):
+    def __init__(self, external_host: str, logger: "LoggerFunction" = logging.log, group_bulk: int = 200, group_policy: str = 'single') -> None:
         """
         Initializes the transfertool
 
@@ -96,52 +81,39 @@ class GlobusTransferTool(Transfertool):
         super().__init__(external_host, logger)
         self.group_bulk = group_bulk
         self.group_policy = group_policy
-        # TODO: initialize vars from config file here
+
+        self.tools = GlobusTools()
 
     @classmethod
-    def submission_builder_for_path(cls, transfer_path, logger=logging.log):
+    def submission_builder_for_path(cls, transfer_path: list["DirectTransfer"], logger: "LoggerFunction" = logging.log) -> tuple[list["DirectTransfer"], "TransferToolBuilder"]:
         hop = transfer_path[0]
         if not cls.can_perform_transfer(hop.src.rse, hop.dst.rse):
-            logger(logging.WARNING, "Source or destination globus_endpoint_id not set. Skipping {}".format(hop))
-            return [], None
+            logger(logging.WARNING, "Source or destination globus_endpoint_id, globus_collection_id not set. Skipping {}".format(hop))
+            return [], TransferToolBuilder(cls, external_host='Globus Online Transfertool')
 
         return [hop], TransferToolBuilder(cls, external_host='Globus Online Transfertool')
 
-    def group_into_submit_jobs(self, transfer_paths):
-        jobs = bulk_group_transfers(transfer_paths, policy=self.group_policy, group_bulk=self.group_bulk)
-        return jobs
+    def group_into_submit_jobs(self, transfer_paths: "Iterable[list[DirectTransfer]]") -> list[dict[str, Any]]:
 
-    def submit_one(self, files, timeout=None):
-        """
-        Submit transfers to globus API
+        if self.group_policy == 'single':
+            group_bulk = 1
+        else:
+            group_bulk = self.group_bulk
 
-        :param files:        List of dictionaries describing the file transfers.
-        :param job_params:   Dictionary containing key/value pairs, for all transfers.
-        :param timeout:      Timeout in seconds.
-        :returns:            Globus transfer identifier.
-        """
+        grouped_jobs = []
+        for chunk in chunks(transfer_paths, group_bulk):
+            # Globus doesn't support multihop. Get the first hop only.
+            transfers = [transfer_path[0] for transfer_path in chunk]
 
-        source_path = files[0]['sources'][0]
-        self.logger(logging.INFO, 'source_path: %s' % source_path)
+            grouped_jobs.append({
+                'transfers': transfers,
+                # Job params are not used by globus transfertool, but are needed for further common fts/globus code
+                'job_params': {}
+            })
 
-        source_endpoint_id = files[0]['metadata']['source_globus_endpoint_id']
+        return grouped_jobs
 
-        # TODO: use prefix from rse_protocol to properly construct destination url
-        # parse and assemble dest_path for Globus endpoint
-        dest_path = files[0]['destinations'][0]
-        self.logger(logging.INFO, 'dest_path: %s' % dest_path)
-
-        # TODO: rucio.common.utils.construct_url logic adds unnecessary '/other' into file path
-        # s = dest_path.split('/') # s.remove('other') # dest_path = '/'.join(s)
-
-        destination_endpoint_id = files[0]['metadata']['dest_globus_endpoint_id']
-        job_label = files[0]['metadata']['request_id']
-
-        task_id = submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False, logger=self.logger)
-
-        return task_id
-
-    def submit(self, transfers, job_params, timeout=None):
+    def submit(self, transfers: "Iterable[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
         """
         Submit a bulk transfer to globus API
 
@@ -151,31 +123,29 @@ class GlobusTransferTool(Transfertool):
         :returns:            Globus transfer identifier.
         """
 
-        # TODO: support passing a recursive parameter to Globus
-        submitjob = [
-            {
-                # Some dict elements are not needed by globus transfertool, but are accessed by further common fts/globus code
-                'sources': [transfer.source_url(s) for s in transfer.sources],
-                'destinations': [transfer.dest_url],
-                'metadata': {
-                    'src_rse': transfer.src.rse.name,
-                    'dst_rse': transfer.dst.rse.name,
-                    'scope': str(transfer.rws.scope),
-                    'name': transfer.rws.name,
-                    'source_globus_endpoint_id': transfer.src.rse.attributes[RseAttr.GLOBUS_ENDPOINT_ID],
-                    'dest_globus_endpoint_id': transfer.dst.rse.attributes[RseAttr.GLOBUS_ENDPOINT_ID],
-                    'filesize': transfer.rws.byte_count,
-                },
-            }
-            for transfer in transfers
-        ]
-        self.logger(logging.DEBUG, '... Starting globus xfer ...')
-        self.logger(logging.DEBUG, 'job_files: %s' % submitjob)
-        task_id = bulk_submit_xfer(submitjob, recursive=False, logger=self.logger)
+        # Transfer data objects are a dict, we can place them all in an updated dictionary
+        # And submit that obj instead
+        transfer_data = {}
+        for transfer in transfers:
+            job_label = transfer.rws.request_id if transfer.rws.request_id is not None else ""
+            for source in transfer.sources:
 
+                source_endpoint_id = transfer.src.rse.attributes[RseAttr.GLOBUS_COLLECTION_ID]
+                dest_endpoint_id = transfer.dst.rse.attributes[RseAttr.GLOBUS_COLLECTION_ID]
+
+                tdata = self.tools.build_transfer_data(
+                    {transfer.source_url(source): transfer.dest_url},
+                    job_label,
+                    source_endpoint_id=source_endpoint_id,
+                    destination_endpoint_id=dest_endpoint_id
+                )
+                transfer_data.update(tdata)
+
+        response = self.tools.submit_transfer(transfer_data)
+        task_id = response['task_id']
         return task_id
 
-    def bulk_query(self, requests_by_eid, timeout=None):
+    def bulk_query(self, requests_by_eid: "Mapping[str, Mapping[str, Any]]", timeout: Optional[int] = None) -> dict[str, dict[str, GlobusTransferStatusReport]]:
         """
         Query the status of a bulk of transfers in globus API
 
@@ -183,7 +153,7 @@ class GlobusTransferTool(Transfertool):
         :returns: Transfer status information as a dictionary.
         """
 
-        job_responses = bulk_check_xfers(requests_by_eid, logger=self.logger)
+        job_responses = self.tools.check_transfer(list(requests_by_eid.keys()))
 
         response = {}
         for transfer_id, requests in requests_by_eid.items():

@@ -22,6 +22,7 @@ from sqlalchemy import and_, delete, func, select, update
 
 from rucio.common.constants import RseAttr
 from rucio.common.exception import RequestNotFound
+from rucio.common.utils import generate_uuid
 from rucio.core import config as core_config
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
@@ -358,7 +359,10 @@ def test_scheme_missmatch(rse_factory, did_factory, root_account, file_config_mo
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER])
-def test_globus(rse_factory, did_factory, root_account):
+@pytest.mark.parametrize("file_config_mock", [{
+    "overrides": [('conveyor', 'globus_auth_app', '/opt/rucio/globus_auth')]
+}], indirect=True)
+def test_globus(rse_factory, did_factory, root_account, file_config_mock):
     """
     Test bulk submissions with globus transfertool.
     Rely on mocks, because we don't contact a real globus server in tests
@@ -374,7 +378,34 @@ def test_globus(rse_factory, did_factory, root_account):
     # | RSE3 +--->| RSE4 |
     # |      |    |      |
     # +------+    +------+
-    rse1, rse1_id = rse_factory.make_posix_rse()
+
+    with open("/opt/rucio/globus_auth", 'w') as f:
+        f.write(generate_uuid() + "\n")
+        f.write(generate_uuid())
+
+    globus_protocol = {
+        'scheme': 'https',
+        'prefix': '/globus-test/',
+        'impl': 'rucio.rse.protocols.globus.Default',
+        'domains': {
+            "lan": {
+                "read": 1,
+                "write": 1,
+                "delete": 1,
+                "third_party_copy_read": 1,
+                "third_party_copy_write": 1
+            },
+            "wan": {
+                "read": 1,
+                "write": 1,
+                "delete": 1,
+                "third_party_copy_read": 1,
+                "third_party_copy_write": 1
+            }
+        },
+    }
+
+    rse1, rse1_id = rse_factory.make_posix_rse()  # Set as posix to upload the file
     rse2, rse2_id = rse_factory.make_posix_rse()
     rse3, rse3_id = rse_factory.make_posix_rse()
     rse4, rse4_id = rse_factory.make_posix_rse()
@@ -382,20 +413,26 @@ def test_globus(rse_factory, did_factory, root_account):
 
     distance_core.add_distance(rse1_id, rse2_id, distance=10)
     distance_core.add_distance(rse3_id, rse4_id, distance=10)
-    for rse_id in all_rses:
-        rse_core.add_rse_attribute(rse_id, RseAttr.GLOBUS_ENDPOINT_ID, rse_id)
 
     # Single submission
     did1 = did_factory.upload_test_file(rse1)
     rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     did2 = did_factory.upload_test_file(rse3)
     rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=rse4, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-    with patch('rucio.transfertool.globus.bulk_submit_xfer') as mock_bulk_submit:
+
+    for rse_id in all_rses:
+        rse_core.add_rse_attribute(rse_id, RseAttr.GLOBUS_ENDPOINT_ID, rse_id)
+        rse_core.add_rse_attribute(rse_id, RseAttr.GLOBUS_COLLECTION_ID, rse_id)
+
+        rse_core.add_protocol(rse_id, globus_protocol)  # Add a globus protocol so it can use the transfer tool
+
+    with patch('rucio.transfertool.globus.GlobusTransferTool.submit') as mock_bulk_submit:
         mock_bulk_submit.return_value = 0
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertools=['globus'], transfertype='single', filter_transfertool=None)
         # Called separately for each job
         assert len(mock_bulk_submit.call_args_list) == 2
-        (submitjob,), _kwargs = mock_bulk_submit.call_args_list[0]
+
+        (submitjob, _, _), _ = mock_bulk_submit.call_args_list[0]
         assert len(submitjob) == 1
 
     # Bulk submission
@@ -403,31 +440,15 @@ def test_globus(rse_factory, did_factory, root_account):
     rule_core.add_rule(dids=[did1], account=root_account, copies=1, rse_expression=rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
     did2 = did_factory.upload_test_file(rse3)
     rule_core.add_rule(dids=[did2], account=root_account, copies=1, rse_expression=rse4, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
-    with patch('rucio.transfertool.globus.bulk_submit_xfer') as mock_bulk_submit:
+    with patch('rucio.transfertool.globus.GlobusTransferTool.submit') as mock_bulk_submit:
         mock_bulk_submit.return_value = 0
         submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=10, partition_wait_time=None, transfertools=['globus'], transfertype='bulk', filter_transfertool=None)
 
         mock_bulk_submit.assert_called_once()
-        (submitjob,), _kwargs = mock_bulk_submit.call_args_list[0]
-
+        (submitjob, _, _), _ = mock_bulk_submit.call_args_list[0]
         # both jobs were grouped together and submitted in one call
         assert len(submitjob) == 2
 
-        job_did1 = next(iter(filter(lambda job: did1['name'] in job['sources'][0], submitjob)))
-        assert len(job_did1['sources']) == 1
-        assert len(job_did1['destinations']) == 1
-        assert job_did1['metadata']['src_rse'] == rse1
-        assert job_did1['metadata']['dst_rse'] == rse2
-        assert job_did1['metadata']['name'] == did1['name']
-        assert job_did1['metadata']['source_globus_endpoint_id'] == rse1_id
-        assert job_did1['metadata']['dest_globus_endpoint_id'] == rse2_id
-
-        job_did2 = next(iter(filter(lambda job: did2['name'] in job['sources'][0], submitjob)))
-        assert len(job_did2['sources']) == 1
-        assert len(job_did2['destinations']) == 1
-        assert job_did2['metadata']['src_rse'] == rse3
-        assert job_did2['metadata']['dst_rse'] == rse4
-        assert job_did2['metadata']['name'] == did2['name']
     request = request_core.get_request_by_did(rse_id=rse2_id, **did1)
     assert request['state'] == RequestState.SUBMITTED
     assert request['transfertool'] == 'globus'

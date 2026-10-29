@@ -15,167 +15,118 @@
 import datetime
 import logging
 import os
+from typing import TYPE_CHECKING, Any, Literal, Union
 
-from rucio.common.config import config_get, config_get_int, get_config_dirs
+from rucio.common.config import config_get, config_get_int
 from rucio.common.extra import import_extras
 from rucio.core.monitor import MetricManager
 
 EXTRA_MODULES = import_extras(['globus_sdk'])
 
 if EXTRA_MODULES['globus_sdk']:
-    import yaml  # pylint: disable=import-error
-    from globus_sdk import DeleteData, NativeAppAuthClient, RefreshTokenAuthorizer, TransferClient, TransferData  # pylint: disable=import-error
+    import globus_sdk
+    from globus_sdk.scopes import TransferScopes
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from rucio.common.types import LoggerFunction
 
 METRICS = MetricManager(module=__name__)
 
-GLOBUS_AUTH_APP = config_get('conveyor', 'globus_auth_app', False, None)
 
+class GlobusTools:
+    def __init__(self, logger: "LoggerFunction" = logging.log) -> None:
+        self.logger = logger
+        self.auth_app_creds = config_get("conveyor", "globus_auth_app", raise_exception=True)
+        self.sync_level: 'Literal["exists", "size", "mtime", "checksum"]' = config_get("conveyor", "globus_sync_level", raise_exception=False, default='checksum')  # type: ignore
+        self.globus_task_deadline = config_get_int('conveyor', 'globus_task_deadline', False, 2880)
 
-def load_config(cfg_file='globus-config.yml', logger=logging.log):
-    config = None
-    config_dir = get_config_dirs()[0]
-    if os.path.isfile(os.path.join(config_dir, cfg_file)):
-        config = os.path.join(config_dir, cfg_file)
-    else:
-        logger(logging.ERROR, 'Could not find globus config file')
-        raise Exception
-    return yaml.safe_load(open(config).read())
+        self.auth_client = self.__auth_client()
 
+    def __read_secrets(self) -> tuple[str, str]:
+        if not os.path.exists(self.auth_app_creds):
+            raise ValueError("Could not find client auth file")
 
-def get_transfer_client(logger=logging.log):
-    cfg = load_config(logger=logger)
-    # cfg = yaml.safe_load(open("/opt/rucio/lib/rucio/transfertool/config.yml"))
-    client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
-    auth_client = NativeAppAuthClient(client_id)
-    refresh_token = cfg['globus']['apps'][GLOBUS_AUTH_APP]['refresh_token']
-    logger(logging.INFO, 'authorizing token...')
-    authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
-    logger(logging.INFO, 'initializing TransferClient...')
-    tc = TransferClient(authorizer=authorizer)
-    return tc
+        with open(self.auth_app_creds, 'r') as f:
+            lines = f.read().strip().split('\n')
 
+            if len(lines) < 2:
+                raise ValueError("Auth file must contain at least 2 lines (client_id and client_secret)")
 
-def auto_activate_endpoint(tc, ep_id, logger=logging.log):
-    r = tc.endpoint_autoactivate(ep_id, if_expires_in=3600)
-    if r['code'] == 'AutoActivationFailed':
-        logger(logging.CRITICAL, 'Endpoint({}) Not Active! Error! Source message: {}'.format(ep_id, r['message']))
-        # sys.exit(1) # TODO: don't want to exit; hook into graceful exit
-    elif r['code'] == 'AutoActivated.CachedCredential':
-        logger(logging.INFO, 'Endpoint({}) autoactivated using a cached credential.'.format(ep_id))
-    elif r['code'] == 'AutoActivated.GlobusOnlineCredential':
-        logger(logging.INFO, ('Endpoint({}) autoactivated using a built-in Globus credential.').format(ep_id))
-    elif r['code'] == 'AlreadyActivated':
-        logger(logging.INFO, 'Endpoint({}) already active until at least {}'.format(ep_id, 3600))
-    return r['code']
+            client_id = lines[0].strip()
+            client_secret = lines[1].strip()
 
+        msg = f"Retrieved Globus auth from {self.auth_app_creds}"
+        self.logger(logging.INFO, msg)
+        return client_id, client_secret
 
-def submit_xfer(source_endpoint_id, destination_endpoint_id, source_path, dest_path, job_label, recursive=False, logger=logging.log):
-    tc = get_transfer_client(logger=logger)
-    # as both endpoints are expected to be Globus Server endpoints, send auto-activate commands for both globus endpoints
-    auto_activate_endpoint(tc, source_endpoint_id, logger=logger)
-    auto_activate_endpoint(tc, destination_endpoint_id, logger=logger)
+    def __auth_client(self) -> "globus_sdk.ConfidentialAppAuthClient":
+        client_id, client_secret = self.__read_secrets()
+        return globus_sdk.ConfidentialAppAuthClient(client_id=client_id, client_secret=client_secret)
 
-    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source and
-    # destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means that after
-    # a file is transferred, Globus will compute checksums on the source and destination files to verify that the file was transferred
-    # correctly.  If the checksums do not match, it will redo the transfer of that file.
-    # tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", verify_checksum=True)
-    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label,
-                         sync_level="checksum", notify_on_succeeded=False, notify_on_failed=False)
-    tdata.add_item(source_path, dest_path, recursive=recursive)
+    def transfer_client(self) -> "globus_sdk.TransferClient":
+        token_auth = self.auth_client.oauth2_client_credentials_tokens(TransferScopes.all)
+        token = token_auth.by_resource_server["transfer.api.globus.org"]["access_token"]
+        transfer_auth = globus_sdk.AccessTokenAuthorizer(token)
+        return globus_sdk.TransferClient(authorizer=transfer_auth)
 
-    # logging.info('submitting transfer...')
-    transfer_result = tc.submit_transfer(tdata)
-    # logging.info("task_id =", transfer_result["task_id"])
+    def build_transfer_data(self, data_paths: dict[str, str], job_label: str, source_endpoint_id: str, destination_endpoint_id: str) -> "globus_sdk.TransferData":
+        deadline = datetime.datetime.utcnow() + datetime.timedelta(minutes=self.globus_task_deadline)
+        tdata = globus_sdk.TransferData(
+            source_endpoint_id,
+            destination_endpoint_id,
+            label=job_label,
+            sync_level=self.sync_level,
+            deadline=deadline,
+        )
+        for source, dest in data_paths.items():
+            tdata.add_item(source, dest)
+        return tdata
 
-    return transfer_result["task_id"]
+    def build_delete_data(self, delete_items: "Iterable[str]", endpoint_id: str, recursive: bool = False) -> "globus_sdk.DeleteData":
+        now = datetime.datetime.utcnow()
+        deadline = now + datetime.timedelta(minutes=self.globus_task_deadline)
+        ddata = globus_sdk.DeleteData(
+            endpoint=endpoint_id,
+            label=f"delete-{now.strftime('%Y%m%d%H%M%s')}",
+            recursive=recursive,
+            deadline=deadline
+        )
+        for item in delete_items:
+            ddata.add_item(item)
+        return ddata
 
+    def submit_transfer(self, transfer_data: "Union[dict[str, Any], globus_sdk.TransferData]") -> "Union[dict[str, Any], globus_sdk.response.GlobusHTTPResponse]":
+        try:
+            with self.transfer_client() as tc:
+                transfer_response = tc.submit_transfer(transfer_data)
+            return transfer_response
+        except globus_sdk.TransferAPIError as e:
+            response_data = {"task_id": e.request_id, "code": e.code, "http_status": e.http_status, "data": e.text}
+            return response_data
 
-def bulk_submit_xfer(submitjob, recursive=False, logger=logging.log):
-    cfg = load_config(logger=logger)
-    client_id = cfg['globus']['apps'][GLOBUS_AUTH_APP]['client_id']
-    auth_client = NativeAppAuthClient(client_id)
-    refresh_token = cfg['globus']['apps'][GLOBUS_AUTH_APP]['refresh_token']
-    source_endpoint_id = submitjob[0].get('metadata').get('source_globus_endpoint_id')
-    destination_endpoint_id = submitjob[0].get('metadata').get('dest_globus_endpoint_id')
-    authorizer = RefreshTokenAuthorizer(refresh_token=refresh_token, auth_client=auth_client)
-    tc = TransferClient(authorizer=authorizer)
+    def submit_deletion(self, deletation_data: "globus_sdk.DeleteData") -> "Union[dict[str, Any], globus_sdk.response.GlobusHTTPResponse]":
+        try:
+            with self.transfer_client() as tc:
+                delete_response = tc.submit_delete(deletation_data)
+            return delete_response
+        except globus_sdk.TransferAPIError as e:
+            response_data = {"task_id": e.request_id, "code": e.code, "http_status": e.http_status, "data": e.text}
+            return response_data
 
-    # make job_label for task a timestamp
-    now = datetime.datetime.utcnow()
-    job_label = now.strftime('%Y%m%d%H%M%s')
+    def check_transfer(self, transfer_ids: list[str]) -> dict[str, str]:
+        responses = {}
+        with self.transfer_client() as tc:
+            for task_id in transfer_ids:
+                try:
+                    transfer = tc.get_task(str(task_id))
+                    status = str(transfer["status"])
+                    if status == 'SUCCEEDED':
+                        METRICS.counter('bytes_transferred').inc(transfer['bytes_transferred'])
+                        METRICS.counter('effective_bytes_per_second').inc(transfer['effective_bytes_per_second'])
+                except globus_sdk.TransferAPIError:
+                    status = "FAILED"
 
-    # retrieve globus_task_deadline value to enforce time window to complete transfers
-    # default is 2880 minutes or 48 hours
-    globus_task_deadline = config_get_int('conveyor', 'globus_task_deadline', False, 2880)
-    deadline = now + datetime.timedelta(minutes=globus_task_deadline)
-
-    # from Globus... sync_level=checksum means that before files are transferred, Globus will compute checksums on the source
-    # and destination files, and only transfer files that have different checksums are transferred. verify_checksum=True means
-    # that after a file is transferred, Globus will compute checksums on the source and destination files to verify that the
-    # file was transferred correctly.  If the checksums do not match, it will redo the transfer of that file.
-    tdata = TransferData(tc, source_endpoint_id, destination_endpoint_id, label=job_label, sync_level="checksum", deadline=str(deadline))
-
-    for file in submitjob:
-        source_path = file.get('sources')[0]
-        dest_path = file.get('destinations')[0]
-        filesize = file['metadata']['filesize']
-        # TODO: support passing a recursive parameter to Globus
-        # md5 = file['metadata']['md5']
-        # tdata.add_item(source_path, dest_path, recursive=False, external_checksum=md5)
-        tdata.add_item(source_path, dest_path, recursive=False)
-        METRICS.counter('submit.filesize').inc(filesize)
-
-    # logging.info('submitting transfer...')
-    transfer_result = tc.submit_transfer(tdata)
-    logger(logging.INFO, "transfer_result: %s" % transfer_result)
-
-    return transfer_result["task_id"]
-
-
-def check_xfer(task_id, logger=logging.log):
-    tc = get_transfer_client(logger=logger)
-    transfer = tc.get_task(task_id)
-    status = str(transfer["status"])
-    return status
-
-
-def bulk_check_xfers(task_ids, logger=logging.log):
-    tc = get_transfer_client(logger=logger)
-
-    logger(logging.DEBUG, 'task_ids: %s' % task_ids)
-
-    responses = {}
-
-    for task_id in task_ids:
-        transfer = tc.get_task(str(task_id))
-        logger(logging.DEBUG, 'transfer: %s' % transfer)
-        status = str(transfer["status"])
-        if status == 'SUCCEEDED':
-            METRICS.counter('bytes_transferred').inc(transfer['bytes_transferred'])
-            METRICS.counter('effective_bytes_per_second').inc(transfer['effective_bytes_per_second'])
-        responses[str(task_id)] = status
-
-    logger(logging.DEBUG, 'responses: %s' % responses)
-
-    return responses
-
-
-def send_delete_task(endpoint_id=None, path=None, logger=logging.log):
-    tc = get_transfer_client(logger=logger)
-    ddata = DeleteData(tc, endpoint_id, recursive=True)
-    ddata.add_item(path)
-    delete_result = tc.submit_delete(ddata)
-
-    return delete_result
-
-
-def send_bulk_delete_task(endpoint_id=None, pfns=None, logger=logging.log):
-    tc = get_transfer_client(logger=logger)
-    ddata = DeleteData(tc, endpoint_id, recursive=True)
-    for pfn in pfns:
-        logger(logging.DEBUG, 'pfn: %s' % pfn)
-        ddata.add_item(pfn)
-    bulk_delete_result = tc.submit_delete(ddata)
-
-    return bulk_delete_result
+                responses[str(task_id)] = status
+        return responses
