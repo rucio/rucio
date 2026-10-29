@@ -254,7 +254,8 @@ def list_identities(
     query = select(
         models.IdentityAccountAssociation.identity_type.label('type'),
         models.IdentityAccountAssociation.identity,
-        models.Identity.email
+        models.Identity.email,
+        models.IdentityAccountAssociation.is_default
     ).join(
         models.Identity,
         and_(
