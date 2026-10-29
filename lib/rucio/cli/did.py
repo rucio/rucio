@@ -19,7 +19,7 @@ from rich.text import Text
 from tabulate import tabulate
 
 from rucio.cli.utils import RichCLITheme, RichUtils, get_scope, scope_exists
-from rucio.common.config import config_get
+from rucio.common.config_settings import Config
 from rucio.common.exception import InputValidationError, InvalidObject, RucioException
 from rucio.common.utils import chunks, parse_did_filter_from_string_fe
 
@@ -386,7 +386,7 @@ def metadata_unset(ctx: click.Context, did: str, key: str) -> None:
 def metadata_list_(ctx: click.Context, dids: tuple[str, ...], plugin: Optional[str]) -> None:
     """List metadata for a list of DIDs"""
     if plugin is None:
-        plugin = config_get('client', 'metadata_default_plugin', default='DID_COLUMN')
+        plugin = Config.client.metadata_default_plugin()
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching metadata')
