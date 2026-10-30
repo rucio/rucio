@@ -76,9 +76,9 @@ def run_once(
             check_obsolete_replicas(rse['id'])
         else:
             check_deletable_replicas(rse['id'])
-        logger(logging.DEBUG, '%s replica backlog query for RSE %s took %f s.' % ('Expired' if not obsolete else 'Obsolete', rse['id'], time.time() - start))
+        logger(logging.INFO, '%s replica backlog query for RSE %s took %f s.' % ('Expired' if not obsolete else 'Obsolete', rse['id'], time.time() - start))
 
-    logger(logging.DEBUG, 'update of all RSEs took %f s.' % (time.time() - start_time))
+    logger(logging.INFO, 'update of all RSEs took %f s.' % (time.time() - start_time))
 
 
 def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
@@ -98,8 +98,7 @@ def run(
     Starts up the Abacus-RSE deletable/obsolete threads.
     """
     global DAEMON_NAME
-    if obsolete:
-        DAEMON_NAME = 'abacus-rse-obsolete'
+    DAEMON_NAME = 'abacus-rse-obsolete' if obsolete else 'abacus-rse-deletable'
     setup_logging(process_name=DAEMON_NAME)
 
     if rucio.db.sqla.util.is_old_db():
