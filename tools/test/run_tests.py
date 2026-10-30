@@ -183,7 +183,7 @@ def case_id(case: dict) -> str:
     Generate a human-readable identifier from the matrix attributes.
 
     The resulting string is used for log file names and stderr prefixes, e.g.
-    ``alma9-py3.9-client-postgres14``.
+    ``alma9-py3.9-client-postgres16``.
     """
     parts = [case["DIST"], 'py' + case["PYTHON"], case["SUITE"], case.get("RDBMS", "")]
     return '-'.join(filter(bool, parts))
@@ -548,7 +548,7 @@ def run_with_httpd(
         compose_env['RUCIO_ACTIVEMQ_CONTAINER_NAME'] = f'{project}-activemq-1'
         compose_env['RUCIO_WEB1_CONTAINER_NAME'] = f'{project}-web1-1'
         rdbms_container_env = {
-            'postgres14': 'RUCIO_POSTGRES14_CONTAINER_NAME',
+            'postgres16': 'RUCIO_POSTGRES16_CONTAINER_NAME',
             'mysql8': 'RUCIO_MYSQL8_CONTAINER_NAME',
             'oracle': 'RUCIO_ORACLE_CONTAINER_NAME',
         }
