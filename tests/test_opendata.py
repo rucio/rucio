@@ -20,14 +20,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from dogpile.cache.api import NoValue
+from sqlalchemy import delete, inspect, select
+from sqlalchemy.exc import IntegrityError
 
 from rucio.common.config import config_add_section, config_get, config_get_bool, config_has_section, config_remove_option, config_set
 from rucio.common.constants import OPENDATA_DID_STATE_LITERAL
-from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidStateUpdate
+from rucio.common.exception import AccessDenied, DataIdentifierNotFound, OpenDataDataIdentifierAlreadyExists, OpenDataDataIdentifierNotFound, OpenDataDuplicateDOI, OpenDataDuplicateRecordID, OpenDataInvalidState, OpenDataInvalidStateUpdate
 from rucio.common.utils import execute
 from rucio.core import opendata
 from rucio.core.did import add_did, set_status
 from rucio.core.rse import add_rse_attribute
+from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OpenDataDIDState
 from rucio.db.sqla.session import get_session
 from rucio.db.sqla.util import json_implemented
@@ -158,6 +161,217 @@ class TestOpenDataCore:
 
             with pytest.raises(OpenDataDataIdentifierNotFound):
                 opendata.get_opendata_did(scope=mock_scope, name=name, session=db_write_session)
+
+    @skip_unsupported_dialect
+    def test_opendata_dids_remove_with_dependencies(
+            self, mock_scope, root_account, doi_factory, db_write_session):
+        name = did_name_generator(did_type="dataset")
+        doi = doi_factory()
+        record_id = 1_000_000_000 + time.time_ns() % 1_000_000_000
+        meta = {"test": "metadata"}
+
+        try:
+            add_did(
+                scope=mock_scope, name=name, account=root_account,
+                did_type=DIDType.DATASET, session=db_write_session
+            )
+            opendata.add_opendata_did(
+                scope=mock_scope, name=name, session=db_write_session
+            )
+            opendata.update_opendata_did(
+                scope=mock_scope, name=name, doi=doi,
+                record_id=record_id, meta=meta, session=db_write_session
+            )
+            db_write_session.commit()
+
+            # Verify that all dependent entries exist before deletion.
+            assert opendata.get_opendata_doi(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == doi
+            assert opendata.get_opendata_record_id(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == record_id
+            assert opendata.get_opendata_meta(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == meta
+
+            # Delete the OpenData entry and its dependencies.
+            opendata.delete_opendata_did(
+                scope=mock_scope, name=name, session=db_write_session
+            )
+            db_write_session.commit()
+
+            with pytest.raises(OpenDataDataIdentifierNotFound):
+                opendata.get_opendata_did(
+                    scope=mock_scope, name=name, session=db_write_session
+                )
+
+            assert opendata.get_opendata_doi(
+                scope=mock_scope, name=name, session=db_write_session
+            ) is None
+            assert opendata.get_opendata_record_id(
+                scope=mock_scope, name=name, session=db_write_session
+            ) is None
+            assert opendata.get_opendata_meta(
+                scope=mock_scope, name=name, session=db_write_session
+            ) == {}
+
+            # The original DID must still exist.
+            did = db_write_session.execute(
+                select(models.DataIdentifier).where(
+                    models.DataIdentifier.scope == mock_scope,
+                    models.DataIdentifier.name == name,
+                )
+            ).scalar_one_or_none()
+
+            assert did is not None
+
+        finally:
+            db_write_session.rollback()
+
+            # Clean up any remaining test data.
+            for model in (
+                models.OpenDataDOI,
+                models.OpenDataRecord,
+                models.OpenDataMeta,
+                models.OpenDataDid,
+                models.DataIdentifier,
+            ):
+                stmt = delete(
+                    model
+                ).where(
+                    model.scope == mock_scope,
+                    model.name == name,
+                )
+                db_write_session.execute(stmt)
+
+            db_write_session.commit()
+
+    @pytest.mark.skipif(
+        get_session().bind.dialect.name == 'sqlite',
+        reason="SQLite foreign key enforcement may be disabled"
+    )
+    def test_opendata_dids_delete_protected(
+            self, mock_scope, root_account, db_write_session):
+        name = did_name_generator(did_type="dataset")
+
+        add_did(
+            scope=mock_scope, name=name, account=root_account,
+            did_type=DIDType.DATASET, session=db_write_session
+        )
+        opendata.add_opendata_did(
+            scope=mock_scope, name=name, session=db_write_session
+        )
+        db_write_session.commit()
+
+        # Verify that all four foreign keys have no ON DELETE CASCADE.
+        inspector = inspect(db_write_session.connection())
+        schema = models.OpenDataDid.__table__.schema
+        foreign_keys = (
+            ('dids_opendata', 'OPENDATA_DID_FK'),
+            ('dids_opendata_doi', 'OPENDATA_DOI_FK'),
+            ('dids_opendata_record', 'OPENDATA_RECORD_FK'),
+            ('dids_opendata_meta', 'OPENDATA_META_FK'),
+        )
+
+        for table, constraint in foreign_keys:
+            fk = next(
+                (
+                    fk for fk in inspector.get_foreign_keys(table, schema=schema)
+                    if (fk.get('name') or '').upper() == constraint
+                ),
+                None,
+            )
+            assert fk is not None, f"Missing foreign key {constraint}"
+            assert (
+                ((fk.get('options') or {}).get('ondelete') or '').upper()
+                != 'CASCADE'
+            ), f"{constraint} still uses ON DELETE CASCADE"
+
+        # The database must prevent deletion of a referenced DID.
+        with pytest.raises(IntegrityError) as error:
+            with db_write_session.begin_nested():
+                db_write_session.execute(
+                    delete(models.DataIdentifier).where(
+                        models.DataIdentifier.scope == mock_scope,
+                        models.DataIdentifier.name == name,
+                    )
+                )
+
+        assert 'OPENDATA_DID_FK' in str(error.value).upper()
+
+        # Both the original DID and its OpenData entry must remain.
+        did = db_write_session.execute(
+            select(models.DataIdentifier).where(
+                models.DataIdentifier.scope == mock_scope,
+                models.DataIdentifier.name == name,
+            )
+        ).scalar_one_or_none()
+
+        assert did is not None
+
+        opendata_did = opendata.get_opendata_did(
+            scope=mock_scope, name=name, session=db_write_session
+        )
+        assert opendata_did['state'] == OpenDataDIDState.DRAFT
+
+    @pytest.mark.parametrize(
+        'state',
+        [OpenDataDIDState.PUBLIC, OpenDataDIDState.SUSPENDED]
+    )
+    def test_opendata_dids_remove_non_draft(
+            self, mock_scope, root_account, doi_factory,
+            db_write_session, state):
+        name = did_name_generator(did_type="dataset")
+        doi = doi_factory()
+
+        add_did(
+            scope=mock_scope, name=name, account=root_account,
+            did_type=DIDType.DATASET, session=db_write_session
+        )
+        opendata.add_opendata_did(
+            scope=mock_scope, name=name, session=db_write_session
+        )
+        opendata.update_opendata_did(
+            scope=mock_scope, name=name, doi=doi,
+            session=db_write_session
+        )
+
+        # A DID must be closed before being published.
+        set_status(
+            scope=mock_scope, name=name, open=False,
+            session=db_write_session
+        )
+        opendata.update_opendata_did(
+            scope=mock_scope, name=name,
+            state=OpenDataDIDState.PUBLIC,
+            session=db_write_session
+        )
+
+        if state == OpenDataDIDState.SUSPENDED:
+            opendata.update_opendata_did(
+                scope=mock_scope, name=name,
+                state=OpenDataDIDState.SUSPENDED,
+                session=db_write_session
+            )
+
+        db_write_session.commit()
+
+        with pytest.raises(OpenDataInvalidState):
+            opendata.delete_opendata_did(
+                scope=mock_scope, name=name,
+                session=db_write_session
+            )
+
+        # The OpenData entry and DOI must remain unchanged.
+        opendata_did = opendata.get_opendata_did(
+            scope=mock_scope, name=name, session=db_write_session
+        )
+        assert opendata_did['state'] == state
+
+        assert opendata.get_opendata_doi(
+            scope=mock_scope, name=name, session=db_write_session
+        ) == doi
 
     def test_opendata_dids_update(self, mock_scope, root_account, db_write_session):
         name = did_name_generator(did_type="dataset")
