@@ -36,12 +36,15 @@ from rucio.core.did import (
     list_new_dids,
     remove_did_from_followed,
     set_metadata,
+    set_metadata_bulk,
     set_new_dids,
     set_status,
     touch_dids,
 )
 from rucio.core.replica import add_replica, get_replica
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType
+from rucio.db.sqla.session import db_session
 from rucio.db.sqla.util import json_implemented
 from rucio.gateway import did, scope
 from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
@@ -337,6 +340,64 @@ class TestDIDCore:
         assert len(result) == len(files)
         for dataset in non_existing_datasets:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
+
+    def test_is_opendata_protected(self, mock_scope, root_account):
+        """OpenData membership cannot be changed through metadata APIs."""
+        name = did_name_generator('dataset')
+        add_did(
+            scope=mock_scope,
+            name=name,
+            did_type=DIDType.DATASET,
+            account=root_account,
+        )
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata(
+                scope=mock_scope,
+                name=name,
+                key='is_opendata',
+                value=True,
+            )
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata_bulk(
+                scope=mock_scope,
+                name=name,
+                meta={'is_opendata': True, 'lifetime': 3600},
+            )
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is None
+        assert get_metadata(scope=mock_scope, name=name)['expired_at'] is None
+
+    @pytest.mark.parametrize('value', [True, False])
+    def test_is_opendata_values(self, mock_scope, root_account, value):
+        """OpenData attribute is readable but cannot be modified through metadata APIs."""
+        name = did_name_generator('dataset')
+        add_did(
+            scope=mock_scope,
+            name=name,
+            did_type=DIDType.DATASET,
+            account=root_account,
+        )
+
+        # Simulate an update performed by the OpenData core.
+        with db_session(DatabaseOperationType.WRITE) as session:
+            did = session.query(models.DataIdentifier).filter_by(
+                scope=mock_scope, name=name
+            ).one()
+            did.is_opendata = value
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is value
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata(
+                scope=mock_scope,
+                name=name,
+                key='is_opendata',
+                value=not value,
+            )
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is value
 
 
 class TestDIDGateway:

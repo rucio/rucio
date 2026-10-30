@@ -445,6 +445,7 @@ class DataIdentifier(BASE, ModelBase):
     accessed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     eol_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    is_opendata: Mapped[Optional[bool]] = mapped_column(Boolean(name='DIDS_OPENDATA_CHK', create_constraint=True))
     is_archive: Mapped[Optional[bool]] = mapped_column(Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True))
     constituent: Mapped[Optional[bool]] = mapped_column(Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True))
     access_cnt: Mapped[Optional[int]] = mapped_column(Integer())
