@@ -125,4 +125,4 @@ def download(
             "sort": replica_selection,
         }
     )
-    download_exe(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return download_exe(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

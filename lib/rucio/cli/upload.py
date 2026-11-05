@@ -57,4 +57,4 @@ def upload_command(ctx, file_paths, rse, lifetime, expiration_date, scope, impl,
             "recursive": recursive,
         }
     )
-    upload(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return upload(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

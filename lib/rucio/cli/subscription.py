@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import click
 
@@ -32,10 +32,10 @@ def subscription():
 @click.option("--long", default=False, is_flag=True, help="Show extended information about the subscription")
 @click.argument("subscription-name")
 @click.pass_context
-def show(ctx: click.Context, subscription_name: str, account: str, long: bool) -> None:
+def show(ctx: click.Context, subscription_name: str, account: str, long: bool) -> Optional[int]:
     """Show the attributes of a subscription [SUBSCRIPTION-NAME]"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "subs_account": account, "name": subscription_name, "long": long})
-    list_subscriptions(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return list_subscriptions(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @subscription.command("update")
@@ -47,10 +47,10 @@ def show(ctx: click.Context, subscription_name: str, account: str, long: bool) -
 @click.option("--account", help="Account name")
 @click.option("--priority", help="The priority of the subscription")
 @click.pass_context
-def update(ctx: click.Context, subscription_name: str, did_filter: str, rule: str, comment: str, lifetime: int, account: str, priority: str) -> None:
+def update(ctx: click.Context, subscription_name: str, did_filter: str, rule: str, comment: str, lifetime: int, account: str, priority: str) -> Optional[int]:
     """Update a subscription [SUBSCRIPTION-NAME] to have new properties"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
-    update_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return update_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @subscription.command("add")
@@ -62,20 +62,20 @@ def update(ctx: click.Context, subscription_name: str, did_filter: str, rule: st
 @click.option("--account", help="Account name")
 @click.option("--priority", help="The priority of the subscription")
 @click.pass_context
-def add_(ctx: click.Context, subscription_name: str, did_filter: str, rule: str, comment: str, lifetime: int, account: str, priority: int) -> None:
+def add_(ctx: click.Context, subscription_name: str, did_filter: str, rule: str, comment: str, lifetime: int, account: str, priority: int) -> Optional[int]:
     """Create a new subscription with the name [SUBSCRIPTION-NAME]"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "name": subscription_name, "filter": did_filter, "replication_rules": rule, "comments": comment, "lifetime": lifetime, "subs_account": account, "priority": priority})
-    add_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return add_subscription(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @subscription.command("touch")
 @click.argument("dids", nargs=-1)
 @click.pass_context
-def touch(ctx: click.Context, dids: "Iterable[str]") -> None:
+def touch(ctx: click.Context, dids: "Iterable[str]") -> Optional[int]:
     """Reevaluate list of DIDs against all active subscriptions"""
     # TODO make reeval accept DIDs as a list
     dids = ",".join(dids)
-    reevaluate_did_for_subscription(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return reevaluate_did_for_subscription(Arguments({"no_pager": ctx.obj.no_pager, "dids": dids}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @subscription.command("list")

@@ -17,6 +17,7 @@ import os
 import re
 import tempfile
 from typing import TYPE_CHECKING
+from unittest import mock
 
 import pytest
 from click.testing import CliRunner
@@ -536,6 +537,18 @@ def test_upload_download(file_config_mock):
     cmd = "rucio download fake:fake --dir ."
     exitcode, _, _ = execute(cmd)
     assert exitcode != 2  # Failure is not due to the command structure
+
+
+@pytest.mark.parametrize("command", [
+    pytest.param(["download"], id="download-without-did"),
+    pytest.param(["upload", "--rse", "MOCK", "--lifetime", "10", "--expiration-date", "2100-01-01-00:00:00", "file"], id="upload-lifetime-and-expiration-date"),
+])
+def test_legacy_command_exit_code(command, file_config_mock, monkeypatch):
+    """CLI: a failing command that runs the legacy implementation exits with a non-zero code"""
+    # The input validation fails before the client is used, so no server is needed
+    monkeypatch.setattr("rucio.cli.command.get_client", lambda args, logger: mock.MagicMock())
+    result = CliRunner().invoke(rucio_cli, command)
+    assert result.exit_code == 1
 
 
 @pytest.mark.noparallel(reason='Modifies the configuration file')
