@@ -19,7 +19,7 @@ from rucio.core.token.cache import TokenCache
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation, vo_from_ctx
 from rucio.core.token.managed import JobTransferToken, TokenManaged, unmanaged_tokens_for_job
 from rucio.core.token.request import TokenRequest
-from rucio.core.token.scope import TokenScope
+from rucio.core.token.scope import TokenScope, normalize_scope_path
 
 __all__ = [
     'JobTransferToken',
@@ -31,6 +31,7 @@ __all__ = [
     'TokenRequest',
     'TokenScope',
     'get_token_for_operation',
+    'normalize_scope_path',
     'token_is_managed',
     'unmanaged_tokens_for_job',
 ]

@@ -95,11 +95,13 @@ def _central_delete_token(rse_id: str, replica: dict[str, Any], logger: "LoggerF
 
 def _bind_replica_storage_token(prot, replica: dict[str, Any], token_for_replica, rse_name: str, logger: "LoggerFunction") -> None:
     token = token_for_replica(replica)
-    if token:
-        prot.set_auth_token(token)
-        logger(logging.DEBUG, 'Using a token to delete %s:%s on %s', replica['scope'], replica['name'], rse_name)
-    else:
+    if not token:
         logger(logging.WARNING, 'Failed to procure a token to delete %s:%s on %s', replica['scope'], replica['name'], rse_name)
+        return
+    if token == prot.auth_token:
+        return
+    prot.set_auth_token(token)
+    logger(logging.DEBUG, 'Using a token to delete %s:%s on %s', replica['scope'], replica['name'], rse_name)
 
 
 def get_rses_to_process(
@@ -180,6 +182,9 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
     pfns_to_bulk_delete = []
     try:
         if storage_token_for_replica and replicas and not is_staging:
+            # GFAL only skips its X.509 proxy self-discovery when a bearer token is
+            # already on the context, so the first token has to be bound before
+            # connecting. The per-replica rebind below is then a no-op for this file.
             _bind_replica_storage_token(prot, replicas[0], storage_token_for_replica, rse_name, logger)
         prot.connect()
         for replica in replicas:
