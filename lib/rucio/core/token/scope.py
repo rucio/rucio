@@ -13,12 +13,18 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from re import sub
 
 from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import InvalidRequest
 from rucio.core.rse import determine_scope_for_rse
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
+
+
+def normalize_scope_path(path: str) -> str:
+    return '/' + sub('/+', '/', path).lstrip('/')
+
 
 _RSE_SCOPE_BY_OPERATION: dict[StorageTokenOperation, tuple[list[str], list[str]]] = {
     StorageTokenOperation.TPC_SOURCE: (['storage.read'], ['offline_access']),

@@ -195,7 +195,7 @@ jobs:
             exit 1
           fi
       - name: Test Token Deletion
-        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_reaper.py::test_deletion_with_tokens
+        run: docker exec -t dev-rucio-1 tools/pytest.sh -v --tb=short tests/test_reaper.py::test_deletion_with_tokens tests/test_storage_token.py::TestRealIdP
       - name: Print server error logs
         if: ${{ success() || failure() }}
         shell: bash
