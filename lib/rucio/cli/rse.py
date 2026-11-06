@@ -202,21 +202,37 @@ def remove(ctx: click.Context, rse_name: str) -> None:
 
 @rse.command("update")
 @click.argument("rse-name")
-@click.option('--key', help='Setting key', required=True)
-@click.option('--value', help='Setting value', required=True, type=StrOrBoolType())
+@click.option('--key', help='Setting key')
+@click.option('--value', help='Setting value', type=StrOrBoolType())
+@click.option('--restore', is_flag=True, help="Restore a disabled RSE")
 @click.pass_context
-def update(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
+def update(ctx: click.Context, rse_name: str, key: Optional[str] = None, value: Optional[str] = None, restore: Optional[bool] = False) -> None:
     """
     Update an RSE's setting.
 
     \b
     Example:
         $ rucio rse update my-rse --key availability_write --value True
+
+    Example: Restore a disabled RSE
+        $ rucio rse update my-deleted-rse --restore
     """
-    params = {key: value}
-    ctx.obj.client.update_rse(rse_name, parameters=params)
-    print_value = value if str(value).lower() not in ['', 'none', 'null'] else '[WIPED]'
-    print(f'Updated RSE {rse_name} settings {key} to {print_value}')
+    if restore:
+        ctx.obj.client.restore_rse(rse_name)
+        print(f"Re-enabled RSE {rse_name}")
+    else:
+        if (key is None) or (value is None):
+            raise ValueError("Both 'key' and 'value' are required for updating an RSE.")
+        param_value = value
+        if value in ['true', 'True', 'TRUE', '1']:
+            param_value = True
+        if value in ['false', 'False', 'FALSE', '0']:
+            param_value = False
+        params = {key: param_value}
+        ctx.obj.client.update_rse(rse_name, parameters=params)
+
+        print_value = value if str(value).lower() not in ['', 'none', 'null'] else '[WIPED]'
+        print(f'Updated RSE {rse_name} settings {key} to {print_value}')
 
 
 @rse.group()
