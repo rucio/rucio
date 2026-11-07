@@ -169,6 +169,19 @@ class JSONDidMeta(DidMetaPlugin):
         if not ignore_dids:
             ignore_dids = set()
 
+        # mapping for semantic <type> to a (set of) recognised DIDType(s).
+        type_to_did_type_mapping: dict[str, list[DIDType]] = {
+            'all': [DIDType.CONTAINER, DIDType.DATASET, DIDType.FILE],
+            'collection': [DIDType.CONTAINER, DIDType.DATASET],
+            'container': [DIDType.CONTAINER],
+            'dataset': [DIDType.DATASET],
+            'file': [DIDType.FILE]
+        }
+        did_type = did_type.lower()
+        if did_type not in type_to_did_type_mapping:
+            raise exception.UnsupportedOperation(
+                '{} is not a valid type. Valid types are {}'.format(did_type, ', '.join(type_to_did_type_mapping)))
+
         # backwards compatibility for filters as single {}.
         if isinstance(filters, dict):
             filters = [filters]
@@ -185,6 +198,19 @@ class JSONDidMeta(DidMetaPlugin):
             ],
             json_column=models.DidMeta.meta,
             session=session
+        )
+        # The DID type is stored on the DIDs table, so join it to filter on the requested
+        # type and to report type and size information in long output.
+        stmt = stmt.join(
+            models.DataIdentifier,
+            and_(models.DataIdentifier.scope == models.DidMeta.scope,
+                 models.DataIdentifier.name == models.DidMeta.name)
+        ).add_columns(
+            models.DataIdentifier.did_type,
+            models.DataIdentifier.bytes,
+            models.DataIdentifier.length
+        ).where(
+            models.DataIdentifier.did_type.in_(type_to_did_type_mapping[did_type])
         )
 
         if limit:
@@ -217,9 +243,9 @@ class JSONDidMeta(DidMetaPlugin):
                         yield {
                             'scope': did.scope,
                             'name': did.name,
-                            'did_type': None,               # not available with JSON plugin
-                            'bytes': None,                  # not available with JSON plugin
-                            'length': None                  # not available with JSON plugin
+                            'did_type': did.did_type.name,
+                            'bytes': did.bytes,
+                            'length': did.length
                         }
                 else:
                     did_full = "{}:{}".format(did.scope, did.name)

@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy import update
 
 from rucio.client.didclient import DIDClient
-from rucio.common.exception import KeyNotFound
+from rucio.common.exception import KeyNotFound, UnsupportedOperation
 from rucio.common.utils import generate_uuid
 from rucio.core.did import add_did, attach_dids, delete_dids, get_metadata_bulk, set_dids_metadata_bulk, set_metadata_bulk
 from rucio.core.did_meta_plugins import get_metadata, list_dids, set_metadata
@@ -304,6 +304,45 @@ class TestDidMetaJSON:
         assert len(results) == 1
         # assert [{'scope': (tmp_scope), 'name': tmp_dsn4}] == results
         assert [tmp_dsn4] == results
+
+    @pytest.mark.dirty
+    def test_list_dids_did_type(self, mock_scope, root_account, rse_factory):
+        """ DID Meta (JSON): List DID meta filters by DID type and reports it """
+        skip_without_json()
+
+        _, rse_id = rse_factory.make_mock_rse()
+        meta_key = 'my_key_%s' % generate_uuid()
+        meta_value = 'my_value_%s' % generate_uuid()
+
+        dataset_name = did_name_generator('dataset')
+        add_did(scope=mock_scope, name=dataset_name, did_type='DATASET', account=root_account)
+        set_metadata(scope=mock_scope, name=dataset_name, key=meta_key, value=meta_value)
+
+        container_name = did_name_generator('container')
+        add_did(scope=mock_scope, name=container_name, did_type='CONTAINER', account=root_account)
+        set_metadata(scope=mock_scope, name=container_name, key=meta_key, value=meta_value)
+
+        # Files are registered by attaching them to a collection, not via add_did.
+        file_name = did_name_generator('file')
+        attach_dids(scope=mock_scope, name=dataset_name, rse_id=rse_id,
+                    dids=[{'scope': mock_scope, 'name': file_name, 'bytes': 1, 'adler32': '0cc737eb'}],
+                    account=root_account)
+        set_metadata(scope=mock_scope, name=file_name, key=meta_key, value=meta_value)
+
+        # The default 'collection' type must not return files.
+        assert sorted(list_dids(mock_scope, {meta_key: meta_value})) == sorted([dataset_name, container_name])
+        assert list(list_dids(mock_scope, {meta_key: meta_value}, did_type='file')) == [file_name]
+        assert sorted(list_dids(mock_scope, {meta_key: meta_value}, did_type='all')) == sorted(
+            [dataset_name, container_name, file_name])
+
+        results = {did['name']: did for did in list_dids(mock_scope, {meta_key: meta_value}, did_type='all', long=True)}
+        assert {name: did['did_type'] for name, did in results.items()} == {
+            dataset_name: 'DATASET', container_name: 'CONTAINER', file_name: 'FILE'}
+        assert results[file_name]['bytes'] == 1
+        assert results[file_name]['length'] is None
+
+        with pytest.raises(UnsupportedOperation):
+            list(list_dids(mock_scope, {meta_key: meta_value}, did_type='invalid'))
 
 
 @pytest.fixture(params=["with-auth", "no-auth"])
