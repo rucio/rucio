@@ -488,7 +488,7 @@ services:
     profiles:
       - iam
     healthcheck:
-      test: mysql -u indigoiam -psecret indigoiam -e "select * from client_details where client_name='rucio'" | grep 'rucio' > /dev/null
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       retries: 10
     environment:
@@ -497,7 +497,6 @@ services:
     volumes:
       - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
       - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
-      - ./iam/indigoiam_db.sql:/docker-entrypoint-initdb.d/03_indigoiam.sql:ro
       - vol-iam-db-mysql:/var/lib/mysql
 
   indigoiam:
@@ -547,11 +546,6 @@ services:
       - IAM_LOCAL_RESOURCES_LOCATION=file:/indigo-iam/local-resources
       - IAM_ORGANISATION_NAME=rucio-dc
       - IAM_TOPBAR_TITLE="INDIGO IAM for rucio-dc"
-      - IAM_DB_HOST=iam-db
-      - IAM_DB_PORT=3306
-      - IAM_DB_NAME=indigoiam
-      - IAM_DB_USERNAME=indigoiam
-      - IAM_DB_PASSWORD=secret
     volumes:
       - ./iam/indigoiam_keystore.jwks:/keystore.jwks:ro
     healthcheck:
@@ -560,9 +554,6 @@ services:
       timeout: 5s
       retries: 30
       start_period: 40s
-    depends_on:
-      iam-db:
-        condition: service_healthy
 
   indigoiam-init:
     container_name: dev-indigoiam-init-1
