@@ -482,8 +482,8 @@ services:
   # ------------------------------------------------------------------
   # IAM / Keycloak for auth
   # ------------------------------------------------------------------
-  iam-db:
-    container_name: dev-iam-db-1
+  keycloakdb:
+    container_name: dev-keycloakdb-1
     image: mariadb:10.11
     profiles:
       - iam
@@ -497,7 +497,7 @@ services:
     volumes:
       - ./iam/dbs_and_users.sql:/docker-entrypoint-initdb.d/01_dbs_and_users.sql:ro
       - ./iam/keycloak_db.sql:/docker-entrypoint-initdb.d/02_keycloak.sql:ro
-      - vol-iam-db-mysql:/var/lib/mysql
+      - vol-keycloakdb-mysql:/var/lib/mysql
 
   indigoiam:
     container_name: dev-indigoiam-1
@@ -575,7 +575,7 @@ services:
   keycloak:
     container_name: dev-keycloak-1
     image: quay.io/keycloak/keycloak:23.0.1
-    command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host iam-db --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
+    command: start-dev --features=token-exchange,admin-fine-grained-authz,dynamic-scopes --db mariadb --db-url-host keycloakdb --db-username keycloak --db-password secret --https-certificate-file=/cert.pem --https-certificate-key-file=/key.pem
     profiles:
       - iam
     environment:
@@ -586,7 +586,7 @@ services:
       - ../../certs/hostcert_keycloak.pem:/cert.pem:z
       - ../../certs/hostcert_keycloak.key.pem:/key.pem:z
     depends_on:
-      iam-db:
+      keycloakdb:
         condition: service_healthy
 
 volumes:
@@ -612,7 +612,7 @@ volumes:
   vol-mongo-noauth-db:
   vol-mongo-configdb:
   vol-mongo-db:
-  vol-iam-db-mysql:
+  vol-keycloakdb-mysql:
   vol-mysql8-mysql:
   vol-postgres-data:
 
