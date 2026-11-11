@@ -84,6 +84,10 @@ click==8.1.8
     #   flask
     #   pip-tools
     #   pydoc-markdown
+confluent-kafka==2.14.2
+    # via
+    #   -r requirements.dev.in
+    #   -r requirements.server.txt
 coverage==7.10.7
     # via pytest-cov
 cryptography==49.0.0
@@ -462,6 +466,7 @@ typing-extensions==4.16.0
     #   aiosignal
     #   alembic
     #   black
+    #   confluent-kafka
     #   cryptography
     #   databind
     #   dogpile-cache
