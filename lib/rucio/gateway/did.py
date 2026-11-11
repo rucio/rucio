@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 def list_dids(
-    scope: str,
+    scope: Optional[str],
     filters: 'Iterable[dict[Any, Any]]',
     did_type: str = 'collection',
     ignore_case: bool = False,
@@ -55,7 +55,7 @@ def list_dids(
     :param recursive: Recursively list DIDs content.
     :param vo: The VO to act on.
     """
-    internal_scope = InternalScope(scope, vo=vo)
+    internal_scope = InternalScope(scope, vo=vo) if scope is not None else None
 
     # replace account and scope in filters with internal representation
     for or_group in filters:
