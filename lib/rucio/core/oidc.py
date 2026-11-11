@@ -519,26 +519,18 @@ def get_token_oidc(
         if oidc_tokens['id_token']['nonce'] != nonce:
             raise CannotAuthenticate("ID token could not be associated with the Rucio OIDC Client"
                                      + " session. This points to possible replay attack !")
-        # starting to fill dictionary with parameters for token DB row
-        jwt_row_dict, extra_dict = {}, {}
-        jwt_row_dict['identity'] = oidc_identity_string(oidc_tokens['id_token']['sub'],
-                                                        oidc_tokens['id_token']['iss'])
-        jwt_row_dict['account'] = oauth_req_params.account
-
-        # the 'webui' sentinel means no account was specified at /auth/oidc;
-        # assign the default account of the now authenticated identity instead
-        if jwt_row_dict['account'].external == 'webui':
-            try:
-                jwt_row_dict['account'] = get_default_account(jwt_row_dict['identity'], IdentityType.OIDC, True, session=session)
-            except IdentityError as error:
-                raise CannotAuthenticate("OIDC identity '%s' is not mapped to any Rucio account."
-                                         % jwt_row_dict['identity']) from error
-        account = jwt_row_dict['account']
-
-        # check if given account has the identity registered
-        if not exist_identity_account(jwt_row_dict['identity'], IdentityType.OIDC, jwt_row_dict['account'], session=session):
+        identity_string = oidc_identity_string(oidc_tokens['id_token']['sub'], oidc_tokens['id_token']['iss'])
+        account = None if oauth_req_params.account.external == 'webui' else oauth_req_params.account
+        identity_account = _resolve_oidc_identity_account(identity_string, oidc_tokens['id_token']['iss'], account, session=session)
+        if identity_account is None:
+            if account is None:
+                raise CannotAuthenticate("OIDC identity '%s' is not mapped to any Rucio account." % identity_string)
             raise CannotAuthenticate("OIDC identity '%s' of the '%s' account is unknown to Rucio."
-                                     % (jwt_row_dict['identity'], str(jwt_row_dict['account'])))
+                                     % (identity_string, str(account)))
+
+        jwt_row_dict, extra_dict = {}, {}
+        jwt_row_dict['identity'], jwt_row_dict['account'] = identity_account
+        account = jwt_row_dict['account']
         METRICS.counter(name='success').inc()
         # get access token expiry timestamp
         jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
@@ -864,14 +856,11 @@ def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
             scope = val_to_space_sep_str(token_payload['scope'])
         if 'aud' in token_payload:
             audience = val_to_space_sep_str(token_payload['aud'])
-        if not account:
-            # this assumes token has been previously looked up in DB
-            # before to be sure that we do not have the right account already in the DB !
-            account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
-        else:
-            if not exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
-                logging.debug("No OIDC identity exists for account: %s", str(account))
-                return None
+        identity_account = _resolve_oidc_identity_account(identity_string, token_payload['iss'], account, session=session)
+        if identity_account is None:
+            logging.debug("No OIDC identity mapping exists for identity: %s", identity_string)
+            return None
+        identity_string, account = identity_account
         value = {'account': account,
                  'identity': identity_string,
                  'lifetime': expiry_date,
@@ -948,7 +937,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, session=session)
         if not token_dict:
             raise CannotAuthenticate(traceback.format_exc())
-        issuer = token_dict['identity'].split(", ")[1].split("=")[1]
+        issuer = token_dict['identity'].rsplit('ISS=', 1)[1]
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
         JWS().verify_compact(json_web_token, issuer_keys)
@@ -996,6 +985,39 @@ def oidc_identity_string(sub: str, iss: str):
     :returns: OIDC identity string "SUB=<usersid>, ISS=https://iam-test.ch/"
     """
     return 'SUB=' + str(sub) + ', ISS=' + str(iss)
+
+
+def oidc_all_identity_string(iss: str) -> str:
+    """Return the provider-wide OIDC identity string."""
+    return 'ISS=' + str(iss)
+
+
+def _resolve_oidc_identity_account(
+    identity: str,
+    issuer: str,
+    account: "Optional[InternalAccount]",
+    *,
+    session: "Session"
+) -> "Optional[tuple[str, InternalAccount]]":
+    """Return the exact or provider-wide identity mapping, preferring the exact identity."""
+    identities = (
+        (identity, IdentityType.OIDC),
+        (oidc_all_identity_string(issuer), IdentityType.OIDC_ALL),
+    )
+    if account is not None:
+        for mapped_identity, identity_type in identities:
+            if exist_identity_account(mapped_identity, identity_type, account, session=session):
+                return mapped_identity, account
+        return None
+
+    for mapped_identity, identity_type in identities:
+        try:
+            mapped_account = get_default_account(mapped_identity, identity_type, True, session=session)
+        except IdentityError:
+            continue
+        if mapped_account is not None:
+            return mapped_identity, mapped_account
+    return None
 
 
 def token_dictionary(token: models.Token):
