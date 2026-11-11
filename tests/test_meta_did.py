@@ -14,7 +14,7 @@
 
 import pytest
 
-from rucio.common.utils import generate_uuid as uuid
+from rucio.tests.common import did_name_generator
 
 
 @pytest.mark.dirty
@@ -29,7 +29,7 @@ class TestMetaDIDClient:
         tmp_scope = 'mock'
 
         # Add a dataset
-        tmp_dataset = 'dsn_%s' % uuid()
+        tmp_dataset = did_name_generator('dataset')
 
         did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
 
@@ -48,7 +48,7 @@ class TestMetaDIDClient:
         tmp_scope = 'mock'
 
         # Add a dataset
-        tmp_dataset = 'dsn_%s' % uuid()
+        tmp_dataset = did_name_generator('dataset')
 
         did_client.add_dataset(scope=tmp_scope, name=tmp_dataset)
 

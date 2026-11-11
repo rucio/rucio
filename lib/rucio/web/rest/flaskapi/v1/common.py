@@ -15,8 +15,6 @@
 import itertools
 import json
 import logging
-import os
-import re
 from configparser import NoOptionError, NoSectionError
 from functools import wraps
 from time import time
@@ -33,7 +31,6 @@ from werkzeug.wrappers import Request, Response
 from rucio.common import config
 from rucio.common.constants import DEFAULT_VO, HTTPMethod
 from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
-from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
 from rucio.gateway.authentication import validate_auth_token
@@ -50,8 +47,6 @@ if TYPE_CHECKING:
 
 ResponseTypeVar = TypeVar('ResponseTypeVar', bound=flask.wrappers.Response)
 
-RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE = os.environ.get('RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE',
-                                                       'false').lower() == 'true'
 _DEFAULT = object()
 
 
@@ -232,8 +227,8 @@ def check_accept_header_wrapper_flask(
 
 def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     """
-    Parses the given scope_name according to the schema's
-    SCOPE_NAME_REGEXP and returns a (scope, name) tuple.
+    Parses the given scope_name. The scope should be separated from the name
+    by a forward slash, with any other slashes encoded.
 
     :param scope_name: the scope_name string to be parsed.
     :param vo: the vo currently in use.
@@ -241,30 +236,12 @@ def parse_scope_name(scope_name: str, vo: Optional[str]) -> tuple[str, ...]:
     :returns: a (scope, name) tuple.
     """
 
-    if RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE:
-        if scope_name.count('/') != 1:
-            # scope and name are always separated by a single slash ('/', unencoded) in the request.
-            # If the server is configured with the 'NoDecode' option, other slashes will be encoded.
-            # This is just a sanity check that should never happen.
-            raise ValueError(f"Could not parse '{scope_name}' ({scope_name=}) with encoded '/' into scope and name.")
-
-        scope, name = scope_name.split('/', 1)
-        name = unquote_plus(name)
-
-        return scope, name
-
-    if not vo:
-        vo = DEFAULT_VO
-
-    # The ':' in DID is replaced by '/', also an '/' is added. Why?
-    pattern = get_schema_value('SCOPE_NAME_REGEXP', vo)
-    text = '/' + scope_name
-
-    scope_regex = re.match(pattern, text)
-    if scope_regex is None:
-        raise ValueError(f"Could not parse '{text}' ({scope_name=}) with pattern '{pattern}' into scope and name.")
-
-    scope, name = scope_regex.group(1, 2)
+    slash = scope_name.find('/')
+    if slash < 0:
+        raise ValueError(f"Could not parse '{scope_name}' ({scope_name=}) with encoded '/' into scope and name.")
+    scope = scope_name[:slash]
+    name = scope_name[slash + 1:]
+    name = unquote_plus(name)
     return scope, name
 
 
