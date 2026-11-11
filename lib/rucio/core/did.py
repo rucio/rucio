@@ -31,6 +31,7 @@ from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.utils import chunks, is_archive
 from rucio.core import did_meta_plugins
+from rucio.core.did_meta_plugins.opendata_meta import add_is_opendata_column
 from rucio.core.message import add_message, add_messages
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
@@ -2062,6 +2063,15 @@ def set_dids_metadata_bulk(
     :param session: The database session in use.
     """
 
+    dids = list(dids)
+
+    # Validate the complete request before writing through any metadata plugin.
+    for did in dids:
+        read_only_keys = did_meta_plugins.READ_ONLY_METADATA_KEYS.intersection(did['meta'])
+        if read_only_keys:
+            raise exception.InvalidMetadata(
+                f"Metadata field(s) {sorted(read_only_keys)} are read-only"
+            )
     for did in dids:
         did_meta_plugins.set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=recursive, session=session)
 
@@ -2195,10 +2205,16 @@ def get_metadata_bulk(
                 ).where(
                     or_(*chunk)
                 )
-                for row in session.execute(stmt).scalars():
-                    if plugin.casefold() == 'did_column':
-                        yield row.to_dict()
-                    else:
+                if plugin.casefold() == 'did_column':
+                    stmt = add_is_opendata_column(stmt)
+
+                    for row, is_opendata in session.execute(stmt):
+                        result = row.to_dict()
+                        result["is_opendata"] = is_opendata
+                        yield result
+
+                else:
+                    for row in session.execute(stmt).scalars():
                         meta = get_metadata(row.scope, row.name, plugin=plugin, session=session)
                         result = {'scope': row.scope, 'name': row.name}
                         for key, value in meta.items():
