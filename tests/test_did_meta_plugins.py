@@ -402,7 +402,7 @@ class TestDidMetaMongo:
 @pytest.fixture
 def elastic_meta():
     return ElasticDidMeta(
-            hosts=['http://elasticsearch_meta:9200'],
+            hosts=['http://elasticsearch:9200'],
             user="elastic",
             password="rucio",
         )
@@ -433,7 +433,7 @@ class TestDidMetaElastic:
         tmp_dsn1 = did_name_generator('dataset')
         add_did(scope=mock_scope, name=tmp_dsn1, did_type="DATASET", account=root_account)
         meta = {meta_key1: meta_value1, meta_key2: meta_value2}
-        elastic_meta.set_metadata_bulk(scope=mock_scope, name=tmp_dsn1, meta=meta)
+        elastic_meta.set_metadata_bulk(scope=mock_scope, name=tmp_dsn1, metadata=meta)
         metadata = elastic_meta.get_metadata(scope=mock_scope, name=tmp_dsn1)
         assert metadata[meta_key1] == meta_value1
         assert metadata[meta_key2] == meta_value2
