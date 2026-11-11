@@ -23,7 +23,7 @@ from click.testing import CliRunner
 
 from rucio.cli.command import main as rucio_cli
 from rucio.cli.utils import StrOrBoolType
-from rucio.common.exception import RucioException
+from rucio.common.exception import RSENotFound, RucioException
 from rucio.common.utils import generate_uuid
 from rucio.tests.common import account_name_generator, execute, file_generator, rse_name_generator, scope_name_generator, with_each_cli_renderer
 
@@ -659,6 +659,7 @@ def test_replica_state(mock_scope, rucio_client, rse_factory, file_config_mock):
     assert "Cannot quarantine a replica from the CLI" in err
 
 
+@pytest.mark.dirty(reason="Does not use RSE Factory fixture")
 @with_each_cli_renderer
 def test_rse(rucio_client, file_config_mock):
     rse_name = rse_name_generator()
@@ -688,11 +689,24 @@ def test_rse(rucio_client, file_config_mock):
     assert "ERROR" not in err
     assert value == rucio_client.list_rse_attributes(rse_name)['city']
 
+    cmd = f"rucio rse update {rse_name}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode != 0
+    assert "Both 'key' and 'value' are required for updating an RSE." in err
+
     cmd = f"rucio rse remove {rse_name}"
     exitcode, out, err = execute(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
-    assert rse_name not in [i for i in rucio_client.list_rses(rse_name)]
+    with pytest.raises(RSENotFound):
+        rucio_client.get_rse(rse_name)
+
+    # Test restore
+    cmd = f"rucio rse update --restore {rse_name}"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert rucio_client.get_rse(rse_name) is not None
 
 
 @with_each_cli_renderer

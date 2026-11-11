@@ -62,6 +62,7 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'add_rse_attribute': perm_add_rse_attribute,
             'del_rse_attribute': perm_del_rse_attribute,
             'del_rse': perm_del_rse,
+            'restore_rse': perm_restore_rse,
             'del_rule': perm_del_rule,
             'update_rule': perm_update_rule,
             'approve_rule': perm_approve_rule,
@@ -230,6 +231,18 @@ def perm_del_rse_attribute(issuer: "InternalAccount", kwargs: dict[str, Any], se
 def perm_del_rse(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
     """
     Checks if an account can delete a RSE.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed, otherwise False
+    """
+    return _is_root(issuer) or has_account_attribute(account=issuer, key='admin', session=session)
+
+
+def perm_restore_rse(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can restore a previously deleted RSE.
 
     :param issuer: Account identifier which issues the command.
     :param kwargs: List of arguments for the action.

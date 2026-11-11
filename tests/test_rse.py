@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pytest
 from sqlalchemy import and_, select
 
@@ -19,7 +20,8 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.common import exception
 from rucio.common.checksum import CHECKSUM_KEY, GLOBALLY_SUPPORTED_CHECKSUMS
 from rucio.common.constants import RSE_BASE_SUPPORTED_PROTOCOL_OPERATIONS, RseAttr
-from rucio.common.exception import Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
+from rucio.common.exception import AccessDenied, Duplicate, InputValidationError, InvalidObject, ResourceTemporaryUnavailable, RSEAttributeNotFound, RSENotFound, RSEOperationNotSupported, RSEProtocolNotSupported
+from rucio.common.utils import generate_uuid
 from rucio.core.account_limit import get_rse_account_usage, set_local_account_limit
 from rucio.core.did import add_did, attach_dids
 from rucio.core.distance import add_distance, delete_distances, get_distances, update_distances
@@ -48,6 +50,7 @@ from rucio.daemons.abacus.account import account_update
 from rucio.db.sqla import models, session
 from rucio.db.sqla.constants import DatabaseOperationType, DIDType, RSEType
 from rucio.db.sqla.session import db_session
+from rucio.gateway.rse import restore_rse as gateway_restore_rse
 from rucio.rse import rsemanager as mgr
 from rucio.tests.common import auth, did_name_generator, hdrdict, headers, rse_name_generator
 
@@ -479,6 +482,34 @@ def test_delete_rse(vo, rest_client, auth_token):
     response = rest_client.delete('/rses/{0}'.format(rse_name), headers=headers(auth(auth_token), hdrdict(headers_dict)))
     assert response.status_code == 404
     assert response.headers.get('ExceptionClass') == 'RSEOperationNotSupported'
+
+
+def test_restore_rse_rest(vo, rest_client, auth_token, rse_factory):
+    "RSE (REST): Add and delete an RSE, then restore it."
+
+    rse_name, rse_id = rse_factory.make_posix_rse(vo=vo)
+    del_rse(rse_id)
+
+    headers_dict = {'X-Rucio-Type': 'user', 'X-Rucio-Account': 'root'}
+    response = rest_client.put(f'/rses/{rse_name}', headers=headers(auth(auth_token), hdrdict(headers_dict)), json={"restore": True})
+    assert response.status_code == 201
+
+    assert get_rse_attribute(rse_id, key=rse_name) is True
+
+
+def test_restore_rse_gateway(vo, rse_factory, jdoe_account, root_account):
+    "RSE (Gateway): Add, delete and then restore an RSE"
+    rse_name, rse_id = rse_factory.make_posix_rse(vo=vo)
+    del_rse(rse_id)
+
+    # Check with an non-premissioned account
+    with pytest.raises(AccessDenied):
+        gateway_restore_rse(rse_name, jdoe_account.external, vo=vo)
+
+    # Check with an admin account
+    gateway_restore_rse(rse_name, root_account.external, vo=vo)
+    assert get_rse_attribute(rse_id, key=rse_name) is True
+    assert get_rse(rse_id) is not None
 
 
 @pytest.mark.noparallel(reason='uses pre-defined RSE, fails when run in parallel')
@@ -1676,6 +1707,23 @@ class TestRSEClient:
         with pytest.raises(InputValidationError):
             update_rse(rse_id, parameters={'city': 'Not Berlin', 'non_existing_option': 3})
         assert get_rse(rse_id)['city'] == 'Berlin'
+
+    def test_rse_restore(self, vo, rse_factory, rucio_client):
+        """ RSE(CLIENT): Restore a previously deleted RSE """
+        rse_name, rse_id = rse_factory.make_posix_rse(vo=vo)
+        del_rse(rse_id)
+
+        rucio_client.restore_rse(rse_name)
+        assert rucio_client.get_rse(rse_name) is not None
+
+        # Cannot restore an RSE that has has not been deleted
+        rse_name, rse_id = rse_factory.make_posix_rse(vo=vo)
+        with pytest.raises(RSENotFound):
+            rucio_client.restore_rse(rse_name)
+
+        # Cannot restore an RSE that does not exist at all
+        with pytest.raises(RSENotFound):
+            rucio_client.restore_rse(str(generate_uuid()))
 
 
 @pytest.mark.parametrize("use_cache", [
