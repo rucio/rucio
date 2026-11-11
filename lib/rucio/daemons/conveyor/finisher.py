@@ -38,6 +38,7 @@ from rucio.common.types import InternalAccount, LoggerFunction, RequestDict
 from rucio.common.utils import chunks
 from rucio.core import replica as replica_core
 from rucio.core import request as request_core
+from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.rse import list_rses
 from rucio.core.topology import ExpiringObjectCache, Topology
@@ -398,6 +399,12 @@ def __check_suspicious_files(
                 if pfns:
                     logger(logging.DEBUG, "Found suspicious urls: %s", str(pfns))
                     replica_core.declare_bad_file_replicas(pfns, reason=reason, issuer=InternalAccount('root', vo=req['scope'].vo), status=BadFilesStatus.SUSPICIOUS)
+                    for pfn in pfns:
+                        suspicious_dict = {'daemon':'finisher',
+                                           'pfn': pfn,
+                                           'reason':reason}
+                        add_message('replica-suspicious', suspicious_dict)
+
     except Exception as error:
         logger(logging.WARNING, "Failed to check suspicious file with request: %s - %s", req['request_id'], str(error))
     return is_suspicious

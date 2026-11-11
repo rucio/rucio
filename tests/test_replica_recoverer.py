@@ -22,6 +22,7 @@ import pytest
 
 from rucio.core import rse_expression_parser
 from rucio.core.did import set_metadata
+from rucio.core.message import delete_messages, retrieve_messages
 from rucio.core.replica import list_bad_replicas_status, list_replicas, update_replica_state
 from rucio.core.rse import add_rse_attribute
 from rucio.daemons.replicarecoverer.suspicious_replica_recoverer import run, stop
@@ -502,6 +503,18 @@ class TestReplicaRecoverer:
         assert (self.tmp_file11.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file12.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
         assert (self.tmp_file13.name, self.rse4recovery_id, BadFilesStatus.BAD) not in bad_checklist
+
+        # Checking that a 'replica-bad' message was sent for each replica declared bad, with the reason
+        bad_messages = retrieve_messages(event_type='replica-bad')
+        delete_messages(bad_messages)
+        bad_reasons = {msg['payload']['pfn'].split('/')[-1]: msg['payload']['reason'] for msg in bad_messages}
+
+        assert bad_reasons[self.tmp_file1.name].endswith('available elsewhere')
+        assert bad_reasons[self.tmp_file4.name].endswith('checksum')
+        assert bad_reasons[self.tmp_file7.name].endswith('checksum')
+        assert bad_reasons[self.tmp_file9.name].endswith('checksum')
+        for tmp_file in [self.tmp_file3, self.tmp_file5, self.tmp_file6, self.tmp_file8, self.tmp_file10, self.tmp_file11, self.tmp_file12, self.tmp_file13]:
+            assert tmp_file.name not in bad_reasons
 
 
 @pytest.mark.parametrize(

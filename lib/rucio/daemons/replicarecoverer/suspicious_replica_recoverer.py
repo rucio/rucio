@@ -36,6 +36,7 @@ from rucio.common.exception import DatabaseException, DuplicateRule, VONotFound
 from rucio.common.logging import setup_logging
 from rucio.common.types import InternalAccount, LoggerFunction
 from rucio.core.did import get_metadata
+from rucio.core.message import add_message
 from rucio.core.replica import (
     add_bad_pfns,
     declare_bad_file_replicas,
@@ -382,6 +383,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                 for reason in suspicious_reason:
                     if "auditor" in reason["reason"].lower():
                         from_auditor = True
+                        replicas_nattempts_1[vo][rse_key][replica_key]['recovery_reason'] = 'auditor'
                         files_to_be_declared_bad_nattempts_1.append(replicas_nattempts_1[vo][rse_key][replica_key])
                         break
 
@@ -389,6 +391,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                 if not from_auditor:
                     if (file_name.startswith("log.")) or (file_name.startswith("user")):
                         # Don't keep log files or user files
+                        replicas_nattempts_1[vo][rse_key][replica_key]['recovery_reason'] = 'log/user file'
                         files_to_be_declared_bad_nattempts_1.append(replicas_nattempts_1[vo][rse_key][replica_key])
                         action = ""
                     else:
@@ -417,6 +420,13 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                 if len(dids_nattempts_1) > 0:
                     try:
                         add_rule(dids=dids_nattempts_1, account=InternalAccount('root', vo=vo), copies=nattempts, rse_expression=rule_suspicious_rse_expression, grouping=None, weight=None, lifetime=5 * 24 * 3600, locked=False, subscription_id=None)
+                        for did in dids_nattempts_1:
+                            add_rules_dict = {'daemon': 'replica-recoverer',
+                                              'rse': did['rse'],
+                                              'scope': did['scope'].external,
+                                              'name': did['name'],
+                                              'reason': 'Rules created for did with n_attempt=1'}
+                            add_message('replica-recovery-rule', add_rules_dict)
                         logger(logging.INFO, 'Rules have been created for %i replicas on %s.', len(dids_nattempts_1), rse_key)
                     except DuplicateRule:
                         logger(logging.INFO, 'Tried to create rules on %s, but it already exists.', rse_key)
@@ -425,6 +435,11 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                 if len(files_to_be_declared_bad_nattempts_1) > 0:
                     logger(logging.INFO, 'Ready to declare %s bad replica(s) with nattempts=1 on %s (RSE id: %s).', len(files_to_be_declared_bad_nattempts_1), rse_key, str(rse_id))
                     declare_bad_file_replicas(replicas=files_to_be_declared_bad_nattempts_1, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+                    for replica in files_to_be_declared_bad_nattempts_1:
+                        bad_dict = {'daemon': 'replica-recoverer',
+                                    'pfn': replica['pfn'],
+                                    'reason': f'Suspicious replica (nattempts=1) automatic recovery due to {replica["recovery_reason"]}'}
+                        add_message('replica-bad', bad_dict)
                 else:
                     logger(logging.INFO, 'No suspicious replica(s) with nattempts=1 on %s (RSE id: %s) have been declared bad.', rse_key, str(rse_id))
             else:
@@ -445,6 +460,11 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
 
                 if active_mode:
                     add_bad_pfns(pfns=pfns_list, account=InternalAccount('root', vo=vo), state='TEMPORARY_UNAVAILABLE', expires_at=datetime.utcnow() + timedelta(days=3))
+                    for pfn in pfns_list:
+                        temp_unavailable_dict = {'daemon': 'replica-recoverer',
+                                                 'pfn': pfn,
+                                                 'reason': f'More than {limit_suspicious_files_on_rse} suspicious replicas on {rse_key}'}
+                        add_message('replica-temporary-unavailable', temp_unavailable_dict)
 
                 logger(logging.INFO, "%s is problematic (more than %s suspicious replicas). Send a Jira ticket for the RSE (to be implemented).", rse_key, limit_suspicious_files_on_rse)
                 logger(logging.INFO, "The following files on %s have been marked as TEMPORARILY UNAVAILABLE:", rse_key)
@@ -489,6 +509,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                 for reason in suspicious_reason:
                     if "auditor" in reason["reason"].lower():
                         auditor += 1
+                        recoverable_replicas[vo][rse_key][replica_key]['recovery_reason'] = 'auditor'
                         files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                         from_auditor = True
                         break
@@ -496,12 +517,14 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                 if not from_auditor:
                     if recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is True:
                         # Replicas with other copies on at least one other RSE can safely be labeled as bad
+                        recoverable_replicas[vo][rse_key][replica_key]['recovery_reason'] = 'available elsewhere'
                         files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                         # Remove replica from dictionary
                         del recoverable_replicas[vo][rse_key][replica_key]
                     elif recoverable_replicas[vo][rse_key][replica_key]['available_elsewhere'] is False:
                         if (file_name.startswith("log.")) or (file_name.startswith("user")):
                             # Don't keep log files or user files
+                            recoverable_replicas[vo][rse_key][replica_key]['recovery_reason'] = 'log/user file'
                             files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                             del recoverable_replicas[vo][rse_key][replica_key]
                         else:
@@ -543,6 +566,7 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
                                     for reason in suspicious_reason:
                                         if "checksum" in reason["reason"].lower():
                                             checksum += 1
+                                            recoverable_replicas[vo][rse_key][replica_key]['recovery_reason'] = 'checksum'
                                             files_to_be_declared_bad.append(recoverable_replicas[vo][rse_key][replica_key])
                                             break
                             else:
@@ -565,6 +589,11 @@ def run_once(heartbeat_handler: Any, younger_than: int, nattempts: int, vos: "Op
 
                 if active_mode:
                     declare_bad_file_replicas(replicas=files_to_be_declared_bad, reason='Suspicious. Automatic recovery.', issuer=InternalAccount('root', vo=vo), session=None)
+                    for replica in files_to_be_declared_bad:
+                        bad_dict = {'daemon': 'replica-recoverer',
+                                    'pfn': replica['pfn'],
+                                    'reason': f'Suspicious replica automatic recovery due to {replica["recovery_reason"]}'}
+                        add_message('replica-bad', bad_dict)
 
                 logger(logging.INFO, 'Finished declaring bad replicas on %s.\n', rse_key)
             else:
