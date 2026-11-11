@@ -42,6 +42,7 @@ DEFAULT_ENDPOINTS = {
     'locks',
     'meta_conventions',
     'ping',
+    'plugins',
     'redirect',
     'replicas',
     'requests',

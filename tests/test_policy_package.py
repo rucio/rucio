@@ -20,11 +20,13 @@ import pytest
 import rucio.common.exception
 import rucio.common.schema
 import rucio.core.permission
-from rucio.common.constants import DEFAULT_VO
+from rucio.common.constants import DEFAULT_VO, POLICY_ALGORITHM_TYPES
 from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount
+from rucio.core import policy as core_policy
 from rucio.db.sqla.constants import DatabaseOperationType
 from rucio.db.sqla.session import db_session
+from rucio.tests.common import auth, headers
 
 
 class TestPolicyPackageGeneric:
@@ -137,3 +139,69 @@ class TestPolicyPackage:
             os.environ['RUCIO_POLICY_PACKAGE'] = old_pp_env
         else:
             del os.environ['RUCIO_POLICY_PACKAGE']
+
+
+class TestPolicyAlgorithmDiscovery:
+    """
+    Tests for discovering the policy package algorithms through core and REST.
+
+    The registry is replaced by a deterministic one so that the assertions don't depend on the
+    policy package installed in the test environment.
+    """
+
+    @pytest.fixture(autouse=True)
+    def registered_algorithms(self, monkeypatch, vo):
+        def default_scope(did):
+            return 'scope'
+
+        def default_lfn2pfn(scope, name, rse, rse_attrs, protocol_attrs):
+            return 'pfn'
+
+        # in multi-VO mode algorithms are namespaced with the prefix of their VO
+        algorithm_name = vo.lower() + '_test_lfn2pfn'
+
+        monkeypatch.setattr(PolicyPackageAlgorithms, '_ALGORITHMS', {
+            'lfn2pfn': {algorithm_name: default_lfn2pfn},
+            'scope': {},
+        })
+        monkeypatch.setattr(PolicyPackageAlgorithms, '_loaded_policy_modules', True)
+        monkeypatch.setattr(PolicyPackageAlgorithms, '_default_algorithms', {})
+        monkeypatch.setattr(
+            PolicyPackageAlgorithms,
+            '_get_default_algorithm',
+            classmethod(lambda cls, algorithm_type, vo='': default_scope if algorithm_type == 'scope' else None)
+        )
+        return algorithm_name
+
+    def test_core_lists_every_algorithm_type(self, vo, registered_algorithms):
+        """ CORE: every known algorithm type is reported, even when no algorithm is registered """
+        algorithms = core_policy.list_policy_algorithms(vo=vo)
+
+        assert set(algorithms) == set(POLICY_ALGORITHM_TYPES)
+        assert algorithms['lfn2pfn'] == {'algorithms': [registered_algorithms], 'default': None}
+        assert algorithms['scope'] == {'algorithms': [], 'default': 'default_scope'}
+
+    def test_core_filters_algorithms_of_other_vos(self, monkeypatch):
+        """ CORE: in multi-VO mode only the algorithms of the requested VO are reported """
+        monkeypatch.setattr('rucio.common.config.config_get_bool', lambda *args, **kwargs: True)
+
+        algorithms = core_policy.list_policy_algorithms(vo='other')
+
+        assert algorithms['lfn2pfn'] == {'algorithms': [], 'default': None}
+
+    def test_rest_lists_algorithms(self, rest_client, auth_token, registered_algorithms):
+        """ REST: the endpoint returns the algorithms available to the requester's VO """
+        response = rest_client.get('/plugins/algorithms', headers=headers(auth(auth_token)))
+
+        assert response.status_code == 200
+        assert set(response.json) == set(POLICY_ALGORITHM_TYPES)
+        assert response.json['lfn2pfn'] == {'algorithms': [registered_algorithms], 'default': None}
+        assert response.json['scope'] == {'algorithms': [], 'default': 'default_scope'}
+
+    def test_rest_requires_authentication(self, rest_client):
+        """ REST: the endpoint is not reachable without a valid auth token """
+        response = rest_client.get('/plugins/algorithms')
+        assert response.status_code == 400
+
+        response = rest_client.get('/plugins/algorithms', headers=headers(auth('invalid')))
+        assert response.status_code == 401
