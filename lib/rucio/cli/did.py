@@ -32,6 +32,15 @@ def did() -> None:
 @did.command("list")
 @click.option("-r", "--recursive", default=False, is_flag=True, help="List data identifiers recursively.")
 @click.option(
+    "--did-type",
+    type=click.Choice(["all", "collection", "container", "dataset", "file"], case_sensitive=False),
+    default=None,
+    help="""
+    Type of data identifiers to list (defaults to the parsed filter type, otherwise collection).
+    collection will include both containers and datasets, but not files.
+    """,
+)
+@click.option(
     "--filter", "filter_",
     help="""
     Single or logically combined filtering expression(s) either in the form <key><operator><value>
@@ -45,7 +54,7 @@ def did() -> None:
 @click.argument("did-pattern", nargs=1, required=True)
 @click.option("--parent", default=False, is_flag=True, help="List the parents of the DID - must use a full DID scope and name")
 @click.pass_context
-def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, short: bool, parent: bool) -> None:
+def list_(ctx: click.Context, did_pattern: str, recursive: bool, did_type: Optional[str], filter_: str, short: bool, parent: bool) -> None:
     """
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
@@ -92,11 +101,13 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
                     raise ValueError('Must have a wildcard in did name if filtering by name.')
 
         filters, type_ = parse_did_filter_from_string_fe(filter_, name)
+        if did_type is None:
+            did_type = type_
         if ctx.obj.use_rich:
             ctx.obj.spinner.update(status='Fetching DIDs')
             ctx.obj.spinner.start()
 
-        for did in ctx.obj.client.list_dids(scope, filters=filters, did_type=type_, long=True, recursive=recursive):
+        for did in ctx.obj.client.list_dids(scope, filters=filters, did_type=did_type, long=True, recursive=recursive):
             if ctx.obj.use_rich:
                 table_data.append([f"{did['scope']}:{did['name']}", Text(did['did_type'], style=RichCLITheme.DID_TYPE.get(did['did_type'], 'default'))])
             else:

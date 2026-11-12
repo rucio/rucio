@@ -384,6 +384,13 @@ def test_did(rucio_client, root_account, file_config_mock):
     assert f"{scope}:{dataset}" in lines, f"Expected {scope}:{dataset} in list with short option"
     assert f"{scope}:{container}" in lines, f"Expected {scope}:{container} in list with short option"
 
+    cmd = f"rucio did list {scope}:* --did-type dataset"
+    exitcode, out, err = execute(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert f"{scope}:{dataset}" in out
+    assert f"{scope}:{container}" not in out
+
     cmd = f"rucio did update --touch {scope}:{dataset}"
     exitcode, _, err = execute(cmd)
     assert exitcode == 0
