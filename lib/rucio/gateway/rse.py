@@ -520,21 +520,24 @@ def update_distance(
                                                 distance=distance, bidirectional=bidirectional, session=session)
 
 
-def get_distance(source, destination, issuer, vo=DEFAULT_VO):
+def get_distance(source: str, issuer: str, destination: "Optional[str]" = None, vo: str = DEFAULT_VO):
     """
-    Get distances between rses.
+    Get distances between RSEs.
 
     :param source: The source RSE.
-    :param destination: The destination RSE.
+    :param destination: The destination RSE. If None, return all distances from source.
     :param issuer: The issuer account.
     :param vo: The VO to act on.
 
-    :returns distance: List of dictionaries.
+    :returns distance: List of dictionaries with distance information.
     """
     with db_session(DatabaseOperationType.READ) as session:
-        distances = distance_module.get_distances(src_rse_id=rse_module.get_rse_id(source, vo=vo, session=session),
-                                                  dest_rse_id=rse_module.get_rse_id(destination, vo=vo, session=session),
-                                                  session=session)
+        kwargs = {
+            'src_rse_id': rse_module.get_rse_id(source, vo=vo, session=session)
+        }
+        if destination is not None:
+            kwargs['dest_rse_id'] = rse_module.get_rse_id(destination, vo=vo, session=session)
+        distances = distance_module.get_distances(session=session, **kwargs)
 
         return [gateway_update_return_dict(d, session=session) for d in distances]
 
