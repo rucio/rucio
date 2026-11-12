@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Union
 
 import pytest
@@ -23,7 +23,7 @@ from rucio.common.constants import RseAttr
 from rucio.common.utils import generate_uuid, parse_response
 from rucio.core.distance import add_distance
 from rucio.core.replica import add_replica
-from rucio.core.request import TransferStatsManager, get_request_by_did, list_requests, list_requests_history, queue_requests, set_transfer_limit
+from rucio.core.request import TransferStatsManager, get_request_by_did, get_request_history_by_did, list_requests, list_requests_history, queue_requests, requeue_and_archive, set_transfer_limit, transition_request_state
 from rucio.core.rse import add_rse_attribute
 from rucio.db.sqla import constants, models
 from rucio.db.sqla.constants import RequestState, RequestType
@@ -123,6 +123,106 @@ def test_queue_requests_state(vo, file_config_mock, rse_factory, mock_scope, roo
     assert request['state'] == target_state
     request = get_request_by_did(mock_scope, name3, dest_rse_id2, session=db_session)
     assert request['state'] == target_state
+
+
+@pytest.mark.parametrize('newer_first', [False, True])
+def test_get_request_history_by_did_returns_latest(newer_first, rse_factory, mock_scope, db_session):
+    """REQUEST (CORE): Retrieve the most recent matching request history row."""
+    _, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    _, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    name = generate_uuid()
+    now = datetime.utcnow()
+    common = {
+        'request_type': RequestType.TRANSFER,
+        'scope': mock_scope,
+        'name': name,
+        'dest_rse_id': dest_rse_id,
+        'source_rse_id': source_rse_id,
+        'state': RequestState.FAILED,
+    }
+    latest_id = generate_uuid()
+    rows = [
+        models.RequestHistory(
+            id=generate_uuid(),
+            retry_count=0,
+            created_at=now - timedelta(minutes=1),
+            **common,
+        ),
+        models.RequestHistory(
+            id=latest_id,
+            retry_count=3,
+            created_at=now,
+            **common,
+        ),
+    ]
+    if newer_first:
+        rows.reverse()
+    for row in rows:
+        row.save(session=db_session)
+
+    request = get_request_history_by_did(mock_scope, name, dest_rse_id, session=db_session)
+
+    assert request['id'] == latest_id
+    assert request['retry_count'] == 3
+
+
+def test_get_request_history_by_did_uses_retry_count_as_tiebreaker(rse_factory, mock_scope, db_session):
+    """REQUEST (CORE): Break identical creation timestamp ties by retry count."""
+    _, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    _, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    name = generate_uuid()
+    created_at = datetime.utcnow()
+    common = {
+        'request_type': RequestType.TRANSFER,
+        'scope': mock_scope,
+        'name': name,
+        'dest_rse_id': dest_rse_id,
+        'source_rse_id': source_rse_id,
+        'state': RequestState.FAILED,
+        'created_at': created_at,
+    }
+    latest_id = generate_uuid()
+    models.RequestHistory(id=generate_uuid(), retry_count=1, **common).save(session=db_session)
+    models.RequestHistory(id=latest_id, retry_count=3, **common).save(session=db_session)
+
+    request = get_request_history_by_did(mock_scope, name, dest_rse_id, session=db_session)
+
+    assert request['id'] == latest_id
+    assert request['retry_count'] == 3
+
+
+def test_get_request_history_by_did_returns_latest_real_workflow(rse_factory, mock_scope, root_account, db_session):
+    """REQUEST (CORE): Retrieve the latest attempt after retries are archived."""
+    _, source_rse_id = rse_factory.make_mock_rse(session=db_session)
+    _, dest_rse_id = rse_factory.make_mock_rse(session=db_session)
+    name = generate_uuid()
+    add_replica(source_rse_id, mock_scope, name, 1, root_account, session=db_session)
+
+    queue_requests([{
+        'dest_rse_id': dest_rse_id,
+        'src_rse_id': source_rse_id,
+        'request_type': RequestType.TRANSFER,
+        'request_id': generate_uuid(),
+        'name': name,
+        'scope': mock_scope,
+        'rule_id': generate_uuid(),
+        'retry_count': 0,
+        'attributes': {
+            'activity': 'User Subscription',
+            'bytes': 1,
+            'md5': '',
+            'adler32': '',
+        },
+    }], session=db_session)
+
+    for _ in range(4):
+        request = get_request_by_did(mock_scope, name, dest_rse_id, session=db_session)
+        transition_request_state(request['id'], state=RequestState.FAILED, session=db_session)
+        requeue_and_archive({'request_id': request['id']}, source_ranking_update=False, session=db_session)
+
+    request = get_request_history_by_did(mock_scope, name, dest_rse_id, session=db_session)
+
+    assert request['retry_count'] == 3
 
 
 @pytest.mark.parametrize(
