@@ -11,5 +11,4 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-ALEMBIC_REVISION = '3b943000da18'  # the current alembic head revision
+ALEMBIC_REVISION = '9dee0d7a9d54'  # the current alembic head revision
