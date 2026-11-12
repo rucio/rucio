@@ -20,7 +20,6 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from unittest.mock import MagicMock, call, patch
-from urllib.parse import urlparse
 
 import pytest
 import requests
@@ -31,7 +30,7 @@ from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.core import oidc as oidc_core
 from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
-from rucio.core.rse import determine_audience_for_rse, determine_scope_for_rse, get_rse_id, get_rse_info
+from rucio.core.rse import determine_audience_for_rse, determine_scope_for_rse, get_rse_id
 from rucio.core.token import (
     JobTransferToken,
     StorageTokenContext,
@@ -48,8 +47,6 @@ from rucio.core.token.cache import token_cache_key
 from rucio.core.token.request import _TOKEN_EXCHANGE_GRANT, _token_cache_get
 from rucio.core.token.scope import normalize_scope_path
 from rucio.daemons.reaper.reaper import _central_delete_token, delete_from_storage, reaper
-from rucio.rse import rsemanager as rsemgr
-from rucio.rse.protocols.webdav import Default as WebDAV
 from rucio.tests.common import skip_rse_tests_with_accounts
 from tests.ruciopytest import NoParallelGroups
 
@@ -73,11 +70,17 @@ def future_exp(hours: int = 1) -> int:
     return int((datetime.now(tz=timezone.utc) + timedelta(hours=hours)).timestamp())
 
 
-def token_response(token: str) -> MagicMock:
+def token_response(token: str, **fields: str) -> MagicMock:
     response = MagicMock()
     response.raise_for_status.return_value = None
-    response.json.return_value = {'access_token': token}
+    response.json.return_value = {'access_token': token, **fields}
     return response
+
+
+def exchange_response(token: str, **fields: str) -> MagicMock:
+    fields.setdefault('token_type', 'Bearer')
+    fields.setdefault('issued_token_type', 'urn:ietf:params:oauth:token-type:access_token')
+    return token_response(token, **fields)
 
 
 @contextmanager
@@ -215,15 +218,63 @@ class TestTokenRequestDefault:
             assert TokenRequest.default('fts.example.org', 'fts', ctx) is None
         mock_post.assert_called_once()
 
+    @pytest.mark.parametrize('token_type', ['Bearer', 'bearer', None])
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_accepts_bearer_or_missing_token_type(self, mock_post, mock_region, token_type):
+        """ STORAGE TOKEN (CORE): A Bearer token type is case-insensitive and may be omitted """
+        mock_region.get.return_value = NoValue()
+        fields = {'token_type': token_type} if token_type else {}
+        mock_post.return_value = token_response('tok-1', **fields)
+        ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
+        with oidc_ready():
+            assert TokenRequest.default('fts.example.org', 'fts', ctx) == 'tok-1'
+
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_rejects_non_bearer_token_type(self, mock_post, mock_region):
+        """ STORAGE TOKEN (CORE): A token that is not a Bearer token is not returned """
+        mock_region.get.return_value = NoValue()
+        mock_post.return_value = token_response('tok-1', token_type='N_A')
+        ctx = StorageTokenContext(operation=StorageTokenOperation.FTS_AUTH)
+        with oidc_ready():
+            assert TokenRequest.default('fts.example.org', 'fts', ctx) is None
+
 
 class TestRfcIdentityProvider:
+
+    @pytest.mark.parametrize('fields', [
+        {'issued_token_type': 'urn:ietf:params:oauth:token-type:refresh_token'},
+        {'issued_token_type': ''},
+        {'token_type': 'N_A'},
+    ])
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_rejects_exchange_that_is_not_a_bearer_access_token(self, mock_post, mock_region, fields):
+        """ STORAGE TOKEN (CORE): Keycloak exchange must issue a Bearer access token """
+        mock_region.get.return_value = NoValue()
+        mock_post.side_effect = [token_response('subject-tok'), exchange_response('exchanged-tok', **fields)]
+        ctx = StorageTokenContext(operation=StorageTokenOperation.CENTRAL_DELETE, rse_id='rse-1')
+        with oidc_ready('rfc'):
+            assert TokenRequest.default('web1', 'storage.read:/rucio', ctx) is None
+        assert mock_post.call_count == 2
+
+    @patch('rucio.core.token.request.REGION')
+    @patch('rucio.core.token.request.requests.post')
+    def test_rejects_exchange_without_issued_token_type(self, mock_post, mock_region):
+        """ STORAGE TOKEN (CORE): Keycloak exchange response must name the issued token type """
+        mock_region.get.return_value = NoValue()
+        mock_post.side_effect = [token_response('subject-tok'), token_response('exchanged-tok', token_type='Bearer')]
+        ctx = StorageTokenContext(operation=StorageTokenOperation.CENTRAL_DELETE, rse_id='rse-1')
+        with oidc_ready('rfc'):
+            assert TokenRequest.default('web1', 'storage.read:/rucio', ctx) is None
 
     @patch('rucio.core.token.request.REGION')
     @patch('rucio.core.token.request.requests.post')
     def test_exchanges_a_client_credentials_token_for_each_audience(self, mock_post, mock_region):
         """ STORAGE TOKEN (CORE): Keycloak grant is client-credentials, then one exchange with an audience per hostname """
         mock_region.get.return_value = NoValue()
-        mock_post.side_effect = [token_response('subject-tok'), token_response('exchanged-tok')]
+        mock_post.side_effect = [token_response('subject-tok'), exchange_response('exchanged-tok')]
         ctx = StorageTokenContext(operation=StorageTokenOperation.CENTRAL_DELETE, rse_id='rse-1')
         scope = 'storage.modify:/rucio storage.read:/rucio'
         with oidc_ready(' RFC '):
@@ -463,59 +514,72 @@ class TestReaperCentralDelete:
         }
 
     @staticmethod
-    def protocol_mock() -> MagicMock:
-        """A protocol double whose set_auth_token updates auth_token, as the real one does."""
+    def protocol_mock(auth_token: Optional[str] = None) -> MagicMock:
+        """A protocol double that records the token it holds at each connect, where the real ones apply it."""
         prot = MagicMock()
         prot.attributes = {'scheme': 'davs'}
-        prot.auth_token = None
-        prot.set_auth_token.side_effect = lambda token: setattr(prot, 'auth_token', token)
+        prot.auth_token = auth_token
+        prot.connected_with = []
+        prot.connect.side_effect = lambda: prot.connected_with.append(prot.auth_token)
         return prot
 
     @staticmethod
-    def delete(replicas: list[dict[str, Any]], prot: MagicMock, token_for_replica) -> list[dict[str, Any]]:
+    def delete(replicas: list[dict[str, Any]], prot: MagicMock, token_for_vo) -> list[dict[str, Any]]:
         heartbeat_handler = MagicMock()
         heartbeat_handler.live.return_value = (None, 1, logging.log)
         rse_info = {'rse': 'MOCK-RSE', 'id': 'rse-1', 'sign_url': None}
         return delete_from_storage(
             heartbeat_handler, 'payload', replicas, prot, rse_info, False, 100,
             logger=logging.log,
-            storage_token_for_replica=token_for_replica,
+            central_delete_token=token_for_vo,
         )
 
     @patch('rucio.daemons.reaper.reaper.get_token_for_operation', return_value='tok')
-    def test_central_delete_token_always_passes_did(self, mock_get):
-        """ REAPER (DAEMON): The central-delete token request carries the RSE, DID and VO """
-        assert _central_delete_token('rse-1', self.replica('file.root'), logging.log) == 'tok'
+    def test_central_delete_token_is_rse_wide(self, mock_get):
+        """ REAPER (DAEMON): The central-delete token request carries the RSE and VO but no DID """
+        assert _central_delete_token('rse-1', 'def', logging.log) == 'tok'
         ctx = mock_get.call_args.args[0]
         assert ctx.operation == StorageTokenOperation.CENTRAL_DELETE
         assert ctx.rse_id == 'rse-1'
-        assert ctx.did == ('mock', 'file.root')
+        assert ctx.did is None
         assert ctx.vo == 'def'
 
-    @patch('rucio.daemons.reaper.reaper.add_message')
-    def test_delete_from_storage_sets_bearer_per_replica(self, mock_msg):
-        """ REAPER (DAEMON): Each replica is deleted with its own token over one connection """
-        replicas = [self.replica('a.root'), self.replica('b.root')]
-        tokens = {'a.root': 'tok-a', 'b.root': 'tok-b'}
-        prot = self.protocol_mock()
-
-        deleted = self.delete(replicas, prot, lambda replica: tokens[replica['name']])
-
-        assert [item['name'] for item in deleted] == ['a.root', 'b.root']
-        # The pre-connect bind covers the first replica, so it is not bound twice.
-        assert prot.set_auth_token.call_args_list == [call('tok-a'), call('tok-b')]
-        assert prot.delete.call_args_list == [call(replicas[0]['pfn']), call(replicas[1]['pfn'])]
-        prot.connect.assert_called_once()
+    @patch('rucio.daemons.reaper.reaper.get_token_for_operation', side_effect=RuntimeError('idp down'))
+    def test_central_delete_token_failure_returns_none(self, mock_get):
+        """ REAPER (DAEMON): A failed central-delete token request returns no token """
+        assert _central_delete_token('rse-1', 'def', logging.log) is None
 
     @patch('rucio.daemons.reaper.reaper.add_message')
-    def test_delete_from_storage_binds_a_shared_token_once(self, mock_msg):
-        """ REAPER (DAEMON): A token shared by every replica is set once """
+    def test_delete_from_storage_binds_one_token_per_chunk_before_connect(self, mock_msg):
+        """ REAPER (DAEMON): One token is requested per chunk and bound before connecting """
         replicas = [self.replica('a.root'), self.replica('b.root'), self.replica('c.root')]
         prot = self.protocol_mock()
+        token_for_vo = MagicMock(return_value='rse-tok')
 
-        self.delete(replicas, prot, lambda replica: 'prefix-tok')
+        deleted = self.delete(replicas, prot, token_for_vo)
 
-        assert prot.set_auth_token.call_args_list == [call('prefix-tok')]
+        assert [item['name'] for item in deleted] == ['a.root', 'b.root', 'c.root']
+        token_for_vo.assert_called_once_with('def')
+        assert prot.connected_with == ['rse-tok']
+        assert prot.delete.call_args_list == [call(replica['pfn']) for replica in replicas]
+
+    @patch('rucio.daemons.reaper.reaper.add_message')
+    def test_delete_from_storage_keeps_an_unchanged_token(self, mock_msg):
+        """ REAPER (DAEMON): A token already on the protocol is kept for the next chunk """
+        prot = self.protocol_mock(auth_token='rse-tok')
+
+        self.delete([self.replica('a.root')], prot, lambda vo: 'rse-tok')
+
+        assert prot.connected_with == ['rse-tok']
+
+    @patch('rucio.daemons.reaper.reaper.add_message')
+    def test_delete_from_storage_renews_the_token_between_chunks(self, mock_msg):
+        """ REAPER (DAEMON): A renewed token replaces the previous chunk's token """
+        prot = self.protocol_mock(auth_token='old-tok')
+
+        self.delete([self.replica('a.root')], prot, lambda vo: 'new-tok')
+
+        assert prot.connected_with == ['new-tok']
 
     @patch('rucio.daemons.reaper.reaper.add_message')
     def test_delete_from_storage_without_a_token_still_deletes(self, mock_msg):
@@ -523,46 +587,22 @@ class TestReaperCentralDelete:
         replicas = [self.replica('a.root')]
         prot = self.protocol_mock()
 
-        self.delete(replicas, prot, lambda replica: None)
+        self.delete(replicas, prot, lambda vo: None)
 
-        prot.set_auth_token.assert_not_called()
+        assert prot.connected_with == [None]
         assert prot.delete.call_args_list == [call(replicas[0]['pfn'])]
 
-    def test_webdav_set_auth_token_updates_authorization_header(self):
-        """ RSE PROTOCOL (WEBDAV): Setting or clearing the token updates the Authorization header """
-        prot = MagicMock()
-        headers: dict[str, str] = {}
-        prot.session.headers = headers
-        prot.auth_token = 'tok-2'
-        WebDAV._on_auth_token_changed(prot)
-        assert headers['Authorization'] == 'Bearer tok-2'
-        prot.auth_token = None
-        WebDAV._on_auth_token_changed(prot)
-        assert 'Authorization' not in headers
 
-
-def idp_config(issuer: str, idp: str, scope_algorithm: str = 'default') -> dict[str, Any]:
+def idp_config(issuer: str, idp: str) -> dict[str, Any]:
     return {
         'overrides': [
             ('oidc', 'admin_issuer', issuer),
             ('oidc', 'idp', idp),
-            ('oidc', 'token_scope', scope_algorithm),
+            ('oidc', 'token_scope', 'default'),
             ('reaper', 'use_token_operation_interface', 'True'),
         ],
         'removes': [('policy', 'package')],
     }
-
-
-def file_path(rse_id: str, scope: str, name: str) -> str:
-    pfns = rsemgr.lfns2pfns(get_rse_info(rse_id), [{'scope': scope, 'name': name}], operation='delete', scheme='davs')
-    return normalize_scope_path(urlparse(next(iter(pfns.values()))).path)
-
-
-def file_scope(ctx: StorageTokenContext) -> str:
-    """A VO-style token_scope override: one file, not the RSE prefix."""
-    assert ctx.rse_id is not None and ctx.did is not None
-    path = file_path(ctx.rse_id, *ctx.did)
-    return f'storage.modify:{path} storage.read:{path}'
 
 
 def claim_values(value: Any) -> set[str]:
@@ -571,12 +611,6 @@ def claim_values(value: Any) -> set[str]:
     if isinstance(value, str):
         return set(value.split())
     return {part for item in value for part in str(item).split()}
-
-
-def assert_file_scope(vo: str, did: dict[str, Any], granted: set[str]) -> None:
-    path = file_path(get_rse_id(rse=RSE_NAME, vo=vo), did['scope'].external, did['name'])
-    assert path.startswith('/rucio/') and path.endswith('/' + did['name'])
-    assert granted == {f'storage.modify:{path}', f'storage.read:{path}'}
 
 
 @pytest.fixture
@@ -589,14 +623,13 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
     """
     monkeypatch.delenv('RUCIO_POLICY_PACKAGE', raising=False)
     monkeypatch.setattr(PolicyPackageAlgorithms, '_default_algorithms', {})
-    monkeypatch.setitem(PolicyPackageAlgorithms._ALGORITHMS['token_scope'], 'file', file_scope)
     monkeypatch.setattr(oidc_core, 'ADMIN_ISSUER_ID', dict(file_config_mock.items('oidc'))['admin_issuer'])
     monkeypatch.setattr(oidc_core, 'OIDC_CONFIGURATION_RUN', False)
     monkeypatch.setattr(oidc_core, 'OIDC_CLIENT_ID', '')
     monkeypatch.setattr(oidc_core, 'OIDC_CLIENT_SECRET', '')
     monkeypatch.setattr(oidc_core, 'OIDC_PROVIDER_ENDPOINT', '')
 
-    def mint_and_delete() -> tuple[dict[str, Any], set[str]]:
+    def mint_and_delete() -> set[str]:
         did = did_factory.upload_test_file(RSE_NAME)
         for rule in list(rule_core.list_associated_rules_for_file(**did)):
             rule_core.delete_rule(rule['id'])
@@ -605,7 +638,6 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
         token = get_token_for_operation(StorageTokenContext(
             operation=StorageTokenOperation.CENTRAL_DELETE,
             rse_id=rse_id,
-            did=(did['scope'].external, did['name']),
             vo=vo,
         ))
         assert token is not None
@@ -615,7 +647,7 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
 
         reaper(once=True, rses=[], include_rses=RSE_NAME, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')
         assert list(replica_core.list_replicas(dids=[did], rse_expression=RSE_NAME)) == []
-        return did, granted
+        return granted
 
     return mint_and_delete
 
@@ -631,29 +663,15 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
 class TestRealIdP:
     """ STORAGE TOKEN (INTEGRATION): CENTRAL_DELETE on WEB1 against the dev indigoiam and Keycloak.
 
-    WEB1 only checks ``aud``, so the scope claim is what tells the widths apart.
+    WEB1 only checks ``aud``, so the scope claim is checked separately.
     """
 
     @pytest.mark.parametrize('file_config_mock', [idp_config('indigoiam', 'iam')], indirect=True)
     def test_rse_wide_token_iam(self, real_idp):
         """ STORAGE TOKEN (INTEGRATION): IAM mints an RSE-wide token and the reaper deletes with it """
-        _did, granted = real_idp()
-        assert granted == RSE_WIDE_SCOPE
-
-    @pytest.mark.parametrize('file_config_mock', [idp_config('indigoiam', 'iam', scope_algorithm='file')], indirect=True)
-    def test_file_specific_token_iam(self, vo, real_idp):
-        """ STORAGE TOKEN (INTEGRATION): IAM mints a file-specific token and the reaper deletes with it """
-        did, granted = real_idp()
-        assert_file_scope(vo, did, granted)
+        assert real_idp() == RSE_WIDE_SCOPE
 
     @pytest.mark.parametrize('file_config_mock', [idp_config('keycloak', 'rfc')], indirect=True)
     def test_rse_wide_token_keycloak(self, real_idp):
         """ STORAGE TOKEN (INTEGRATION): Keycloak mints an RSE-wide token and the reaper deletes with it """
-        _did, granted = real_idp()
-        assert granted == RSE_WIDE_SCOPE
-
-    @pytest.mark.parametrize('file_config_mock', [idp_config('keycloak', 'rfc', scope_algorithm='file')], indirect=True)
-    def test_file_specific_token_keycloak(self, vo, real_idp):
-        """ STORAGE TOKEN (INTEGRATION): Keycloak mints a file-specific token and the reaper deletes with it """
-        did, granted = real_idp()
-        assert_file_scope(vo, did, granted)
+        assert real_idp() == RSE_WIDE_SCOPE

@@ -45,7 +45,7 @@ def _storage_credentials_ready() -> bool:
     return True
 
 
-def _post(form: _Form) -> Optional[str]:
+def _post(form: _Form, issued_token_type: Optional[str] = None) -> Optional[str]:
     try:
         response = requests.post(
             url=oidc_core.OIDC_PROVIDER_ENDPOINT,
@@ -53,11 +53,21 @@ def _post(form: _Form) -> Optional[str]:
             data=form,
         )
         response.raise_for_status()
-        return response.json()['access_token']
+        payload = response.json()
+        token = payload['access_token']
     except Exception as error:
         body = getattr(getattr(error, 'response', None), 'text', None)
         logging.debug('Failed to procure a storage token: %s', body, exc_info=True)
         return None
+
+    token_type = payload.get('token_type', 'Bearer')
+    if str(token_type).lower() != 'bearer':
+        logging.error('IdP issued a %r token; storage needs a Bearer token.', token_type)
+        return None
+    if issued_token_type and payload.get('issued_token_type') != issued_token_type:
+        logging.error('IdP issued token type %r; requested %r.', payload.get('issued_token_type'), issued_token_type)
+        return None
+    return token
 
 
 def _configured_idp_name() -> str:
@@ -96,7 +106,7 @@ def _request_rfc(audience: str, scope: str) -> Optional[str]:
         ('scope', scope),
     ]
     form.extend(('audience', item) for item in audiences)
-    return _post(form)
+    return _post(form, issued_token_type=_ACCESS_TOKEN_TYPE)
 
 
 def _request_token(audience: str, scope: str) -> Optional[str]:
