@@ -20,10 +20,12 @@ from unittest.mock import patch
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import pytest
+import stomp
 from sqlalchemy import and_, delete, select, update
 
 import rucio.daemons.reaper.reaper
 from rucio.common.checksum import adler32
+from rucio.common.config import config_get, config_get_int, config_get_list
 from rucio.common.constants import FTS_COMPLETE_STATE, FTS_STATE, RseAttr
 from rucio.common.exception import ReplicaNotFound, RequestNotFound
 from rucio.common.types import FileToUploadDict, InternalAccount
@@ -1820,3 +1822,32 @@ def test_bittorrent_submission(did_factory, root_account, vo, download_client, f
             'no_subdir': True,
         }])
         assert adler32(f'{tmp_dir}/{did["name"]}') == did_core.get_did(**did)['adler32']
+
+
+def test_activemq_stomp_authentication():
+    """
+    Verify ActiveMQ STOMP accepts valid credentials and rejects invalid credentials.
+    """
+    brokers = config_get_list('messaging-fts3', 'brokers')
+    port = config_get_int("messaging-fts3", "port")
+    username = config_get("messaging-fts3", "username")
+    password = config_get("messaging-fts3", "password")
+
+    # Valid credentials should succeed
+    conn = stomp.Connection12(host_and_ports=[(brokers[0], port)])
+    conn.connect(
+        login=username,
+        passcode=password,
+        wait=True,
+    )
+    assert conn.is_connected()
+    conn.disconnect()
+
+    # Invalid credentials should fail
+    conn = stomp.Connection12(host_and_ports=[(brokers[0], port)])
+    with pytest.raises(Exception):
+        conn.connect(
+            login=username,
+            passcode=f"{password}-invalid",
+            wait=True,
+        )
