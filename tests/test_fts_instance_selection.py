@@ -160,19 +160,20 @@ def test_single_hop_non_gcs_sign_url_uses_destination_fts(did_factory, rse_facto
     assert _selected_host(builder) == DST_FTS
 
 
-def test_single_hop_uses_first_of_comma_separated_fts(did_factory, rse_factory, root_account):
-    """A comma-separated fts attribute is split and only the first server is used."""
+def test_single_hop_does_not_split_comma_separated_fts(did_factory, rse_factory, root_account):
+    """The fts attribute is a single server; a comma-separated value is not split and is used as is."""
     did = did_factory.random_file_did()
+    comma_separated_fts = f"{DST_FTS},{MID_FTS}"
     transfer_path = _make_single_hop_path(
         did, rse_factory, root_account,
         src_attrs={RseAttr.FTS: SRC_FTS},
-        dst_attrs={RseAttr.FTS: f"{DST_FTS},{MID_FTS}"},
+        dst_attrs={RseAttr.FTS: comma_separated_fts},
     )
 
     sub_path, builder = FTS3Transfertool.submission_builder_for_path(transfer_path)
 
     assert sub_path == transfer_path
-    assert _selected_host(builder) == DST_FTS
+    assert _selected_host(builder) == comma_separated_fts
 
 
 def test_multihop_uses_last_hop_destination_fts(did_factory, rse_factory, root_account):

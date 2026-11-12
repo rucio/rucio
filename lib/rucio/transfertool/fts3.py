@@ -928,24 +928,24 @@ class FTS3Transfertool(Transfertool):
         self.scitags_exp_id, self.scitags_activity_ids = _scitags_ids(logger=logger)
 
     @classmethod
-    def _pick_fts_servers(cls, source_rse: "RseData", dest_rse: "RseData") -> Optional[list[str]]:
+    def _pick_fts_server(cls, source_rse: "RseData", dest_rse: "RseData") -> Optional[str]:
         """
-        Pick fts servers to use for submission between the two given rse
+        Pick fts server to use for submission between the two given RSEs
         """
-        source_servers = source_rse.attributes.get(RseAttr.FTS, None)
-        dest_servers = dest_rse.attributes.get(RseAttr.FTS, None)
-        if source_servers is None or dest_servers is None:
+        source_server = source_rse.attributes.get(RseAttr.FTS, None)
+        dest_server = dest_rse.attributes.get(RseAttr.FTS, None)
+        if source_server is None or dest_server is None:
             return None
 
-        servers_to_use = dest_servers
+        server_to_use = dest_server
         if source_rse.attributes.get(RseAttr.SIGN_URL, None) == 'gcs':
-            servers_to_use = source_servers
+            server_to_use = source_server
 
-        return servers_to_use.split(',')
+        return server_to_use
 
     @classmethod
     def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData") -> bool:
-        if cls._pick_fts_servers(source_rse, dest_rse):
+        if cls._pick_fts_server(source_rse, dest_rse):
             return True
         return False
 
@@ -956,11 +956,11 @@ class FTS3Transfertool(Transfertool):
             vo = transfer_path[-1].rws.scope.vo
 
         sub_path = []
-        fts_hosts = []
+        fts_host = None
         for hop in transfer_path:
-            hosts = cls._pick_fts_servers(hop.src.rse, hop.dst.rse)
-            if hosts:
-                fts_hosts = hosts
+            host = cls._pick_fts_server(hop.src.rse, hop.dst.rse)
+            if host:
+                fts_host = host
                 sub_path.append(hop)
             else:
                 break
@@ -969,11 +969,14 @@ class FTS3Transfertool(Transfertool):
             logger(logging.INFO, 'FTS3Transfertool can only submit {} hops from {}'.format(len(sub_path), [str(hop) for hop in transfer_path]))
 
         if sub_path:
+            if fts_host and ',' in fts_host:
+                logger(logging.WARNING, 'The {} RSE attribute must be a single FTS server, but got {}'.format(RseAttr.FTS, fts_host))
+
             oidc_support = False
             if all(_use_tokens(t) for t in sub_path):
                 logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in sub_path]))
                 oidc_support = True
-            return sub_path, TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_support=oidc_support, vo=vo)
+            return sub_path, TransferToolBuilder(cls, external_host=fts_host, oidc_support=oidc_support, vo=vo)
         else:
             return [], None
 
