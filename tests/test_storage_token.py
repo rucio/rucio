@@ -47,7 +47,6 @@ from rucio.tests.common import skip_rse_tests_with_accounts
 from tests.ruciopytest import NoParallelGroups
 
 TOKEN_ENDPOINT = 'https://iam.example.org/token'
-RSE_NAME = 'WEB1'
 PATH_SCOPES = ('storage.read:', 'storage.modify:')
 RSE_WIDE_SCOPE = {'storage.modify:/rucio', 'storage.read:/rucio'}
 
@@ -756,12 +755,12 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
     monkeypatch.setattr(oidc_core, 'OIDC_CLIENT_SECRET', '')
     monkeypatch.setattr(oidc_core, 'OIDC_PROVIDER_ENDPOINT', '')
 
-    def mint_and_delete() -> set[str]:
-        did = did_factory.upload_test_file(RSE_NAME)
+    def mint_and_delete(rse_name: str) -> set[str]:
+        did = did_factory.upload_test_file(rse_name)
         for rule in list(rule_core.list_associated_rules_for_file(**did)):
             rule_core.delete_rule(rule['id'])
 
-        rse_id = get_rse_id(rse=RSE_NAME, vo=vo)
+        rse_id = get_rse_id(rse=rse_name, vo=vo)
         token = get_token_for_operation(StorageTokenContext(
             operation=StorageTokenOperation.CENTRAL_DELETE,
             rse_id=rse_id,
@@ -772,33 +771,39 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
         assert set(determine_audience_for_rse(rse_id).split()) <= claim_values(claims.get('aud'))
         granted = {item for item in claim_values(claims.get('scope')) if item.startswith(PATH_SCOPES)}
 
-        reaper(once=True, rses=[], include_rses=RSE_NAME, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')
-        assert list(replica_core.list_replicas(dids=[did], rse_expression=RSE_NAME)) == []
+        reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')
+        assert list(replica_core.list_replicas(dids=[did], rse_expression=rse_name)) == []
         return granted
 
     return mint_and_delete
 
 
 @skip_rse_tests_with_accounts
-@pytest.mark.dirty(reason='leaves files in WEB1 if deletion fails')
+@pytest.mark.dirty(reason='leaves files on WEB1 or XRD5 if deletion fails')
 @pytest.mark.needs_iam
-@pytest.mark.noparallel(groups=[NoParallelGroups.WEB])
+@pytest.mark.noparallel(groups=[NoParallelGroups.WEB, NoParallelGroups.XRD])
 @pytest.mark.parametrize('caches_mock', [{'caches_to_mock': [
     'rucio.daemons.reaper.reaper.REGION',
     'rucio.core.token.request.REGION',
 ]}], indirect=True)
 class TestRealIdP:
-    """ STORAGE TOKEN (INTEGRATION): CENTRAL_DELETE on WEB1 against the dev indigoiam and Keycloak.
+    """ STORAGE TOKEN (INTEGRATION): CENTRAL_DELETE on WEB1 and XRD5.
 
-    WEB1 only checks ``aud``, so the scope claim is checked separately.
+    XRD5 also has root and magnet protocols. The audience and scope come from its davs protocol,
+    whose prefix ``//rucio`` is the same scope path as WEB1. The storage checks ``aud``; the scope
+    claim is checked here.
+
+    Keycloak is limited to WEB1. The dev realm has no client for the ``xrd5`` audience, so the
+    exchange returns ``Audience not found``.
     """
 
+    @pytest.mark.parametrize('rse_name', ['WEB1', 'XRD5'])
     @pytest.mark.parametrize('file_config_mock', [idp_config('indigoiam', 'iam')], indirect=True)
-    def test_rse_wide_token_iam(self, real_idp):
+    def test_rse_wide_token_iam(self, real_idp, rse_name):
         """ STORAGE TOKEN (INTEGRATION): IAM mints an RSE-wide token and the reaper deletes with it """
-        assert real_idp() == RSE_WIDE_SCOPE
+        assert real_idp(rse_name) == RSE_WIDE_SCOPE
 
     @pytest.mark.parametrize('file_config_mock', [idp_config('keycloak', 'rfc')], indirect=True)
     def test_rse_wide_token_keycloak(self, real_idp):
         """ STORAGE TOKEN (INTEGRATION): Keycloak mints an RSE-wide token and the reaper deletes with it """
-        assert real_idp() == RSE_WIDE_SCOPE
+        assert real_idp('WEB1') == RSE_WIDE_SCOPE

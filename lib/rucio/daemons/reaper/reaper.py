@@ -175,8 +175,6 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
     pfns_to_bulk_delete = []
     try:
         if central_delete_token and replicas and not is_staging:
-            # GFAL only skips its X.509 proxy self-discovery when a bearer token is
-            # already on the context, so the token has to be bound before connecting.
             token = central_delete_token(getattr(replicas[0]['scope'], 'vo', None))
             _bind_storage_token(prot, token, rse_name, logger)
         prot.connect()
