@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 from math import floor
 from secrets import choice
 from typing import TYPE_CHECKING, Any, Final, Optional, Union
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urlparse
 
 import requests
 from dogpile.cache.api import NoValue
@@ -126,7 +126,7 @@ def request_token(audience: str, scope: str, use_cache: bool = True) -> Optional
     was unsuccessful.
     """
     if not all([OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT]):
-        if OIDC_CONFIGURATION_RUN or not __load_oidc_configuration():
+        if OIDC_CONFIGURATION_RUN or not _load_oidc_configuration():
             return None
 
     key = hashlib.md5(f'audience={audience};scope={scope}'.encode()).hexdigest()
@@ -226,7 +226,11 @@ def __initialize_oidc_clients() -> None:
         pass
 
 
-def __load_oidc_configuration() -> bool:
+def _openid_configuration_url(issuer: str) -> str:
+    return issuer.rstrip('/') + '/.well-known/openid-configuration'
+
+
+def _load_oidc_configuration() -> bool:
     """Load the configuration for the new-style token support."""
     global OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_PROVIDER_ENDPOINT, OIDC_CONFIGURATION_RUN
 
@@ -250,7 +254,7 @@ def __load_oidc_configuration() -> bool:
                       exc_info=True)
         return False
     try:
-        oidc_discover_url = urljoin(issuer, '.well-known/openid-configuration')
+        oidc_discover_url = _openid_configuration_url(issuer)
         response = requests.get(oidc_discover_url)
         response.raise_for_status()
         payload = response.json()

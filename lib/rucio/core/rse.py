@@ -2045,27 +2045,37 @@ def fill_rse_expired(
 
 def determine_audience_for_rse(rse_id: str) -> str:
     """Construct the Audience claim for an RSE."""
-    rse_protocols = get_rse_protocols(rse_id)
+    rse_info = get_rse_info(rse_id)
     # FIXME: At the time of writing, there does not appear to be a common
     # agreement on how sites will configure their storages.  Rucio had requested
     # that the protocol hostname be sufficient, but this may not come to pass.
     filtered_hostnames = {p['hostname']
-                          for p in rse_protocols['protocols']
+                          for p in rse_info['protocols']
                           if p['scheme'] == 'davs'}
     return ' '.join(sorted(filtered_hostnames))
 
 
+def _determine_oidc_base_path(rse_id: str, protocol: dict[str, Any]) -> Optional[str]:
+    extended_attributes = protocol.get('extended_attributes') or {}
+    base_path = extended_attributes.get(RseAttr.OIDC_BASE_PATH)
+    if base_path:
+        return str(base_path)
+    return get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH)  # type: ignore (session parameter missing)
+
+
 def determine_scope_for_rse(
     rse_id: str,
-    scopes: 'Iterable[str]',
-    extra_scopes: Optional['Iterable[str]'] = None,
+    parameterized_scopes: 'Iterable[str]',
+    verbatim_scopes: Optional['Iterable[str]'] = None,
 ) -> str:
     """Construct the Scope claim for an RSE."""
-    if extra_scopes is None:
-        extra_scopes = []
-    rse_protocols = get_rse_protocols(rse_id)
+    from rucio.core.token.scope import normalize_scope_path
+
+    if verbatim_scopes is None:
+        verbatim_scopes = []
+    rse_info = get_rse_info(rse_id)
     filtered_prefixes = set()
-    for protocol in rse_protocols['protocols']:
+    for protocol in rse_info['protocols']:
         # Token support is exclusive to WebDAV.
         if protocol['scheme'] != 'davs':
             continue
@@ -2074,8 +2084,8 @@ def determine_scope_for_rse(
         # a base which should be removed from the prefix (in order for '/' to
         # mean the entire resource associated with that issuer).
         prefix = protocol['prefix']
-        if base_path := get_rse_attribute(rse_id, RseAttr.OIDC_BASE_PATH):  # type: ignore (session parameter missing)
+        if base_path := _determine_oidc_base_path(rse_id, protocol):
             prefix = prefix.removeprefix(base_path)
-        filtered_prefixes.add(prefix)
-    all_scopes = [f'{s}:{p}' for s in scopes for p in filtered_prefixes] + list(extra_scopes)
+        filtered_prefixes.add(normalize_scope_path(prefix))
+    all_scopes = [f'{s}:{p}' for s in parameterized_scopes for p in filtered_prefixes] + list(verbatim_scopes)
     return ' '.join(sorted(all_scopes))
