@@ -146,10 +146,10 @@ def attribute_list(ctx: click.Context, account_name: str):
         table_data.append([attr['key'], attr['value']])
 
     if ctx.obj.use_rich:
-        table = RichUtils.generate_table(table_data, headers=['Key', 'Value'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['KEY', 'VALUE'], col_alignments=['left', 'left'])
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
     else:
-        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['Key', 'Value']))
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE']))
 
 
 @attribute.command("set")
@@ -276,13 +276,14 @@ def identity_list(ctx: click.Context, account_name: str):
     table_data = []
     identities = ctx.obj.client.list_identities(account=account_name)
     for identity in identities:
-        if ctx.obj.use_rich:
-            table_data.append([identity['identity'], identity['type']])
-        else:
-            print('Identity: %(identity)s,\ttype: %(type)s' % identity)
+        table_data.append([identity['identity'], identity['type']])
     if ctx.obj.use_rich:
         table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+    else:
+        if len(table_data) == 0:
+            table_data = [[]]
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['IDENTITY', 'TYPE'], maxcolwidths=[80, None]))
 
 
 @identity.command("add")
