@@ -179,7 +179,7 @@ services:
 
   mysql8:
     container_name: ${RUCIO_MYSQL8_CONTAINER_NAME:-dev-mysql8-1}
-    image: docker.io/mysql:8.3
+    image: docker.io/mysql:8.4
     profiles:
       - mysql8
     environment:
@@ -189,10 +189,12 @@ services:
       - MYSQL_DATABASE=rucio
       - MYSQL_TCP_PORT=3308
     command:
-      - "--default-authentication-plugin=mysql_native_password"
       - "--character-set-server=latin1"
+      # Only the Alembic replay in tools/alembic_migration.sh needs it
+      # (22d887e4ec0a); drop it once that is no longer replayed
+      - "--restrict-fk-on-non-standard-key=OFF"
     volumes:
-      - vol-mysql8-mysql:/var/lib/mysql
+      - vol-mysql8-mysql84:/var/lib/mysql
 
   oracle:
     container_name: ${RUCIO_ORACLE_CONTAINER_NAME:-dev-oracle-1}
@@ -236,17 +238,16 @@ services:
 
   ftsdb:
     container_name: dev-ftsdb-1
-    image: docker.io/mysql:8.3
+    image: docker.io/mysql:8.4
     profiles:
       - storage
-    command: --default-authentication-plugin=mysql_native_password
     environment:
       - MYSQL_USER=fts
       - MYSQL_PASSWORD=fts
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
     volumes:
-      - vol-ftsdb-mysql:/var/lib/mysql
+      - vol-ftsdb-mysql84:/var/lib/mysql
 
   xrd1:
     container_name: dev-xrd1-1
@@ -588,7 +589,7 @@ volumes:
   vol-graphite-nginx:
   vol-influxdb-etc:
   vol-influxdb-var:
-  vol-ftsdb-mysql:
+  vol-ftsdb-mysql84:
   vol-garage-data:
   vol-garage-meta:
   vol-postgres16-data:
@@ -597,7 +598,7 @@ volumes:
   vol-mongo-configdb:
   vol-mongo-db:
   vol-iam-db-mysql:
-  vol-mysql8-mysql:
+  vol-mysql8-mysql84:
   vol-postgres-data-v16:
 
 networks:
