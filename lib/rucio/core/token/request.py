@@ -64,8 +64,9 @@ def _post(form: _Form, issued_token_type: Optional[str] = None) -> Optional[str]
     if str(token_type).lower() != 'bearer':
         logging.error('IdP issued a %r token; storage needs a Bearer token.', token_type)
         return None
-    if issued_token_type and payload.get('issued_token_type') != issued_token_type:
-        logging.error('IdP issued token type %r; requested %r.', payload.get('issued_token_type'), issued_token_type)
+    declared = payload.get('issued_token_type')
+    if issued_token_type and declared not in (None, issued_token_type):
+        logging.error('IdP issued token type %r; requested %r.', declared, issued_token_type)
         return None
     return token
 
