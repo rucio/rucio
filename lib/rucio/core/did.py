@@ -648,6 +648,21 @@ def __add_files_to_dataset(
         )
         files_to_add and session.execute(stmt, values)
         session.flush()
+
+        for file in values:
+            event_payload = {
+                'scope': file['scope'],
+                'name': file['name'],
+                'child_scope': file['child_scope'],
+                'child_name': file['child_name']
+            }
+
+            add_message(
+                event_type='file_attached_dts',
+                payload=event_payload,
+                session=session
+            )
+
         return files_to_add
     except IntegrityError as error:
         if match('.*IntegrityError.*ORA-02291: integrity constraint .*CONTENTS_CHILD_ID_FK.*violated - parent key not found.*', error.args[0]) \
@@ -2024,6 +2039,20 @@ def set_metadata(
     :param session: The database session in use.
     """
     did_meta_plugins.set_metadata(scope=scope, name=name, key=key, value=value, recursive=recursive, session=session)
+    try:
+        message_payload = {
+            'scope': str(scope),
+            'name': name,
+            'custom_metadata': {key: value}
+        }
+
+        add_message(
+            event_type='metadata_added',
+            payload=message_payload,
+            session=session
+        )
+    except Exception:
+        pass
 
 
 @transactional_session
@@ -2045,6 +2074,20 @@ def set_metadata_bulk(
     :param session: The database session in use.
     """
     did_meta_plugins.set_metadata_bulk(scope=scope, name=name, meta=meta, recursive=recursive, session=session)
+    try:
+        meta_to_send = {}
+        for k, v in meta.items():
+            if k != 'guid':
+                meta_to_send[k] = v
+
+        if meta_to_send:
+            add_message(
+                event_type='metadata_added',
+                payload={'scope': str(scope), 'name': name, 'custom_metadata': meta_to_send},
+                session=session
+            )
+    except Exception as e:
+            pass
 
 
 @transactional_session
@@ -2064,6 +2107,20 @@ def set_dids_metadata_bulk(
 
     for did in dids:
         did_meta_plugins.set_metadata_bulk(scope=did['scope'], name=did['name'], meta=did['meta'], recursive=recursive, session=session)
+        try:
+            message_payload = {
+                'scope': str(did['scope']),
+                'name': did['name'],
+                'custom_metadata': did['meta']
+            }
+
+            add_message(
+                event_type='metadata_added',
+                payload=message_payload,
+                session=session
+            )
+        except Exception as e:
+            pass
 
 
 @read_session
