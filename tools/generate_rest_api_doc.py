@@ -31,9 +31,14 @@ formed URLs and the standard HTTP methods:
 - DELETE to remove
 
 We require that all requests are done over SSL. The API supports JSON
-formats. Rucio uses [OAuth](http://oauth.net/) to authenticate all API
-requests. The method is to get an authentication token, and use it for the rest
-of the requests. Descriptions of the actions you may perform on each resource
+formats. Most Rucio REST API requests require an authentication token,
+provided through the `X-Rucio-Auth-Token` header.
+
+The Open Data Public endpoints (`GET /opendata/public/dids` and
+`GET /opendata/public/dids/{scope}/{name}`) do not require a Rucio
+authentication token.
+
+Descriptions of the actions you may perform on each resource
 can be found below.
 
 ### Date format
