@@ -73,7 +73,7 @@ class Receiver:
 
     @METRICS.count_it
     def on_error(self, frame: "Frame") -> None:
-        logging.error('[%s] %s' % (self.__broker, frame.body))
+        logging.error('[%s] %s', self.__broker, frame.body)
 
     @METRICS.count_it
     def on_message(self, frame: "Frame") -> None:
