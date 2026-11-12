@@ -20,7 +20,7 @@ import traceback
 import uuid
 from configparser import NoOptionError, NoSectionError
 from json import loads
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 import requests
@@ -31,8 +31,9 @@ from requests.packages.urllib3 import disable_warnings  # pylint: disable=import
 from rucio.common.cache import MemcacheRegion
 from rucio.common.checksum import PREFERRED_CHECKSUM
 from rucio.common.config import config_get, config_get_bool, config_get_int, config_get_list
-from rucio.common.constants import FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, RseAttr
+from rucio.common.constants import DEFAULT_VO, FTS_COMPLETE_STATE, FTS_JOB_TYPE, FTS_STATE, POLICY_ALGORITHM_TYPES_LITERAL, RseAttr
 from rucio.common.exception import DuplicateFileTransferSubmission, TransferToolTimeout, TransferToolWrongAnswer
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.policy import get_policy
 from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import APIEncoder, chunks, deep_merge_dict
@@ -45,7 +46,7 @@ from rucio.transfertool.fts3_plugins import FTS3TapeMetadataPlugin
 from rucio.transfertool.transfertool import TransferStatusReport, Transfertool, TransferToolBuilder
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -928,24 +929,24 @@ class FTS3Transfertool(Transfertool):
         self.scitags_exp_id, self.scitags_activity_ids = _scitags_ids(logger=logger)
 
     @classmethod
-    def _pick_fts_servers(cls, source_rse: "RseData", dest_rse: "RseData") -> Optional[list[str]]:
+    def _pick_fts_server(cls, source_rse: "RseData", dest_rse: "RseData") -> Optional[str]:
         """
-        Pick fts servers to use for submission between the two given rse
+        Pick fts server to use for submission between the two given RSEs
         """
-        source_servers = source_rse.attributes.get(RseAttr.FTS, None)
-        dest_servers = dest_rse.attributes.get(RseAttr.FTS, None)
-        if source_servers is None or dest_servers is None:
+        source_server = source_rse.attributes.get(RseAttr.FTS, None)
+        dest_server = dest_rse.attributes.get(RseAttr.FTS, None)
+        if source_server is None or dest_server is None:
             return None
 
-        servers_to_use = dest_servers
+        server_to_use = dest_server
         if source_rse.attributes.get(RseAttr.SIGN_URL, None) == 'gcs':
-            servers_to_use = source_servers
+            server_to_use = source_server
 
-        return servers_to_use.split(',')
+        return server_to_use
 
     @classmethod
     def can_perform_transfer(cls, source_rse: "RseData", dest_rse: "RseData") -> bool:
-        if cls._pick_fts_servers(source_rse, dest_rse):
+        if cls._pick_fts_server(source_rse, dest_rse):
             return True
         return False
 
@@ -956,11 +957,11 @@ class FTS3Transfertool(Transfertool):
             vo = transfer_path[-1].rws.scope.vo
 
         sub_path = []
-        fts_hosts = []
+        fts_host = None
         for hop in transfer_path:
-            hosts = cls._pick_fts_servers(hop.src.rse, hop.dst.rse)
-            if hosts:
-                fts_hosts = hosts
+            host = cls._pick_fts_server(hop.src.rse, hop.dst.rse)
+            if host:
+                fts_host = host
                 sub_path.append(hop)
             else:
                 break
@@ -968,12 +969,20 @@ class FTS3Transfertool(Transfertool):
         if len(sub_path) < len(transfer_path):
             logger(logging.INFO, 'FTS3Transfertool can only submit {} hops from {}'.format(len(sub_path), [str(hop) for hop in transfer_path]))
 
-        if sub_path:
+        if sub_path and fts_host:
+            if ',' in fts_host:
+                logger(logging.WARNING, 'The {} RSE attribute must be a single FTS server, but got {}'.format(RseAttr.FTS, fts_host))
+
+            selected_host = FTSHostSelection(vo=vo or DEFAULT_VO).select(sub_path, fts_host)
+            if selected_host != fts_host:
+                logger(logging.DEBUG, 'FTS host selection changed the FTS server from {} to {} for transfer {}'.format(fts_host, selected_host, [str(hop) for hop in sub_path]))
+            fts_host = selected_host
+
             oidc_support = False
             if all(_use_tokens(t) for t in sub_path):
                 logger(logging.DEBUG, 'OAuth2/OIDC available for transfer {}'.format([str(hop) for hop in sub_path]))
                 oidc_support = True
-            return sub_path, TransferToolBuilder(cls, external_host=fts_hosts[0], oidc_support=oidc_support, vo=vo)
+            return sub_path, TransferToolBuilder(cls, external_host=fts_host, oidc_support=oidc_support, vo=vo)
         else:
             return [], None
 
@@ -1573,3 +1582,57 @@ class FTS3Transfertool(Transfertool):
 
         QUERY_DETAILS_COUNTER.labels(state='failure', host=self.__extract_host(self.external_host)).inc()
         return
+
+
+FTSHostSelectionT = TypeVar('FTSHostSelectionT', bound='FTSHostSelection')
+
+
+class FTSHostSelection(PolicyPackageAlgorithms):
+    """
+    Select the FTS host to which a transfer path is submitted
+    """
+
+    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'fts_host_selection'
+
+    def __init__(self, vo: str = DEFAULT_VO) -> None:
+        super().__init__()
+        self.vo = vo
+        self.register('default', self.default)
+
+    def select(self, transfer_path: "Sequence[DirectTransfer]", default_host: str) -> str:
+        """
+        Return the FTS host to use for the given transfer path
+        """
+        return self.get_configured_algorithm(self.vo)(transfer_path, default_host)
+
+    @classmethod
+    def get_configured_algorithm(cls: type[FTSHostSelectionT], vo: str) -> "Callable[[Sequence[DirectTransfer], str], str]":
+        """
+        Get the configured FTS host selection algorithm
+        """
+        try:
+            configured_algorithm: str = str(config_get('transfers', cls._algorithm_type, default='default'))
+        except (NoOptionError, NoSectionError, RuntimeError):
+            configured_algorithm = 'default'
+
+        result = None
+        if configured_algorithm == 'default':
+            result = super()._get_default_algorithm(cls._algorithm_type, vo)
+        if result is None:
+            result = super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
+        return result
+
+    @classmethod
+    def register(cls: type[FTSHostSelectionT], name: str, fn_fts_host_selection: "Callable[[Sequence[DirectTransfer], str], str]") -> None:
+        """
+        Register a new FTS host selection algorithm
+        """
+        algorithm_dict = {name: fn_fts_host_selection}
+        super()._register(cls._algorithm_type, algorithm_dict)
+
+    @staticmethod
+    def default(_: "Sequence[DirectTransfer]", default_host: str) -> str:
+        """
+        Default FTS host selection algorithm: keep the host chosen from the RSE attributes
+        """
+        return default_host
