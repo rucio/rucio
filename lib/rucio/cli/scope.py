@@ -29,7 +29,7 @@ def scope():
 def add_(ctx, account, scope_name):
     """Add a new scope with name [SCOPE-NAME]"""
     args = Arguments({"no_pager": ctx.obj.no_pager, "scope": scope_name, "account": account})
-    add_scope(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return add_scope(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @scope.command("list")
@@ -38,7 +38,7 @@ def add_(ctx, account, scope_name):
 @click.pass_context
 def list_(ctx: click.Context, account: str, csv: bool):
     """List existing scopes"""
-    list_scopes(Arguments({"no_pager": ctx.obj.no_pager, "account": account, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return list_scopes(Arguments({"no_pager": ctx.obj.no_pager, "account": account, "csv": csv}), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @scope.command("update")

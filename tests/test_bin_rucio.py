@@ -968,7 +968,7 @@ def test_upload(rse_factory, mock_scope, file_factory, rucio_client):
     cmd = f'rucio upload --rse {rse} --scope {scope}'
     exitcode, out, err = execute(cmd)
     assert "No files could be extracted from the given arguments" in err
-    # TODO Should fail with exitcode != 0
+    assert exitcode == 1
 
     # Upload with scope
     tmp_file = file_factory.file_generator()

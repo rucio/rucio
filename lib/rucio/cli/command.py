@@ -278,11 +278,11 @@ def _teardown(ctx):
 @click.pass_context
 def exe_whoami(ctx):
     args = Arguments({"no_pager": ctx.obj.no_pager})
-    whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return whoami_account(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
 
 @main.command(name="ping", help="Ping Rucio server")
 @click.pass_context
 def exe_ping(ctx):
     args = Arguments({"no_pager": ctx.obj.no_pager})
-    ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
+    return ping(args, ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
