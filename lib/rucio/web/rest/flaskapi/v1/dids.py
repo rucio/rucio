@@ -592,7 +592,7 @@ class DIDs(ErrorHandlingMethodView):
                         description: "When the DID was last accessed."
                         type: string
                         format: date-time
-           401:
+          401:
             description: "Invalid Auth Token"
           404:
             description: "Scope not found"
