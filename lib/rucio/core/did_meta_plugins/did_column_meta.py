@@ -114,6 +114,11 @@ class DidColumnMeta(DidMetaPlugin):
         :param recursive: Option to propagate the metadata updates to child content.
         :param session: The database session in use.
         """
+        # OpenData membership is managed exclusively by the OpenData core.
+        if 'is_opendata' in metadata:
+            raise exception.UnsupportedOperation(
+                "'is_opendata' is a read-only system attribute"
+            )
         did_query = session.query(models.DataIdentifier).with_hint(models.DataIdentifier, "INDEX(DIDS DIDS_PK)",
                                                                    'oracle').filter_by(scope=scope, name=name)
         if did_query.one_or_none() is None:
