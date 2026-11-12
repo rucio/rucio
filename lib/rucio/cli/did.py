@@ -50,6 +50,34 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
     List the Data IDentifiers matching certain pattern.
     Only the collections (i.e. dataset or container) are returned by default.
     With the filter option, you can specify a list of metadata that the Data IDentifier should match
+
+    \b
+    Example: List DID datasets, containers, with the scope 'MyScope'
+        $ rucio did list MyScope:*
+    +-----------------------+--------------+
+    | SCOPE:NAME            | [DID TYPE]   |
+    |-----------------------+--------------|
+    | MyScope:dataset_123   | DATASET      |
+    | MyScope:dataset_abc   | DATASET      |
+    +-----------------------+--------------+
+    \b
+    Example: List the parent DIDs of MyScope:MyDID
+        $ rucio did list MyScope:MyDID --parent
+    +---------------------+--------------+
+    | SCOPE:NAME          | [DID TYPE]   |
+    |---------------------+--------------|
+    | MyScope:MyContainer | CONTAINER    |
+    +---------------------+--------------+
+    \b
+    Example: List all files matching a wildcard
+        $ rucio did list MyScope:MyFile_12*  --filter type==FILE
+    +---------------------+--------------+
+    | SCOPE:NAME          | [DID TYPE]   |
+    |---------------------+--------------|
+    | MyScope:MyFile_1234 | FILE         |
+    | MyScope:MyFile_12ab | FILE         |
+    | MyScope:MyFile_12xy | FILE         |
+    +---------------------+--------------+
     """
     if parent:
         if ctx.obj.use_rich:
@@ -118,7 +146,23 @@ def list_(ctx: click.Context, did_pattern: str, recursive: bool, filter_: str, s
 @click.argument("dids", nargs=-1)
 @click.pass_context
 def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
-    """List attributes, statuses, or parents for data identifiers"""
+    """
+    List attributes and statuses for a DID
+
+    \b
+    Example:
+        $ rucio did show scope:name
+    accessed_at:  None
+    account:      janedoe
+    bytes:        10000
+    expired_at:   None
+    length:       0
+    monotonic:    False
+    name:         name
+    open:         True
+    scope:        scope
+    type:         FILE
+    """
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching DID stats')
         ctx.obj.spinner.start()
