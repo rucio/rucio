@@ -82,19 +82,51 @@ def show(ctx: click.Context, account_name: str):
     """
     Show info about a single account
     """
-    info = ctx.obj.client.get_account(account=account_name)
     if ctx.obj.use_rich:
-        keyword_style = {**RichCLITheme.ACCOUNT_STATUS, **RichCLITheme.ACCOUNT_TYPE}
-        table_data = [(k, Text(str(v), style=keyword_style.get(str(v), 'default'))) for k, v in sorted(info.items())]
-        table = RichUtils.generate_table(
-            table_data,
-            row_styles=['none'],
-            col_alignments=['left', 'left']
-        )
-        RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        ctx.obj.spinner.update(status='Fetching account info')
+        ctx.obj.spinner.start()
+        keyword_styles = {**RichCLITheme.BOOLEAN, **RichCLITheme.DID_TYPE}
+
+    settings = ctx.obj.client.get_account(account=account_name)
+    attributes = next(ctx.obj.client.list_account_attributes(account_name))
+    identities = ctx.obj.client.list_identities(account=account_name)
+
+    if ctx.obj.use_rich:
+        output = []
+        # Settings
+        # Key and value pairs
+        output.append("[b]Settings:[/]")
+        table_data = [[key, Text(str(item), style=keyword_styles.get(str(item), 'default'))] for key, item in settings.items()]
+        output.append(RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left']))
+
+        # table with "Key" and "Value" for each plugin, with the plugin type as a header
+        output.append("[b]Attributes:[/]\n")
+        table_data = [[attr['key'], Text(str(attr['value']), style=keyword_styles.get(str(attr['value']), 'default'))] for attr in attributes]
+        output.append(RichUtils.generate_table(table_data, row_styles=['none'], col_alignments=['left', 'left']))
+
+        output.append(Text("Identities", style=RichCLITheme.SUBHEADER_HIGHLIGHT))
+        table_data = [[identity['identity'], Text(identity['type'], style=keyword_styles.get(str(identity['type']), 'default'))] for identity in identities]
+        output.append(RichUtils.generate_table(table_data, row_styles=['none'], headers=["IDENTITY", "TYPE"], col_alignments=['left', 'left']))
+
+        ctx.obj.spinner.stop()
+        RichUtils.print_output(*output, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+
     else:
-        for k in info:
-            print(k.ljust(10) + ' : ' + str(info[k]))
+        print("Settings\n===========")
+        for key, value in settings.items():
+            print(f"{ctx.obj.spacing}{key}: {value}")
+
+        print("Attributes\n===========")
+        for attr in attributes:
+            print(f"{ctx.obj.spacing}{attr['key']}: {attr['value']}")
+
+        print("Identities\n===========")
+        table_data = []
+        for identity in identities:
+            if len(identity['identity']) > 100:
+                identity['identity'] = f"{identity['identity'][:20]} ... {identity['identity'][-20:]} (truncated)"
+            table_data.append([identity['identity'], identity['type']])
+        print(tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['IDENTITY', 'TYPE']))
 
 
 @account.command("remove")
