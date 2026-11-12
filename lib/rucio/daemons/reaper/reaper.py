@@ -75,33 +75,26 @@ def _use_token_operation_interface() -> bool:
     return config_get_bool('reaper', 'use_token_operation_interface', False, False)
 
 
-def _replica_did(replica: dict[str, Any]) -> tuple[str, str]:
-    scope = replica['scope']
-    return (str(getattr(scope, 'external', scope)), str(replica['name']))
-
-
-def _central_delete_token(rse_id: str, replica: dict[str, Any], logger: "LoggerFunction") -> Optional[str]:
+def _central_delete_token(rse_id: str, vo: Optional[str], logger: "LoggerFunction") -> Optional[str]:
     try:
         return get_token_for_operation(StorageTokenContext(
             operation=StorageTokenOperation.CENTRAL_DELETE,
             rse_id=rse_id,
-            did=_replica_did(replica),
-            vo=getattr(replica['scope'], 'vo', None),
+            vo=vo,
         ))
     except Exception:
-        logger(logging.WARNING, 'Failed to procure a token to delete %s:%s', replica['scope'], replica['name'], exc_info=True)
+        logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse_id, exc_info=True)
         return None
 
 
-def _bind_replica_storage_token(prot, replica: dict[str, Any], token_for_replica, rse_name: str, logger: "LoggerFunction") -> None:
-    token = token_for_replica(replica)
+def _bind_storage_token(prot, token: Optional[str], rse_name: str, logger: "LoggerFunction") -> None:
     if not token:
-        logger(logging.WARNING, 'Failed to procure a token to delete %s:%s on %s', replica['scope'], replica['name'], rse_name)
+        logger(logging.WARNING, 'Failed to procure a token to delete on %s', rse_name)
         return
     if token == prot.auth_token:
         return
-    prot.set_auth_token(token)
-    logger(logging.DEBUG, 'Using a token to delete %s:%s on %s', replica['scope'], replica['name'], rse_name)
+    prot.auth_token = token
+    logger(logging.DEBUG, 'Using a token to delete on %s', rse_name)
 
 
 def get_rses_to_process(
@@ -174,18 +167,18 @@ def get_rses_to_process(
     return rses_to_process
 
 
-def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log, storage_token_for_replica=None):
+def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log, central_delete_token=None):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
     pfns_to_bulk_delete = []
     try:
-        if storage_token_for_replica and replicas and not is_staging:
+        if central_delete_token and replicas and not is_staging:
             # GFAL only skips its X.509 proxy self-discovery when a bearer token is
-            # already on the context, so the first token has to be bound before
-            # connecting. The per-replica rebind below is then a no-op for this file.
-            _bind_replica_storage_token(prot, replicas[0], storage_token_for_replica, rse_name, logger)
+            # already on the context, so the token has to be bound before connecting.
+            token = central_delete_token(getattr(replicas[0]['scope'], 'vo', None))
+            _bind_storage_token(prot, token, rse_name, logger)
         prot.connect()
         for replica in replicas:
             # Physical deletion
@@ -210,8 +203,6 @@ def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info,
                     continue
 
                 if replica['pfn']:
-                    if storage_token_for_replica:
-                        _bind_replica_storage_token(prot, replica, storage_token_for_replica, rse_name, logger)
                     pfn = replica['pfn']
                     # sign the URL if necessary
                     if prot.attributes['scheme'] == 'https' and rse_info['sign_url'] is not None:
@@ -658,10 +649,10 @@ def _run_once(
         try:
             rse.ensure_loaded(load_info=True, load_attributes=True)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
-            storage_token_for_replica = None
+            central_delete_token = None
             if rse.attributes.get(RseAttr.OIDC_SUPPORT) is True and prot.attributes['scheme'] == 'davs':
                 if _use_token_operation_interface():
-                    storage_token_for_replica = functools.partial(_central_delete_token, rse.id, logger=logger)
+                    central_delete_token = functools.partial(_central_delete_token, rse.id, logger=logger)
                     logger(logging.INFO, 'Using operation-interface tokens to delete on RSE %s', rse.name)
                 else:
                     audience = determine_audience_for_rse(rse.id)
@@ -696,7 +687,7 @@ def _run_once(
                         logger(logging.CRITICAL, 'Exception', exc_info=True)
 
                 is_staging = rse.columns['staging_area']
-                deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger, storage_token_for_replica=storage_token_for_replica)
+                deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger, central_delete_token=central_delete_token)
                 logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                 # Then finally delete the replicas
