@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from rucio.common.constants import RseAttr
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.core import distance as distance_core
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
@@ -22,16 +25,25 @@ from rucio.core import rule as rule_core
 from rucio.core.request import list_and_mark_transfer_requests_and_source_replicas
 from rucio.core.topology import Topology
 from rucio.core.transfer import ProtocolFactory, build_transfer_paths
-from rucio.transfertool.fts3 import FTS3Transfertool
+from rucio.transfertool.fts3 import FTS3Transfertool, FTSHostSelection
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from rucio.core.request import DirectTransfer
 
 SRC_FTS = "https://fts-src:8446"
 MID_FTS = "https://fts-mid:8446"
 DST_FTS = "https://fts-dst:8446"
+CUSTOM_FTS = "https://fts-custom:8446"
+POLICY_PACKAGE_FTS = "https://fts-policy-package:8446"
+FUNCTIONAL_TEST_FTS = "https://fts-functional-test:8446"
+CUSTOM_ALGORITHM = "test_fts_host_selection"
 GCS_SIGN_URL = "gcs"
 S3_SIGN_URL = "s3"
 
 
-def _make_transfer_path(did, rse_factory, root_account, *rses_attrs):
+def _make_transfer_path(did, rse_factory, root_account, *rses_attrs, activity=None):
     """
     Create a chain of mock RSEs, one per attribute dict, and return the transfer path along it.
 
@@ -68,6 +80,7 @@ def _make_transfer_path(did, rse_factory, root_account, *rses_attrs):
         lifetime=None,
         locked=False,
         subscription_id=None,
+        activity=activity,
     )
 
     # Create RSE network, allowing the intermediate RSEs to be used as hops
@@ -206,3 +219,113 @@ def test_multihop_truncated_when_final_destination_has_no_fts(did_factory, rse_f
 
     assert sub_path == transfer_path[:1]
     assert _selected_host(builder) == MID_FTS
+
+
+@pytest.fixture
+def isolated_policy_algorithms(monkeypatch):
+    """Keep algorithms registered and policy package defaults cached during a test from leaking into other tests."""
+    monkeypatch.setattr(PolicyPackageAlgorithms, "_ALGORITHMS", {k: dict(v) for k, v in PolicyPackageAlgorithms._ALGORITHMS.items()})
+    monkeypatch.setattr(PolicyPackageAlgorithms, "_default_algorithms", {})
+
+
+def test_host_selection_default_returns_default_host(isolated_policy_algorithms):
+    """Without a configured algorithm or a policy package one, the host chosen from the RSE attributes is kept."""
+    assert FTSHostSelection().select([], DST_FTS) == DST_FTS
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [("transfers", "fts_host_selection", CUSTOM_ALGORITHM)]},
+], indirect=True)
+def test_host_selection_uses_configured_algorithm(isolated_policy_algorithms, file_config_mock):
+    """The algorithm named in [transfers] fts_host_selection is used."""
+    FTSHostSelection.register(CUSTOM_ALGORITHM, lambda transfer_path, default_host: CUSTOM_FTS)
+
+    assert FTSHostSelection().select([], DST_FTS) == CUSTOM_FTS
+
+
+def test_host_selection_uses_policy_package_default(isolated_policy_algorithms, monkeypatch):
+    """Without a configured algorithm, the policy package's fts_host_selection.fts_host_selection is used."""
+    monkeypatch.setenv("RUCIO_POLICY_PACKAGE", "tests.mocks.policy_package_algorithm")
+
+    assert FTSHostSelection().select([], DST_FTS) == POLICY_PACKAGE_FTS
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [("transfers", "fts_host_selection", CUSTOM_ALGORITHM)]},
+], indirect=True)
+def test_multihop_uses_configured_algorithm_host(isolated_policy_algorithms, file_config_mock, did_factory, rse_factory, root_account):
+    """With a configured algorithm, the whole multihop path is submitted to the host it returns instead of the last hop destination's server."""
+    FTSHostSelection.register(CUSTOM_ALGORITHM, lambda transfer_path, default_host: CUSTOM_FTS)
+
+    did = did_factory.random_file_did()
+    transfer_path = _make_transfer_path(
+        did, rse_factory, root_account,
+        {RseAttr.FTS: SRC_FTS},
+        {RseAttr.FTS: MID_FTS},
+        {RseAttr.FTS: DST_FTS},
+    )
+
+    sub_path, builder = FTS3Transfertool.submission_builder_for_path(transfer_path)
+
+    assert sub_path == transfer_path
+    assert _selected_host(builder) == CUSTOM_FTS
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [("transfers", "fts_host_selection", CUSTOM_ALGORITHM)]},
+], indirect=True)
+def test_truncated_multihop_selection_gets_submitted_hops(isolated_policy_algorithms, file_config_mock, did_factory, rse_factory, root_account):
+    """The algorithm is called once with only the hops being submitted and the server of the last capable hop."""
+    calls = []
+
+    def record_call(transfer_path, default_host):
+        calls.append((list(transfer_path), default_host))
+        return CUSTOM_FTS
+
+    FTSHostSelection.register(CUSTOM_ALGORITHM, record_call)
+
+    did = did_factory.random_file_did()
+    transfer_path = _make_transfer_path(
+        did, rse_factory, root_account,
+        {RseAttr.FTS: SRC_FTS},
+        {RseAttr.FTS: MID_FTS},
+        {},
+    )
+
+    sub_path, builder = FTS3Transfertool.submission_builder_for_path(transfer_path)
+
+    assert calls == [(transfer_path[:1], MID_FTS)]
+    assert sub_path == transfer_path[:1]
+    assert _selected_host(builder) == CUSTOM_FTS
+
+
+@pytest.mark.parametrize("file_config_mock", [
+    {"overrides": [("transfers", "fts_host_selection", CUSTOM_ALGORITHM)]},
+], indirect=True)
+@pytest.mark.parametrize("activity, expected_host", [
+    ("Functional Test", FUNCTIONAL_TEST_FTS),
+    ("User Subscriptions", DST_FTS),
+], ids=["redirected", "not-redirected"])
+def test_configured_algorithm_redirects_by_activity(activity, expected_host, isolated_policy_algorithms, file_config_mock, did_factory, rse_factory, root_account):
+    """A configured algorithm can send a path to a different FTS server based on the requests' activity, as ATLAS's downstream patch does."""
+    def redirect_by_activity(tp: "Sequence[DirectTransfer]", default_host: str) -> str:
+        if all(hop.rws.activity == 'Functional Test' for hop in tp):
+            return FUNCTIONAL_TEST_FTS
+
+        return default_host
+
+    FTSHostSelection.register(CUSTOM_ALGORITHM, redirect_by_activity)
+
+    did = did_factory.random_file_did()
+    transfer_path = _make_transfer_path(
+        did, rse_factory, root_account,
+        {RseAttr.FTS: SRC_FTS},
+        {RseAttr.FTS: MID_FTS},
+        {RseAttr.FTS: DST_FTS},
+        activity=activity
+    )
+
+    sub_path, builder = FTS3Transfertool.submission_builder_for_path(transfer_path)
+
+    assert sub_path == transfer_path
+    assert _selected_host(builder) == expected_host
