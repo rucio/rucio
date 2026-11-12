@@ -27,13 +27,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy import and_, delete, exists, insert, or_, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, DBAPIError, IntegrityError, StatementError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, false, func, null, true
 
 from rucio.common.config import config_get_bool, config_get_int
 from rucio.common.constants import DEFAULT_VO, RseAttr, TransferLimitDirection
-from rucio.common.exception import InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
+from rucio.common.exception import InputValidationError, InvalidRSEExpression, RequestNotFound, RucioException, UnsupportedOperation
 from rucio.common.types import FilterDict, InternalAccount, InternalScope, LoggerFunction, RequestDict
 from rucio.common.utils import chunks, generate_uuid
 from rucio.core.distance import get_distances
@@ -3061,6 +3061,96 @@ def list_requests_history(
     if limit:
         stmt = stmt.limit(limit)
     for request in session.execute(stmt).yield_per(500).scalars():
+        yield request
+
+
+@stream_session
+def list_requests_history_by_did(
+    scope: InternalScope,
+    name: str,
+    rse_id: str,
+    rule_id: Optional[str] = None,
+    states: Optional['Sequence[RequestState]'] = None,
+    created_after: Optional[datetime.datetime] = None,
+    created_before: Optional[datetime.datetime] = None,
+    offset: Optional[int] = None,
+    *,
+    limit: int,
+    session: "Session"
+) -> 'Iterator[models.RequestHistory]':
+    """
+    List the latest historical requests for a DID towards a destination RSE, newest first.
+
+    Unlike `get_request_history_by_did`, which returns a single row, this returns up to
+    `limit` rows so that several transfer attempts of the same DID can be inspected at once.
+
+    Parameters
+    ----------
+    scope :
+        The scope of the data identifier.
+    name :
+        The name of the data identifier.
+    rse_id :
+        The destination RSE ID of the requests.
+    rule_id :
+        Only return requests associated with this replication rule.
+    states :
+        Only return requests in one of these states. Defaults to all.
+    created_after :
+        Only return requests created at or after this time.
+    created_before :
+        Only return requests created at or before this time.
+    offset :
+        Number of rows to skip.
+    limit :
+        Maximum number of requests to return.
+    session :
+        The database session in use.
+
+    Returns
+    -------
+        An iterator over the matching historical requests, ordered by creation time descending.
+
+    Raises
+    ------
+    InputValidationError
+        If `rule_id` is not a valid UUID.
+    """
+    stmt = select(
+        models.RequestHistory
+    ).where(
+        and_(
+            models.RequestHistory.scope == scope,
+            models.RequestHistory.name == name,
+            models.RequestHistory.dest_rse_id == rse_id
+        )
+    )
+    if rule_id:
+        stmt = stmt.where(models.RequestHistory.rule_id == rule_id)
+    if states:
+        stmt = stmt.where(models.RequestHistory.state.in_(states))
+    if created_after:
+        stmt = stmt.where(models.RequestHistory.created_at >= created_after)
+    if created_before:
+        stmt = stmt.where(models.RequestHistory.created_at <= created_before)
+
+    stmt = stmt.order_by(
+        models.RequestHistory.created_at.desc(),
+        models.RequestHistory.id.desc()
+    )
+    if offset:
+        stmt = stmt.offset(offset)
+    stmt = stmt.limit(limit)
+
+    try:
+        result = session.execute(stmt).yield_per(500).scalars()
+    except StatementError as exc:
+        # ensure only validation errors get propagated as InputValidatioNError
+        if not rule_id or (isinstance(exc, DBAPIError) and not isinstance(exc, DataError)):
+            raise
+        raise InputValidationError(f'Badly formatted rule id ({rule_id})') from exc
+
+    for request in result:
         yield request
 
 
