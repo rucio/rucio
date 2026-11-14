@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (
@@ -377,6 +377,28 @@ class TestDIDGateway:
         assert st
         with pytest.raises(DataIdentifierNotFound):
             did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None, vo=vo)
+
+    def test_add_did_to_followed_permissions(self, vo, root_account, random_account_factory, did_factory):
+        """ DATA IDENTIFIERS (Gateway): Only privileged accounts can follow a DID on behalf of another account """
+        issuer = random_account_factory()
+        other_account = random_account_factory()
+        dataset = did_factory.make_dataset()
+        scope = dataset['scope'].external
+        name = dataset['name']
+
+        # A normal account must not be able to follow a DID for another account.
+        with pytest.raises(AccessDenied):
+            did.add_did_to_followed(scope=scope, name=name, account=other_account.external, issuer=issuer.external, vo=vo)
+        assert list(did.get_users_following_did(scope=scope, name=name, vo=vo)) == []
+
+        # A normal account can follow a DID for itself.
+        did.add_did_to_followed(scope=scope, name=name, account=issuer.external, issuer=issuer.external, vo=vo)
+
+        # Root can follow a DID for another account.
+        did.add_did_to_followed(scope=scope, name=name, account=other_account.external, issuer=root_account.external, vo=vo)
+
+        followers = {user['user'] for user in did.get_users_following_did(scope=scope, name=name, vo=vo)}
+        assert followers == {issuer.external, other_account.external}
 
 
 class TestDIDClients:

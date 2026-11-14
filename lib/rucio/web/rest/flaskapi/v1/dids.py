@@ -2456,7 +2456,7 @@ class Follow(ErrorHandlingMethodView):
         account = param_get(parameters, 'account')
 
         try:
-            add_did_to_followed(scope=scope, name=name, account=account, vo=request.environ['vo'])
+            add_did_to_followed(scope=scope, name=name, account=account, issuer=request.environ['issuer'], vo=request.environ['vo'])
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
         except AccessDenied as error:
