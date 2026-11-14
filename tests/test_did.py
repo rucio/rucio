@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
+from rucio.common.exception import AccessDenied, DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (
@@ -377,6 +377,25 @@ class TestDIDGateway:
         assert st
         with pytest.raises(DataIdentifierNotFound):
             did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None, vo=vo)
+
+    def test_set_status_open_requires_privileged_account(self, vo, random_account, scope_factory, did_factory):
+        """ DATA IDENTIFIERS (Gateway): Only privileged accounts can re-open a data identifier """
+        _, [tmp_scope] = scope_factory(vos=[vo], account_name=random_account.external)
+        dataset = did_factory.make_dataset(scope=tmp_scope)
+        did_kwargs = {'scope': tmp_scope.external, 'name': dataset['name'], 'vo': vo}
+
+        # The scope owner can close the dataset
+        did.set_status(issuer=random_account.external, open=False, **did_kwargs)
+        assert not get_did(**dataset)['open']
+
+        # ... but cannot re-open it
+        with pytest.raises(AccessDenied):
+            did.set_status(issuer=random_account.external, open=True, **did_kwargs)
+        assert not get_did(**dataset)['open']
+
+        # A privileged account can re-open it
+        did.set_status(issuer='root', open=True, **did_kwargs)
+        assert get_did(**dataset)['open']
 
 
 class TestDIDClients:
