@@ -197,7 +197,7 @@ class TestGatewayExternalRepresentation:
         assert parent_found
 
         # test get_did
-        add_did_to_followed(scope_name, ext_parent, account_name, vo=vo)
+        add_did_to_followed(scope_name, ext_parent, account_name, issuer='root', vo=vo)
         out = get_users_following_did(ext_parent, scope_name, vo=vo)
         out = list(out)
         assert 0 != len(out)

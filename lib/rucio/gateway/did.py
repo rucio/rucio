@@ -805,6 +805,7 @@ def add_did_to_followed(
     scope: str,
     name: str,
     account: str,
+    issuer: str,
     vo: str = DEFAULT_VO
 ) -> None:
     """
@@ -813,10 +814,16 @@ def add_did_to_followed(
     :param scope: The scope name.
     :param name: The data identifier name.
     :param account: The account owner.
+    :param issuer: The issuer account.
     """
+    kwargs = {'scope': scope, 'name': name, 'account': account, 'issuer': issuer}
     internal_scope = InternalScope(scope, vo=vo)
     internal_account = InternalAccount(account, vo=vo)
     with db_session(DatabaseOperationType.WRITE) as session:
+        if account != issuer:
+            auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='add_did_to_followed', kwargs=kwargs, session=session)
+            if not auth_result.allowed:
+                raise AccessDenied('Account %s can not add data identifiers to followed table for account %s. %s' % (issuer, account, auth_result.message))
         return did.add_did_to_followed(scope=internal_scope, name=name, account=internal_account, session=session)
 
 

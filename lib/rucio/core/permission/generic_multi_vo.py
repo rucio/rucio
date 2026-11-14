@@ -116,6 +116,7 @@ def has_permission(issuer, action, kwargs, session: "Session"):
             'add_bad_pfns': perm_add_bad_pfns,
             'del_account_identity': perm_del_account_identity,
             'del_identity': perm_del_identity,
+            'add_did_to_followed': perm_default,
             'remove_did_from_followed': perm_remove_did_from_followed,
             'remove_dids_from_followed': perm_remove_dids_from_followed,
             'add_opendata_did': perm_default,

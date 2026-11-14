@@ -73,6 +73,7 @@ Individual contributors to the source code
 - Riccardo Di Maio <riccardodimaio11@gmail.com>, 2024-2025
 - Karanjot Singh <karanjot.singh@cern.ch>, 2025-2026
 - Vlad Galuska <vlad.galuska21@gmail.com>, 2026
+- Kartik <kartik.24bcs10259@sst.scaler.com>, 2026
 
 Organisations employing contributors
 ------------------------------------
@@ -102,3 +103,4 @@ Organisations employing contributors
 - Purdue University (USA)
 - TU Dortmund University (Germany)
 - Deutsches Elektronen-Synchrotron DESY (Germany)
+- Birla Institute of Technology and Science, Pilani (India)
