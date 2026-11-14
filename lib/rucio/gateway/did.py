@@ -667,7 +667,7 @@ def set_status(
     """
 
     with db_session(DatabaseOperationType.WRITE) as session:
-        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer}, session=session)
+        auth_result = rucio.gateway.permission.has_permission(issuer=issuer, vo=vo, action='set_status', kwargs={'scope': scope, 'name': name, 'issuer': issuer, 'open': kwargs.get('open')}, session=session)
         if not auth_result.allowed:
             raise AccessDenied('Account %s can not set status on data identifier %s:%s. %s' % (issuer, scope, name, auth_result.message))
 
