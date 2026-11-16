@@ -290,14 +290,15 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         if isinstance(filters, dict):
             filters = [filters]
 
+        additional_filters = [('vo', operator.eq, scope.vo)]
+        if scope is not None:
+            additional_filters.append(('scope', operator.eq, scope.internal))
+
         try:
             # instantiate fe and create postgres query
             fe = FilterEngine(filters, model_class=None, strict_coerce=False)
             postgres_where_sql, filter_args = fe.create_postgres_query(
-                additional_filters=[
-                    ('scope', operator.eq, scope.internal),
-                    ('vo', operator.eq, scope.vo)
-                ],
+                additional_filters=additional_filters,
                 fixed_table_columns=self.fixed_table_columns,
                 jsonb_column=self.jsonb_column
             )
