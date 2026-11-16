@@ -1664,18 +1664,17 @@ class TestRSEClient:
         with pytest.raises(RSENotFound):
             rucio_client.delete_rse(rse=rse_name)
 
-    def test_rse_update_unsupported_option(self, vo):
+    def test_rse_update_unsupported_option(self, rucio_client):
         """ RSE(CLIENT): update with an unsupported option should throw an exception"""
         rse_name = rse_name_generator()
-        add_rse(rse_name, vo=vo)
-        rse_id = get_rse_id(rse_name, vo=vo)
+        rucio_client.add_rse(rse_name)
 
-        update_rse(rse_id, parameters={'city': 'Berlin'})
-        assert get_rse(rse_id)['city'] == 'Berlin'
+        rucio_client.update_rse(rse_name, {'city': 'Berlin'})
+        assert rucio_client.get_rse(rse_name)['city'] == 'Berlin'
 
         with pytest.raises(InputValidationError):
-            update_rse(rse_id, parameters={'city': 'Not Berlin', 'non_existing_option': 3})
-        assert get_rse(rse_id)['city'] == 'Berlin'
+            rucio_client.update_rse(rse_name, {'city': 'Not Berlin', 'non_existing_option': 3})
+        assert rucio_client.get_rse(rse_name)['city'] == 'Berlin'
 
 
 @pytest.mark.parametrize("use_cache", [
