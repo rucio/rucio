@@ -15,6 +15,7 @@ import json
 from typing import Optional
 
 import click
+import tabulate
 from rich.padding import Padding
 from rich.text import Text
 from rich.tree import Tree
@@ -217,6 +218,49 @@ def update(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
     ctx.obj.client.update_rse(rse_name, parameters=params)
     print_value = value if str(value).lower() not in ['', 'none', 'null'] else '[WIPED]'
     print(f'Updated RSE {rse_name} settings {key} to {print_value}')
+
+
+@rse.group("dataset-replica")
+def dataset_replica():
+    "View datasets at an RSE"
+
+
+@dataset_replica.command("list")
+@click.argument("rse")
+@click.option("--long", is_flag=True, default=False, help="Display extra details")
+@click.pass_context
+def dataset_replica_list(ctx: click.Context, rse: str, long: bool = False) -> None:
+    """List all the datasets at an RSE"""
+    if ctx.obj.use_rich:
+        ctx.obj.spinner.update(status='Fetching datasets at RSE')
+        ctx.obj.spinner.start()
+
+    if long:
+        table_data = []
+        for dsn in ctx.obj.client.list_datasets_per_rse(rse):
+            table_data.append([f"{dsn['scope']}:{dsn['name']}"
+                            f"{str(dsn['available_length'])}/{str(dsn['length'])}",
+                            f"{str(dsn['available_bytes'])}/{str(dsn['bytes'])}"])
+
+        if ctx.obj.use_rich:
+            table_data.sort()
+            table = RichUtils.generate_table(table_data, headers=['SCOPE:NAME', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES'], col_alignments=['left', 'right', 'right'])
+            ctx.obj.spinner.stop()
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        else:
+            print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=['DID', 'LOCAL FILES/TOTAL FILES', 'LOCAL BYTES/TOTAL BYTES']))
+    else:
+        dsns = list(set([f"{dsn['scope']}:{dsn['name']}" for dsn in ctx.obj.client.list_datasets_per_rse(rse)]))
+        dsns.sort()
+        if ctx.obj.use_rich:
+            table = RichUtils.generate_table([[dsn] for dsn in dsns], headers=['SCOPE:NAME'])
+            ctx.obj.spinner.stop()
+            RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
+        else:
+            print("SCOPE:NAME")
+            print('----------')
+            for dsn in dsns:
+                print(dsn)
 
 
 @rse.group()

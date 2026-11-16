@@ -619,12 +619,6 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory, file_config
     else:
         assert dataset_name in out
 
-    cmd = f"rucio replica dataset-list --rse {mock_rse}"
-    exitcode, out, err = execute_cli(cmd)
-    assert exitcode == 0
-    assert "ERROR" not in err
-    assert all([dataset in out for dataset in rucio_client.list_datasets_per_rse(mock_rse)])
-
 
 @pytest.mark.dirty
 @with_each_cli_renderer
@@ -681,6 +675,12 @@ def test_rse(rucio_client, file_config_mock):
     assert exitcode == 0
     assert "ERROR" not in err
     assert value == rucio_client.list_rse_attributes(rse_name)['city']
+
+    cmd = f"rucio rse dataset-replica list {rse_name}"
+    exitcode, out, err = execute_cli(cmd)
+    assert exitcode == 0
+    assert "ERROR" not in err
+    assert all([dataset in out for dataset in rucio_client.list_datasets_per_rse(rse_name)])
 
     cmd = f"rucio rse remove {rse_name}"
     exitcode, out, err = execute_cli(cmd)
