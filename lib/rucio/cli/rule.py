@@ -376,7 +376,16 @@ def update(
 @click.option("--subscription", help="Filter by subscription name")
 @click.pass_context
 def list_(ctx: click.Context, did: Union[tuple[str], tuple], traverse: bool, csv: bool, file: Optional[str], account: Optional[str], subscription: Optional[str]) -> None:
-    """List all rules impacting a given DID"""
+    """
+    List rules matching a given filter.
+    DID is the default filter, but can filter by account name, file path, or subscription name.
+
+    \b
+    Example:
+        $ rucio rule list SCOPE:DID-NAME  # List the rules for a DID
+        $ rucio rule list --account MY-ACCOUNT  # List the rules for MY-ACCOUNT
+        $ rucio rule list --tranverse --file /path/to/file SCOPE:DID-NAME  # Look up the rule for a specific file of a DID.
+    """
     if len(did) > 1:
         ctx.obj.logger.debug("Cannot use more than 1 DID to filter, picking the first DID given.")
         single_did = did[0]
