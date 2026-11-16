@@ -130,6 +130,62 @@ class TestDIDCore:
         set_metadata(scope=mock_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
+    @pytest.mark.parametrize('metadata_location', ['meta', 'top_level', 'none'])
+    def test_archive_constituent_is_opendata_protected(self, mock_scope, root_account, rse_factory, metadata_location):
+        """DATA IDENTIFIERS (CORE): Protect is_opendata during archive constituent registration."""
+        _, rse_id = rse_factory.make_mock_rse()
+
+        archive_name = did_name_generator('archive') + '.zip'
+        constituent_name = did_name_generator('constituent')
+
+        # Create the archive DID.
+        add_replica(
+            rse_id=rse_id,
+            scope=mock_scope,
+            name=archive_name,
+            bytes_=100,
+            adler32='0cc737eb',
+            account=root_account,
+        )
+
+        constituent = {
+            'scope': mock_scope,
+            'name': constituent_name,
+            'bytes': 10,
+            'adler32': '0cc737eb',
+        }
+
+        if metadata_location == 'meta':
+            constituent['meta'] = {'is_opendata': True}
+        elif metadata_location == 'top_level':
+            constituent['is_opendata'] = True
+
+        if metadata_location == 'none':
+            # Normal archive constituent registration must still work.
+            attach_dids(
+                scope=mock_scope,
+                name=archive_name,
+                dids=[constituent],
+                account=root_account,
+            )
+
+            metadata = get_metadata(scope=mock_scope, name=constituent_name)
+            assert metadata['is_opendata'] is None
+
+        else:
+            # Callers must not be able to set the protected flag.
+            with pytest.raises(exception.UnsupportedOperation):
+                attach_dids(
+                    scope=mock_scope,
+                    name=archive_name,
+                    dids=[constituent],
+                    account=root_account,
+                )
+
+            # The rejected constituent must not have been created.
+            with pytest.raises(exception.DataIdentifierNotFound):
+                get_did(scope=mock_scope, name=constituent_name)
+
     def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory):
         """ DATA IDENTIFIERS (CORE): Get DID with dynamic resolve of size"""
         rse_name, rse_id = rse_factory.make_mock_rse()

@@ -430,6 +430,10 @@ def __add_files_to_archive(
             continue
 
         if row.did_scope is None:
+            if 'is_opendata' in file or 'is_opendata' in file.get('meta', {}):
+                raise exception.UnsupportedOperation(
+                    "'is_opendata' is a read-only system attribute"
+                )
             new_did = {}
             new_did.update((k, v) for k, v in file.items() if k != 'meta')
             for key in file.get('meta', {}):
