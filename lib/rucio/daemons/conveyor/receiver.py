@@ -126,7 +126,8 @@ class Receiver:
 def receiver(
         id_: str,
         total_threads: int = 1,
-        all_vos: bool = False
+        all_vos: bool = False,
+        once: bool = False,
 ) -> None:
     """
     Main loop to consume messages from the FTS3 producer.
@@ -207,6 +208,8 @@ def receiver(
                     conn.connect(wait=True, **auth_kwargs)
                     conn.subscribe(destination=destination, id='rucio-messaging-fts3', ack='auto')
             time.sleep(1)
+            if once:
+                break
 
         for conn in conns:
             try:
@@ -237,7 +240,8 @@ def run(
 
     logging.info('starting receiver thread')
     threads = [threading.Thread(target=receiver, kwargs={'id_': i,
-                                                         'total_threads': total_threads}) for i in range(0, total_threads)]
+                                                         'total_threads': total_threads,
+                                                         'once': once}) for i in range(0, total_threads)]
 
     [thread.start() for thread in threads]
 
