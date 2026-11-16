@@ -17,31 +17,19 @@ import argparse
 import os
 import sys
 
-import click
-
-from rucio.cli.bin_legacy.rucio import get_parser
+from rucio.cli.bin_legacy.rucio import rucio_main_legacy
 from rucio.cli.command import main
 from rucio.common.config import clean_cached_config, config_get, config_get_list
-from rucio.common.utils import setup_logger
 
 
 def run_command(args, use_multi_host_functionality):
+
     commands = ("account", "config", "did", "replica", "rse", "rule", "scope", "subscription", "ping", "whoami", "lifetime-exception", "upload", "download", "opendata", "data")
     if (any(arg in commands for arg in sys.argv)) or args.help or args.version:
         main(standalone_mode=not use_multi_host_functionality)  # pylint: disable=E1120
 
     else:
-        try:
-            get_parser().parse_args()
-            msg = "This method is deprecated. Please view rucio -h for an updated help menu"
-            logger.error(msg)
-            sys.exit(1)
-        # Make a custom warning - show the new help menu when invalid commands are called.
-        except argparse.ArgumentError:
-            logger.error("Invalid argument(s) - %s " % sys.argv[1:])
-            with click.Context(main) as ctx:
-                print(main.get_help(ctx))
-            sys.exit(1)
+        rucio_main_legacy()
 
 
 if __name__ == "__main__":
@@ -50,10 +38,7 @@ if __name__ == "__main__":
     # Check for commands in the new command list
     parser.add_argument("-h", "--help", action="store_true")
     parser.add_argument("--version", action="store_true")
-
     args, _ = parser.parse_known_args()
-
-    logger = setup_logger(module_name=__name__)
 
     multi_host_commands = config_get('client', 'multi_host_commands', raise_exception=False, default='')
     use_multi_host = False
