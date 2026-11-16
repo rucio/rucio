@@ -39,12 +39,7 @@ def replica():
     """Manage replicas - DIDs with locations on RSEs"""
 
 
-@replica.group("list")
-def replica_list():
-    """List replicas (file or collection-types)"""
-
-
-@replica_list.command("file")
+@replica.command("file-list")
 @click.argument("dids", nargs=-1)
 @click.option("--protocols", help="Protocol used to access a replicas (i.e. https, root)")
 @click.option(
@@ -213,7 +208,7 @@ def list_(
             print(tabulate.tabulate(table_data, tablefmt=ctx.obj.tablefmt, headers=header, disable_numparse=True))
 
 
-@replica_list.command("dataset")
+@replica.command("dataset-list")
 @click.argument("dids", nargs=-1)
 @click.option("--rse", default=None, help="RSE name to use a filter")
 @click.option("--deep", default=False, is_flag=True, help="Make a deep check, checking the contents of datasets in datasets")

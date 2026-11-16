@@ -578,19 +578,19 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory, file_config
 
     rucio_client.add_replica(mock_rse, scope, name, 1, "deadbeef")  # I don't know why this is the default adler32
 
-    cmd = f"rucio replica list dataset {scope}:{name}"
+    cmd = f"rucio replica dataset-list {scope}:{name}"
     exitcode, out, err = execute_cli(cmd)
     assert "ERROR" not in err
     assert exitcode == 0
     assert name not in out
 
-    cmd = f"rucio replica list file {scope}:{name}"
+    cmd = f"rucio replica file-list {scope}:{name}"
     exitcode, out, err = execute_cli(cmd)
     assert "ERROR" not in err
     assert exitcode == 0
     assert name in out
 
-    cmd = f"rucio replica list file {scope}:{name} --pfns --rses {mock_rse}"
+    cmd = f"rucio replica file-list {scope}:{name} --pfns --rses {mock_rse}"
     exitcode, out, err = execute_cli(cmd)
     assert "ERROR" not in err
     assert exitcode == 0
@@ -608,7 +608,7 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory, file_config
     dids = did_factory.upload_test_dataset(rse_name=mock_rse, scope=scope, size=1, nb_files=1)
     dataset_name = dids[0]['dataset_name']
 
-    cmd = f"rucio replica list dataset {scope}:{dataset_name} --deep"
+    cmd = f"rucio replica dataset-list {scope}:{dataset_name} --deep"
     exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
@@ -619,7 +619,7 @@ def test_replica(mock_scope, rucio_client, did_factory, rse_factory, file_config
     else:
         assert dataset_name in out
 
-    cmd = f"rucio replica list dataset --rse {mock_rse}"
+    cmd = f"rucio replica dataset-list --rse {mock_rse}"
     exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
     assert "ERROR" not in err
