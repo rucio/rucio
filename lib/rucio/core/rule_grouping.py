@@ -1281,11 +1281,16 @@ def __set_replica_unavailable(replica, *, session: "Session"):
     :param replica:              The replica to update.
     :param session:              The db session in use.
     """
-
-    replica.lock_cnt -= 1
-    if replica.lock_cnt == 0:
-        replica.tombstone = OBSOLETE
-        replica.state = ReplicaState.UNAVAILABLE
+    stmt = select(models.RSEFileAssociation).where(
+        models.RSEFileAssociation.scope == replica.scope,
+        models.RSEFileAssociation.name == replica.name,
+        models.RSEFileAssociation.rse_id == replica.rse_id,
+    ).with_for_update().execution_options(populate_existing=True)
+    locked_replica = session.execute(stmt).scalar_one()
+    locked_replica.lock_cnt -= 1
+    if locked_replica.lock_cnt == 0:
+        locked_replica.tombstone = OBSOLETE
+        locked_replica.state = ReplicaState.UNAVAILABLE
 
 
 # # debug helper functions used in apply_rule
