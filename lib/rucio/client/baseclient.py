@@ -24,7 +24,7 @@ import secrets
 import sys
 import time
 from configparser import NoOptionError, NoSectionError
-from os import environ, fdopen, geteuid, makedirs
+from os import environ, fdopen, makedirs
 from shutil import move
 from tempfile import mkstemp
 from typing import TYPE_CHECKING, Any, Optional
@@ -335,7 +335,8 @@ class BaseClient:
                 # X509_USER_PROXY env variable
                 # /tmp/x509up_u`id -u` if exists
 
-                gsi_proxy_path = '/tmp/x509up_u%d' % geteuid()
+                euid = os.geteuid() if hasattr(os, 'geteuid') else None
+                gsi_proxy_path = '/tmp/x509up_u%d' % euid if euid is not None else None
                 if 'client_proxy' not in creds or creds['client_proxy'] is None:
                     if 'RUCIO_CLIENT_PROXY' in environ:
                         creds['client_proxy'] = environ['RUCIO_CLIENT_PROXY']
@@ -343,12 +344,13 @@ class BaseClient:
                         creds['client_proxy'] = config_get('client', 'client_x509_proxy')
                     elif 'X509_USER_PROXY' in environ:
                         creds['client_proxy'] = environ['X509_USER_PROXY']
-                    elif os.path.isfile(gsi_proxy_path):
+                    elif gsi_proxy_path is not None and os.path.isfile(gsi_proxy_path):
                         creds['client_proxy'] = gsi_proxy_path
 
-                creds['client_proxy'] = _expand_path(creds['client_proxy'])
+                if creds.get('client_proxy') is not None:
+                    creds['client_proxy'] = _expand_path(creds['client_proxy'])
 
-                if not os.path.isfile(creds['client_proxy']):
+                if not creds.get('client_proxy') or not os.path.isfile(creds['client_proxy']):
                     raise MissingClientParameter(
                         'Cannot find a valid X509 proxy; checked $RUCIO_CLIENT_PROXY, $X509_USER_PROXY'
                         'client/client_x509_proxy config and default path: %r' % gsi_proxy_path
