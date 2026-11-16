@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import uuid
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import click
 from rich.padding import Padding
@@ -368,18 +368,27 @@ def update(
 
 
 @rule.command("list")
-@click.option("--did", help="Filter by DID")
+@click.argument("did", nargs=-1)
 @click.option("--traverse", is_flag=True, default=False, help="Traverse the did tree and search for rules affecting this did")
 @click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.option("--file", help="Filter by file")
 @click.option("--account", help="Filter by account")
 @click.option("--subscription", help="Filter by subscription name")
 @click.pass_context
-def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, file: Optional[str], account: Optional[str], subscription: Optional[str]) -> None:
+def list_(ctx: click.Context, did: Union[tuple[str], tuple], traverse: bool, csv: bool, file: Optional[str], account: Optional[str], subscription: Optional[str]) -> None:
     """List all rules impacting a given DID"""
+    if len(did) > 1:
+        ctx.obj.logger.debug("Cannot use more than 1 DID to filter, picking the first DID given.")
+        single_did = did[0]
+    elif len(did) == 1:
+        single_did = did[0]
+    else:
+        single_did = None
+
     # Done here to raise error==2
-    if not (did or file or account or subscription):
+    if not (single_did or file or account or subscription):
         raise InputValidationError("At least one option has to be given. Use -h to list the options.")
+
     if ctx.obj.use_rich:
         ctx.obj.spinner.update(status='Fetching rules')
         ctx.obj.spinner.start()
@@ -388,15 +397,15 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
         scope, name = get_scope(file, ctx.obj.client)
         rules = ctx.obj.client.list_associated_rules_for_file(scope=scope, name=name)
     elif traverse:
-        if did is None:
+        if single_did is None:
             raise InputValidationError("Must supply a DID to traverse")
-        scope, name = get_scope(did, ctx.obj.client)
+        scope, name = get_scope(single_did, ctx.obj.client)
         locks = ctx.obj.client.get_dataset_locks(scope=scope, name=name)
         rules = []
         for rule_id in list(set([lock['rule_id'] for lock in locks])):
             rules.append(ctx.obj.client.get_replication_rule(rule_id))
-    elif did:
-        scope, name = get_scope(did, ctx.obj.client)
+    elif single_did:
+        scope, name = get_scope(single_did, ctx.obj.client)
         meta = ctx.obj.client.get_metadata(scope=scope, name=name)
         rules = ctx.obj.client.list_did_rules(scope=scope, name=name)
         try:
