@@ -14,12 +14,15 @@
 
 from collections.abc import Callable
 from re import sub
+from typing import TYPE_CHECKING
 
-from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import InvalidRequest
 from rucio.core.rse import determine_scope_for_rse
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
+
+if TYPE_CHECKING:
+    from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 
 
 def normalize_scope_path(path: str) -> str:
@@ -35,7 +38,7 @@ _RSE_SCOPE_BY_OPERATION: dict[StorageTokenOperation, tuple[list[str], list[str]]
 
 class TokenScope(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
 
-    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'token_scope'
+    _algorithm_type: "POLICY_ALGORITHM_TYPES_LITERAL" = 'token_scope'
 
     @staticmethod
     def default(ctx: StorageTokenContext) -> str:

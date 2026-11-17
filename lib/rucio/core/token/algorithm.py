@@ -49,7 +49,7 @@ class TokenPolicyAlgorithm(PolicyPackageAlgorithms, Generic[TokenAlgorithmFn]):
             result = super()._get_default_algorithm(cls._algorithm_type, vo)
         if result is None:
             result = super()._get_one_algorithm(cls._algorithm_type, configured_algorithm)
-        return cast(TokenAlgorithmFn, result)
+        return cast('TokenAlgorithmFn', result)
 
     @classmethod
     def register(cls, name: str, fn: TokenAlgorithmFn) -> None:

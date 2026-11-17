@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from types import FrameType
 
-    from rucio.common.types import LFNDict, LoggerFunction
+    from rucio.common.types import LFNDict, LoggerFunction, RSESettingsDict
     from rucio.daemons.common import HeartbeatHandler
     from rucio.rse.protocols.protocol import RSEProtocol
 
@@ -86,7 +86,7 @@ def _central_delete_token(rse_id: str, vo: Optional[str], logger: "LoggerFunctio
 
 def _delete_protocol_with_token(
         prot: "RSEProtocol",
-        rse_info: dict[str, Any],
+        rse_info: "RSESettingsDict",
         rse_name: str,
         rse_id: str,
         vo: Optional[str],

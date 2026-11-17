@@ -14,10 +14,13 @@
 
 import hashlib
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
+
+if TYPE_CHECKING:
+    from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 
 
 def token_cache_key(audience: str, scope: str, ctx: StorageTokenContext) -> str:
@@ -41,7 +44,7 @@ _CACHEABLE_OPERATIONS = frozenset({
 
 class TokenCache(TokenPolicyAlgorithm[Callable[[StorageTokenContext], bool]]):
 
-    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'token_cache'
+    _algorithm_type: "POLICY_ALGORITHM_TYPES_LITERAL" = 'token_cache'
 
     @staticmethod
     def default(ctx: StorageTokenContext) -> bool:

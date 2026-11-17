@@ -16,7 +16,7 @@ import logging
 from collections.abc import Callable
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timezone
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import jwt
 import requests
@@ -24,11 +24,13 @@ from dogpile.cache.api import NoValue
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get
-from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.core import oidc as oidc_core
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.cache import TokenCache, token_cache_key
 from rucio.core.token.context import StorageTokenContext, vo_from_ctx
+
+if TYPE_CHECKING:
+    from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 
 REGION = MemcacheRegion(expiration_time=oidc_core.TOKEN_MAX_LIFETIME)
 
@@ -150,7 +152,7 @@ def _token_cache_set(key: str, value: str) -> None:
 
 class TokenRequest(TokenPolicyAlgorithm[Callable[[str, str, StorageTokenContext], Optional[str]]]):
 
-    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'token_request'
+    _algorithm_type: "POLICY_ALGORITHM_TYPES_LITERAL" = 'token_request'
 
     @staticmethod
     def default(audience: str, scope: str, ctx: StorageTokenContext) -> Optional[str]:

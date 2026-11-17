@@ -13,12 +13,15 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 from rucio.common.exception import InvalidRequest
 from rucio.core.rse import determine_audience_for_rse
 from rucio.core.token.algorithm import TokenPolicyAlgorithm
 from rucio.core.token.context import StorageTokenContext, StorageTokenOperation
+
+if TYPE_CHECKING:
+    from rucio.common.constants import POLICY_ALGORITHM_TYPES_LITERAL
 
 _RSE_AUDIENCE_OPERATIONS = frozenset({
     StorageTokenOperation.TPC_SOURCE,
@@ -29,7 +32,7 @@ _RSE_AUDIENCE_OPERATIONS = frozenset({
 
 class TokenAudience(TokenPolicyAlgorithm[Callable[[StorageTokenContext], str]]):
 
-    _algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL = 'token_audience'
+    _algorithm_type: "POLICY_ALGORITHM_TYPES_LITERAL" = 'token_audience'
 
     @staticmethod
     def default(ctx: StorageTokenContext) -> str:
