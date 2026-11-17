@@ -157,7 +157,7 @@ class TestImplUploadDownload:
         exitcode, out, err = execute(cmd)
         print(out, err)
         # delete the physical file
-        cmd = 'rucio replica list file --pfns {0}:{1}'.format(scope, tmp_file1.name)
+        cmd = 'rucio replica file-list --pfns {0}:{1}'.format(scope, tmp_file1.name)
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
