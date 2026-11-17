@@ -15,13 +15,14 @@
 import hashlib
 import json
 import logging
+import posixpath
 import subprocess  # noqa: S404 -- subprocess used for external commands
 import traceback
 from datetime import datetime, timedelta, timezone
 from math import floor
 from secrets import choice
 from typing import TYPE_CHECKING, Any, Final, Optional, Union
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlsplit, urlunsplit
 
 import requests
 from dogpile.cache.api import NoValue
@@ -227,7 +228,9 @@ def __initialize_oidc_clients() -> None:
 
 
 def _openid_configuration_url(issuer: str) -> str:
-    return issuer.rstrip('/') + '/.well-known/openid-configuration'
+    parts = urlsplit(issuer)
+    path = posixpath.join(parts.path or '/', '.well-known/openid-configuration')
+    return urlunsplit(parts._replace(path=path))
 
 
 def _load_oidc_configuration() -> bool:

@@ -18,10 +18,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
+import jwt
 import pytest
 import requests
 from dogpile.cache.api import NoValue
-from jwkest.jwt import JWT
 
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InvalidRequest
@@ -31,18 +31,15 @@ from rucio.core import replica as replica_core
 from rucio.core import rule as rule_core
 from rucio.core.rse import add_protocol, add_rse_attribute, determine_audience_for_rse, determine_scope_for_rse, get_rse_id
 from rucio.core.token import (
-    JobTransferToken,
     StorageTokenContext,
     StorageTokenOperation,
     TokenCache,
     TokenRequest,
     get_token_for_operation,
-    token_is_managed,
-    unmanaged_tokens_for_job,
 )
 from rucio.core.token.cache import token_cache_key
 from rucio.core.token.scope import normalize_scope_path
-from rucio.daemons.reaper.reaper import _central_delete_token, delete_from_storage, reaper
+from rucio.daemons.reaper.reaper import _central_delete_token, _delete_protocol_with_token, delete_from_storage, reaper
 from rucio.tests.common import skip_rse_tests_with_accounts
 from tests.ruciopytest import NoParallelGroups
 
@@ -78,7 +75,8 @@ _TOKEN_EXCHANGE_GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange'
 
 
 def token_with(**claims: Any) -> str:
-    return JWT().pack([claims])
+    token = jwt.encode(claims, 'not-used-for-signature-verification', algorithm='HS256')
+    return token if isinstance(token, str) else token.decode()
 
 
 def future_exp(hours: int = 1) -> int:
@@ -537,67 +535,6 @@ class TestTokenCache:
         mock_post.assert_called_once()
 
 
-class TestTokenManaged:
-
-    def test_offline_access_in_a_scope_string_is_managed(self):
-        """ STORAGE TOKEN (CORE): offline_access in the scope string marks a token as managed """
-        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
-        token = token_with(scope='offline_access storage.read:/data')
-        assert token_is_managed(ctx, token) is True
-
-    def test_offline_access_in_a_scope_list_is_managed(self):
-        """ STORAGE TOKEN (CORE): offline_access in a scope list marks a token as managed """
-        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
-        token = token_with(scope=['offline_access', 'storage.read:/data'])
-        assert token_is_managed(ctx, token) is True
-
-    def test_invalid_token_is_unmanaged(self):
-        """ STORAGE TOKEN (CORE): A token that cannot be parsed is unmanaged """
-        ctx = StorageTokenContext(operation=StorageTokenOperation.TPC_SOURCE)
-        assert token_is_managed(ctx, 'not-a-jwt') is False
-
-
-class TestUnmanagedTokensForJob:
-
-    @staticmethod
-    def items(*tokens: str) -> list[JobTransferToken]:
-        return [JobTransferToken(token=token) for token in tokens]
-
-    def test_all_managed(self):
-        """ STORAGE TOKEN (CORE): A job with only managed tokens is submitted as managed """
-        tokens = self.items(
-            token_with(scope='offline_access storage.read:/data'),
-            token_with(scope='offline_access storage.modify:/data'),
-        )
-        assert unmanaged_tokens_for_job(tokens, vo=None) is False
-
-    def test_all_unmanaged(self):
-        """ STORAGE TOKEN (CORE): A job with only unmanaged tokens is submitted as unmanaged """
-        tokens = self.items(
-            token_with(scope='storage.read:/data'),
-            token_with(scope='storage.modify:/data'),
-        )
-        assert unmanaged_tokens_for_job(tokens, vo=None) is True
-
-    def test_mixed_job_is_submitted_as_managed(self):
-        """ STORAGE TOKEN (CORE): A mixed job is submitted as managed with a warning """
-        tokens = self.items(
-            token_with(scope='offline_access storage.read:/data'),
-            token_with(scope='storage.modify:/data'),
-        )
-        logged = []
-
-        def logger(level, msg, *args):
-            logged.append((level, msg % args if args else msg))
-
-        assert unmanaged_tokens_for_job(tokens, vo=None, logger=logger) is False
-        assert logged == [(logging.WARNING, 'Mixed managed and unmanaged storage tokens in one FTS job; submitting as managed')]
-
-    def test_empty_job_is_not_unmanaged(self):
-        """ STORAGE TOKEN (CORE): A job with no tokens is not submitted as unmanaged """
-        assert unmanaged_tokens_for_job([], vo=None) is False
-
-
 class _RecordingProtocol:
     """Records the bearer present at connect and each delete, which is where a real protocol applies it."""
 
@@ -638,14 +575,13 @@ class TestReaperCentralDelete:
         }
 
     @staticmethod
-    def delete(replicas: list[dict[str, Any]], prot: _RecordingProtocol, token_for_vo) -> list[dict[str, Any]]:
+    def delete(replicas: list[dict[str, Any]], prot: _RecordingProtocol) -> list[dict[str, Any]]:
         heartbeat_handler = MagicMock()
         heartbeat_handler.live.return_value = (None, 1, logging.log)
         rse_info = {'rse': 'MOCK-RSE', 'id': 'rse-1', 'sign_url': None}
         return delete_from_storage(
             heartbeat_handler, 'payload', replicas, prot, rse_info, False, 100,
             logger=logging.log,
-            central_delete_token=token_for_vo,
         )
 
     @patch('rucio.daemons.reaper.reaper.get_token_for_operation', return_value='tok')
@@ -664,21 +600,29 @@ class TestReaperCentralDelete:
         assert _central_delete_token('rse-1', 'def', logging.log) is None
 
     @patch('rucio.daemons.reaper.reaper.add_message')
-    def test_token_is_bound_before_connect(self, mock_msg):
-        """ REAPER (DAEMON): One token is bound before connect, then each replica is deleted """
+    @patch('rucio.daemons.reaper.reaper.rsemgr.create_protocol')
+    @patch('rucio.daemons.reaper.reaper.get_token_for_operation', return_value='rse-tok')
+    def test_a_token_string_replaces_the_protocol(self, mock_get, mock_create, mock_msg):
+        """ REAPER (DAEMON): A token string is passed to a new protocol, then each replica is deleted """
+        base = _RecordingProtocol()
+        replacement = _RecordingProtocol(auth_token='rse-tok')
+        mock_create.return_value = replacement
+        rse_info = {'rse': 'MOCK-RSE', 'id': 'rse-1'}
         replicas = [self.replica('a.root'), self.replica('b.root'), self.replica('c.root')]
-        prot = _RecordingProtocol()
-        requested = []
 
-        def token_for_vo(vo: str) -> str:
-            requested.append(vo)
-            return 'rse-tok'
+        chosen = _delete_protocol_with_token(base, rse_info, 'MOCK-RSE', 'rse-1', 'def', 'davs', logging.log)
+        deleted = self.delete(replicas, chosen)
 
-        deleted = self.delete(replicas, prot, token_for_vo)
-
+        assert chosen is replacement
+        assert chosen.auth_token == 'rse-tok'
+        mock_create.assert_called_once_with(rse_info, 'delete', scheme='davs', auth_token='rse-tok', logger=logging.log)
+        ctx = mock_get.call_args.args[0]
+        assert ctx.operation == StorageTokenOperation.CENTRAL_DELETE
+        assert ctx.rse_id == 'rse-1'
+        assert ctx.did is None
+        assert ctx.vo == 'def'
         assert [item['name'] for item in deleted] == ['a.root', 'b.root', 'c.root']
-        assert requested == ['def']
-        assert prot.events == [
+        assert chosen.events == [
             ('connect', 'rse-tok'),
             ('delete', replicas[0]['pfn']),
             ('delete', replicas[1]['pfn']),
@@ -687,32 +631,22 @@ class TestReaperCentralDelete:
         ]
 
     @patch('rucio.daemons.reaper.reaper.add_message')
-    def test_an_unchanged_token_is_kept_and_a_new_one_replaces_it(self, mock_msg):
-        """ REAPER (DAEMON): The bearer already on the protocol is reused, and a later call replaces it before connect """
-        prot = _RecordingProtocol(auth_token='rse-tok')
-        tokens = iter(['rse-tok', 'new-tok'])
-
-        self.delete([self.replica('a.root')], prot, lambda vo: next(tokens))
-        self.delete([self.replica('b.root')], prot, lambda vo: next(tokens))
-
-        assert prot.events == [
-            ('connect', 'rse-tok'),
-            ('delete', 'davs://se.example.org/a.root'),
-            ('close', None),
-            ('connect', 'new-tok'),
-            ('delete', 'davs://se.example.org/b.root'),
-            ('close', None),
-        ]
-
-    @patch('rucio.daemons.reaper.reaper.add_message')
-    def test_deletion_proceeds_without_a_token(self, mock_msg):
-        """ REAPER (DAEMON): Deletion proceeds without a bearer when no token is available """
+    @patch('rucio.daemons.reaper.reaper.rsemgr.create_protocol')
+    @patch('rucio.daemons.reaper.reaper.get_token_for_operation', return_value=None)
+    def test_no_token_keeps_the_original_protocol(self, mock_get, mock_create, mock_msg):
+        """ REAPER (DAEMON): Deletion keeps the original protocol when no token is available """
+        base = _RecordingProtocol()
+        rse_info = {'rse': 'MOCK-RSE', 'id': 'rse-1'}
         replicas = [self.replica('a.root')]
-        prot = _RecordingProtocol()
 
-        self.delete(replicas, prot, lambda vo: None)
+        chosen = _delete_protocol_with_token(base, rse_info, 'MOCK-RSE', 'rse-1', 'def', 'davs', logging.log)
+        deleted = self.delete(replicas, chosen)
 
-        assert prot.events == [
+        assert chosen is base
+        assert base.auth_token is None
+        mock_create.assert_not_called()
+        assert [item['name'] for item in deleted] == ['a.root']
+        assert base.events == [
             ('connect', None),
             ('delete', replicas[0]['pfn']),
             ('close', None),
@@ -725,7 +659,6 @@ def idp_config(issuer: str, idp: str) -> dict[str, Any]:
             ('oidc', 'admin_issuer', issuer),
             ('oidc', 'idp', idp),
             ('oidc', 'token_scope', 'default'),
-            ('reaper', 'use_token_operation_interface', 'True'),
         ],
         'removes': [('policy', 'package')],
     }
@@ -767,7 +700,7 @@ def real_idp(vo, did_factory, caches_mock, file_config_mock, monkeypatch):
             vo=vo,
         ))
         assert token is not None
-        claims = JWT().unpack(token).payload()
+        claims = jwt.decode(token, options={'verify_signature': False, 'verify_exp': False})
         assert set(determine_audience_for_rse(rse_id).split()) <= claim_values(claims.get('aud'))
         granted = {item for item in claim_values(claims.get('scope')) if item.startswith(PATH_SCOPES)}
 

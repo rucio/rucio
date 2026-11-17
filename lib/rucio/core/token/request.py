@@ -18,9 +18,9 @@ from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timezone
 from typing import Optional, Union
 
+import jwt
 import requests
 from dogpile.cache.api import NoValue
-from jwkest.jwt import JWT
 
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get
@@ -130,15 +130,15 @@ def _token_cache_get(
 
     if isinstance(value, str):
         try:
-            payload = JWT().unpack(value).payload()
+            payload = jwt.decode(value, options={'verify_signature': False, 'verify_exp': False})
         except Exception:
             return None
     else:
         return None
 
     now = datetime.now(tz=timezone.utc).timestamp()
-    expiration = payload.get('exp', 0)    # type: ignore
-    if now + min_lifetime > expiration:
+    expiration = payload.get('exp', 0)
+    if not isinstance(expiration, (int, float)) or now + min_lifetime > expiration:
         return None
 
     return value

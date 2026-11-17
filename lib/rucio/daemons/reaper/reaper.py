@@ -46,9 +46,8 @@ from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
-from rucio.core.oidc import request_token
 from rucio.core.replica import delete_replicas, list_and_mark_unlocked_replicas
-from rucio.core.rse import RseData, determine_audience_for_rse, determine_scope_for_rse, list_rses
+from rucio.core.rse import RseData, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
 from rucio.core.token import StorageTokenContext, StorageTokenOperation, get_token_for_operation
@@ -62,6 +61,7 @@ if TYPE_CHECKING:
 
     from rucio.common.types import LFNDict, LoggerFunction
     from rucio.daemons.common import HeartbeatHandler
+    from rucio.rse.protocols.protocol import RSEProtocol
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -71,11 +71,8 @@ DAEMON_NAME = 'reaper'
 EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
 
 
-def _use_token_operation_interface() -> bool:
-    return config_get_bool('reaper', 'use_token_operation_interface', False, False)
-
-
 def _central_delete_token(rse_id: str, vo: Optional[str], logger: "LoggerFunction") -> Optional[str]:
+    """Get a token for deleting from an RSE."""
     try:
         return get_token_for_operation(StorageTokenContext(
             operation=StorageTokenOperation.CENTRAL_DELETE,
@@ -87,14 +84,22 @@ def _central_delete_token(rse_id: str, vo: Optional[str], logger: "LoggerFunctio
         return None
 
 
-def _bind_storage_token(prot, token: Optional[str], rse_name: str, logger: "LoggerFunction") -> None:
-    if not token:
-        logger(logging.WARNING, 'Failed to procure a token to delete on %s', rse_name)
-        return
-    if token == prot.auth_token:
-        return
-    prot.auth_token = token
-    logger(logging.DEBUG, 'Using a token to delete on %s', rse_name)
+def _delete_protocol_with_token(
+        prot: "RSEProtocol",
+        rse_info: dict[str, Any],
+        rse_name: str,
+        rse_id: str,
+        vo: Optional[str],
+        scheme: Optional[str],
+        logger: "LoggerFunction",
+) -> "RSEProtocol":
+    """Create a protocol for deleting from an RSE with a token."""
+    auth_token = _central_delete_token(rse_id, vo, logger)
+    if auth_token:
+        logger(logging.INFO, 'Using a token to delete on RSE %s', rse_name)
+        return rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
+    logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse_name)
+    return prot
 
 
 def get_rses_to_process(
@@ -167,16 +172,13 @@ def get_rses_to_process(
     return rses_to_process
 
 
-def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log, central_delete_token=None):
+def delete_from_storage(heartbeat_handler, hb_payload, replicas, prot, rse_info, is_staging, auto_exclude_threshold, logger=logging.log):
     deleted_files = []
     rse_name = rse_info['rse']
     rse_id = rse_info['id']
     noaccess_attempts = 0
     pfns_to_bulk_delete = []
     try:
-        if central_delete_token and replicas and not is_staging:
-            token = central_delete_token(getattr(replicas[0]['scope'], 'vo', None))
-            _bind_storage_token(prot, token, rse_name, logger)
         prot.connect()
         for replica in replicas:
             # Physical deletion
@@ -647,22 +649,11 @@ def _run_once(
         try:
             rse.ensure_loaded(load_info=True, load_attributes=True)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
-            central_delete_token = None
             if rse.attributes.get(RseAttr.OIDC_SUPPORT) is True and prot.attributes['scheme'] == 'davs':
-                if _use_token_operation_interface():
-                    central_delete_token = functools.partial(_central_delete_token, rse.id, logger=logger)
-                    logger(logging.INFO, 'Using operation-interface tokens to delete on RSE %s', rse.name)
-                else:
-                    audience = determine_audience_for_rse(rse.id)
-                    # FIXME: At the time of writing, StoRM requires `storage.read`
-                    # in order to perform a stat operation.
-                    scope = determine_scope_for_rse(rse.id, parameterized_scopes=['storage.modify', 'storage.read'])
-                    auth_token = request_token(audience, scope)
-                    if auth_token:
-                        logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
-                        prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
-                    else:
-                        logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse.name)
+                vo = rse.columns.get('vo')
+                prot = _delete_protocol_with_token(
+                    prot, rse.info, rse.name, rse.id, vo if isinstance(vo, str) else None, scheme, logger,
+                )
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
                 _, total_workers, logger = heartbeat_handler.live(payload=hb_payload)
@@ -685,7 +676,7 @@ def _run_once(
                         logger(logging.CRITICAL, 'Exception', exc_info=True)
 
                 is_staging = rse.columns['staging_area']
-                deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger, central_delete_token=central_delete_token)
+                deleted_files = delete_from_storage(heartbeat_handler, hb_payload, file_replicas, prot, rse.info, is_staging, auto_exclude_threshold, logger=logger)
                 logger(logging.INFO, '%i files processed in %s seconds', len(file_replicas), time.time() - del_start_time)
 
                 # Then finally delete the replicas
