@@ -86,22 +86,11 @@ def execute_cli(cmd: str) -> tuple[int, str, str]:
     Execute the Click rucio CLI in-process.
     Returns (exitcode, stdout, stderr) like func: `~rucio.common.utils.execute`.
     """
-    from rucio.cli.bin_legacy import rucio as bin_legacy_rucio
-    from rucio.cli.bin_legacy import rucio_admin as bin_legacy_rucio_admin
     from rucio.cli.command import main
-    from rucio.cli.utils import RichUtils
 
     args = shlex.split(cmd)
     if args and args[0] in ("rucio", "bin/rucio"):
         args = args[1:]
-
-    # Click commands such as upload, whoami, and scope still call into bin_legacy,
-    # which reads the module-level cli_config captured at import. Refresh it so
-    # @with_each_cli_renderer switches rich/tabulate. This is not the rucio
-    # --legacy flag. Remove this once bin_legacy is gone.
-    renderer = RichUtils.get_cli_config()
-    bin_legacy_rucio.cli_config = renderer
-    bin_legacy_rucio_admin.cli_config = renderer
 
     previous_sigint = signal.getsignal(signal.SIGINT)
     try:
