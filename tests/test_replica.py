@@ -414,31 +414,25 @@ class TestReplicaCore:
                                      schemes=['MOCK'],
                                      domain='lan'):
             assert '/i/prefer/the/lan' in list(replica['pfns'].keys())[0]
-        # test old client behaviour - get all WAN answers
-        for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
-                                     schemes=['MOCK']):
-            cmd = 'rucio list-file-replicas --pfns %s:%s' % (replica['scope'], replica['name'])
-            _, stdout, _ = execute(cmd)
-            assert '/i/prefer/the/wan' in stdout
 
         # # force all LAN
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK'], domain='lan'):
-            cmd = 'rucio list-file-replicas --pfns --domain=lan %s:%s' % (replica['scope'], replica['name'])
+            cmd = 'rucio replica list file --pfns --domain=lan %s:%s' % (replica['scope'], replica['name'])
             errno, stdout, stderr = execute(cmd)
             assert '/i/prefer/the/lan' in stdout
 
         # # force all WAN
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK'], domain='wan'):
-            cmd = 'rucio list-file-replicas --pfns --domain=wan %s:%s' % (replica['scope'], replica['name'])
+            cmd = 'rucio replica list file --pfns --domain=wan %s:%s' % (replica['scope'], replica['name'])
             errno, stdout, stderr = execute(cmd)
             assert '/i/prefer/the/wan' in stdout
 
         # # force both WAN and LAN
         for replica in list_replicas(dids=[{'scope': f['scope'], 'name': f['name'], 'type': DIDType.FILE} for f in files],
                                      schemes=['MOCK'], domain='all'):
-            cmd = 'rucio list-file-replicas --pfns --domain=all %s:%s' % (replica['scope'], replica['name'])
+            cmd = 'rucio replica list file --pfns --domain=all %s:%s' % (replica['scope'], replica['name'])
             errno, stdout, stderr = execute(cmd)
             assert '/i/prefer/the/wan' in stdout
             assert '/i/prefer/the/lan' in stdout

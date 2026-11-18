@@ -922,62 +922,31 @@ class TestMultiVOBinRucio:
             if e.args[0] != 2:
                 raise e
 
-    def test_vo_option_admin_cli(self, long_vo, second_vo):
+    def test_vo_option_cli(self, long_vo, second_vo):
         """ MULTI VO (USER): Test authentication to multiple VOs via the admin CLI """
         fake_vo = 'fke'
 
-        cmd = 'rucio-admin --vo %s rse list' % long_vo
+        cmd = 'rucio --vo %s rse list' % long_vo
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
         assert self.rse_tst in out
         assert self.rse_new not in out
 
-        cmd = 'rucio-admin --vo %s rse list' % second_vo
+        cmd = 'rucio --vo %s rse list' % second_vo
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
         assert self.rse_tst not in out
         assert self.rse_new in out
 
-        cmd = 'rucio-admin --vo %s rse list' % fake_vo
+        cmd = 'rucio --vo %s rse list' % fake_vo
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, err)
         assert 'Details: CannotAuthenticate' in err
 
-        cmd = 'rucio-admin rse list'
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert self.rse_tst in out
-        assert self.rse_new not in out
-
-    def test_vo_option_cli(self, long_vo, second_vo):
-        """ MULTI VO (USER): Test authentication to multiple VOs via the CLI """
-        fake_vo = 'fke'
-
-        cmd = 'rucio --vo %s list-rses' % long_vo
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert self.rse_tst in out
-        assert self.rse_new not in out
-
-        cmd = 'rucio --vo %s list-rses' % second_vo
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, )
-        assert self.rse_tst not in out
-        assert self.rse_new in out
-
-        cmd = 'rucio --vo %s list-rses' % fake_vo
-        print(self.marker + cmd)
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        assert 'Details: CannotAuthenticate' in err
-
-        cmd = 'rucio list-rses'
+        cmd = 'rucio rse list'
         print(self.marker + cmd)
         exitcode, out, err = execute(cmd)
         print(out, )
