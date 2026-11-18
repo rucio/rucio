@@ -227,7 +227,7 @@ def main(
             "auth_strategy": auth_strategy,
             "timeout": timeout,
             "user_agent": user_agent,
-            "VO": vo,
+            "vo": vo,
             "username": user,
             "password": password,
             "oidc_scope": oidc_scope,
