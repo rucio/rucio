@@ -173,7 +173,7 @@ def run_once(
             total_total += float(rse["total"])
             rse["receive_volume"] = 0  # Already rebalanced volume in this run
             global_ratio = float(total_primary) / float(total_total)
-            logger(logging.INFO, "Global ratio: %f" % (global_ratio))
+            logger(logging.INFO, "Global ratio: %f", global_ratio)
 
         for rse in sorted(rses, key=lambda k: k["ratio"]):
             logger(
