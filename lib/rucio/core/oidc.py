@@ -15,7 +15,6 @@
 import hashlib
 import json
 import logging
-import subprocess  # noqa: S404 -- subprocess used for external commands
 import traceback
 from datetime import datetime, timedelta, timezone
 from math import floor
@@ -957,40 +956,27 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
         JWS().verify_compact(json_web_token, issuer_keys)
-        # if there is no audience information,
-        # try to get it from IdP introspection endpoint
-        # TO-BE-REMOVED - once all IdPs support audience in token claims !!!
+        # if token is valid and coming from known issuer --> check aud
         if not token_dict['audience']:
-            clprocess = subprocess.Popen(['curl', '-s', '-L', '-u', '%s:%s'  # noqa: S607
-                                          % (oidc_client.client_id, oidc_client.client_secret),
-                                          '-d', 'token=%s' % (json_web_token),
-                                          oidc_client.introspection_endpoint],
-                                         shell=False, stdout=subprocess.PIPE)
-            inspect_claims = json.loads(clprocess.communicate()[0])
-            try:
-                token_dict['audience'] = inspect_claims['aud']
-                token_dict['authz_scope'] = inspect_claims['scope']
-            except Exception:
-                pass
-        METRICS.counter(name='JSONWebToken.valid').inc()
-        # if token is valid and coming from known issuer --> check aud and save it if unknown
-        if token_dict['audience']:
-            if not all_oidc_req_claims_present(None, token_dict['audience'], None, EXPECTED_OIDC_AUDIENCE):
-                logging.debug("Token audience [%s] verification failed.", token_dict['audience'])
-                raise CannotAuthenticate(traceback.format_exc())
-            # RFC 9068 does not make `scope` part of access token validation, so this is
-            # checked only where a deployment explicitly opted in. Checked separately from
-            # the audience above because all_oidc_req_claims_present() requires a claim and
-            # its requirement to be either both empty or both set.
-            if EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE and not all_oidc_req_claims_present(
-                    token_dict['authz_scope'], None, EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE, None):
-                logging.debug("Token scope [%s] verification failed.", token_dict['authz_scope'])
-                raise CannotAuthenticate(traceback.format_exc())
-            # save the token in Rucio DB giving the permission to use it for Rucio operations
-            __save_validated_token(json_web_token, token_dict, session=session)
-        else:
             logging.debug("Token audience not present.")
             raise CannotAuthenticate(traceback.format_exc())
+        METRICS.counter(name='JSONWebToken.valid').inc()
+
+        if not all_oidc_req_claims_present(None, token_dict['audience'], None, EXPECTED_OIDC_AUDIENCE):
+            logging.debug("Token audience [%s] verification failed.", token_dict['audience'])
+            raise CannotAuthenticate(traceback.format_exc())
+
+        # RFC 9068 does not make `scope` part of access token validation, so this is
+        # checked only where a deployment explicitly opted in. Checked separately from
+        # the audience above because all_oidc_req_claims_present() requires a claim and
+        # its requirement to be either both empty or both set.
+        if EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE and not all_oidc_req_claims_present(
+                token_dict['authz_scope'], None, EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE, None):
+            logging.debug("Token scope [%s] verification failed.", token_dict['authz_scope'])
+            raise CannotAuthenticate(traceback.format_exc())
+
+        # save the token in Rucio DB giving the permission to use it for Rucio operations
+        __save_validated_token(json_web_token, token_dict, session=session)
         METRICS.counter(name='JSONWebToken.saved').inc()
         return token_dict
     except Exception:
