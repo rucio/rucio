@@ -66,6 +66,11 @@ IDPSECRETS = config_get('oidc', 'idpsecrets', False)
 ADMIN_ISSUER_ID = config_get('oidc', 'admin_issuer', False)
 EXPECTED_OIDC_AUDIENCE = config_get('oidc', 'expected_audience', False, 'rucio')
 EXPECTED_OIDC_SCOPE = config_get('oidc', 'expected_scope', False, 'openid profile')
+# Scope required of externally-issued access tokens. Empty by default: RFC 9068 does not
+# make `scope` part of token validation, so external tokens are accepted whatever scopes
+# their issuer granted. A deployment that does want to require scopes on external tokens
+# can opt in by setting this option.
+EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE = config_get('oidc', 'expected_external_token_scope', False, None)
 EXCHANGE_GRANT_TYPE = config_get('oidc', 'exchange_grant_type', False, 'urn:ietf:params:oauth:grant-type:token-exchange')
 REFRESH_LIFETIME_H = config_get_int('oidc', 'default_jwt_refresh_lifetime', False, 96)
 
@@ -952,10 +957,10 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
         oidc_client = OIDC_CLIENTS[issuer]
         issuer_keys = oidc_client.keyjar.get_issuer_keys(issuer)
         JWS().verify_compact(json_web_token, issuer_keys)
-        # if there is no audience and scope information,
+        # if there is no audience information,
         # try to get it from IdP introspection endpoint
-        # TO-BE-REMOVED - once all IdPs support scope and audience in token claims !!!
-        if not token_dict['authz_scope'] or not token_dict['audience']:
+        # TO-BE-REMOVED - once all IdPs support audience in token claims !!!
+        if not token_dict['audience']:
             clprocess = subprocess.Popen(['curl', '-s', '-L', '-u', '%s:%s'  # noqa: S607
                                           % (oidc_client.client_id, oidc_client.client_secret),
                                           '-d', 'token=%s' % (json_web_token),
@@ -968,16 +973,23 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
             except Exception:
                 pass
         METRICS.counter(name='JSONWebToken.valid').inc()
-        # if token is valid and coming from known issuer --> check aud and scope and save it if unknown
-        if token_dict['authz_scope'] and token_dict['audience']:
-            if all_oidc_req_claims_present(token_dict['authz_scope'], token_dict['audience'], EXPECTED_OIDC_SCOPE, EXPECTED_OIDC_AUDIENCE):
-                # save the token in Rucio DB giving the permission to use it for Rucio operations
-                __save_validated_token(json_web_token, token_dict, session=session)
-            else:
-                logging.debug("Token audience [%s] or scope [%s] verification failed.", token_dict['audience'], token_dict['authz_scope'])
+        # if token is valid and coming from known issuer --> check aud and save it if unknown
+        if token_dict['audience']:
+            if not all_oidc_req_claims_present(None, token_dict['audience'], None, EXPECTED_OIDC_AUDIENCE):
+                logging.debug("Token audience [%s] verification failed.", token_dict['audience'])
                 raise CannotAuthenticate(traceback.format_exc())
+            # RFC 9068 does not make `scope` part of access token validation, so this is
+            # checked only where a deployment explicitly opted in. Checked separately from
+            # the audience above because all_oidc_req_claims_present() requires a claim and
+            # its requirement to be either both empty or both set.
+            if EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE and not all_oidc_req_claims_present(
+                    token_dict['authz_scope'], None, EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE, None):
+                logging.debug("Token scope [%s] verification failed.", token_dict['authz_scope'])
+                raise CannotAuthenticate(traceback.format_exc())
+            # save the token in Rucio DB giving the permission to use it for Rucio operations
+            __save_validated_token(json_web_token, token_dict, session=session)
         else:
-            logging.debug("Token audience or scope not present.")
+            logging.debug("Token audience not present.")
             raise CannotAuthenticate(traceback.format_exc())
         METRICS.counter(name='JSONWebToken.saved').inc()
         return token_dict
