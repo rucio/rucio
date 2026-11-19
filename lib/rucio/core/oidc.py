@@ -924,9 +924,14 @@ def __save_validated_token(token, valid_dict, extra_dict=None, *, session: "Sess
 @transactional_session
 def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
     """
-    Verifies signature and validity of a JSON Web Token.
-    Gets the issuer public keys from the oidc_client
-    and verifies the validity of the token.
+    Validate an externally-issued JWT access token and save it to the Rucio DB.
+
+    Verifies the signature and the `iss`, `exp` and `aud` claims, as RFC 9068 section 4
+    requires of a Resource Server. `aud` must be present in the token and satisfy the
+    `expected_audience` option. `scope` is not validated: it conveys authorization, not
+    authentication, and the Rucio identity is (`sub`, `iss`). Set the `oidc` option
+    `expected_external_token_scope`, empty by default, to require scopes regardless.
+
     Used only for external tokens, not known to Rucio DB.
 
     :param json_web_token: the JWT string to verify
@@ -937,7 +942,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
                            audience: <audience>,
                            authz_scope: <authz_scope> }
               if successful.
-    :raises: CannotAuthenticate if unsuccessful
+    :raises CannotAuthenticate: if unsuccessful
     """
 
     if not OIDC_CLIENTS:
