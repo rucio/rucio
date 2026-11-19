@@ -59,6 +59,10 @@ def list_dids(
 
     # replace account and scope in filters with internal representation
     for or_group in filters:
+        # reject malformed GUID filters (e.g. 'guid' or 'guid.ne') before they reach the database
+        for key, value in or_group.items():
+            if isinstance(key, str) and key.split('.')[0] == 'guid':
+                validate_schema(name='uuid', obj=value, vo=vo)
         if 'account' in or_group:
             or_group['account'] = InternalAccount(or_group['account'], vo=vo)
         if 'scope' in or_group:
@@ -687,6 +691,8 @@ def get_dataset_by_guid(
 
     :returns: A DID
     """
+    validate_schema(name='uuid', obj=guid, vo=vo)
+
     with db_session(DatabaseOperationType.READ) as session:
         dids = did.get_dataset_by_guid(guid=guid, session=session)
 
