@@ -687,7 +687,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
     @patch('rucio.core.oidc.OIDC_CLIENTS')
     def test_validate_and_save_external_token_success(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
-        """ OIDC validate externally provided token with correct audience, scope and issuer - success
+        """ OIDC validate externally provided token with correct audience and issuer - success
 
             Runs the Test:
 
@@ -725,7 +725,7 @@ class TestAuthCoreAPIoidc:
     @patch('rucio.core.oidc.__get_rucio_jwt_dict')
     @patch('rucio.core.oidc.OIDC_CLIENTS')
     def test_validate_and_save_external_token_fail(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
-        """ OIDC validate externally provided token with correct audience, scope and issuer - failure
+        """ OIDC validate externally provided token with incorrect audience - failure
 
             Runs the Test:
 
@@ -754,6 +754,145 @@ class TestAuthCoreAPIoidc:
         with pytest.raises(CannotAuthenticate):
             validate_auth_token(access_token, session=self.db_session)
         # most importantly, check that the token was saved in Rucio DB
+        db_token = get_token_row(access_token, account=self.account, session=self.db_session)
+        assert not db_token
+
+    @patch('rucio.core.oidc.JWS')
+    @patch('rucio.core.oidc.__get_rucio_jwt_dict')
+    @patch('rucio.core.oidc.OIDC_CLIENTS')
+    def test_validate_and_save_external_token_without_scope_success(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
+        """ OIDC validate externally provided token carrying no scope claim - success
+
+            RFC 9068 section 4 does not make scope part of Resource Server validation,
+            so a token with the expected audience must be accepted even though it
+            carries none of the scopes Rucio would request for itself.
+
+            Runs the Test:
+
+            - mocking the OIDC client and token validation dictionary of an
+              externally issued token that has a valid audience but no scope
+            - calling the validate_auth_token core function
+
+            End:
+
+            - checking that the external token has been saved in the DB
+
+        """
+
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC()}
+        token_validate_dict = {'account': self.account,
+                               'identity': 'SUB=knownsub, ISS=https://test_issuer/',
+                               'lifetime': datetime.utcfromtimestamp(time.time() + 60),
+                               'audience': 'rucio',
+                               'authz_scope': None}
+        mock_jwt_dict.return_value = token_validate_dict
+
+        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        value = validate_auth_token(access_token, session=self.db_session)
+        assert value == token_validate_dict
+        db_token = get_token_row(access_token, account=self.account, session=self.db_session)
+        assert db_token
+        assert db_token.token == access_token
+
+    @patch('rucio.core.oidc.JWS')
+    @patch('rucio.core.oidc.__get_rucio_jwt_dict')
+    @patch('rucio.core.oidc.OIDC_CLIENTS')
+    def test_validate_and_save_external_token_without_audience_fail(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
+        """ OIDC validate externally provided token carrying no audience claim - failure
+
+            RFC 9068 makes aud a mandatory claim, and it is no longer recovered from
+            the IdP introspection endpoint, so a token without one must be rejected.
+
+            Runs the Test:
+
+            - mocking the OIDC client and token validation dictionary of an
+              externally issued token that has no audience
+            - calling the validate_auth_token core function
+
+            End:
+
+            - checking that the external token was not saved in the DB
+
+        """
+
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC()}
+        token_validate_dict = {'account': self.account,
+                               'identity': 'SUB=knownsub, ISS=https://test_issuer/',
+                               'lifetime': datetime.utcfromtimestamp(time.time() + 60),
+                               'audience': None,
+                               'authz_scope': 'openid profile'}
+        mock_jwt_dict.return_value = token_validate_dict
+
+        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        with pytest.raises(CannotAuthenticate):
+            validate_auth_token(access_token, session=self.db_session)
+        db_token = get_token_row(access_token, account=self.account, session=self.db_session)
+        assert not db_token
+
+    @patch('rucio.core.oidc.EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE', 'storage.read')
+    @patch('rucio.core.oidc.JWS')
+    @patch('rucio.core.oidc.__get_rucio_jwt_dict')
+    @patch('rucio.core.oidc.OIDC_CLIENTS')
+    def test_validate_and_save_external_token_expected_scope_success(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
+        """ OIDC validate external token against a configured expected_external_token_scope - success
+
+            Runs the Test:
+
+            - configuring expected_external_token_scope and mocking an externally
+              issued token whose scope claim satisfies it
+            - calling the validate_auth_token core function
+
+            End:
+
+            - checking that the external token has been saved in the DB
+
+        """
+
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC()}
+        token_validate_dict = {'account': self.account,
+                               'identity': 'SUB=knownsub, ISS=https://test_issuer/',
+                               'lifetime': datetime.utcfromtimestamp(time.time() + 60),
+                               'audience': 'rucio',
+                               'authz_scope': 'openid profile storage.read'}
+        mock_jwt_dict.return_value = token_validate_dict
+
+        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        value = validate_auth_token(access_token, session=self.db_session)
+        assert value == token_validate_dict
+        db_token = get_token_row(access_token, account=self.account, session=self.db_session)
+        assert db_token
+        assert db_token.token == access_token
+
+    @patch('rucio.core.oidc.EXPECTED_OIDC_EXTERNAL_TOKEN_SCOPE', 'storage.read')
+    @patch('rucio.core.oidc.JWS')
+    @patch('rucio.core.oidc.__get_rucio_jwt_dict')
+    @patch('rucio.core.oidc.OIDC_CLIENTS')
+    def test_validate_and_save_external_token_expected_scope_fail(self, mock_oidc_clients, mock_jwt_dict, mock_jws):
+        """ OIDC validate external token against a configured expected_external_token_scope - failure
+
+            Runs the Test:
+
+            - configuring expected_external_token_scope and mocking an externally
+              issued token whose scope claim does not satisfy it
+            - calling the validate_auth_token core function
+
+            End:
+
+            - checking that the external token was not saved in the DB
+
+        """
+
+        mock_oidc_clients.return_value = {'https://test_issuer/': MockClientOIDC()}
+        token_validate_dict = {'account': self.account,
+                               'identity': 'SUB=knownsub, ISS=https://test_issuer/',
+                               'lifetime': datetime.utcfromtimestamp(time.time() + 60),
+                               'audience': 'rucio',
+                               'authz_scope': 'openid profile'}
+        mock_jwt_dict.return_value = token_validate_dict
+
+        access_token = rndstr() + '.' + rndstr() + '.' + rndstr()
+        with pytest.raises(CannotAuthenticate):
+            validate_auth_token(access_token, session=self.db_session)
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
         assert not db_token
 
