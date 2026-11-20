@@ -437,6 +437,7 @@ class AccountClient(BaseClient):
             ** `type` ** [str]: The type of the authentication (x509, gss, userpass).
             ** `identity` ** [str]: The identity key name. For example x509 DN, or a username.
             ** `email` ** [str]: The Email address associated with the identity.
+            ** `is_default` ** [bool]: Whether the account is the default account of the identity.
 
         Raises
         ------

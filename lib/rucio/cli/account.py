@@ -277,11 +277,11 @@ def identity_list(ctx: click.Context, account_name: str):
     identities = ctx.obj.client.list_identities(account=account_name)
     for identity in identities:
         if ctx.obj.use_rich:
-            table_data.append([identity['identity'], identity['type']])
+            table_data.append([identity['identity'], identity['type'], identity.get('is_default')])
         else:
-            print('Identity: %(identity)s,\ttype: %(type)s' % identity)
+            print('Identity: %s,\ttype: %s,\tdefault: %s' % (identity['identity'], identity['type'], identity.get('is_default')))
     if ctx.obj.use_rich:
-        table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE'], col_alignments=['left', 'left'])
+        table = RichUtils.generate_table(table_data, headers=['IDENTITY', 'TYPE', 'DEFAULT'], col_alignments=['left', 'left', 'left'])
         RichUtils.print_output(table, console=ctx.obj.console, no_pager=ctx.obj.no_pager)
 
 

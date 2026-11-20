@@ -919,11 +919,20 @@ class Identities(ErrorHandlingMethodView):
                 schema:
                   type: array
                   items:
-                    type: array
-                    minItems: 2
-                    maxItems: 2
-                    items:
-                      type: string
+                    type: object
+                    properties:
+                      type:
+                        description: "The type of the identity."
+                        type: string
+                      identity:
+                        description: "The identity key name."
+                        type: string
+                      email:
+                        description: "The email address associated with the identity."
+                        type: string
+                      is_default:
+                        description: "Whether the account is the default account of the identity."
+                        type: boolean
           401:
             description: "Invalid Auth Token"
           404:
