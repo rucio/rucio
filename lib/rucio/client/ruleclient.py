@@ -170,7 +170,7 @@ class RuleClient(BaseClient):
         rule_id :
             The id of the rule to be deleted.
         purge_replicas :
-            Immediate delete the replicas
+            Mark replicas not protected by other rules for immediate deletion
 
         Raises
         -------
