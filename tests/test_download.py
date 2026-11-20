@@ -827,3 +827,45 @@ def test_download_dataset(download_client, rse_factory, did_factory):
         # Default behavior is to create a subdir for the dataset
         for f in dataset:
             assert os.path.exists(os.path.join(tmp_dir, f['dataset_name'], f['did_name']))
+
+
+@pytest.mark.clear_cache
+def test_download_protocol_match(rse_factory, did_factory, download_client, rse_client):
+    """
+    Download client should create a protocol using the protocol for the selected RSE
+    and verify that the LAN domain is used when appropriate.
+    """
+    mock_rse, mock_rse_id = rse_factory.make_posix_rse()
+
+    # Remove the wan protocol
+    rse_client.delete_protocols(rse=mock_rse, scheme="file")
+
+    # Pretend we're on the same lan network
+    rse_client.add_rse_attribute(mock_rse, "site", "ROAMING")
+
+    # Only protocol it can use to download
+    add_protocol(
+        mock_rse_id,
+        {
+            "scheme": "file",
+            'hostname': '%s.cern.ch' % mock_rse_id,
+            'port': 0,
+            "prefix": '/tmp/rucio_rse/test_%s/' % mock_rse_id,
+            "impl": 'rucio.rse.protocols.posix.Default',
+            "domains": {
+                'lan': {'read': 1, 'write': 1, 'delete': 0}
+            }
+        }
+    )
+
+    did = did_factory.upload_test_file(mock_rse)
+    scope, name = did['scope'].external, did['name']
+
+    result = download_client.download_dids(
+        items=[{"did": f"{scope}:{name}", "rse": mock_rse, "impl": "posix"}]
+    )
+    assert len(result) == 1  # Downloads the one file
+    # Verify that sources include domain info and it's set to 'lan' only
+    assert len(result[0]['sources']) >= 1, "Expected at least one source"
+    for source in result[0]['sources']:
+        assert source.get('domain') == 'lan', f"Expected LAN domain, got {source.get('domain')}"
