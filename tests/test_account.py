@@ -25,6 +25,9 @@ from rucio.core.identity import add_account_identity, add_identity
 from rucio.db.sqla.constants import AccountStatus, DatabaseOperationType, IdentityType
 from rucio.db.sqla.session import db_session
 from rucio.gateway.account import account_exists, add_account, del_account, get_account_info, update_account
+from rucio.gateway.account import add_account_attribute as gateway_add_account_attribute
+from rucio.gateway.account import del_account_attribute as gateway_del_account_attribute
+from rucio.gateway.account import list_account_attributes as gateway_list_account_attributes
 from rucio.tests.common import account_name_generator, auth, headers, loginhdr, skip_non_belleii, vohdr
 
 
@@ -79,6 +82,24 @@ class TestAccountCoreGateway:
         with pytest.raises(Duplicate):
             with db_session(DatabaseOperationType.WRITE) as session:
                 add_account_attribute(root_account, key, value, session=session)
+
+    def test_add_flexible_attribute(self, vo):
+        """ ACCOUNT (GATEWAY): add/get/delete flexible attribute."""
+        usr = account_name_generator()
+        add_account(usr, 'USER', 'rucio@email.com', 'root', vo=vo)
+
+        key = account_name_generator()
+        value = 'https://rucio.cern.ch'
+
+        gateway_add_account_attribute(key, value, usr, issuer='root', vo=vo)
+
+        attributes = gateway_list_account_attributes(usr, vo=vo)
+        assert {'key': key, 'value': value} in attributes
+
+        gateway_del_account_attribute(key, usr, issuer='root', vo=vo)
+
+        attributes = gateway_list_account_attributes(usr, vo=vo)
+        assert {'key': key, 'value': value} not in attributes
 
 
 def test_create_user_success(rest_client, auth_token):

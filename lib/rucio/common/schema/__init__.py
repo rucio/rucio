@@ -170,6 +170,10 @@ def validate_schema(name: str, obj: Any, vo: str = DEFAULT_VO) -> None:
     if obj:
         if vo not in schema_modules:
             load_schema_for_vo(vo)
+        # fallback for custom policy packages
+        if name == 'account_attribute_name' and hasattr(schema_modules[vo], 'SCHEMAS'):
+            if 'account_attribute' in schema_modules[vo].SCHEMAS and 'account_attribute_name' not in schema_modules[vo].SCHEMAS:
+                name = 'account_attribute'
         if hasattr(schema_modules[vo], 'SCHEMAS') and name in schema_modules[vo].SCHEMAS:
             schema = schema_modules[vo].SCHEMAS.get(name, {})
         else:
