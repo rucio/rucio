@@ -288,7 +288,7 @@ class Search(ErrorHandlingMethodView):
                     yield dumps(did) + '\n'
 
             return try_stream(generate(vo=request.environ['vo']))
-        except DIDFilterSyntaxError as error:
+        except (DIDFilterSyntaxError, InvalidObject) as error:
             return generate_http_error_flask(400, error)
         except UnsupportedOperation as error:
             return generate_http_error_flask(409, error)
@@ -2093,6 +2093,8 @@ class GUIDLookup(ErrorHandlingMethodView):
                     yield dumps(dataset, cls=APIEncoder) + '\n'
 
             return try_stream(generate(vo=request.environ['vo']))
+        except InvalidObject as error:
+            return generate_http_error_flask(400, error)
         except DataIdentifierNotFound as error:
             return generate_http_error_flask(404, error)
 

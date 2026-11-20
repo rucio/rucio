@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from datetime import datetime, timedelta
 
 import pytest
 
 from rucio.common import exception
-from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
+from rucio.common.exception import DataIdentifierAlreadyExists, DataIdentifierNotFound, DuplicateContent, FileAlreadyExists, FileConsistencyMismatch, InvalidObject, InvalidPath, ScopeNotFound, UnsupportedOperation, UnsupportedStatus
 from rucio.common.types import InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core.did import (
@@ -47,7 +48,7 @@ from rucio.db.sqla.constants import DatabaseOperationType, DIDType
 from rucio.db.sqla.session import db_session
 from rucio.db.sqla.util import json_implemented
 from rucio.gateway import did, scope
-from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
+from rucio.tests.common import auth, did_name_generator, headers, rse_name_generator, scope_name_generator
 
 
 def skip_without_json():
@@ -495,6 +496,17 @@ class TestDIDGateway:
         with pytest.raises(DataIdentifierNotFound):
             did.set_new_dids([{'scope': 'dummyscope', 'name': 'dummyname', 'did_type': DIDType.DATASET}], None, vo=vo)
 
+    def test_get_dataset_by_guid_invalid_guid(self, vo):
+        """ DATA IDENTIFIERS (Gateway): An invalid GUID raises InvalidObject before reaching the database."""
+        with pytest.raises(InvalidObject, match='foo'):
+            list(did.get_dataset_by_guid('foo', vo=vo))
+
+    @pytest.mark.parametrize('key', ['guid', 'guid.ne'])
+    def test_list_dids_invalid_guid_filter(self, vo, key):
+        """ DATA IDENTIFIERS (Gateway): An invalid GUID filter raises InvalidObject before reaching the database."""
+        with pytest.raises(InvalidObject, match='foo'):
+            list(did.list_dids('mock', [{key: 'foo'}], did_type='file', vo=vo))
+
 
 class TestDIDClients:
 
@@ -632,6 +644,16 @@ class TestDIDClients:
             results.append(d)
         for dsn in dsns:
             assert dsn in results
+
+    def test_list_dids_invalid_guid_filter(self, did_client):
+        """ DATA IDENTIFIERS (CLIENT): An invalid GUID filter raises InvalidObject, not a server error."""
+        with pytest.raises(InvalidObject, match='foo'):
+            did_client.list_dids('mock', [{'guid': 'foo'}], did_type='file')
+
+    def test_get_dataset_by_guid_invalid_guid(self, did_client):
+        """ DATA IDENTIFIERS (CLIENT): An invalid GUID raises InvalidObject, not a server error."""
+        with pytest.raises(InvalidObject, match='foo'):
+            did_client.get_dataset_by_guid('foo')
 
     @pytest.mark.dirty
     @pytest.mark.noparallel(reason='uses pre-defined scope')
@@ -1441,3 +1463,44 @@ def test_client_bulk_add_containers(mock_scope, did_client, rse_factory):
     returned_names = [did for did in dids]
     for name in container_names:
         assert name in returned_names
+
+
+INVALID_GUIDS = ['foo', 'g' * 32, '0' * 31, '0' * 33]
+
+
+@pytest.mark.parametrize('guid', INVALID_GUIDS)
+def test_guid_lookup_invalid(rest_client, auth_token, guid):
+    """ DATA IDENTIFIERS (REST): An invalid GUID returns 400 InvalidObject naming the GUID."""
+    response = rest_client.get(f"/dids/{guid}/guid", headers=headers(auth(auth_token)))
+    assert response.status_code == 400
+    body = json.loads(response.get_data(as_text=True))
+    assert body['ExceptionClass'] == 'InvalidObject'
+    assert guid in body['ExceptionMessage']
+
+
+def test_guid_lookup_unknown_guid(rest_client, auth_token):
+    """ DATA IDENTIFIERS (REST): A valid but unknown GUID still returns 404 DataIdentifierNotFound."""
+    response = rest_client.get(f"/dids/{generate_uuid()}/guid", headers=headers(auth(auth_token)))
+    assert response.status_code == 404
+    body = json.loads(response.get_data(as_text=True))
+    assert body['ExceptionClass'] == 'DataIdentifierNotFound'
+
+
+@pytest.mark.parametrize('guid', INVALID_GUIDS)
+def test_search_invalid_guid_filter(rest_client, auth_token, guid):
+    """ DATA IDENTIFIERS (REST): An invalid GUID filter returns 400 InvalidObject naming the GUID."""
+    response = rest_client.get('/dids/mock/dids/search',
+                               query_string={'type': 'file', 'filters': str([{'guid': guid}])},
+                               headers=headers(auth(auth_token)))
+    assert response.status_code == 400
+    body = json.loads(response.get_data(as_text=True))
+    assert body['ExceptionClass'] == 'InvalidObject'
+    assert guid in body['ExceptionMessage']
+
+
+def test_search_unknown_guid_filter(rest_client, auth_token):
+    """ DATA IDENTIFIERS (REST): A valid but unknown GUID filter returns no DIDs."""
+    response = rest_client.get('/dids/mock/dids/search',
+                               query_string={'type': 'file', 'filters': str([{'guid': generate_uuid()}])},
+                               headers=headers(auth(auth_token)))
+    assert response.status_code == 200
