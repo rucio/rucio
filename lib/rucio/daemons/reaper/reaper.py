@@ -46,11 +46,11 @@ from rucio.core.credential import get_signed_url
 from rucio.core.heartbeat import list_payload_counts
 from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
-from rucio.core.oidc import request_token
 from rucio.core.replica import delete_replicas, list_and_mark_unlocked_replicas
-from rucio.core.rse import RseData, determine_audience_for_rse, determine_scope_for_rse, list_rses
+from rucio.core.rse import RseData, list_rses
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import get_evaluation_backlog
+from rucio.core.token import StorageTokenContext, StorageTokenOperation, get_token_for_operation
 from rucio.core.vo import list_vos
 from rucio.daemons.common import run_daemon
 from rucio.rse import rsemanager as rsemgr
@@ -59,8 +59,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from types import FrameType
 
-    from rucio.common.types import LFNDict, LoggerFunction
+    from rucio.common.types import LFNDict, LoggerFunction, RSESettingsDict
     from rucio.daemons.common import HeartbeatHandler
+    from rucio.rse.protocols.protocol import RSEProtocol
 
 GRACEFUL_STOP = threading.Event()
 METRICS = MetricManager(module=__name__)
@@ -68,6 +69,37 @@ REGION = MemcacheRegion(expiration_time=600)
 DAEMON_NAME = 'reaper'
 
 EXCLUDED_RSE_GAUGE = METRICS.gauge('excluded_rses.{rse}', documentation='Temporarly excluded RSEs')
+
+
+def _central_delete_token(rse_id: str, vo: Optional[str], logger: "LoggerFunction") -> Optional[str]:
+    """Get a token for deleting from an RSE."""
+    try:
+        return get_token_for_operation(StorageTokenContext(
+            operation=StorageTokenOperation.CENTRAL_DELETE,
+            rse_id=rse_id,
+            vo=vo,
+        ))
+    except Exception:
+        logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse_id, exc_info=True)
+        return None
+
+
+def _delete_protocol_with_token(
+        prot: "RSEProtocol",
+        rse_info: "RSESettingsDict",
+        rse_name: str,
+        rse_id: str,
+        vo: Optional[str],
+        scheme: Optional[str],
+        logger: "LoggerFunction",
+) -> "RSEProtocol":
+    """Create a protocol for deleting from an RSE with a token."""
+    auth_token = _central_delete_token(rse_id, vo, logger)
+    if auth_token:
+        logger(logging.INFO, 'Using a token to delete on RSE %s', rse_name)
+        return rsemgr.create_protocol(rse_info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
+    logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse_name)
+    return prot
 
 
 def get_rses_to_process(
@@ -618,16 +650,10 @@ def _run_once(
             rse.ensure_loaded(load_info=True, load_attributes=True)
             prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, logger=logger)
             if rse.attributes.get(RseAttr.OIDC_SUPPORT) is True and prot.attributes['scheme'] == 'davs':
-                audience = determine_audience_for_rse(rse.id)
-                # FIXME: At the time of writing, StoRM requires `storage.read`
-                # in order to perform a stat operation.
-                scope = determine_scope_for_rse(rse.id, scopes=['storage.modify', 'storage.read'])
-                auth_token = request_token(audience, scope)
-                if auth_token:
-                    logger(logging.INFO, 'Using a token to delete on RSE %s', rse.name)
-                    prot = rsemgr.create_protocol(rse.info, 'delete', scheme=scheme, auth_token=auth_token, logger=logger)
-                else:
-                    logger(logging.WARNING, 'Failed to procure a token to delete on RSE %s', rse.name)
+                vo = rse.columns.get('vo')
+                prot = _delete_protocol_with_token(
+                    prot, rse.info, rse.name, rse.id, vo if isinstance(vo, str) else None, scheme, logger,
+                )
             for file_replicas in chunks(replicas, chunk_size):
                 # Refresh heartbeat
                 _, total_workers, logger = heartbeat_handler.live(payload=hb_payload)
