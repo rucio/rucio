@@ -25,8 +25,6 @@ from rucio.common import config, exception
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
 from rucio.common.schema.schema_ref import SchemaRef
-from rucio.db.sqla.constants import DatabaseOperationType
-from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -35,9 +33,6 @@ LOGGER = logging.getLogger('policy')
 
 # dictionary of schema modules for each VO
 schema_modules: dict[str, "ModuleType"] = {}
-
-# list of unique SCOPE_NAME_REGEXP values from all schemas
-scope_name_regexps: list[str] = []
 
 
 # cached function to check for multivo
@@ -101,8 +96,6 @@ if not _is_multivo():
         raise exception.ErrorLoadingPolicyPackage(policy)
 
     schema_modules[DEFAULT_VO] = module
-    if hasattr(module, 'SCOPE_NAME_REGEXP'):
-        scope_name_regexps.append(module.SCOPE_NAME_REGEXP)
 
 
 def load_schema_for_vo(vo: str) -> None:
@@ -188,42 +181,3 @@ def get_schema_value(key: str, vo: str = DEFAULT_VO) -> Any:
     if not hasattr(schema_modules[vo], key):
         return _resolve_references(getattr(_get_generic_schema_module(), key), vo)
     return _resolve_references(getattr(schema_modules[vo], key), vo)
-
-
-def get_scope_name_regexps() -> list[str]:
-    """ returns a list of all unique SCOPE_NAME_REGEXPs from all schemas """
-
-    if len(scope_name_regexps) == 0:
-        # load schemas for all VOs here and add unique scope_name_regexps to list
-        from rucio.core.vo import list_vos
-        with db_session(DatabaseOperationType.READ) as session:
-            vos = list_vos(session=session)
-        for vo in vos:
-            if vo['vo'] not in schema_modules:
-                load_schema_for_vo(vo['vo'])
-            scope_name_regexp = schema_modules[vo['vo']].SCOPE_NAME_REGEXP
-            if scope_name_regexp not in scope_name_regexps:
-                scope_name_regexps.append(scope_name_regexp)
-    return scope_name_regexps
-
-
-def insert_scope_name(urls: tuple[str, ...]) -> tuple[str, str]:
-    """
-    given a tuple of URLs for webpy with '%s' as a placeholder for
-    SCOPE_NAME_REGEXP, return a finalised tuple of URLs that will work for all
-    SCOPE_NAME_REGEXPs in all schemas
-    """
-
-    regexps = get_scope_name_regexps()
-    result = []
-    for i in range(0, len(urls), 2):
-        if "%s" in urls[i]:
-            # add a copy for each unique SCOPE_NAME_REGEXP
-            for scope_name_regexp in regexps:
-                result.append(urls[i] % scope_name_regexp)
-                result.append(urls[i + 1])
-        else:
-            # pass through unmodified
-            result.append(urls[i])
-            result.append(urls[i + 1])
-    return tuple(result)
