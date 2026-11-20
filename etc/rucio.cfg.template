@@ -122,6 +122,8 @@ ssl_cert_file = /etc/grid-security/hostcert.pem
 destination = /topic/transfer.fts_monitoring_queue_state
 brokers = dashb-test-mb.cern.ch
 voname = atlas
+client_send_heartbeat = 0
+client_recv_heartbeat = 0
 
 [messaging-hermes]
 username = ____
