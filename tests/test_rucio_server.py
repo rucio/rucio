@@ -90,7 +90,7 @@ class TestRucioServer:
         assert exitcode == 0
 
         # List the replicas
-        cmd = 'rucio replica list file {0}:{1}'.format(scope, tmp_dsn)
+        cmd = 'rucio replica file-list {0}:{1}'.format(scope, tmp_dsn)
         print(MARKER + cmd)
         exitcode, out, err = execute(cmd)
         print(out)
