@@ -373,10 +373,20 @@ def update(
 @click.option("--csv", is_flag=True, default=False, help="Comma Separated Value output")
 @click.option("--file", help="Filter by file")
 @click.option("--account", help="Filter by account")
+@click.option("--state", type=click.Choice(["STUCK", "OK", "REPLICATING", "SUSPENDED", "WAITING_APPROVAL", "INJECT"]), help="Filter by rule state (only with --account)")
 @click.option("--subscription", help="Filter by subscription name")
 @click.pass_context
-def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, file: Optional[str], account: Optional[str], subscription: Optional[str]) -> None:
-    """List all rules impacting a given DID"""
+def list_(
+    ctx: click.Context,
+    did: Optional[str],
+    traverse: bool,
+    csv: bool,
+    file: Optional[str],
+    account: Optional[str],
+    state: Optional[Literal["STUCK", "OK", "REPLICATING", "SUSPENDED", "WAITING_APPROVAL", "INJECT"]],
+    subscription: Optional[str],
+) -> None:
+    """List rules by DID, file, account or subscription."""
     # Done here to raise error==2
     if not (did or file or account or subscription):
         raise InputValidationError("At least one option has to be given. Use -h to list the options.")
@@ -416,7 +426,10 @@ def list_(ctx: click.Context, did: Optional[str], traverse: bool, csv: bool, fil
                 if rules:
                     print('No rules found, listing rules for parents')
     elif account:
-        rules = ctx.obj.client.list_account_rules(account=account)
+        if state:
+            rules = ctx.obj.client.list_replication_rules({"account": account, "state": state})
+        else:
+            rules = ctx.obj.client.list_account_rules(account=account)
     elif subscription:
         if account is None:
             account = ctx.obj.client.account
