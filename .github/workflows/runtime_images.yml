@@ -60,7 +60,7 @@ jobs:
       - name: Build Runtime Images
         id: build_images
         run: |
-          FILES_TO_HASH="etc/docker/test/runtime.Dockerfile requirements/requirements.server.txt requirements/requirements.dev.txt"
+          FILES_TO_HASH="etc/docker/test/runtime.Dockerfile etc/docker/test/extra/httpd.conf etc/docker/test/extra/rucio.conf etc/docker/test/extra/00-mpm.conf requirements/requirements.server.txt requirements/requirements.dev.txt"
           BUILD_LOCALLY=false
           BUILD_DATE="${{ steps.metadata.outputs.build_date }}"
           COMMIT_SHA="${{ steps.metadata.outputs.commit_sha }}"
