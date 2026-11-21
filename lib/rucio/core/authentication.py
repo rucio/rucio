@@ -29,7 +29,7 @@ from sqlalchemy import delete, null, or_, select
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate
-from rucio.common.utils import chunks, date_to_str, generate_uuid
+from rucio.common.utils import chunks, date_to_str, generate_uuid, token_hash
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -79,19 +79,6 @@ def token_key_generator(namespace, fni, **kwargs):
         """ :returns: token """
         return token
     return generate_key
-
-
-def _hash_token_for_cache(token: str) -> str:
-    """
-    Hash token to create a safe cache key.
-
-    This prevents token exposure in cache and ensures consistent key length
-    (64 chars) that works with both Rucio tokens and long JWT tokens.
-
-    :param token: Authentication token to hash
-    :returns: SHA-256 hash of the token as a hex string (64 characters)
-    """
-    return hashlib.sha256(token.encode('utf-8')).hexdigest()
 
 
 if config_get_bool('cache', 'use_external_cache_for_auth_tokens', default=False):
@@ -436,7 +423,7 @@ def query_token(token: str, *, session: "Session") -> Optional["TokenValidationD
                            authz_scope: <authz_scope> }
               if successful, None otherwise.
     """
-    # Query the DB to validate token
+    # token_hash is indexed, the token comparison rules out a collision
     query = select(
         models.Token.account,
         models.Token.identity,
@@ -444,6 +431,7 @@ def query_token(token: str, *, session: "Session") -> Optional["TokenValidationD
         models.Token.audience,
         models.Token.oidc_scope.label('authz_scope')
     ).where(
+        models.Token.token_hash == token_hash(token),
         models.Token.token == token,
         models.Token.expired_at > datetime.datetime.utcnow()
     )
@@ -480,7 +468,7 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
         raise CannotAuthenticate("Challenge tokens cannot be used for authentication.")
 
     # Hash token for cache key to prevent exposure and handle long JWT tokens
-    cache_key = _hash_token_for_cache(token)
+    cache_key = token_hash(token)
 
     # Check if token can be found in cache region
     value: Union[NoValue, "TokenValidationDict"] = TOKENREGION.get(cache_key)
@@ -539,21 +527,22 @@ def __delete_expired_tokens_account(
         )
 
     select_query = select(
-        models.Token.token
+        models.Token.token_hash
     ).where(
         *where_clauses
     ).with_for_update(
         skip_locked=True
     )
 
-    tokens = session.execute(select_query).scalars().all()
+    token_hashes = session.execute(select_query).scalars().all()
 
-    for chunk in chunks(tokens, 100):
+    for chunk in chunks(token_hashes, 100):
         delete_query = delete(
             models.Token
         ).prefix_with(
             "/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */"
         ).where(
-            models.Token.token.in_(chunk)
+            models.Token.token_hash.in_(chunk),
+            models.Token.account == account
         )
         session.execute(delete_query)

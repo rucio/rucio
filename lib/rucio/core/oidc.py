@@ -632,17 +632,25 @@ def get_token_oidc(
 
 
 @transactional_session
-def __change_refresh_state(token: str, refresh: bool = False, *, session: "Session"):
+def __change_refresh_state(
+    token: str,
+    account: "InternalAccount",
+    refresh: bool = False,
+    *,
+    session: "Session"
+):
     """
     Changes token refresh state to True/False.
 
     :param token:      the access token for which the refresh value should be changed.
+    :param account:    the account whose registration of the token is changed.
     """
     try:
         query = update(
             models.Token
         ).where(
-            models.Token.token == token
+            models.Token.token == token,
+            models.Token.account == account
         )
         if refresh:
             # update refresh column for a token to True
@@ -769,7 +777,7 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
         # if the token has been refreshed for time exceeding
         # the refresh_lifetime, the attempt will be aborted and refresh stopped
         if datetime.utcnow() - extra_dict['refresh_start'] > timedelta(hours=extra_dict['refresh_lifetime']):
-            __change_refresh_state(token_object.token, refresh=False, session=session)
+            __change_refresh_state(token_object.token, token_object.account, refresh=False, session=session)
             return None
         oidc_dict = __get_init_oidc_client(token_object=token_object, token_type="refresh_token")  # noqa: S106
         oidc_client = oidc_dict['client']
@@ -791,7 +799,7 @@ def __refresh_token_oidc(token_object: models.Token, *, session: "Session"):
         if 'refresh_token' in oidc_tokens and 'access_token' in oidc_tokens:
             # aborting refresh of the original token
             # (keeping it in place until it expires)
-            __change_refresh_state(token_object.token, refresh=False, session=session)
+            __change_refresh_state(token_object.token, token_object.account, refresh=False, session=session)
 
             # get access token expiry timestamp
             jwt_row_dict['lifetime'] = datetime.utcnow() + timedelta(seconds=oidc_tokens['expires_in'])
