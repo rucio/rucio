@@ -408,12 +408,19 @@ def redirect_auth_oidc(
 
 
 @read_session
-def query_token(token: str, *, session: "Session") -> Optional["TokenValidationDict"]:
+def query_token(
+    token: str,
+    account: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenValidationDict"]:
     """
     Validate an authentication token using the database. This method will only be called
     if no entry could be found in the according cache.
 
     :param token: Authentication token as a variable-length string.
+    :param account: External name of the account the token is presented for.
+                    Defaults to the oldest registration of the token.
     :param session: The database session in use.
 
     :returns: dictionary { account: <account name>,
@@ -434,19 +441,29 @@ def query_token(token: str, *, session: "Session") -> Optional["TokenValidationD
         models.Token.token_hash == token_hash(token),
         models.Token.token == token,
         models.Token.expired_at > datetime.datetime.utcnow()
+    ).order_by(
+        models.Token.created_at
     )
-    result = session.execute(query).first()
-    if result:
-        return cast("TokenValidationDict", result._asdict())
+    for result in session.execute(query).all():
+        if account is None or result.account.external == account:
+            return cast("TokenValidationDict", result._asdict())
     return None
 
 
 @transactional_session
-def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDict":
+def validate_auth_token(
+    token: str,
+    account: Optional[str] = None,
+    *,
+    session: "Session"
+) -> "TokenValidationDict":
     """
     Validate an authentication token.
 
     :param token: Authentication token as a variable-length string.
+    :param account: External name of the account the token is presented for.
+                    The token has to be valid for it, otherwise authentication
+                    fails. Defaults to resolving the account from the token.
 
     :returns: dictionary { account: <account name>,
                            identity: <identity>,
@@ -467,21 +484,22 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
     if token.startswith('challenge-'):
         raise CannotAuthenticate("Challenge tokens cannot be used for authentication.")
 
-    # Hash token for cache key to prevent exposure and handle long JWT tokens
-    cache_key = token_hash(token)
+    # the token is hashed to keep it out of the cache key, the account is part
+    # of it because the same token can resolve differently per account
+    cache_key = f'{account or ""}:{token_hash(token)}'
 
     # Check if token can be found in cache region
     value: Union[NoValue, "TokenValidationDict"] = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         # Query database using the original token (not the hash)
-        value = query_token(token, session=session)
+        value = query_token(token, account, session=session)
         if not value:
             # identify JWT access token and validate
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
                 # imported here to avoid circular import
                 from rucio.core.oidc import validate_jwt
-                value = validate_jwt(token, session=session)
+                value = validate_jwt(token, account, session=session)
             else:
                 raise CannotAuthenticate(traceback.format_exc())
         # save token validation result in cache using hashed key

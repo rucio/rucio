@@ -42,7 +42,7 @@ from rucio.common.stopwatch import Stopwatch
 from rucio.common.utils import all_oidc_req_claims_present, build_url, chunks, val_to_space_sep_str
 from rucio.core.account import account_exists
 from rucio.core.authentication import __delete_expired_tokens_account
-from rucio.core.identity import exist_identity_account, get_default_account
+from rucio.core.identity import exist_identity_account, get_default_account, list_accounts_for_identity
 from rucio.core.monitor import MetricManager
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -848,12 +848,19 @@ def __get_keyvalues_from_claims(token: str, keys=None):
 
 
 @read_session
-def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
+def __get_rucio_jwt_dict(
+    jwt: str,
+    account: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional[dict[str, Any]]:
     """
     Get a Rucio token dictionary from token claims.
-    Check token expiration and find default Rucio
-    account for token identity.
+    Check token expiration and find the Rucio account for the token identity.
+
     :param jwt: JSON Web Token to be inspected
+    :param account: External name of the account the token is presented for.
+                    Defaults to the identity's default account.
     :param session: DB session in use
 
     :returns: Rucio token dictionary, None otherwise
@@ -875,12 +882,18 @@ def __get_rucio_jwt_dict(jwt: str, account=None, *, session: "Session"):
         if not account:
             # this assumes token has been previously looked up in DB
             # before to be sure that we do not have the right account already in the DB !
-            account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
+            internal_account = get_default_account(identity_string, IdentityType.OIDC, True, session=session)
         else:
-            if not exist_identity_account(identity_string, IdentityType.OIDC, account, session=session):
+            mapped = [
+                candidate
+                for candidate in list_accounts_for_identity(identity_string, IdentityType.OIDC, session=session)
+                if candidate.external == account
+            ]
+            if not mapped:
                 logging.debug("No OIDC identity exists for account: %s", str(account))
                 return None
-        value = {'account': account,
+            internal_account = mapped[0]
+        value = {'account': internal_account,
                  'identity': identity_string,
                  'lifetime': expiry_date,
                  'audience': audience,
@@ -926,7 +939,12 @@ def __save_validated_token(token, valid_dict, extra_dict=None, *, session: "Sess
 
 
 @transactional_session
-def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
+def validate_jwt(
+    json_web_token: str,
+    account: Optional[str] = None,
+    *,
+    session: "Session"
+) -> dict[str, Any]:
     """
     Verifies signature and validity of a JSON Web Token.
     Gets the issuer public keys from the oidc_client
@@ -934,6 +952,8 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
     Used only for external tokens, not known to Rucio DB.
 
     :param json_web_token: the JWT string to verify
+    :param account: External name of the account the token is presented for.
+                    Defaults to the identity's default account.
 
     :returns: dictionary { account: <account name>,
                            identity: <identity>,
@@ -953,7 +973,7 @@ def validate_jwt(json_web_token: str, *, session: "Session") -> dict[str, Any]:
     try:
 
         # getting issuer from the token payload
-        token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, session=session)
+        token_dict: Optional[dict[str, Any]] = __get_rucio_jwt_dict(json_web_token, account, session=session)
         if not token_dict:
             raise CannotAuthenticate(traceback.format_exc())
         issuer = token_dict['identity'].split(", ")[1].split("=")[1]
