@@ -135,6 +135,9 @@ def request_token(audience: str, scope: str, use_cache: bool = True) -> Optional
         return token
 
     try:
+        logging.debug('Requesting a token with audience "%s" and scopes "%s"',
+                      audience,
+                      scope)
         response = requests.post(url=OIDC_PROVIDER_ENDPOINT,
                                  auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
                                  data={'grant_type': 'client_credentials',
