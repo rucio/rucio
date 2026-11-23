@@ -321,12 +321,10 @@ class TestRseXROOTD(MgrTestCases):
 
     @classmethod
     @pytest.fixture(scope='class')
-    def setup_rse_and_files(cls, vo, tmp_path_factory):
+    def setup_rse_and_files(cls, vo, tmp_path_factory, rucio_client):
         """XROOTD (RSE/PROTOCOLS): Creating necessary directories and files."""
-        cmd = "rucio list-rses --rses 'test_container_xrd=True'"
-        exitcode, out, err = execute(cmd)
-        print(out, err)
-        rses = out.split()
+
+        rses = [r['rse'] for r in rucio_client.list_rses('test_container_xrd=True')]
 
         data = load_test_conf_file('rse_repository.json')
         prefix = data['WJ-XROOTD']['protocols']['supported']['xroot']['prefix']

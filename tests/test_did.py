@@ -36,12 +36,15 @@ from rucio.core.did import (
     list_new_dids,
     remove_did_from_followed,
     set_metadata,
+    set_metadata_bulk,
     set_new_dids,
     set_status,
     touch_dids,
 )
 from rucio.core.replica import add_replica, get_replica
-from rucio.db.sqla.constants import DIDType
+from rucio.db.sqla import models
+from rucio.db.sqla.constants import DatabaseOperationType, DIDType
+from rucio.db.sqla.session import db_session
 from rucio.db.sqla.util import json_implemented
 from rucio.gateway import did, scope
 from rucio.tests.common import did_name_generator, rse_name_generator, scope_name_generator
@@ -86,6 +89,9 @@ class TestDIDCore:
         assert now == get_did_atime(scope=mock_scope, name=tmp_dsn1)
         assert get_did_atime(scope=mock_scope, name=tmp_dsn2) is None
 
+        did1 = get_did(scope=mock_scope, name=tmp_dsn1)
+        assert did1['accessed_at'] == now
+
     def test_touch_dids_access_cnt(self, mock_scope, root_account):
         """ DATA IDENTIFIERS (CORE): Increase DIDs access_cnt"""
         tmp_dsn1 = did_name_generator('dataset')
@@ -124,6 +130,62 @@ class TestDIDCore:
         set_metadata(scope=mock_scope, name=lfn, key='bytes', value=724963577)
         assert get_metadata(scope=mock_scope, name=lfn)['bytes'] == 724963577
 
+    @pytest.mark.parametrize('metadata_location', ['meta', 'top_level', 'none'])
+    def test_archive_constituent_is_opendata_protected(self, mock_scope, root_account, rse_factory, metadata_location):
+        """DATA IDENTIFIERS (CORE): Protect is_opendata during archive constituent registration."""
+        _, rse_id = rse_factory.make_mock_rse()
+
+        archive_name = did_name_generator('archive') + '.zip'
+        constituent_name = did_name_generator('constituent')
+
+        # Create the archive DID.
+        add_replica(
+            rse_id=rse_id,
+            scope=mock_scope,
+            name=archive_name,
+            bytes_=100,
+            adler32='0cc737eb',
+            account=root_account,
+        )
+
+        constituent = {
+            'scope': mock_scope,
+            'name': constituent_name,
+            'bytes': 10,
+            'adler32': '0cc737eb',
+        }
+
+        if metadata_location == 'meta':
+            constituent['meta'] = {'is_opendata': True}
+        elif metadata_location == 'top_level':
+            constituent['is_opendata'] = True
+
+        if metadata_location == 'none':
+            # Normal archive constituent registration must still work.
+            attach_dids(
+                scope=mock_scope,
+                name=archive_name,
+                dids=[constituent],
+                account=root_account,
+            )
+
+            metadata = get_metadata(scope=mock_scope, name=constituent_name)
+            assert metadata['is_opendata'] is None
+
+        else:
+            # Callers must not be able to set the protected flag.
+            with pytest.raises(exception.UnsupportedOperation):
+                attach_dids(
+                    scope=mock_scope,
+                    name=archive_name,
+                    dids=[constituent],
+                    account=root_account,
+                )
+
+            # The rejected constituent must not have been created.
+            with pytest.raises(exception.DataIdentifierNotFound):
+                get_did(scope=mock_scope, name=constituent_name)
+
     def test_get_did_with_dynamic(self, root_account, rse_factory, did_factory):
         """ DATA IDENTIFIERS (CORE): Get DID with dynamic resolve of size"""
         rse_name, rse_id = rse_factory.make_mock_rse()
@@ -138,6 +200,8 @@ class TestDIDCore:
         did1 = get_did(dynamic_depth=DIDType.FILE, **dataset1)
         assert did1['length'] == 2
         assert did1['bytes'] == 20
+        assert 'accessed_at' in did1
+        assert did1['accessed_at'] is None
 
         # attach dataset to container and verify get_did(dynamic) on container
         container = did_factory.make_container()
@@ -337,6 +401,64 @@ class TestDIDCore:
         assert len(result) == len(files)
         for dataset in non_existing_datasets:
             assert (dataset['scope'], dataset['name']) not in parent_datasets
+
+    def test_is_opendata_protected(self, mock_scope, root_account):
+        """OpenData membership cannot be changed through metadata APIs."""
+        name = did_name_generator('dataset')
+        add_did(
+            scope=mock_scope,
+            name=name,
+            did_type=DIDType.DATASET,
+            account=root_account,
+        )
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata(
+                scope=mock_scope,
+                name=name,
+                key='is_opendata',
+                value=True,
+            )
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata_bulk(
+                scope=mock_scope,
+                name=name,
+                meta={'is_opendata': True, 'lifetime': 3600},
+            )
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is None
+        assert get_metadata(scope=mock_scope, name=name)['expired_at'] is None
+
+    @pytest.mark.parametrize('value', [True, False])
+    def test_is_opendata_values(self, mock_scope, root_account, value):
+        """OpenData attribute is readable but cannot be modified through metadata APIs."""
+        name = did_name_generator('dataset')
+        add_did(
+            scope=mock_scope,
+            name=name,
+            did_type=DIDType.DATASET,
+            account=root_account,
+        )
+
+        # Simulate an update performed by the OpenData core.
+        with db_session(DatabaseOperationType.WRITE) as session:
+            did = session.query(models.DataIdentifier).filter_by(
+                scope=mock_scope, name=name
+            ).one()
+            did.is_opendata = value
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is value
+
+        with pytest.raises(UnsupportedOperation):
+            set_metadata(
+                scope=mock_scope,
+                name=name,
+                key='is_opendata',
+                value=not value,
+            )
+
+        assert get_metadata(scope=mock_scope, name=name)['is_opendata'] is value
 
 
 class TestDIDGateway:
@@ -930,6 +1052,7 @@ class TestDIDClients:
 
         assert did['scope'] == scope
         assert did['name'] == file_
+        assert 'accessed_at' in did
 
         did_client.add_dataset(scope=scope, name=dsn, lifetime=10000000)
         did2 = did_client.get_did(scope, dsn)

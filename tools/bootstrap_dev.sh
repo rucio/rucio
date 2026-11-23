@@ -577,7 +577,7 @@ $COMPOSE_CMD --project-name dev --file docker-compose.yml \
   --profile externalmetadata \
   --profile iam \
   --profile client \
-  --profile postgres14 \
+  --profile postgres16 \
   --profile mysql8 \
   --profile oracle \
   down || true

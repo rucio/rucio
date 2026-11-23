@@ -81,6 +81,48 @@ class OpenDataView(ErrorHandlingMethodView):
               application/json:
                 schema:
                   type: object
+                  required:
+                    - total
+                    - offset
+                    - dids
+                  properties:
+                    total:
+                      type: integer
+                      description: "Total number of matching DIDs."
+                    offset:
+                      type: integer
+                      description: "Offset used for pagination."
+                    dids:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - scope
+                          - name
+                          - state
+                          - created_at
+                          - updated_at
+                        properties:
+                          scope:
+                            type: string
+                          name:
+                            type: string
+                          state:
+                            type: string
+                            enum: [DRAFT, PUBLIC, SUSPENDED]
+                          created_at:
+                            type: string
+                          updated_at:
+                            type: string
+                example:
+                  total: 1
+                  offset: 0
+                  dids:
+                    - scope: demo
+                      name: demo-1
+                      state: PUBLIC
+                      created_at: "Mon, 19 Oct 2026 09:00:00 UTC"
+                      updated_at: "Mon, 19 Oct 2026 10:00:00 UTC"
           401:
             description: "Access denied: Invalid authentication."
           400:
@@ -198,11 +240,126 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             style: form
         responses:
           200:
-            description: "Successful retrieval of Open Data DID information."
+            description: "Successful retrieval of Open Data DID information. Additional fields are included depending on the query parameters."
             content:
               application/json:
                 schema:
                   type: object
+                  required:
+                    - scope
+                    - name
+                    - state
+                    - created_at
+                    - updated_at
+                  properties:
+                    scope:
+                      type: string
+                    name:
+                      type: string
+                    state:
+                      type: string
+                      enum: [DRAFT, PUBLIC, SUSPENDED]
+                    created_at:
+                      type: string
+                    updated_at:
+                      type: string
+                    doi:
+                      type: string
+                      nullable: true
+                    record_id:
+                      type: integer
+                      nullable: true
+                    rule:
+                      type: string
+                      nullable: true
+                    meta:
+                      type: object
+                      description: "Included when meta=1."
+                      additionalProperties: true
+                    files:
+                      type: array
+                      description: "Included when files=1."
+                      items:
+                        type: object
+                        properties:
+                          scope:
+                            type: string
+                          name:
+                            type: string
+                          bytes:
+                            type: integer
+                            nullable: true
+                          adler32:
+                            type: string
+                            nullable: true
+                          uris:
+                            type: array
+                            items:
+                              type: string
+                          download_urls:
+                            type: array
+                            description: "Included when download_urls=1 and files=1."
+                            items:
+                              type: string
+                    files_summary:
+                      type: object
+                      description: "Included when files=1."
+                      properties:
+                        length:
+                          type: integer
+                        bytes:
+                          type: integer
+                        extensions:
+                          type: array
+                          items:
+                            type: string
+                        replicas_missing:
+                          type: integer
+                        request_cache_hit:
+                          type: boolean
+                        request_time_elapsed_millis:
+                          type: number
+                examples:
+                  default:
+                    summary: "Default response"
+                    value:
+                      scope: demo
+                      name: demo-1
+                      state: PUBLIC
+                      created_at: "Mon, 19 Oct 2026 09:00:00 UTC"
+                      updated_at: "Mon, 19 Oct 2026 10:00:00 UTC"
+                      doi: null
+                      record_id: null
+                      rule: null
+                  with_files_and_metadata:
+                    summary: "Response with files and metadata"
+                    description: "Example response when files=1 and meta=1."
+                    value:
+                      scope: demo
+                      name: demo-1
+                      state: PUBLIC
+                      created_at: "Mon, 19 Oct 2026 09:00:00 UTC"
+                      updated_at: "Mon, 19 Oct 2026 10:00:00 UTC"
+                      doi: null
+                      record_id: null
+                      rule: null
+                      meta:
+                        title: "Example Open Data dataset"
+                      files:
+                        - scope: demo
+                          name: example.root
+                          bytes: 1024
+                          adler32: "00000001"
+                          uris:
+                            - "https://storage.example.org/data/example.root"
+                      files_summary:
+                        length: 1
+                        bytes: 1024
+                        extensions:
+                          - root
+                        replicas_missing: 0
+                        request_cache_hit: false
+                        request_time_elapsed_millis: 12.5
           401:
             description: "Access denied: Invalid authentication."
           404:
@@ -236,12 +393,7 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
             style: simple
         responses:
           201:
-            description: "Open Data DID successfully registered."
-            content:
-              application/json:
-                schema:
-                  type: string
-                  enum: []
+            description: "Open Data DID successfully registered. No response body is returned."
           400:
             description: "Invalid input: The provided scope/name is not valid."
           401:
@@ -314,12 +466,47 @@ class OpenDataDIDsView(ErrorHandlingMethodView):
                       example: 123456
         responses:
           200:
-            description: "Open Data DID successfully updated."
+            description: "Open Data DID successfully updated. The response contains the fields affected by the update."
             content:
               application/json:
                 schema:
-                  type: string
-                  enum: []
+                  type: object
+                  required:
+                    - scope
+                    - name
+                  properties:
+                    scope:
+                      type: string
+                    name:
+                      type: string
+                    state_old:
+                      type: string
+                      enum: [DRAFT, PUBLIC, SUSPENDED]
+                    state_new:
+                      type: string
+                      enum: [DRAFT, PUBLIC, SUSPENDED]
+                    meta_new:
+                      type: object
+                      additionalProperties: true
+                    doi_old:
+                      type: string
+                      nullable: true
+                    doi_new:
+                      type: string
+                    record_id_old:
+                      type: integer
+                      nullable: true
+                    record_id_new:
+                      type: integer
+                    rule:
+                      type: string
+                    comments:
+                      type: string
+                example:
+                  scope: demo
+                  name: demo-1
+                  state_old: DRAFT
+                  state_new: PUBLIC
           400:
             description: "Invalid input or update parameters."
           401:
