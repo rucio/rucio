@@ -18,10 +18,12 @@ import pytest
 from sqlalchemy import and_, func, or_, select
 
 from rucio.common.exception import DataIdentifierNotFound, ReplicaNotFound
+from rucio.common.plugins import PolicyPackageAlgorithms
 from rucio.common.types import InternalAccount, InternalScope
 from rucio.common.utils import generate_uuid
 from rucio.core import did as did_core
 from rucio.core import message as message_core
+from rucio.core import oidc as oidc_core
 from rucio.core import replica as replica_core
 from rucio.core import rse as rse_core
 from rucio.core import rule as rule_core
@@ -532,15 +534,34 @@ def test_reaper_without_rse_usage(vo, caches_mock):
 @pytest.mark.needs_iam
 @pytest.mark.noparallel(groups=[NoParallelGroups.WEB])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
-    'rucio.daemons.reaper.reaper.REGION'
+    'rucio.daemons.reaper.reaper.REGION',
+    'rucio.core.token.request.REGION',
 ]}], indirect=True)
 @pytest.mark.parametrize("file_config_mock", [
-    {"overrides": [('oidc', 'admin_issuer', 'indigoiam')]},
+    {"overrides": [
+        ('oidc', 'admin_issuer', 'indigoiam'),
+        ('oidc', 'idp', 'iam'),
+        ('oidc', 'token_audience', 'default'),
+        ('oidc', 'token_scope', 'default'),
+        ('oidc', 'token_request', 'default'),
+        ('oidc', 'token_cache', 'default'),
+    ],
+     "removes": [('policy', 'package')]},
 ], indirect=True)
-def test_deletion_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock):
+def test_deletion_with_tokens(vo, did_factory, root_account, caches_mock, file_config_mock, monkeypatch):
+    """ REAPER (DAEMON): WebDAV deletion on WEB1 uses a central-delete token. """
+    monkeypatch.delenv('RUCIO_POLICY_PACKAGE', raising=False)
+    monkeypatch.setattr(PolicyPackageAlgorithms, '_default_algorithms', {})
+    monkeypatch.setattr(oidc_core, 'ADMIN_ISSUER_ID', dict(file_config_mock.items('oidc'))['admin_issuer'])
+    monkeypatch.setattr(oidc_core, 'OIDC_CONFIGURATION_RUN', False)
+    monkeypatch.setattr(oidc_core, 'OIDC_CLIENT_ID', '')
+    monkeypatch.setattr(oidc_core, 'OIDC_CLIENT_SECRET', '')
+    monkeypatch.setattr(oidc_core, 'OIDC_PROVIDER_ENDPOINT', '')
+
     rse_name = 'WEB1'
     did = did_factory.upload_test_file(rse_name)
     for rule in list(rule_core.list_associated_rules_for_file(**did)):
         rule_core.delete_rule(rule['id'])
 
     reaper(once=True, rses=[], include_rses=rse_name, exclude_rses=None, chunk_size=1000, greedy=True, scheme='davs')
+    assert list(replica_core.list_replicas(dids=[did], rse_expression=rse_name)) == []
