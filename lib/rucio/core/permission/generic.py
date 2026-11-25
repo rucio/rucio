@@ -121,7 +121,10 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'export': perm_export,
             'list_transfer_limits': perm_list_transfer_limits,
             'set_transfer_limit': perm_set_transfer_limit,
-            'delete_transfer_limit': perm_delete_transfer_limit}
+            'delete_transfer_limit': perm_delete_transfer_limit,
+            'add_opendata_did': perm_default,
+            'update_opendata_did': perm_default,
+            'delete_opendata_did': perm_default}
 
     return perm.get(action, perm_default)(issuer=issuer, kwargs=kwargs, session=session)
 

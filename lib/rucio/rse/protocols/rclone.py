@@ -15,11 +15,12 @@
 import json
 import logging
 import os
+import shlex
 
 from rucio.common import exception
 from rucio.common.checksum import PREFERRED_CHECKSUM
 from rucio.common.config import get_config_dirs
-from rucio.common.utils import execute
+from rucio.common.utils import execute_args
 from rucio.rse.protocols import protocol
 
 
@@ -75,15 +76,41 @@ class Default(protocol.RSEProtocol):
                 return False
             try:
                 if self.user:
-                    cmd = 'rclone config create {0} sftp host {1} user {2} port {3} key_file {4}'.format(self.hostname, self.host, self.user, str(self.port), key_file)
-                    self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
-                    status, out, err = execute(cmd)
+                    args: tuple[str, ...] = (
+                        'rclone',
+                        'config',
+                        'create',
+                        str(self.hostname),
+                        'sftp',
+                        'host',
+                        str(self.host),
+                        'user',
+                        str(self.user),
+                        'port',
+                        str(self.port),
+                        'key_file',
+                        str(key_file),
+                    )
+                    self.logger(logging.DEBUG, f'rclone.init: cmd: {shlex.join(args)}')
+                    status, out, err = execute_args(args)
                     if status:
                         return False
                 else:
-                    cmd = 'rclone config create {0} sftp host {1} port {2} key_file {3}'.format(self.hostname, self.host, str(self.port), key_file)
-                    self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
-                    status, out, err = execute(cmd)
+                    args: tuple[str, ...] = (
+                        'rclone',
+                        'config',
+                        'create',
+                        str(self.hostname),
+                        'sftp',
+                        'host',
+                        str(self.host),
+                        'port',
+                        str(self.port),
+                        'key_file',
+                        str(key_file),
+                    )
+                    self.logger(logging.DEBUG, f'rclone.init: cmd: {shlex.join(args)}')
+                    status, out, err = execute_args(args)
                     if status:
                         return False
             except Exception as e:
@@ -93,9 +120,15 @@ class Default(protocol.RSEProtocol):
             self.hostname = '%s_rclone_rse' % (protocols['scheme'])
             self.host = 'localhost'
             try:
-                cmd = 'rclone config create {0} local'.format(self.hostname)
-                self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
-                status, out, err = execute(cmd)
+                args: tuple[str, ...] = (
+                    'rclone',
+                    'config',
+                    'create',
+                    str(self.hostname),
+                    'local',
+                )
+                self.logger(logging.DEBUG, f'rclone.init: cmd: {shlex.join(args)}')
+                status, out, err = execute_args(args)
                 if status:
                     return False
             except Exception as e:
@@ -112,9 +145,21 @@ class Default(protocol.RSEProtocol):
                 self.logger(logging.ERROR, 'rclone.init: rclone-init.cfg:- Field value missing for "{}_webdav: bearer_token"'.format(self.host))
                 return False
             try:
-                cmd = 'rclone config create {0} webdav url {1} vendor other bearer_token {2}'.format(self.hostname, url, bearer_token)
-                self.logger(logging.DEBUG, 'rclone.init: cmd: {}'.format(cmd))
-                status, out, err = execute(cmd)
+                args: tuple[str, ...] = (
+                    'rclone',
+                    'config',
+                    'create',
+                    str(self.hostname),
+                    'webdav',
+                    'url',
+                    str(url),
+                    'vendor',
+                    'other',
+                    'bearer_token',
+                    str(bearer_token),
+                )
+                self.logger(logging.DEBUG, f'rclone.init: cmd: {shlex.join(args)}')
+                status, out, err = execute_args(args)
                 if status:
                     return False
             except Exception as e:
@@ -153,9 +198,13 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'rclone.exists: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = 'rclone lsf %s:%s' % (self.hostname, path)
-            self.logger(logging.DEBUG, 'rclone.exists: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'lsf',
+                f'{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rclone.exists: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 return False
         except Exception as e:
@@ -181,17 +230,25 @@ class Default(protocol.RSEProtocol):
 
         try:
             # rclone stat for getting filesize
-            cmd = 'rclone size {0}:{1}'.format(self.hostname, path)
-            self.logger(logging.DEBUG, 'rclone.stat: filesize cmd: {}'.format(cmd))
-            status_stat, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'size',
+                f'{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rclone.stat: filesize cmd: {shlex.join(args)}')
+            status_stat, out, err = execute_args(args)
             if status_stat == 0:
                 fsize = (out.split('\n')[1]).split(' ')[4][1:]
                 ret['filesize'] = fsize
 
             # rclone query checksum for getting md5 checksum
-            cmd = 'rclone md5sum %s:%s' % (self.hostname, path)
-            self.logger(logging.DEBUG, 'rclone.stat: checksum cmd: {}'.format(cmd))
-            status_query, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'md5sum',
+                f'{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rclone.stat: checksum cmd: {shlex.join(args)}')
+            status_query, out, err = execute_args(args)
 
             if status_query == 0:
                 chsum = 'md5'
@@ -258,8 +315,12 @@ class Default(protocol.RSEProtocol):
         """
         self.logger(logging.DEBUG, 'rclone.connect: hostname {}'.format(self.hostname))
         try:
-            cmd = 'rclone lsd %s:' % (self.hostname)
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'lsd',
+                f'{self.hostname}:',
+            )
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RSEAccessDenied(err)
         except Exception as e:
@@ -281,9 +342,14 @@ class Default(protocol.RSEProtocol):
         self.logger(logging.DEBUG, 'rclone.get: pfn: {}'.format(pfn))
         try:
             path = self.pfn2path(pfn)
-            cmd = 'rclone copyto %s:%s %s' % (self.hostname, path, dest)
-            self.logger(logging.DEBUG, 'rclone.get: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'copyto',
+                f'{self.hostname}:{path}',
+                str(dest),
+            )
+            self.logger(logging.DEBUG, f'rclone.get: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -311,9 +377,14 @@ class Default(protocol.RSEProtocol):
         if not os.path.exists(source_url):
             raise exception.SourceNotFound()
         try:
-            cmd = 'rclone copyto %s %s:%s' % (source_url, self.hostname, path)
-            self.logger(logging.DEBUG, 'rclone.put: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'copyto',
+                str(source_url),
+                f'{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rclone.put: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -333,9 +404,13 @@ class Default(protocol.RSEProtocol):
             raise exception.SourceNotFound()
         try:
             path = self.pfn2path(pfn)
-            cmd = 'rclone delete %s:%s' % (self.hostname, path)
-            self.logger(logging.DEBUG, 'rclone.delete: cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'delete',
+                f'{self.hostname}:{path}',
+            )
+            self.logger(logging.DEBUG, f'rclone.delete: cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:
@@ -356,9 +431,14 @@ class Default(protocol.RSEProtocol):
         try:
             path = self.pfn2path(pfn)
             new_path = self.pfn2path(new_pfn)
-            cmd = 'rclone moveto %s:%s %s:%s' % (self.hostname, path, self.hostname, new_path)
-            self.logger(logging.DEBUG, 'rclone.stat: rename cmd: {}'.format(cmd))
-            status, out, err = execute(cmd)
+            args: tuple[str, ...] = (
+                'rclone',
+                'moveto',
+                f'{self.hostname}:{path}',
+                f'{self.hostname}:{new_path}',
+            )
+            self.logger(logging.DEBUG, f'rclone.stat: rename cmd: {shlex.join(args)}')
+            status, out, err = execute_args(args)
             if status != 0:
                 raise exception.RucioException(err)
         except Exception as e:

@@ -445,6 +445,7 @@ class DataIdentifier(BASE, ModelBase):
     accessed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     eol_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    is_opendata: Mapped[Optional[bool]] = mapped_column(Boolean(name='DIDS_OPENDATA_CHK', create_constraint=True))
     is_archive: Mapped[Optional[bool]] = mapped_column(Boolean(name='DIDS_ARCHIVE_CHK', create_constraint=True))
     constituent: Mapped[Optional[bool]] = mapped_column(Boolean(name='DIDS_CONSTITUENT_CHK', create_constraint=True))
     access_cnt: Mapped[Optional[int]] = mapped_column(Integer())
@@ -477,7 +478,6 @@ class OpenDataDid(BASE, ModelBase):
             ['scope', 'name'],
             ['dids.scope', 'dids.name'],
             name='OPENDATA_DID_FK',
-            ondelete='CASCADE',
         ),
         Index('OPENDATA_DID_UPDATED_AT_IDX', 'updated_at'),
         Index('OPENDATA_DID_CREATED_AT_IDX', 'created_at'),
@@ -500,7 +500,6 @@ class OpenDataDOI(BASE, ModelBase):
             ['scope', 'name'],
             ['dids_opendata.scope', 'dids_opendata.name'],
             name='OPENDATA_DOI_FK',
-            ondelete='CASCADE',
         ),
         # Not working on all DB, we add the constraint on insert
         # CheckConstraint("doi ~* '^10\\.[0-9]{4,9}/[-._;()/:A-Z0-9]+$'", name='OPENDATA_DOI_FORMAT_CHK'),
@@ -523,7 +522,6 @@ class OpenDataRecord(BASE, ModelBase):
             ['scope', 'name'],
             ['dids_opendata.scope', 'dids_opendata.name'],
             name='OPENDATA_RECORD_FK',
-            ondelete='CASCADE',
         ),
         Index('OPENDATA_RECORD_UPDATED_AT_IDX', 'updated_at'),
         Index('OPENDATA_RECORD_CREATED_AT_IDX', 'created_at'),
@@ -544,7 +542,6 @@ class OpenDataMeta(BASE, ModelBase):
             ['scope', 'name'],
             ['dids_opendata.scope', 'dids_opendata.name'],
             name='OPENDATA_META_FK',
-            ondelete='CASCADE',
         ),
     )
 

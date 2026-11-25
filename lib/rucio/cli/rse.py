@@ -19,7 +19,7 @@ from rich.padding import Padding
 from rich.text import Text
 from rich.tree import Tree
 
-from rucio.cli.utils import RichCLITheme, RichUtils
+from rucio.cli.utils import RichCLITheme, RichUtils, StrOrBoolType
 from rucio.common.exception import InputValidationError
 from rucio.common.utils import sizefmt
 
@@ -189,7 +189,7 @@ def show(ctx: click.Context, rse_name: str) -> None:
 def add_(ctx: click.Context, rse_name: str, non_deterministic: bool) -> None:
     """Add a new RSE"""
     ctx.obj.client.add_rse(rse_name, deterministic=not non_deterministic)
-    print(f'Added new {"non-" if non_deterministic else ""}deterministic RSE: {rse}')
+    print(f'Added new {"non-" if non_deterministic else ""}deterministic RSE: {rse_name}')
 
 
 @rse.command("remove")
@@ -203,7 +203,7 @@ def remove(ctx: click.Context, rse_name: str) -> None:
 @rse.command("update")
 @click.argument("rse-name")
 @click.option('--key', help='Setting key', required=True)
-@click.option('--value', help='Setting value', required=True)
+@click.option('--value', help='Setting value', required=True, type=StrOrBoolType())
 @click.pass_context
 def update(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
     """
@@ -213,14 +213,8 @@ def update(ctx: click.Context, rse_name: str, key: str, value: str) -> None:
     Example:
         $ rucio rse update my-rse --key availability_write --value True
     """
-    param_value = value
-    if value in ['true', 'True', 'TRUE', '1']:
-        param_value = True
-    if value in ['false', 'False', 'FALSE', '0']:
-        param_value = False
-    params = {key: param_value}
+    params = {key: value}
     ctx.obj.client.update_rse(rse_name, parameters=params)
-
     print_value = value if str(value).lower() not in ['', 'none', 'null'] else '[WIPED]'
     print(f'Updated RSE {rse_name} settings {key} to {print_value}')
 

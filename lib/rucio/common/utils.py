@@ -312,12 +312,57 @@ def parse_response(data: Union[str, bytes, bytearray]) -> Any:
     return json.loads(data, object_hook=datetime_parser)
 
 
+def execute_args(
+    args: "Sequence[str]",
+    env: Optional["Mapping[str, str]"] = None,
+    timeout: Optional["Union[float, int]"] = None,
+) -> tuple[int, str, str]:
+    """
+    Executes a command in a subprocess.
+    Passes args sequence to subprocess.Popen,
+    safeguards against possible shell injection from execute.
+
+    :param args: Process and arguments to execute in form of a string sequence
+    :param env: Optional additional environment variables to pass to the process
+    :param timeout: Optional timeout in seconds. Terminates the process after this timeout.
+    :return: a tuple containing (exitcode, out, err)
+    """
+
+    if env is not None:
+        env = dict(os.environ, **env)
+
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+
+    try:
+        (out, err) = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Kill the process after time is up
+        try:
+            os.kill(process.pid, signal.SIGTERM)
+            (out, err) = process.communicate(timeout=3)  # wait 3 more seconds before SIGKILL
+        except subprocess.TimeoutExpired:
+            os.kill(process.pid, signal.SIGKILL)
+            (out, err) = process.communicate()
+    return process.returncode, out.decode(), err.decode()
+
+
 def execute(cmd: str) -> tuple[int, str, str]:
     """
     Executes a command in a subprocess. Returns a tuple
     of (exitcode, out, err), where out is the string output
     from stdout and err is the string output from stderr when
     executing the command.
+
+    The command string is interpreted by a shell.
+    Prefer execute_args to avoid accidental os command injection.
+    Where a shell cannot be avoided, the string can be created
+    by using the Python shlex module, e.g. with shlex.join().
 
     :param cmd: Command string to execute
     """
@@ -1192,47 +1237,6 @@ def get_thread_with_periodic_running_function(
             time.sleep(interval - (time.time() - starttime))
     t = threading.Thread(target=start)
     return t
-
-
-def run_cmd_process(cmd: str, timeout: int = 3600) -> tuple[int, str]:
-    """
-    shell command parser with timeout
-
-    :param cmd: shell command as a string
-    :param timeout: in seconds
-
-    :return: stdout xor stderr, and errorcode
-    """
-
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid, universal_newlines=True)
-
-    try:
-        stdout, stderr = process.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        try:
-            # Kill the whole process group since we're using shell=True.
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-            stdout, stderr = process.communicate(timeout=3)
-        except subprocess.TimeoutExpired:
-            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            stdout, stderr = process.communicate()
-
-    if not stderr:
-        stderr = ''
-    if not stdout:
-        stdout = ''
-    if stderr and stderr != '':
-        stdout += " Error: " + stderr
-    if process:
-        returncode = process.returncode
-    else:
-        returncode = 1
-    if returncode != 1 and 'Command time-out' in stdout:
-        returncode = 1
-    if returncode is None:
-        returncode = 0
-
-    return returncode, stdout
 
 
 def gateway_update_return_dict(

@@ -69,7 +69,7 @@ services:
       ruciodb:
         condition: service_healthy
         required: false
-      postgres14:
+      postgres16:
         condition: service_healthy
         required: false
       elasticsearch:
@@ -84,14 +84,14 @@ services:
   # ------------------------------------------------------------------
   ruciodb:
     container_name: dev-ruciodb-1
-    image: docker.io/postgres:14
+    image: docker.io/postgres:16
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=secret
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
     volumes:
-      - vol-ruciodb-data:/var/lib/postgresql/data
+      - vol-ruciodb-data-v16:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1" ]
       interval: 10s
@@ -158,18 +158,18 @@ services:
       ACTIVEMQ_WEB_USER: activemq
       ACTIVEMQ_WEB_PASSWORD: supersecret
 
-  postgres14:
-    container_name: ${RUCIO_POSTGRES14_CONTAINER_NAME:-dev-postgres14-1}
-    image: docker.io/postgres:14
+  postgres16:
+    container_name: ${RUCIO_POSTGRES16_CONTAINER_NAME:-dev-postgres16-1}
+    image: docker.io/postgres:16
     profiles:
-      - postgres14
+      - postgres16
     environment:
       - POSTGRES_USER=rucio
       - POSTGRES_DB=rucio
       - POSTGRES_PASSWORD=rucio
     command: ["-c", "fsync=off","-c", "synchronous_commit=off","-c", "full_page_writes=off"]
     volumes:
-      - vol-postgres14-data:/var/lib/postgresql/data
+      - vol-postgres16-data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1" ]
       interval: 10s
@@ -179,7 +179,7 @@ services:
 
   mysql8:
     container_name: ${RUCIO_MYSQL8_CONTAINER_NAME:-dev-mysql8-1}
-    image: docker.io/mysql:8.3
+    image: docker.io/mysql:8.4
     profiles:
       - mysql8
     environment:
@@ -189,10 +189,12 @@ services:
       - MYSQL_DATABASE=rucio
       - MYSQL_TCP_PORT=3308
     command:
-      - "--default-authentication-plugin=mysql_native_password"
       - "--character-set-server=latin1"
+      # Only the Alembic replay in tools/alembic_migration.sh needs it
+      # (22d887e4ec0a); drop it once that is no longer replayed
+      - "--restrict-fk-on-non-standard-key=OFF"
     volumes:
-      - vol-mysql8-mysql:/var/lib/mysql
+      - vol-mysql8-mysql84:/var/lib/mysql
 
   oracle:
     container_name: ${RUCIO_ORACLE_CONTAINER_NAME:-dev-oracle-1}
@@ -236,17 +238,16 @@ services:
 
   ftsdb:
     container_name: dev-ftsdb-1
-    image: docker.io/mysql:8.3
+    image: docker.io/mysql:8.4
     profiles:
       - storage
-    command: --default-authentication-plugin=mysql_native_password
     environment:
       - MYSQL_USER=fts
       - MYSQL_PASSWORD=fts
       - MYSQL_ROOT_PASSWORD=fts
       - MYSQL_DATABASE=fts
     volumes:
-      - vol-ftsdb-mysql:/var/lib/mysql
+      - vol-ftsdb-mysql84:/var/lib/mysql
 
   xrd1:
     container_name: dev-xrd1-1
@@ -428,7 +429,7 @@ services:
 
   postgres:
     container_name: dev-postgres-1
-    image: docker.io/postgres:14
+    image: docker.io/postgres:16
     profiles:
       - externalmetadata
     environment:
@@ -437,7 +438,7 @@ services:
       - POSTGRES_PASSWORD=secret
     command: ["-p", "5433"]
     volumes:
-      - vol-postgres-data:/var/lib/postgresql/data
+      - vol-postgres-data-v16:/var/lib/postgresql/data
 
   elasticsearch_meta:
     container_name: dev-elasticsearch_meta-1
@@ -577,7 +578,7 @@ volumes:
   # ------------------------------------------------------------------
   # Named volumes for each container
   # ------------------------------------------------------------------
-  vol-ruciodb-data:
+  vol-ruciodb-data-v16:
   vol-graphite-conf:
   vol-graphite-storage:
   vol-graphite-functions:
@@ -588,17 +589,17 @@ volumes:
   vol-graphite-nginx:
   vol-influxdb-etc:
   vol-influxdb-var:
-  vol-ftsdb-mysql:
+  vol-ftsdb-mysql84:
   vol-garage-data:
   vol-garage-meta:
-  vol-postgres14-data:
+  vol-postgres16-data:
   vol-mongo-noauth-configdb:
   vol-mongo-noauth-db:
   vol-mongo-configdb:
   vol-mongo-db:
   vol-iam-db-mysql:
-  vol-mysql8-mysql:
-  vol-postgres-data:
+  vol-mysql8-mysql84:
+  vol-postgres-data-v16:
 
 networks:
   default:

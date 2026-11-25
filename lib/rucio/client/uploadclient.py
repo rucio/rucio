@@ -46,7 +46,7 @@ from rucio.common.exception import (
     ScopeNotFound,
     ServiceUnavailable,
 )
-from rucio.common.utils import execute, generate_uuid, make_valid_did, retry, send_trace
+from rucio.common.utils import execute_args, generate_uuid, make_valid_did, retry, send_trace
 from rucio.rse import rsemanager as rsemgr
 
 if TYPE_CHECKING:
@@ -798,7 +798,7 @@ class UploadClient:
         """
         guid = file.get('guid')
         if not guid and 'pool.root' in file['basename'].lower() and not file.get('no_register'):
-            status, output, err = execute('pool_extractFileIdentifier %s' % file['path'])
+            status, output, err = execute_args(('pool_extractFileIdentifier', file['path']))
             if status != 0:
                 msg = 'Trying to upload ROOT files but pool_extractFileIdentifier tool can not be found.\n'
                 msg += 'Setup your ATHENA environment and try again.'

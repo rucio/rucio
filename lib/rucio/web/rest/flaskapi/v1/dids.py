@@ -554,6 +554,10 @@ class DIDs(ErrorHandlingMethodView):
                       adler32:
                         description: "adler32 checksum."
                         type: string
+                      accessed_at:
+                        description: "When the DID was last accessed."
+                        type: string
+                        format: date-time
                   - description: "A single file DID."
                     type: object
                     properties:
@@ -584,6 +588,10 @@ class DIDs(ErrorHandlingMethodView):
                       bytes:
                         description: "The size in bytes."
                         type: number
+                      accessed_at:
+                        description: "When the DID was last accessed."
+                        type: string
+                        format: date-time
           401:
             description: "Invalid Auth Token"
           404:

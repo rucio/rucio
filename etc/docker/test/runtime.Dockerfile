@@ -173,7 +173,6 @@ FROM rucio-runtime AS requirements
 FROM requirements AS final
 
     COPY --from=gfal2 /usr/include/gfal2 /usr/include/gfal2
-    COPY --from=gfal2 /usr/lib64/* /usr/lib64/
     COPY --from=gfal2 /usr/lib64/libboost_python3* /usr/lib64/
     COPY --from=gfal2 /usr/lib64/gfal2.so /usr/lib64/gfal2.so
 
