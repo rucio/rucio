@@ -72,7 +72,7 @@ class ElasticDidMeta(DidMetaPlugin):
 
         self.es_config = {
             'hosts': hosts,
-            'timeout': request_timeout,
+            'request_timeout': request_timeout,
             'max_retries': max_retries,
             'retry_on_timeout': retry_on_timeout
         }
@@ -145,13 +145,13 @@ class ElasticDidMeta(DidMetaPlugin):
         :raises DataIdentifierNotFound: If the DID is not found.
         :raises RucioException: If an error occurs while setting the metadata.
         """
-        self.set_metadata_bulk(scope=scope, name=name, meta={key: value}, recursive=recursive, session=session)
+        self.set_metadata_bulk(scope=scope, name=name, metadata={key: value}, recursive=recursive, session=session)
 
     def set_metadata_bulk(
         self,
         scope: "InternalScope",
         name: str,
-        meta: dict[str, Any],
+        metadata: dict[str, Any],
         recursive: bool = False,
         *,
         session: "Optional[Session]" = None
@@ -178,7 +178,7 @@ class ElasticDidMeta(DidMetaPlugin):
                 'name': name,
                 'vo': scope.vo
             }
-        for key, value in meta.items():
+        for key, value in metadata.items():
             if key not in IMMUTABLE_KEYS:
                 existing_meta[key] = value
 
