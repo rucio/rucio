@@ -844,9 +844,17 @@ def test_rule(rucio_client, mock_scope, file_config_mock):
     assert "ERROR" not in err
     rule_id = out.split("\n")[0]
 
-    cmd = f"rucio rule list --did {scope}:{name}"
+    cmd = f"rucio rule list {scope}:{name}"
     exitcode, out, err = execute_cli(cmd)
     assert exitcode == 0
+    assert "ERROR" not in err
+    assert rule_id in out
+
+    # test the debug message is there when more than 1 did is given
+    cmd = f"rucio -v rule list {scope}:{name} {scope}:did2 {scope}:did3"
+    exitcode, out, err = execute_cli(cmd)
+    assert exitcode == 0
+    assert "Cannot use more than 1 DID" in err
     assert "ERROR" not in err
     assert rule_id in out
 
