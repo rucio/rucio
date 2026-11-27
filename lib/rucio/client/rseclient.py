@@ -315,6 +315,38 @@ class RSEClient(BaseClient):
             exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
             raise exc_cls(exc_msg)
 
+    def restore_rse(self, rse: str) -> Literal[True]:
+        """
+        Restore an RSE that has been deleted
+
+        Parameters
+        ----------
+        rse
+            The name of the RSE.
+
+        Returns
+        -------
+        True if RSE was restored successfully.
+
+        Raises
+        ------
+        RSENotFound
+            If the RSE was not found.
+
+        See Also
+        --------
+        rucio.client.rseclient.RSEClient.add_rse
+        rucio.client.rseclient.RSEClient.delete_rse
+        """
+        path = 'rses/' + rse
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, method=HTTPMethod.PUT, data=dumps({"restore": True}))
+        if r.status_code == codes.created:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
     def list_rses(self, rse_expression: Optional[str] = None) -> "Iterator[dict[str, Any]]":
         """
         List all RSEs that match the given RSE Expression.

@@ -55,6 +55,7 @@ from rucio.gateway.rse import (
     list_rse_usage_history,
     list_rses,
     parse_rse_expression,
+    restore_rse,
     set_rse_limits,
     set_rse_usage,
     update_distance,
@@ -345,6 +346,9 @@ class RSE(ErrorHandlingMethodView):
               schema:
                 type: object
                 properties:
+                  restore:
+                    description: "If RSE must be restored from a deleted state."
+                    type: boolean
                   availability_read:
                     description: "The availability of the RSE."
                     type: boolean
@@ -405,7 +409,10 @@ class RSE(ErrorHandlingMethodView):
             'vo': request.environ['vo'],
         }
         try:
-            update_rse(rse, **kwargs)
+            if json_parameters(optional=True).get("restore", False):
+                restore_rse(rse, issuer=kwargs['issuer'], vo=kwargs['vo'])
+            else:
+                update_rse(rse, **kwargs)
         except (InvalidObject, InputValidationError) as error:
             return generate_http_error_flask(400, error)
         except AccessDenied as error:

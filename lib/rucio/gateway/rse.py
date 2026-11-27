@@ -141,6 +141,29 @@ def list_rses(filters: "Optional[dict[str, Any]]" = None, vo: str = DEFAULT_VO) 
         return rse_module.list_rses(filters=filters, session=session)
 
 
+def restore_rse(rse: str, issuer: str, vo: str = DEFAULT_VO) -> None:
+    """
+    Restore a previously deleted RSE
+
+    :param rse: RSE Name
+    :param issuer:
+    :param vo: VO to act on
+
+    :returns: True if successful
+
+    :raises AccessDenied: Issuer has invalid permissions
+    :raises RSENotFound: RSE not found (was not deleted, or does not exist)
+    """
+    with db_session(DatabaseOperationType.WRITE) as session:
+        rse_id = rse_module.get_rse_id(rse=rse, vo=vo, session=session)
+        kwargs = {'rse': rse, 'rse_id': rse_id}
+        auth_result = permission.has_permission(issuer=issuer, vo=vo, action='restore_rse', kwargs=kwargs, session=session)
+        if not auth_result.allowed:
+            raise exception.AccessDenied('Account %s can not restore RSE. %s' % (issuer, auth_result.message))
+
+        rse_module.restore_rse(rse_id, session=session)
+
+
 def del_rse_attribute(rse, key, issuer, vo=DEFAULT_VO):
     """
     Delete a RSE attribute.
