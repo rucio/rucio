@@ -58,15 +58,18 @@ class TestAccountCoreGateway:
         assert email == 'test'
         del_account(usr, 'root', vo=vo)
 
-    def test_list_account_identities(self, root_account):
+    def test_list_account_identities(self, random_account):
         """ ACCOUNT (CORE): Test listing of account identities """
         email = 'email'
         identity = uuid()
+        default_identity = uuid()
         identity_type = IdentityType.USERPASS
-        add_account_identity(identity, identity_type, root_account, email, password='secret')
+        add_account_identity(identity, identity_type, random_account, email, password='secret')
+        add_account_identity(default_identity, identity_type, random_account, email, default=True, password='secret')
         with db_session(DatabaseOperationType.READ) as session:
-            identities = list_identities(root_account, session=session)
-        assert {'type': identity_type, 'identity': identity, 'email': email} in identities
+            identities = list_identities(random_account, session=session)
+        assert {'type': identity_type, 'identity': identity, 'email': email, 'is_default': False} in identities
+        assert {'type': identity_type, 'identity': default_identity, 'email': email, 'is_default': True} in identities
 
     def test_add_account_attribute(self, root_account):
         """ ACCOUNT (CORE): Test adding attribute to account """
@@ -292,6 +295,20 @@ def test_add_identity_to_account(rest_client, auth_token):
     data = {'authtype': 'USERPASS', 'email': 'rucio@email.com', 'identity': identity}
     response = rest_client.post('/accounts/root/identities', headers=headers(auth(auth_token)), json=data)
     assert response.status_code == 400
+
+
+def test_list_identities_of_account(rest_client, auth_token, random_account):
+    """ ACCOUNT (REST): send a GET to list the identities of an account."""
+    identity = uuid()
+    default_identity = uuid()
+    add_account_identity(identity, IdentityType.USERPASS, random_account, 'rucio@email.com', password='secret')
+    add_account_identity(default_identity, IdentityType.USERPASS, random_account, 'rucio@email.com', default=True, password='secret')
+
+    response = rest_client.get(f'/accounts/{random_account.external}/identities', headers=headers(auth(auth_token)))
+    assert response.status_code == 200
+    identities = {i['identity']: i for i in map(loads, response.get_data(as_text=True).split('\n')[:-1])}
+    assert identities[identity]['is_default'] is False
+    assert identities[default_identity]['is_default'] is True
 
 
 class TestAccountClient:
