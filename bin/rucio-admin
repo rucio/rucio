@@ -15,10 +15,8 @@
 
 import sys
 
-from rucio.common.utils import setup_logger
+from rucio.cli.bin_legacy.rucio_admin import rucio_admin_main
 
 if __name__ == "__main__":
-    logger = setup_logger(module_name=__name__)
-    warning = "rucio-admin is deprecated. View rucio --help for an updated help menu."
-    logger.error(warning)
+    rucio_admin_main()
     sys.exit(1)
