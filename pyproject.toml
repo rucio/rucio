@@ -87,6 +87,8 @@ dev = [
     'PyYAML',
 ]
 
+kafka = ['confluent-kafka<=2.14.2']
+
 [tool.pytest.ini_options]
 pythonpath = [
     ".",
