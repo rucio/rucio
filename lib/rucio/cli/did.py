@@ -139,8 +139,8 @@ def show(ctx: click.Context, dids: tuple[str, ...]) -> None:
         else:
             if i > 0:
                 print('------')
-            table = [(k + ':', str(v)) for (k, v) in sorted(info.items())]
-            print(tabulate(table, tablefmt='plain', disable_numparse=True))
+            table = [(k, str(v)) for (k, v) in sorted(info.items())]
+            print(tabulate(table, tablefmt=ctx.obj.tablefmt, headers=['KEY', 'VALUE]'], disable_numparse=True))
 
     if ctx.obj.use_rich:
         ctx.obj.spinner.stop()
