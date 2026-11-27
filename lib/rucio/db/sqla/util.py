@@ -72,6 +72,12 @@ def build_database() -> None:
 
     models.register_models(engine)
 
+    # The built-in admin role comes with the schema, as it does with the migration adding the RBAC tables
+    # (revision 6a6d3e225f46): the same row, spelled out as it is there
+    session_scoped = get_session()
+    session_scoped.add(models.Roles(role='admin', description='Rucio administrator.', assignable=False, locked=True))
+    session_scoped.commit()
+
     # Put the database under version control
     alembic_cfg = Config(config_get('alembic', 'cfg'))
     command.stamp(alembic_cfg, "head")

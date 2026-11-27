@@ -391,6 +391,62 @@ class Scope(BASE, ModelBase):
                    CheckConstraint('ACCOUNT IS NOT NULL', name='SCOPES_ACCOUNT_NN'))
 
 
+class Roles(BASE, ModelBase):
+    """Represents a role for Role-Based Access Control (RBAC)"""
+    __tablename__ = 'roles'
+    role: Mapped[str] = mapped_column(String(64))
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    assignable: Mapped[bool] = mapped_column(Boolean, default=True)
+    locked: Mapped[bool] = mapped_column(Boolean, default=True)
+    _table_args = (PrimaryKeyConstraint('role', name='ROLES_PK'),
+                   CheckConstraint('ROLE IS NOT NULL', name='ROLES_ROLE_NN'),
+                   CheckConstraint('ASSIGNABLE IS NOT NULL', name='ROLES_ASSIGNABLE_NN'),
+                   CheckConstraint('LOCKED IS NOT NULL', name='ROLES_LOCKED_NN'))
+
+
+class AccountRoleAssociation(BASE, ModelBase):
+    """Represents a map account-role for Role-Based Access Control (RBAC)"""
+    __tablename__ = 'account_role_map'
+    account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
+    role: Mapped[str] = mapped_column(String(64))
+    activates_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)
+    _table_args = (PrimaryKeyConstraint('account', 'role', name='ACCOUNT_ROLE_MAP_PK'),
+                   ForeignKeyConstraint(['account'], ['accounts.account'], name='ACCOUNT_ROLE_MAP_ACCOUNT_FK', ondelete='CASCADE'),
+                   ForeignKeyConstraint(['role'], ['roles.role'], name='ACCOUNT_ROLE_MAP_ROLE_FK'),
+                   CheckConstraint('ACCOUNT IS NOT NULL', name='ACCOUNT_ROLE_MAP_ACCOUNT_NN'),
+                   CheckConstraint('ROLE IS NOT NULL', name='ACCOUNT_ROLE_MAP_ROLE_NN'),
+                   CheckConstraint('ACTIVATES_AT IS NOT NULL', name='ACCOUNT_ROLE_MAP_ACTIVATES_NN'),
+                   CheckConstraint('EXPIRES_AT IS NULL OR ACTIVATES_AT < EXPIRES_AT', name='ACCOUNT_ROLE_MAP_EXPIRES_CHK'))
+
+
+class RoleDidPermissionAssociation(BASE, ModelBase):
+    """
+    Represents a role's permission (DID pattern + operations) for Role-Based Access Control (RBAC)
+
+    A DID pattern is made of a scope part and a name part: 'data*:*' (every scope starting with
+    'data'), 'data:*' (the scope 'data'), 'data:raw*' or 'data:raw1', hence its length. Each operation
+    of `DidOperationType` has its own boolean column, named by `DidOperationType.column`.
+
+    A row holds every operation its role grants on the DIDs its pattern matches, unless a more specific
+    pattern of the same role matches them too: within a role, the most specific pattern decides. A row
+    granting no operation is kept, since it withdraws its DIDs from the less specific rows of its role.
+    """
+    __tablename__ = 'role_did_permission_map'
+    role: Mapped[str] = mapped_column(String(64))
+    did_pattern: Mapped[str] = mapped_column(String(common_schema.get_schema_value('SCOPE_LENGTH') + 1 + common_schema.get_schema_value('NAME_LENGTH')))
+    can_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_write: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_delete: Mapped[bool] = mapped_column(Boolean, default=False)
+    _table_args = (PrimaryKeyConstraint('role', 'did_pattern', name='ROLE_DID_PERMISSION_MAP_PK'),
+                   ForeignKeyConstraint(['role'], ['roles.role'], name='ROLE_DID_PERMISSION_MAP_ROLE_FK', ondelete='CASCADE'),
+                   CheckConstraint('ROLE IS NOT NULL', name='ROLE_DID_PERMISSION_MAP_ROLE_NN'),
+                   CheckConstraint('DID_PATTERN IS NOT NULL', name='ROLE_DID_PERMISSION_MAP_DID_PATTERN_NN'),
+                   CheckConstraint('CAN_READ IS NOT NULL', name='ROLE_DID_PERMISSION_MAP_CAN_READ_NN'),
+                   CheckConstraint('CAN_WRITE IS NOT NULL', name='ROLE_DID_PERMISSION_MAP_CAN_WRITE_NN'),
+                   CheckConstraint('CAN_DELETE IS NOT NULL', name='ROLE_DID_PERMISSION_MAP_CAN_DELETE_NN'))
+
+
 class DataIdentifier(BASE, ModelBase):
     """Represents a dataset"""
     __tablename__ = 'dids'
