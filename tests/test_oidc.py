@@ -30,7 +30,7 @@ from rucio.common.types import InternalAccount
 from rucio.core.account import add_account
 from rucio.core.authentication import redirect_auth_oidc, validate_auth_token
 from rucio.core.identity import add_account_identity
-from rucio.core.oidc import _token_cache_get, _token_cache_set, get_auth_oidc, get_token_oidc, oidc_identity_string
+from rucio.core.oidc import _openid_configuration_url, _token_cache_get, _token_cache_set, get_auth_oidc, get_token_oidc, oidc_identity_string
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountType, DatabaseOperationType, IdentityType
 from rucio.db.sqla.session import db_session, get_session
@@ -756,6 +756,16 @@ class TestAuthCoreAPIoidc:
         # most importantly, check that the token was saved in Rucio DB
         db_token = get_token_row(access_token, account=self.account, session=self.db_session)
         assert not db_token
+
+
+@pytest.mark.parametrize('issuer,expected', [
+    ('https://issuer.example', 'https://issuer.example/.well-known/openid-configuration'),
+    ('https://issuer.example/', 'https://issuer.example/.well-known/openid-configuration'),
+    ('https://issuer.example/auth', 'https://issuer.example/auth/.well-known/openid-configuration'),
+    ('https://issuer.example/auth/', 'https://issuer.example/auth/.well-known/openid-configuration'),
+])
+def test_openid_configuration_url(issuer: str, expected: str) -> None:
+    assert _openid_configuration_url(issuer) == expected
 
 
 def test_token_cache() -> None:
