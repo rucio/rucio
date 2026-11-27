@@ -54,6 +54,12 @@ class TestDidMetaDidColumn:
         add_did(scope=mock_scope, name=did_name, did_type='DATASET', meta=dataset_meta, account=root_account)
         assert get_metadata(scope=mock_scope, name=did_name)['project'] == 'data12_8TeV'
 
+    def test_set_eol_at_from_string(self, did_factory):
+        """ DID Meta (Hardcoded): Set eol_at from a date string """
+        dataset = did_factory.make_dataset()
+        set_metadata(scope=dataset['scope'], name=dataset['name'], key='eol_at', value='2026-12-25')
+        assert get_metadata(scope=dataset['scope'], name=dataset['name'])['eol_at'] == datetime(2026, 12, 25)
+
     @pytest.mark.dirty
     def test_list_did_meta(self, mock_scope, root_account):
         """ DID Meta (Hardcoded): List DID meta """

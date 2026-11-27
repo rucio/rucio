@@ -128,7 +128,7 @@ class DidColumnMeta(DidMetaPlugin):
         for key, value in metadata.items():
             if key == 'eol_at' and isinstance(value, str):
                 try:
-                    eol_at = datetime.strptime(value, '%Y-%M-%d')
+                    eol_at = datetime.strptime(value, '%Y-%m-%d')
                     rowcount = did_query.update({'eol_at': eol_at}, synchronize_session='fetch')
                 except TypeError as error:
                     raise exception.InvalidValueForKey(error)
