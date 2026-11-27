@@ -23,11 +23,47 @@ import pytest
 from rucio.common.bittorrent import bittorrent_v2_merkle_sha256
 from rucio.common.exception import InvalidType
 from rucio.common.logging import formatted_logger
-from rucio.common.utils import Availability, clone_function, parse_did_filter_from_string, retrying
+from rucio.common.utils import Availability, all_oidc_req_claims_present, clone_function, parse_did_filter_from_string, retrying
 
 
 class TestUtils:
     """UTILS (COMMON): test utility functions"""
+
+    @pytest.mark.parametrize("scope,audience,required_scope,required_audience,expected", [
+        # audience-only check, as performed on externally-issued access tokens
+        (None, 'rucio', None, 'rucio', True),
+        (None, 'https://other.org rucio', None, 'rucio', True),
+        (None, 'rucio', None, 'other', False),
+        (None, 'rucio.evil.com', None, 'rucio', False),
+        (None, None, None, 'rucio', False),
+        # scope-only check, as performed when expected_external_token_scope is set
+        ('openid storage.read', None, 'storage.read', None, True),
+        ('openid', None, 'storage.read', None, False),
+        (None, None, 'storage.read', None, False),
+        ('storage.readonly', None, 'storage.read', None, False),
+        # a claim and its requirement must be either both empty or both set: a
+        # populated claim with an empty requirement is NOT a wildcard
+        ('openid profile', 'rucio', None, 'rucio', False),
+        ('openid profile', 'rucio', '', 'rucio', False),
+        (None, 'rucio', None, None, False),
+        # both claims and both requirements together
+        ('openid profile', 'rucio', 'openid', 'rucio', True),
+        ('openid profile', 'rucio', 'openid', 'other', False),
+        # lists on both sides, and a list claim against a string requirement
+        (['openid'], ['rucio'], ['openid'], ['rucio'], True),
+        (['openid'], ['rucio'], ['storage.read'], ['rucio'], False),
+        (['openid'], ['rucio'], 'openid', 'rucio', True),
+        # mixed types across claims are not supported and never match
+        ('openid', ['rucio'], 'openid', 'rucio', False),
+    ])
+    def test_all_oidc_req_claims_present(self, scope, audience, required_scope, required_audience, expected):
+        """(COMMON/UTILS): test OIDC scope and audience requirement matching"""
+        assert all_oidc_req_claims_present(scope, audience, required_scope, required_audience) is expected
+
+    def test_all_oidc_req_claims_present_separator(self):
+        """(COMMON/UTILS): test OIDC claim matching with a non-default separator"""
+        assert all_oidc_req_claims_present('a,b', 'c,d', 'b', 'd', separator=',')
+        assert not all_oidc_req_claims_present('a,b', 'c,d', 'b', 'd')
 
     def test_parse_did_filter_string(self):
         """(COMMON/UTILS): test parsing of DID filter string"""
