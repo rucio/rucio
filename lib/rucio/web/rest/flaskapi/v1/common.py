@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import itertools
 import json
 import logging
 import os
 import re
 from configparser import NoOptionError, NoSectionError
+from enum import Enum
 from functools import wraps
 from time import time
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union, cast
@@ -31,8 +33,8 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.wrappers import Request, Response
 
 from rucio.common import config
-from rucio.common.constants import DEFAULT_VO, HTTPMethod
-from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, RucioException, UnsupportedRequestedContentType
+from rucio.common.constants import DEFAULT_VO, MAX_BIGINT, HTTPMethod
+from rucio.common.exception import CannotAuthenticate, DatabaseException, IdentityError, InputValidationError, RucioException, UnsupportedRequestedContentType
 from rucio.common.schema import get_schema_value
 from rucio.common.utils import generate_uuid, render_json
 from rucio.core.vo import map_vo
@@ -49,6 +51,8 @@ if TYPE_CHECKING:
     from rucio.web.rest.flaskapi.v1.types import HeadersType
 
 ResponseTypeVar = TypeVar('ResponseTypeVar', bound=flask.wrappers.Response)
+
+EnumT = TypeVar('EnumT', bound=Enum)
 
 RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE = os.environ.get('RUCIO_HTTPD_ENCODED_SLASHES_NO_DECODE',
                                                        'false').lower() == 'true'
@@ -465,6 +469,122 @@ def param_get_bool(parameters: dict[str, Any], name: str, default: Optional[bool
                 )
             )
     return _str_to_bool(value)
+
+
+def parse_enum_list_param(value: Optional[str], enum_cls: type[EnumT], name: str) -> Optional[list[EnumT]]:
+    """
+    Parse a comma-separated string into enum members of type enum_cls.
+
+    Parameters
+    ----------
+    value :
+        The raw string, or None if absent.
+    enum_cls :
+        The enum type that the value should be converted to.
+    name :
+        The parameter name, used in the error message.
+
+    Returns
+    -------
+        The list of parsed enums, or None if the value is absent or empty.
+
+    Raises
+    ------
+    InputValidationError
+        If an item is not a valid value of the enum.
+    """
+    if not value:
+        return None
+    try:
+        return [enum_cls(item) for item in value.split(',')]
+    except ValueError as error:
+        allowed = ', '.join(str(member.value) for member in enum_cls)
+        raise InputValidationError(f'Invalid {name} value, must be one of: {allowed}') from error
+
+
+def parse_datetime_param(value: Optional[str], name: str) -> Optional[datetime.datetime]:
+    """
+    Parse a query parameter of the form %Y-%m-%dT%H:%M:%S into a naive datetime.
+
+    Parameters
+    ----------
+    value :
+        The raw query parameter value, or None if absent.
+    name :
+        The parameter name, used in the error message.
+
+    Returns
+    -------
+        The parsed datetime, or None if the parameter is absent or empty.
+
+    Raises
+    ------
+    InputValidationError
+        If the value does not match the expected format.
+    """
+    if not value:
+        return None
+    try:
+        return datetime.datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
+    except ValueError as error:
+        raise InputValidationError(f'Cannot decode {name}, must be of the form %Y-%m-%dT%H:%M:%S') from error
+
+
+def parse_int_param(value: Optional[str], name: str, default: int) -> int:
+    """
+    Parse an integer query parameter, rejecting non-numeric values.
+
+    Parameters
+    ----------
+    value :
+        The raw query parameter value, or None if absent.
+    name :
+        The parameter name, used in the error message.
+    default :
+        The value to return if the parameter is absent or empty.
+
+    Returns
+    -------
+        The parsed integer, or the default.
+
+    Raises
+    ------
+    InputValidationError
+        If the value is not an integer.
+    """
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError as error:
+        raise InputValidationError(f'Cannot decode {name}, must be an integer') from error
+
+
+def validate_paging_param(name: str, value: int, minimum: int) -> int:
+    """
+    Check that a paging parameter such as limit or offset is within the range the database can bind.
+
+    Parameters
+    ----------
+    name :
+        The parameter name, used in the error message.
+    value :
+        The parsed value.
+    minimum :
+        The smallest accepted value.
+
+    Returns
+    -------
+        The value, unchanged.
+
+    Raises
+    ------
+    InputValidationError
+        If the value is below the minimum or above the largest signed 64-bit integer.
+    """
+    if value < minimum or value > MAX_BIGINT:
+        raise InputValidationError(f'The {name} must be between {minimum} and {MAX_BIGINT}')
+    return value
 
 
 def extract_vo(headers: Headers) -> str:
