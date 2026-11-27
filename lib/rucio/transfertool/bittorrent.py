@@ -15,7 +15,7 @@
 import base64
 import logging
 from os import path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rucio.common.bittorrent import construct_torrent
 from rucio.common.config import config_get
@@ -130,7 +130,7 @@ class BittorrentTransfertool(Transfertool):
         for driver in peers_drivers:
             driver.add_peers(torrent_id=torrent_id, peers=peer_addr)
 
-    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, str], timeout: Optional[int] = None) -> str:
+    def submit(self, transfers: "Sequence[DirectTransfer]", job_params: dict[str, Union[str, bool]], timeout: Optional[int] = None) -> str:
         [transfer] = transfers
         rws = transfer.rws
 
