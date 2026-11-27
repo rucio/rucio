@@ -113,6 +113,7 @@ def has_permission(issuer: "InternalAccount", action: str, kwargs: dict[str, Any
             'update_lifetime_exceptions': perm_update_lifetime_exceptions,
             'get_auth_token_ssh': perm_get_auth_token_ssh,
             'get_signed_url': perm_get_signed_url,
+            'get_policy_algorithms': perm_get_policy_algorithms,
             'add_bad_pfns': perm_add_bad_pfns,
             'del_account_identity': perm_del_account_identity,
             'del_identity': perm_del_identity,
@@ -1046,6 +1047,18 @@ def perm_get_signed_url(issuer: "InternalAccount", kwargs: dict[str, Any], sessi
     :returns: True if account is allowed to call the API call, otherwise False
     """
     return _is_root(issuer) or has_account_attribute(account=issuer, key='sign-url', session=session)
+
+
+def perm_get_policy_algorithms(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:
+    """
+    Checks if an account can list the policy package algorithms of a VO.
+
+    :param issuer: Account identifier which issues the command.
+    :param kwargs: List of arguments for the action.
+    :param session: The DB session to use
+    :returns: True if account is allowed to call the API call, otherwise False
+    """
+    return True
 
 
 def perm_add_bad_pfns(issuer: "InternalAccount", kwargs: dict[str, Any], session: "Session") -> bool:

@@ -142,6 +142,27 @@ class PolicyPackageAlgorithms:
             raise InvalidPolicyPackageAlgorithmType(algorithm_type)
         return cls._ALGORITHMS[algorithm_type]
 
+    def list_algorithms(self) -> dict[POLICY_ALGORITHM_TYPES_LITERAL, list[str]]:
+        """
+        List the names of the algorithms registered in the policy package(s).
+
+        :returns: A dict with every algorithm type as key and the sorted names of its registered algorithms as value.
+        """
+        return {
+            algorithm_type: sorted(self._ALGORITHMS.get(algorithm_type, {}))
+            for algorithm_type in POLICY_ALGORITHM_TYPES
+        }
+
+    def default_algorithm_name(self, algorithm_type: POLICY_ALGORITHM_TYPES_LITERAL, vo: str = "") -> Optional[str]:
+        """
+        Get the name of the default algorithm of a given type.
+
+        :param algorithm_type: The type of the algorithm (e.g. 'lfn2pfn').
+        :param vo: The VO to get the default algorithm for.
+        :returns: The name of the default algorithm, or None if the policy package doesn't provide one.
+        """
+        return getattr(self._get_default_algorithm(algorithm_type, vo), '__name__', None)
+
     @classmethod
     def _register(
             cls: type[PolicyPackageAlgorithmsT],
