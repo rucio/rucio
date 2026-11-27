@@ -416,4 +416,5 @@ SCHEMAS = {'account': ACCOUNT,
            'cache_add_replicas': CACHE_ADD_REPLICAS,
            'cache_delete_replicas': CACHE_DELETE_REPLICAS,
            'account_attribute': ACCOUNT_ATTRIBUTE,
-           'import': IMPORT}
+           'import': IMPORT,
+           'uuid': UUID}
