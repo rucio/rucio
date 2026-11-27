@@ -66,6 +66,27 @@ class TestPolicyPackageGeneric:
         with pytest.raises(rucio.common.exception.InvalidObject):
             rucio.common.schema.validate_schema('name', name, vo=DEFAULT_VO)
 
+    @pytest.mark.parametrize("name", [
+        'name_with_underscore',
+        'name-with-dash',
+        'name.with.dot',
+        'name/with/slash',
+        'name\\with\\backslash',
+    ])
+    def test_default_schema_account_attribute_name_valid(self, name, file_config_mock):
+        rucio.common.schema.validate_schema('account_attribute_name', name, vo=DEFAULT_VO)
+
+    @pytest.mark.parametrize("name", [
+        'name with spaces',
+        'name*with*asterisk',
+        'name#with#hash',
+        'name,with,comma',
+        'name:with:colon',
+    ])
+    def test_default_schema_account_attribute_name_invalid(self, name, file_config_mock):
+        with pytest.raises(rucio.common.exception.InvalidObject):
+            rucio.common.schema.validate_schema('account_attribute_name', name, vo=DEFAULT_VO)
+
 
 class TestPolicyPackage:
 
