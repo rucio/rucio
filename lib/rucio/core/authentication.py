@@ -29,7 +29,7 @@ from sqlalchemy import delete, null, or_, select
 from rucio.common.cache import MemcacheRegion
 from rucio.common.config import config_get_bool
 from rucio.common.exception import CannotAuthenticate
-from rucio.common.utils import chunks, date_to_str, generate_uuid
+from rucio.common.utils import chunks, date_to_str, generate_uuid, token_hash
 from rucio.core.account import account_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import IdentityType
@@ -79,19 +79,6 @@ def token_key_generator(namespace, fni, **kwargs):
         """ :returns: token """
         return token
     return generate_key
-
-
-def _hash_token_for_cache(token: str) -> str:
-    """
-    Hash token to create a safe cache key.
-
-    This prevents token exposure in cache and ensures consistent key length
-    (64 chars) that works with both Rucio tokens and long JWT tokens.
-
-    :param token: Authentication token to hash
-    :returns: SHA-256 hash of the token as a hex string (64 characters)
-    """
-    return hashlib.sha256(token.encode('utf-8')).hexdigest()
 
 
 if config_get_bool('cache', 'use_external_cache_for_auth_tokens', default=False):
@@ -421,12 +408,19 @@ def redirect_auth_oidc(
 
 
 @read_session
-def query_token(token: str, *, session: "Session") -> Optional["TokenValidationDict"]:
+def query_token(
+    token: str,
+    account: Optional[str] = None,
+    *,
+    session: "Session"
+) -> Optional["TokenValidationDict"]:
     """
     Validate an authentication token using the database. This method will only be called
     if no entry could be found in the according cache.
 
     :param token: Authentication token as a variable-length string.
+    :param account: External name of the account the token is presented for.
+                    Defaults to the oldest registration of the token.
     :param session: The database session in use.
 
     :returns: dictionary { account: <account name>,
@@ -436,7 +430,7 @@ def query_token(token: str, *, session: "Session") -> Optional["TokenValidationD
                            authz_scope: <authz_scope> }
               if successful, None otherwise.
     """
-    # Query the DB to validate token
+    # token_hash is indexed, the token comparison rules out a collision
     query = select(
         models.Token.account,
         models.Token.identity,
@@ -444,21 +438,32 @@ def query_token(token: str, *, session: "Session") -> Optional["TokenValidationD
         models.Token.audience,
         models.Token.oidc_scope.label('authz_scope')
     ).where(
+        models.Token.token_hash == token_hash(token),
         models.Token.token == token,
         models.Token.expired_at > datetime.datetime.utcnow()
+    ).order_by(
+        models.Token.created_at
     )
-    result = session.execute(query).first()
-    if result:
-        return cast("TokenValidationDict", result._asdict())
+    for result in session.execute(query).all():
+        if account is None or result.account.external == account:
+            return cast("TokenValidationDict", result._asdict())
     return None
 
 
 @transactional_session
-def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDict":
+def validate_auth_token(
+    token: str,
+    account: Optional[str] = None,
+    *,
+    session: "Session"
+) -> "TokenValidationDict":
     """
     Validate an authentication token.
 
     :param token: Authentication token as a variable-length string.
+    :param account: External name of the account the token is presented for.
+                    The token has to be valid for it, otherwise authentication
+                    fails. Defaults to resolving the account from the token.
 
     :returns: dictionary { account: <account name>,
                            identity: <identity>,
@@ -479,21 +484,22 @@ def validate_auth_token(token: str, *, session: "Session") -> "TokenValidationDi
     if token.startswith('challenge-'):
         raise CannotAuthenticate("Challenge tokens cannot be used for authentication.")
 
-    # Hash token for cache key to prevent exposure and handle long JWT tokens
-    cache_key = _hash_token_for_cache(token)
+    # the token is hashed to keep it out of the cache key, the account is part
+    # of it because the same token can resolve differently per account
+    cache_key = f'{account or ""}:{token_hash(token)}'
 
     # Check if token can be found in cache region
     value: Union[NoValue, "TokenValidationDict"] = TOKENREGION.get(cache_key)
     if value is NO_VALUE:  # no cached entry found
         # Query database using the original token (not the hash)
-        value = query_token(token, session=session)
+        value = query_token(token, account, session=session)
         if not value:
             # identify JWT access token and validate
             # & save it in Rucio if scope and audience are correct
             if len(token.split(".")) == 3:
                 # imported here to avoid circular import
                 from rucio.core.oidc import validate_jwt
-                value = validate_jwt(token, session=session)
+                value = validate_jwt(token, account, session=session)
             else:
                 raise CannotAuthenticate(traceback.format_exc())
         # save token validation result in cache using hashed key
@@ -539,21 +545,22 @@ def __delete_expired_tokens_account(
         )
 
     select_query = select(
-        models.Token.token
+        models.Token.token_hash
     ).where(
         *where_clauses
     ).with_for_update(
         skip_locked=True
     )
 
-    tokens = session.execute(select_query).scalars().all()
+    token_hashes = session.execute(select_query).scalars().all()
 
-    for chunk in chunks(tokens, 100):
+    for chunk in chunks(token_hashes, 100):
         delete_query = delete(
             models.Token
         ).prefix_with(
             "/*+ INDEX(TOKENS_ACCOUNT_EXPIRED_AT_IDX) */"
         ).where(
-            models.Token.token.in_(chunk)
+            models.Token.token_hash.in_(chunk),
+            models.Token.account == account
         )
         session.execute(delete_query)

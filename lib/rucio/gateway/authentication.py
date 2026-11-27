@@ -294,12 +294,15 @@ def get_ssh_challenge_token(
 
 def validate_auth_token(
     token: str,
+    account: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Validate an authentication token.
 
     :param token: Authentication token as a variable-length string.
-    :param session: The database session in use.
+    :param account: External name of the account the token is presented for.
+                    The token has to be valid for it, otherwise authentication
+                    fails. Defaults to resolving the account from the token.
 
     :returns: dictionary { account: <account name>,
                            identity: <identity>,
@@ -308,9 +311,8 @@ def validate_auth_token(
                            authz_scope: <authz_scope>,
                            vo: <vo> }
     """
-
     with db_session(DatabaseOperationType.WRITE) as session:
-        auth = authentication.validate_auth_token(token, session=session)
+        auth = authentication.validate_auth_token(token, account, session=session)
         vo = auth['account'].vo
         auth = gateway_update_return_dict(auth, session=session)
         auth['vo'] = vo

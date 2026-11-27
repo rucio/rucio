@@ -20,7 +20,8 @@ import pytest
 from paramiko import Message
 
 from rucio.common.exception import CannotAuthenticate, Duplicate
-from rucio.common.utils import ssh_sign
+from rucio.common.types import InternalAccount
+from rucio.common.utils import generate_uuid, ssh_sign
 from rucio.core.authentication import strip_x509_proxy_attributes
 from rucio.core.identity import add_account_identity, del_account_identity
 from rucio.db.sqla import models
@@ -246,3 +247,101 @@ def test_non_jwt_validation():
     from rucio.gateway.authentication import validate_auth_token
     with pytest.raises(CannotAuthenticate):
         validate_auth_token('a.b.c')
+
+
+@pytest.mark.noparallel(reason='adds and removes tokens shared between accounts')
+class TestTokenAccountSelection:
+    """
+    One OIDC access token authenticates an identity, and that identity can be
+    mapped to several accounts, so the same token can be registered for more
+    than one of them. These tests cover that the account the client asks for is
+    the account the token is validated for.
+    """
+
+    @staticmethod
+    def _register(token: str, account: InternalAccount, session) -> None:
+        models.Token(account=account, token=token, identity='SUB=test_sub, ISS=https://test_issuer/',
+                     ip='127.0.0.1',
+                     expired_at=datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)).save(session=session)
+
+    def test_same_token_resolves_per_requested_account(self, random_account_factory, db_session):
+        """AUTHENTICATION (CORE): the requested account decides which registration of a token is used."""
+        from rucio.core.authentication import validate_auth_token
+
+        first, second = random_account_factory(), random_account_factory()
+        token = 'multi-account-token-' + generate_uuid()
+        self._register(token, first, db_session)
+        self._register(token, second, db_session)
+        db_session.commit()
+
+        # Asking for either account returns that account, not whichever
+        # registration happens to come first out of the database. The two calls
+        # also have to resolve differently despite sharing the token cache.
+        assert validate_auth_token(token, first.external, session=db_session)['account'] == first
+        assert validate_auth_token(token, second.external, session=db_session)['account'] == second
+
+    def test_token_rejected_for_unregistered_account(self, random_account_factory, db_session):
+        """AUTHENTICATION (CORE): a token is not valid for an account it is not registered for."""
+        from rucio.core.authentication import validate_auth_token
+
+        registered, other = random_account_factory(), random_account_factory()
+        token = 'single-account-token-' + generate_uuid()
+        self._register(token, registered, db_session)
+        db_session.commit()
+
+        assert validate_auth_token(token, registered.external, session=db_session)['account'] == registered
+        with pytest.raises(CannotAuthenticate):
+            validate_auth_token(token, other.external, session=db_session)
+
+    def test_expired_token_cleanup_keeps_other_accounts(self, random_account_factory, db_session):
+        """AUTHENTICATION (CORE): expiring one account's tokens leaves another account's registration of the same token."""
+        from rucio.core.authentication import get_auth_token_user_pass, validate_auth_token
+
+        kept = random_account_factory()
+        token = 'shared-expired-token-' + generate_uuid()
+
+        # One expired registration for root, one still valid for another account.
+        models.Token(account=InternalAccount('root', vo=kept.vo), token=token,
+                     ip='127.0.0.1', expired_at=datetime.datetime.utcnow()).save(session=db_session)
+        self._register(token, kept, db_session)
+        db_session.commit()
+
+        # Authenticating as root triggers the cleanup of root's expired tokens.
+        get_auth_token_user_pass(account=InternalAccount('root', vo=kept.vo), username='ddmlab',
+                                 password='secret', appid='test', ip='127.0.0.1', session=db_session)
+        db_session.commit()
+
+        assert validate_auth_token(token, kept.external, session=db_session)['account'] == kept
+
+    def test_requested_account_resolves_without_a_vo(self, random_account_factory, db_session):
+        """AUTHENTICATION (CORE): the account name is matched without the caller supplying a VO."""
+        from rucio.core.authentication import validate_auth_token
+
+        account = random_account_factory()
+        token = 'no-vo-supplied-token-' + generate_uuid()
+        self._register(token, account, db_session)
+        db_session.commit()
+
+        # Only the external name is passed, exactly as the X-Rucio-Account
+        # header carries it. Under a non-default VO the account's internal name
+        # is "<name>@<vo>", so matching must not assume the default VO.
+        resolved = validate_auth_token(token, account.external, session=db_session)
+        assert resolved['account'] == account
+        assert resolved['account'].vo == account.vo
+
+
+def test_rest_honours_requested_account(vo, rest_client, random_account):
+    """AUTHENTICATION (REST): a token is not accepted for an account it was not issued for."""
+    response = rest_client.get('/auth/userpass', headers=headers(loginhdr('root', 'ddmlab', 'secret'), vohdr(vo)))
+    assert response.status_code == 200
+    token = response.headers.get('X-Rucio-Auth-Token')
+
+    # The token was issued for root, so root is accepted ...
+    response = rest_client.get('/accounts/root', headers=headers(
+        hdrdict({'X-Rucio-Auth-Token': token, 'X-Rucio-Account': 'root'}), vohdr(vo)))
+    assert response.status_code == 200
+
+    # ... and an account it was not issued for is not silently used instead.
+    response = rest_client.get('/accounts/root', headers=headers(
+        hdrdict({'X-Rucio-Auth-Token': token, 'X-Rucio-Account': random_account.external}), vohdr(vo)))
+    assert response.status_code == 401

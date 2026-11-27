@@ -18,6 +18,7 @@ import copy
 import datetime
 import errno
 import getpass
+import hashlib
 import ipaddress
 import itertools
 import json
@@ -1717,6 +1718,21 @@ def is_method_overridden(obj, base_cls, method_name):
     if getattr(type(obj), method_name, None) is getattr(base_cls, method_name, None):  # Caring for bound/unbound cases
         return False
     return True
+
+
+def token_hash(token: str) -> str:
+    """
+    Hash an authentication token.
+
+    Produces a digest of a fixed length (64 characters) regardless of the length
+    of the token, which can range from a short Rucio token to a long JWT.  It is
+    used both to key the token in the database and to key it in the token cache,
+    so that the token itself is never part of an index or a cache key.
+
+    :param token: Authentication token to hash.
+    :returns: SHA-256 hash of the token as a hex string (64 characters).
+    """
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
 
 
 def wlcg_token_discovery() -> Optional[str]:

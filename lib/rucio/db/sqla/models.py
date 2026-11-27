@@ -1637,6 +1637,8 @@ class Token(BASE, ModelBase):
     """Represents the authentication tokens and their lifetime"""
     __tablename__ = 'tokens'
     token: Mapped[str] = mapped_column(String(3072))  # account-identity-appid-uuid -> max length: (+ 30 1 255 1 32 1 32)
+    # keyed instead of `token`, which is too long to index alongside `account`
+    token_hash: Mapped[str] = mapped_column(String(64), default=lambda ctx: utils.token_hash(ctx.get_current_parameters()['token']))
     account: Mapped[InternalAccount] = mapped_column(InternalAccountString(common_schema.get_schema_value('ACCOUNT_LENGTH')))
     refresh_token: Mapped[Optional[str]] = mapped_column(String(3072), default=None)
     refresh: Mapped[bool] = mapped_column(Boolean(name='TOKENS_REFRESH_CHK', create_constraint=True),
@@ -1649,7 +1651,7 @@ class Token(BASE, ModelBase):
     audience: Mapped[Optional[str]] = mapped_column(String(315), default=None)
     expired_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow() + timedelta(seconds=3600))  # one hour lifetime by default
     ip: Mapped[Optional[str]] = mapped_column(String(39), nullable=True)
-    _table_args = (PrimaryKeyConstraint('token', name='TOKENS_TOKEN_PK'),  # not supported for primary key constraint mysql_length=255
+    _table_args = (PrimaryKeyConstraint('token_hash', 'account', name='TOKENS_PK'),
                    ForeignKeyConstraint(['account'], ['accounts.account'], name='TOKENS_ACCOUNT_FK'),
                    CheckConstraint('EXPIRED_AT IS NOT NULL', name='TOKENS_EXPIRED_AT_NN'),
                    Index('TOKENS_ACCOUNT_EXPIRED_AT_IDX', 'account', 'expired_at'))
