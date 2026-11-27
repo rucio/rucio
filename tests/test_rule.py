@@ -21,7 +21,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 import rucio.gateway.rule
 from rucio.client.ruleclient import RuleClient
@@ -1369,6 +1369,36 @@ def test_rule_boost(vo, mock_scope, rse_factory, jdoe_account):
         for filtered_lock in [lock for lock in get_replica_locks(scope=file['scope'], name=file['name'])]:
             assert (before_update_rule[filtered_lock['name']] > filtered_lock['updated_at'])
     assert (before_update_rule_updated_at > get_rule(rule_id)['updated_at'])
+
+
+def test_suspend_rule_resets_stuck_count(mock_scope, rse_factory, jdoe_account):
+    """ REPLICATION RULE (CORE): Suspending a replication rule resets its stuck counter """
+    _, tmp_rse_id = rse_factory.make_mock_rse()
+    rse, rse_id = rse_factory.make_mock_rse()
+    with db_session(DatabaseOperationType.WRITE) as session:
+        set_local_account_limit(jdoe_account, rse_id, -1, session=session)
+    files = create_files(3, mock_scope, tmp_rse_id)
+    dataset = 'dataset_' + str(uuid())
+    add_did(mock_scope, dataset, DIDType.DATASET, jdoe_account)
+    attach_dids(mock_scope, dataset, files, jdoe_account)
+
+    rule_id = add_rule(dids=[{'scope': mock_scope, 'name': dataset}], account=jdoe_account, copies=1, rse_expression=rse, grouping='NONE', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+    with db_session(DatabaseOperationType.WRITE) as session:
+        stmt = update(
+            models.ReplicationRule
+        ).where(
+            models.ReplicationRule.id == rule_id
+        ).values({
+            models.ReplicationRule.stuck_count: 3
+        })
+        session.execute(stmt)
+    assert (get_rule(rule_id)['stuck_count'] == 3)
+
+    update_rule(rule_id, options={'state': 'SUSPENDED'})
+
+    rule = get_rule(rule_id)
+    assert (rule['state'] == RuleState.SUSPENDED)
+    assert (rule['stuck_count'] == 0)
 
 
 @pytest.mark.usefixtures('setup_class')

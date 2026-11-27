@@ -17,7 +17,7 @@ from hashlib import sha256
 
 import pytest
 from dogpile.cache import make_region
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, update
 
 from rucio.common.config import config_get, config_get_bool
 from rucio.common.types import InternalAccount, InternalScope
@@ -28,7 +28,7 @@ from rucio.core.lock import failed_transfer, get_replica_locks, successful_trans
 from rucio.core.replica import get_replica
 from rucio.core.request import cancel_request_did
 from rucio.core.rse import add_rse, add_rse_attribute, del_rse_attribute, update_rse
-from rucio.core.rule import add_rule, get_rule
+from rucio.core.rule import add_rule, get_rule, repair_rule
 from rucio.core.transfer import cancel_transfers
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.daemons.judge.repairer import rule_repairer
@@ -541,3 +541,89 @@ class TestJudgeRepairer:
         assert (lock_states[rse_old_id] == LockState.STUCK)
         assert (RuleState.STUCK == get_rule(rule_id)['state'])
         assert (get_rule(rule_id)['error'] == 'Found stuck locks on RSEs not matching target expression: %s (1)' % rse_old)
+
+    def _create_rule_stuck_on_nontarget_rse(self):
+        """ Create a rule whose stuck lock sits on an RSE that no longer matches the rule expression, so every repair leaves it STUCK """
+        scope = InternalScope('mock', **self.vo)
+        rse_old, rse_old_id = self.rse_factory.make_mock_rse()
+        rse_new, rse_new_id = self.rse_factory.make_mock_rse()
+        tag = tag_generator()
+        add_rse_attribute(rse_old_id, tag, True)
+        with db_session(DatabaseOperationType.WRITE) as session:
+            set_local_account_limit(self.jdoe, rse_old_id, -1, session=session)
+            set_local_account_limit(self.jdoe, rse_new_id, -1, session=session)
+
+        files = create_files(3, scope, self.rse4_id, bytes_=100)
+        dataset = did_name_generator('dataset')
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=tag, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None, activity='DebugJudge')[0]
+
+        successful_transfer(scope=scope, name=files[0]['name'], rse_id=rse_old_id, nowait=False)
+        successful_transfer(scope=scope, name=files[1]['name'], rse_id=rse_old_id, nowait=False)
+        failed_transfer(scope=scope, name=files[2]['name'], rse_id=rse_old_id)
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+
+        # Move the tag from the RSE holding the stuck lock to another RSE
+        del_rse_attribute(rse_old_id, tag)
+        add_rse_attribute(rse_new_id, tag, True)
+        delete_rse_expression_from_cache(tag)
+        return rule_id
+
+    @pytest.mark.parametrize("core_config_mock", [{"table_content": [
+        ('rules', 'max_stuck_count_before_suspension', '2'),
+    ]}], indirect=True)
+    def test_repair_suspends_rule_after_max_stuck_count(self, core_config_mock):
+        """ JUDGE REPAIRER: Test that a rule is SUSPENDED once it stays stuck for max_stuck_count_before_suspension repairs"""
+
+        rule_id = self._create_rule_stuck_on_nontarget_rse()
+        assert (get_rule(rule_id)['stuck_count'] == 0)
+
+        repair_rule(rule_id)
+        assert (RuleState.STUCK == get_rule(rule_id)['state'])
+        assert (get_rule(rule_id)['stuck_count'] == 1)
+
+        repair_rule(rule_id)
+        assert (RuleState.SUSPENDED == get_rule(rule_id)['state'])
+        assert (get_rule(rule_id)['stuck_count'] == 2)
+
+    def test_repair_does_not_count_when_suspension_disabled(self, core_config_mock):
+        """ JUDGE REPAIRER: Test that the stuck counter is not used when max_stuck_count_before_suspension is not set"""
+
+        rule_id = self._create_rule_stuck_on_nontarget_rse()
+
+        for _ in range(3):
+            repair_rule(rule_id)
+            assert (RuleState.STUCK == get_rule(rule_id)['state'])
+            assert (get_rule(rule_id)['stuck_count'] == 0)
+
+    def test_repair_resets_stuck_count_when_rule_is_ok(self):
+        """ JUDGE REPAIRER: Test that the stuck counter is reset when a repair finds the rule OK"""
+
+        scope = InternalScope('mock', **self.vo)
+        files = create_files(3, scope, self.rse4_id, bytes_=100)
+        dataset = did_name_generator('dataset')
+        add_did(scope, dataset, DIDType.DATASET, self.jdoe)
+        attach_dids(scope, dataset, files, self.jdoe)
+
+        # The replicas already exist on the target RSE, so all locks are OK
+        rule_id = add_rule(dids=[{'scope': scope, 'name': dataset}], account=self.jdoe, copies=1, rse_expression=self.rse4, grouping='DATASET', weight=None, lifetime=None, locked=False, subscription_id=None)[0]
+        assert (RuleState.OK == get_rule(rule_id)['state'])
+
+        # Fake a rule that was stuck in previous repairs
+        with db_session(DatabaseOperationType.WRITE) as session:
+            stmt = update(
+                models.ReplicationRule
+            ).where(
+                models.ReplicationRule.id == rule_id
+            ).values({
+                models.ReplicationRule.state: RuleState.STUCK,
+                models.ReplicationRule.stuck_count: 2
+            })
+            session.execute(stmt)
+
+        repair_rule(rule_id)
+
+        assert (RuleState.OK == get_rule(rule_id)['state'])
+        assert (get_rule(rule_id)['stuck_count'] == 0)
