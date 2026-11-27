@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from rucio.common.constants import HTTPMethod
-from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, MissingClientParameter, RucioException
+from rucio.common.exception import CannotAuthenticate, ClientProtocolNotFound, ClientProtocolNotSupported, InputValidationError, MissingClientParameter, RucioException
 from rucio.common.utils import execute
 from rucio.tests.common import remove_config, skip_outside_gh_actions
 from tests.mocks.mock_http_server import MockServer
@@ -250,6 +250,148 @@ class TestBaseClient:
             client._send_request(server.base_url, method=HTTPMethod.GET)  # noqa
         # The client did back-off multiple times before succeeding: 2 * 0.25s (authentication) + 2 * 0.25s (request) = 1s
         assert datetime.utcnow() - start_time > timedelta(seconds=0.9)
+
+    def test_custom_headers_sent_with_prefix(self, vo):
+        """ CLIENTS (BASECLIENT): Custom headers are prefixed with X-Rucio- and sent on requests."""
+        from rucio.client.baseclient import BaseClient
+
+        received_requests = []
+
+        class CaptureHeadersHandler(MockServer.Handler):
+            def do_GET(self):
+                received_requests.append((self.path, dict(self.headers.items())))
+                self.send_code_and_message(200, {'x-rucio-auth-token': 'sometoken'}, '')
+
+        with MockServer(CaptureHeadersHandler) as server:
+            creds = {'username': 'ddmlab', 'password': 'secret'}
+            client = BaseClient(
+                rucio_host=server.base_url,
+                auth_host=server.base_url,
+                account='root',
+                auth_type='userpass',
+                creds=creds,
+                vo=vo,
+                custom_headers={
+                    'Hostname': 'worker-01',
+                    'X-Rucio-Cluster': 'fermilab',
+                    'x-rucio-job-id': '42',
+                },
+            )
+            client._send_request(f'{server.base_url}/ping', method=HTTPMethod.GET)
+
+        ping_headers = dict(received_requests)['/ping']
+        assert ping_headers['X-Rucio-Hostname'] == 'worker-01'
+        assert ping_headers['X-Rucio-Cluster'] == 'fermilab'
+        assert ping_headers['X-Rucio-job-id'] == '42'
+
+    def test_custom_headers_from_config(self, vo):
+        """ CLIENTS (BASECLIENT): Custom headers can be loaded from the [client] config section."""
+        from rucio.client.baseclient import BaseClient
+        from rucio.common.config import config_set
+
+        config_set('client', 'custom_headers', '{"Hostname": "cfg-host"}')
+        received_requests = []
+
+        class CaptureHeadersHandler(MockServer.Handler):
+            def do_GET(self):
+                received_requests.append((self.path, dict(self.headers.items())))
+                self.send_code_and_message(200, {'x-rucio-auth-token': 'sometoken'}, '')
+
+        with MockServer(CaptureHeadersHandler) as server:
+            creds = {'username': 'ddmlab', 'password': 'secret'}
+            client = BaseClient(
+                rucio_host=server.base_url,
+                auth_host=server.base_url,
+                account='root',
+                auth_type='userpass',
+                creds=creds,
+                vo=vo,
+            )
+            client._send_request(f'{server.base_url}/ping', method=HTTPMethod.GET)
+
+        assert client.custom_headers == {'X-Rucio-Hostname': 'cfg-host'}
+        assert dict(received_requests)['/ping']['X-Rucio-Hostname'] == 'cfg-host'
+
+    def test_custom_headers_invalid_config_json(self, vo):
+        """ CLIENTS (BASECLIENT): Invalid JSON for custom_headers in config raises InputValidationError."""
+        from rucio.client.baseclient import BaseClient
+        from rucio.common.config import config_set
+
+        config_set('client', 'custom_headers', '{not-valid-json')
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+
+        with pytest.raises(InputValidationError):
+            BaseClient(
+                rucio_host='http://localhost',
+                auth_host='http://localhost',
+                account='root',
+                auth_type='userpass',
+                creds=creds,
+                vo=vo,
+            )
+
+    @pytest.mark.parametrize('bad_headers', [
+        ['not-a-dict'],
+        {123: 'value'},
+        {'Hostname': 123},
+        {'': 'value'},
+        {'X-Rucio-': 'value'},
+        {'Bad Header': 'value'},
+        {'Hostname': 'val\r\ninjected'},
+        {'Hostname': 'a', 'hostname': 'b'},
+        {'Auth-Token': 'fake'},
+        {'X-Rucio-Auth-Token': 'fake'},
+        {'Account': 'root'},
+        {'x-rucio-vo': 'other'},
+    ])
+    def test_custom_headers_invalid_or_reserved(self, vo, bad_headers):
+        """ CLIENTS (BASECLIENT): Invalid or reserved custom headers raise InputValidationError."""
+        from rucio.client.baseclient import BaseClient
+
+        creds = {'username': 'ddmlab', 'password': 'secret'}
+
+        with pytest.raises(InputValidationError):
+            BaseClient(
+                rucio_host='http://localhost',
+                auth_host='http://localhost',
+                account='root',
+                auth_type='userpass',
+                creds=creds,
+                vo=vo,
+                custom_headers=bad_headers,
+            )
+
+    def test_custom_headers_do_not_overwrite_request_headers(self, vo):
+        """ CLIENTS (BASECLIENT): Custom headers do not overwrite per-request headers."""
+        from rucio.client.baseclient import BaseClient
+
+        received_requests = []
+
+        class CaptureHeadersHandler(MockServer.Handler):
+            def do_GET(self):
+                received_requests.append((self.path, dict(self.headers.items())))
+                self.send_code_and_message(200, {'x-rucio-auth-token': 'sometoken'}, '')
+
+        with MockServer(CaptureHeadersHandler) as server:
+            creds = {'username': 'ddmlab', 'password': 'secret'}
+            client = BaseClient(
+                rucio_host=server.base_url,
+                auth_host=server.base_url,
+                account='root',
+                auth_type='userpass',
+                creds=creds,
+                vo=vo,
+                custom_headers={'special': 'custom-val'},
+            )
+            client._send_request(
+                f'{server.base_url}/ping',
+                method=HTTPMethod.GET,
+                headers={'X-Rucio-Special': 'internal-val'},
+            )
+
+        ping_headers = dict(received_requests)['/ping']
+        assert ping_headers['X-Rucio-Special'] == 'internal-val'
+        assert 'X-Rucio-special' not in ping_headers
 
 
 class TestRucioClients:

@@ -124,5 +124,7 @@ class Client(AccountClient,
             The vo that the client will interact with.
         logger :
             Logger instance to use.
+        custom_headers :
+            Additional HTTP headers sent with every request, e.g. {'Hostname': 'myhost'}.
         """
         super(Client, self).__init__(**args)

@@ -20,6 +20,7 @@ import errno
 import getpass
 import json
 import os
+import re
 import secrets
 import sys
 import time
@@ -91,6 +92,16 @@ class BaseClient:
     TOKEN_PATH_PREFIX = get_tmp_dir() + '/.rucio_'
     TOKEN_PREFIX = 'auth_token_'  # noqa: S105
     TOKEN_EXP_PREFIX = 'auth_token_exp_'  # noqa: S105
+    CUSTOM_HEADER_PREFIX = 'X-Rucio-'
+    CUSTOM_HEADER_NAME_PATTERN = re.compile(r'[A-Za-z0-9-]+')
+    # Headers set by the client itself
+    RESERVED_HEADERS = frozenset(h.lower() for h in (
+        'X-Rucio-Auth-Token', 'X-Rucio-VO', 'X-Rucio-Script', 'X-Rucio-Account',
+        'X-Rucio-Username', 'X-Rucio-Password',
+        'X-Rucio-Client-Authorize-Polling', 'X-Rucio-Client-Authorize-Scope',
+        'X-Rucio-Client-Authorize-Refresh-Lifetime', 'X-Rucio-Client-Authorize-Audience',
+        'X-Rucio-Client-Authorize-Issuer', 'X-Rucio-Client-Fetch-Token',
+        'X-Rucio-SSH-Signature',))
 
     def __init__(self,
                  rucio_host: Optional[str] = None,
@@ -102,7 +113,8 @@ class BaseClient:
                  timeout: Optional[int] = 600,
                  user_agent: Optional[str] = 'rucio-clients',
                  vo: Optional[str] = None,
-                 logger: 'Logger' = LOG) -> None:
+                 logger: 'Logger' = LOG,
+                 custom_headers: Optional[dict[str, str]] = None) -> None:
         """
         Constructor of the BaseClient.
 
@@ -128,6 +140,8 @@ class BaseClient:
             The VO to authenticate into.
         logger :
             Logger object to use. If None, use the default LOG created by the module.
+        custom_headers :
+            Additional HTTP headers sent with every request, e.g. {'Hostname': 'myhost'}.
         """
 
         self.logger = logger
@@ -231,6 +245,8 @@ class BaseClient:
                 except ConfigNotFound:
                     self.logger.debug('No configuration found. Using default VO.')
                     self.vo = DEFAULT_VO
+
+        self.custom_headers = self._get_custom_headers(custom_headers)
 
         self.auth_token_file_path, self.token_exp_epoch_file, self.token_file, self.token_path = self._get_auth_tokens()
         self.__authenticate()
@@ -368,6 +384,54 @@ class BaseClient:
 
         return creds
 
+    def _get_custom_headers(self, custom_headers: Optional[dict[str, str]]) -> dict[str, str]:
+        """
+        Validate the custom headers given as argument, or else read them from the [client] config section.
+        """
+        if custom_headers is None:
+            raw = config_get('client', 'custom_headers', False, None)
+            if not raw:
+                return {}
+            try:
+                custom_headers = json.loads(raw)
+            except ValueError as error:
+                raise exception.InputValidationError('custom_headers in the config file must be a JSON object: %s' % error)
+
+        if not isinstance(custom_headers, dict):
+            raise exception.InputValidationError('custom_headers must be a dictionary of header names and values')
+
+        validated: dict[str, str] = {}
+        seen_lower: set[str] = set()
+
+        for name, value in custom_headers.items():
+            if not isinstance(name, str) or not isinstance(value, str):
+                raise exception.InputValidationError('Custom header names and values must be strings')
+            if not self.CUSTOM_HEADER_NAME_PATTERN.fullmatch(name):
+                raise exception.InputValidationError('Invalid custom header name: %r' % name)
+            if '\r' in value or '\n' in value:
+                raise exception.InputValidationError('Invalid value for custom header %s' % name)
+
+            if name.lower().startswith(self.CUSTOM_HEADER_PREFIX.lower()):
+                suffix = name[len(self.CUSTOM_HEADER_PREFIX):]
+            else:
+                suffix = name
+
+            if not suffix:
+                raise exception.InputValidationError('Invalid custom header name: %r' % name)
+
+            full_name = self.CUSTOM_HEADER_PREFIX + suffix
+            lower_name = full_name.lower()
+
+            if lower_name in self.RESERVED_HEADERS:
+                raise exception.InputValidationError('Custom header %s is reserved and cannot be set' % full_name)
+            if lower_name in seen_lower:
+                raise exception.InputValidationError('Duplicate custom header specified: %s' % full_name)
+
+            seen_lower.add(lower_name)
+            validated[full_name] = value
+
+        return validated
+
     def _get_exception(self, headers: dict[str, str], status_code: Optional[int] = None, data=None) -> tuple[type[exception.RucioException], str]:
         """
         Helper method to parse an error string send by the server and transform it into the corresponding rucio exception.
@@ -462,6 +526,12 @@ class BaseClient:
 
         if headers is not None:
             hds.update(headers)
+
+        if self.custom_headers:
+            existing_lower = {k.lower() for k in hds}
+            for k, v in self.custom_headers.items():
+                if k.lower() not in existing_lower:
+                    hds[k] = v
         if verify is None:
             verify = self.ca_cert or False  # Maybe unnecessary but make sure to convert "" -> False
 
